@@ -25,6 +25,18 @@ var (
 	// ErrBoardSlugTaken 看板标识已经被别的看板使用。
 	ErrBoardSlugTaken = reason.NewError("ErrBoardSlugTaken", "看板标识已被使用").WithHTTPStatus(409)
 
+	// ErrColumnNotFound 列不存在，或者不属于请求里指定的看板。
+	ErrColumnNotFound = reason.NewError("ErrColumnNotFound", "列不存在").WithHTTPStatus(404)
+
+	// ErrColumnNameTaken 同一个看板里已经有同名的列，比较时不区分大小写。
+	ErrColumnNameTaken = reason.NewError("ErrColumnNameTaken", "同一个看板里已经有同名的列").WithHTTPStatus(409)
+
+	// ErrColumnLimit 看板的列数已经到了上限。
+	ErrColumnLimit = reason.NewError("ErrColumnLimit", fmt.Sprintf("每个看板最多 %d 列", maxColumnsPerBoard))
+
+	// ErrColumnOrderStale 调整顺序的请求和当前的列集合对不上，说明请求依据的是过期的数据。
+	ErrColumnOrderStale = reason.NewError("ErrColumnOrderStale", "列已经发生变化，请刷新后重新调整顺序").WithHTTPStatus(409)
+
 	// ErrProjectPathLocked agent 只能在项目路径为空时写入，已经有值就只有人能改。
 	ErrProjectPathLocked = reason.NewError("ErrProjectPathLocked", "项目路径已经设置，只有人可以修改").WithHTTPStatus(403)
 )

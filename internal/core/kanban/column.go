@@ -2,6 +2,7 @@ package kanban
 
 import (
 	"context"
+	"slices"
 
 	"github.com/ixugo/goddd/pkg/orm"
 )
@@ -31,4 +32,194 @@ type ColumnStorer interface {
 	ClearNextColumn(ctx context.Context, boardID, columnID int64) error
 	// DeleteByBoard 删除看板的全部列，用于删除看板。
 	DeleteByBoard(context.Context, int64) error
+}
+
+// CreateColumn 在看板最右边新增一列，排序值取现有最大值加一个间距。只有人能操作。
+// 校验和写入都在锁住看板行的事务里，所以并发新增也不会超过列数上限，或者出现同名列。
+func (c Core) CreateColumn(ctx context.Context, actor Actor, boardID int64, in CreateColumnInput) (*Column, error) {
+	if err := requireHuman(actor); err != nil {
+		return nil, err
+	}
+	if err := in.normalize(); err != nil {
+		return nil, err
+	}
+	var out *Column
+	err := c.run(ctx, boardID, func(u *unit) error {
+		cols, err := u.column.ListByBoard(ctx, boardID)
+		if err != nil {
+			return wrapDB("读取列", err)
+		}
+		if err := checkNewColumn(cols, in); err != nil {
+			return err
+		}
+		now := u.now()
+		col := &Column{
+			BoardID: boardID, Name: in.Name, Description: in.Description, Instruction: in.Instruction,
+			AgentPickup: in.AgentPickup, IsDone: in.IsDone, NextColumnID: in.NextColumnID,
+			Sort: nextColumnSort(cols), CreatedAt: now, UpdatedAt: now,
+		}
+		if err := u.column.Create(ctx, col); err != nil {
+			return wrapDB("创建列", err)
+		}
+		out = col
+		return u.emit(ctx, actor, newEvent{
+			BoardID: boardID, Type: EventColumnCreated,
+			Payload: map[string]any{"column_id": col.ID, "name": col.Name},
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// checkNewColumn 检查新增列是否违反看板里的约束：列数上限、名称重复、下一列不合法。
+func checkNewColumn(cols []*Column, in CreateColumnInput) error {
+	if len(cols) >= maxColumnsPerBoard {
+		return ErrColumnLimit
+	}
+	if columnNameTaken(cols, in.Name, 0) {
+		return ErrColumnNameTaken
+	}
+	return checkNextColumn(cols, 0, in.NextColumnID)
+}
+
+// nextColumnSort 返回新列的排序值：现有最大排序值加一个间距，没有列时是第一个间距。
+func nextColumnSort(cols []*Column) int64 {
+	var maxSort int64
+	for _, col := range cols {
+		maxSort = max(maxSort, col.Sort)
+	}
+	return maxSort + columnSortStep
+}
+
+// UpdateColumn 修改列，只更新入参里出现的字段。只有人能操作。
+// 没有字段真的变化时直接返回当前的列，不写事件。
+func (c Core) UpdateColumn(ctx context.Context, actor Actor, boardID, columnID int64, in UpdateColumnInput) (*Column, error) {
+	if err := requireHuman(actor); err != nil {
+		return nil, err
+	}
+	if err := in.normalize(); err != nil {
+		return nil, err
+	}
+	var out *Column
+	err := c.run(ctx, boardID, func(u *unit) error {
+		cols, err := u.column.ListByBoard(ctx, boardID)
+		if err != nil {
+			return wrapDB("读取列", err)
+		}
+		idx := slices.IndexFunc(cols, func(col *Column) bool { return col.ID == columnID })
+		if idx < 0 {
+			return ErrColumnNotFound
+		}
+		col := cols[idx]
+		out = col
+		if err := checkColumnPatch(cols, col, in); err != nil {
+			return err
+		}
+		changed := in.apply(col)
+		if len(changed) == 0 {
+			return nil
+		}
+		col.UpdatedAt = u.now()
+		if err := u.column.Save(ctx, col); err != nil {
+			return wrapDB("保存列", err)
+		}
+		return u.emit(ctx, actor, newEvent{
+			BoardID: boardID, Type: EventColumnUpdated,
+			Payload: map[string]any{"column_id": col.ID, "name": col.Name, "fields": changed},
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// checkColumnPatch 检查修改是否违反看板里的约束：改名后不能和别的列重名，下一列必须合法。
+func checkColumnPatch(cols []*Column, col *Column, in UpdateColumnInput) error {
+	if in.Name != nil && columnNameTaken(cols, *in.Name, col.ID) {
+		return ErrColumnNameTaken
+	}
+	if in.NextColumnID != nil {
+		return checkNextColumn(cols, col.ID, *in.NextColumnID)
+	}
+	return nil
+}
+
+// ReorderColumns 按给定的 id 顺序重排看板的列。只有人能操作。
+// 请求必须带完整的列 id 列表：和当前列集合不完全一致（少了、多了、重复、别的看板的列）
+// 就返回 409，因为这说明请求依据的是过期的数据，硬排会丢列或者排乱。
+// 顺序没变时不写事件。返回重排后的列。
+func (c Core) ReorderColumns(ctx context.Context, actor Actor, boardID int64, ids []int64) ([]*Column, error) {
+	if err := requireHuman(actor); err != nil {
+		return nil, err
+	}
+	var out []*Column
+	err := c.run(ctx, boardID, func(u *unit) error {
+		cols, err := u.column.ListByBoard(ctx, boardID)
+		if err != nil {
+			return wrapDB("读取列", err)
+		}
+		if !sameColumnSet(cols, ids) {
+			return ErrColumnOrderStale
+		}
+		ordered, changed, err := u.applyColumnOrder(ctx, cols, ids)
+		if err != nil {
+			return err
+		}
+		out = ordered
+		if !changed {
+			return nil
+		}
+		return u.emit(ctx, actor, newEvent{
+			BoardID: boardID, Type: EventColumnReordered, Payload: map[string]any{"ids": ids},
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// sameColumnSet 判断 ids 是不是恰好等于当前所有列的 id，每个只出现一次。
+func sameColumnSet(cols []*Column, ids []int64) bool {
+	if len(ids) != len(cols) {
+		return false
+	}
+	current := make(map[int64]bool, len(cols))
+	for _, col := range cols {
+		current[col.ID] = true
+	}
+	for _, id := range ids {
+		if !current[id] {
+			return false
+		}
+		delete(current, id) // 删掉再遇到同一个 id 就会判为不存在，从而发现重复
+	}
+	return true
+}
+
+// applyColumnOrder 把排序值按 ids 的顺序重写成间距的整数倍，返回重排后的列，
+// 以及顺序有没有真的变化。顺序本来就和 ids 一致时什么都不写，原样返回当前的列。
+func (u *unit) applyColumnOrder(ctx context.Context, cols []*Column, ids []int64) ([]*Column, bool, error) {
+	byID := make(map[int64]*Column, len(cols))
+	same := true
+	for i, col := range cols {
+		byID[col.ID] = col
+		same = same && ids[i] == col.ID
+	}
+	if same {
+		return cols, false, nil
+	}
+	ordered := make([]*Column, len(ids))
+	for i, id := range ids {
+		col := byID[id]
+		col.Sort = int64(i+1) * columnSortStep
+		if err := u.column.SetSort(ctx, col.ID, col.Sort); err != nil {
+			return nil, false, wrapDB("调整列顺序", err)
+		}
+		ordered[i] = col
+	}
+	return ordered, true, nil
 }
