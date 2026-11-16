@@ -6,6 +6,10 @@ import (
 	"github.com/ixugo/goddd/pkg/orm"
 )
 
+// columnSortStep 相邻两列排序值的间距。用间距而不是连续整数，
+// 是为了新增列时直接取"最大值加一个间距"，不用改动其他列。
+const columnSortStep = 1024
+
 // ColumnStorer 是看板列的数据持久化接口。
 // 列的修改都发生在已经锁住看板行的事务里，所以更新直接用 Save，不再重复加行锁。
 type ColumnStorer interface {
