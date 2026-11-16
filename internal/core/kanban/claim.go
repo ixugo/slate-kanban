@@ -1,6 +1,9 @@
 package kanban
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // 领取原因，写进 card.released 事件，让订阅者知道卡片为什么被放开。
 const (
@@ -21,4 +24,11 @@ func (u *unit) clearClaim(ctx context.Context, actor Actor, card *Card, why stri
 		BoardID: card.BoardID, CardID: card.ID, Type: EventCardReleased,
 		Payload: cardPayload(card, map[string]any{"agent": agent, "why": why}),
 	})
+}
+
+// claimActive 判断卡片当前是否处在有效的领取中：有持有者并且租约还没到期。
+// 租约过期后卡片对其他 agent 重新开放，但在被别人接手之前原持有者仍然能写，
+// 所以"有效领取"和"持有"是两个概念，这里只回答前者。
+func claimActive(card *Card, now time.Time) bool {
+	return card.ClaimedBy != "" && card.ClaimExpiresAt != nil && card.ClaimExpiresAt.After(now)
 }
