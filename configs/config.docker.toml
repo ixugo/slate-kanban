@@ -1,0 +1,37 @@
+# 容器里用的配置：镜像构建时会复制成 /app/configs/config.toml。
+# 监听 0.0.0.0 是因为容器要接收 docker 转发进来的连接；
+# 对外是否开放由 docker 的端口映射决定（docker-compose.yml 默认只映射到宿主机的 127.0.0.1）。
+
+[Server]
+  [Server.HTTP]
+    Host = '0.0.0.0'
+    Port = 7070
+    Timeout = '30s'
+    # 通过域名访问时，把域名（不含端口）写进来；IP 和 localhost 始终允许
+    AllowedHosts = []
+    # 可选访问口令；非空时 REST、MCP 与网页登录都要带对，留空则免登录
+    Passcode = ''
+
+    [Server.HTTP.PProf]
+      Enabled = false
+      AccessIps = ['::1', '127.0.0.1']
+
+[Data]
+  # 图片等资源文件，按项目分子目录，和数据库一样放在 /data 卷里
+  ResourceDir = '/data/resource'
+  [Data.Database]
+    # 放在 /data，由 compose 的命名卷保存
+    Dsn = '/data/slate.db'
+    MaxIdleConns = 1
+    MaxOpenConns = 1
+    ConnMaxLifetime = '6h0m0s'
+    SlowThreshold = '200ms'
+
+[Log]
+  Dir = '/data/logs'
+  Level = 'info'
+  MaxAge = 7
+  RotationTime = '8h0m0s'
+  MaxSize = 50
+  Compress = false
+  MaxBackups = 0

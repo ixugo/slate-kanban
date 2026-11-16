@@ -1,0 +1,51 @@
+# Slate 配置样例。
+# 首次启动时，如果 ~/.slate-kanban/config.toml 不存在，程序会按默认值生成它。
+# 想手动准备配置：复制本文件为 ~/.slate-kanban/config.toml 再按需修改（-conf 指定了目录就放那里）。
+
+[Server]
+  [Server.HTTP]
+    # 监听地址，默认只监听本机；对外开放请改为 0.0.0.0，并建议放在反向代理之后
+    Host = '127.0.0.1'
+    # http 端口
+    Port = 7070
+    # 请求超时时间
+    Timeout = '30s'
+    # 额外允许的 Host 白名单（不含端口）；IP、localhost 和 *.localhost 始终允许
+    # 容器或反向代理后面要把对外主机名写进来，否则 DNS 重绑定防护会返回 403
+    AllowedHosts = []
+    # 可选访问口令；非空时网页登录与 MCP/REST 的 Bearer 头都要带对，留空则保持免登录
+    Passcode = ''
+
+    [Server.HTTP.PProf]
+      # 是否启用 pprof, 建议设置为 true
+      Enabled = true
+      # pprof 访问 IP 白名单
+      AccessIps = ['::1', '127.0.0.1']
+
+[Data]
+  # 图片等资源文件的存放目录，按项目分子目录，数据库里只存相对它的路径；留空则用配置目录下的 resource
+  ResourceDir = '/home/you/.slate-kanban/resource'
+  [Data.Database]
+    # 数据库支持 sqlite 和 postgres 两种，使用 sqlite 时 dsn 应当填写文件存储路径（相对路径以启动目录为基准）
+    # 首次生成的配置里是 ~/.slate-kanban/data.db 的绝对路径；这里换成你的实际路径
+    Dsn = '/home/you/.slate-kanban/data.db'
+    MaxIdleConns = 1
+    MaxOpenConns = 1
+    ConnMaxLifetime = '6h0m0s'
+    SlowThreshold = '200ms'
+
+[Log]
+  # 日志存储目录，不能使用特殊符号（首次生成的配置里是 ~/.slate-kanban/logs 的绝对路径；相对路径以启动目录为基准）
+  Dir = '/home/you/.slate-kanban/logs'
+  # 记录级别 debug/info/warn/error
+  Level = 'info'
+  # 保留日志多久，超过时间自动删除
+  MaxAge = 7
+  # 多久时间，分割一个新的日志文件
+  RotationTime = '8h0m0s'
+  # 多大文件，分割一个新的日志文件(MB)
+  MaxSize = 50
+  # 是否压缩日志
+  Compress = false
+  # 保留的旧日志归档文件最大数量，超出的自动删除
+  MaxBackups = 0
