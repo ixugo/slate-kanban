@@ -36,6 +36,16 @@ func (d DB) Column() kanban.ColumnStorer {
 	return Column(d)
 }
 
+// Card 返回卡片存储。
+func (d DB) Card() kanban.CardStorer {
+	return Card(d)
+}
+
+// Comment 返回卡片评论存储。
+func (d DB) Comment() kanban.CommentStorer {
+	return Comment(d)
+}
+
 // Event 返回事件日志存储。
 func (d DB) Event() kanban.EventStorer {
 	return Event(d)

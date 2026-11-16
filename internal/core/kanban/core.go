@@ -14,6 +14,8 @@ type Storer interface {
 	Begin() (orm.Tx, error)
 	Board() BoardStorer
 	Column() ColumnStorer
+	Card() CardStorer
+	Comment() CommentStorer
 	Event() EventStorer
 	Cursor() CursorStorer
 }

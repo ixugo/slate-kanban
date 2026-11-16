@@ -18,6 +18,18 @@ func requireHuman(actor Actor) error {
 	return nil
 }
 
+// requireWriter 校验操作者合法并且是人或 agent。卡片的创建、修改、移动、评论对这两类开放，
+// 具体能碰哪些字段、哪些卡片，由各方法再按权限表细分。自动化规则的改动走内部流程，不经过这里。
+func requireWriter(actor Actor) error {
+	if err := actor.Validate(); err != nil {
+		return err
+	}
+	if actor.Kind == ActorSystem {
+		return ErrHumanOnly
+	}
+	return nil
+}
+
 // checkText 校验一段文本：必须是合法的 UTF-8、不含空字符，字符数在 [min, max] 之内。
 // 空字符和非法 UTF-8 在 PostgreSQL 里会让写入直接报错，在这里提前拦住，才能给出 400 而不是 500。
 // field 是面向用户的字段名，会出现在错误提示里。
