@@ -21,9 +21,10 @@ type Server struct {
 }
 
 type ServerHTTP struct {
-	Port      int         `comment:"http 端口"`                // 服务器端口号
-	Timeout   Duration    `comment:"请求超时时间"`                 // 请求超时时间
-	JwtSecret string      `comment:"jwt 秘钥，空串时，每次启动程序将随机赋值"` // JWT密钥
+	Host      string      `comment:"监听地址，默认只监听本机；对外开放请改为 0.0.0.0，并建议放在反向代理之后"` // 监听地址
+	Port      int         `comment:"http 端口"`                                  // 服务器端口号
+	Timeout   Duration    `comment:"请求超时时间"`                                   // 请求超时时间
+	JwtSecret string      `comment:"jwt 秘钥，空串时，每次启动程序将随机赋值"`                   // JWT密钥
 	PProf     ServerPPROF // Pprof配置
 }
 

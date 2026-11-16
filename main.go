@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/ixugo/goddd/domain/version/versionapi"
+	"github.com/ixugo/goddd/pkg/orm"
+	"github.com/ixugo/goddd/pkg/system"
 	"slate-kanban/internal/app"
 	"slate-kanban/internal/conf"
-	"github.com/ixugo/goddd/pkg/system"
 )
 
 var (
@@ -35,7 +36,11 @@ func main() {
 
 	// 初始化配置
 	var bc conf.Bootstrap
-	fileDir, _ := system.Abs(*configDir)
+	// 相对路径以启动目录为基准（system.Abs 以可执行文件目录为基准，go run 时会落进临时目录）
+	fileDir, err := filepath.Abs(*configDir)
+	if err != nil {
+		panic(err)
+	}
 	_ = os.MkdirAll(fileDir, 0o755)
 	filePath := filepath.Join(fileDir, "config.toml")
 	configIsNotExistWrite(filePath)
@@ -58,8 +63,9 @@ func main() {
 	}
 
 	// 设置数据库版本号，用于驱动 orm 的 AutoMigrate
-	// 如果表没有执行迁移，找不到数据库表，可以解开以下注释，强制开启表迁移，或判断 debug 模式自动执行
-	// orm.SetEnabledAutoMigrate(true)
+	// 本项目是开箱即用的单文件看板，每次启动都执行表迁移：已有的表只会补齐缺的列和索引，
+	// 不会因为版本号没变（例如 go run 开发时）而漏掉新增的表结构
+	orm.SetEnabledAutoMigrate(true)
 	versionapi.DBVersion = buildVersion
 	versionapi.DBRemark = gitBranch + "_" + gitHash
 
