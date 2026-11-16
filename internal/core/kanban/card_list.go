@@ -62,13 +62,13 @@ func (c Core) ListCards(ctx context.Context, boardID int64, in ListCardsInput) (
 		return nil, wrapDB("读取卡片", err)
 	}
 	ix := newBoardIndex(c.now(), time.Local, cols, cards)
-	return ix.list(cards, f, limit), nil
+	return ix.list(f, limit), nil
 }
 
-// list 把 cards 按显示顺序排好（就地排序），筛选后只为前 limit 张命中的卡片生成视图。
-func (ix *boardIndex) list(cards []*Card, f *filter, limit int) *CardList {
+// list 把索引里的卡片按显示顺序排好，筛选后只为前 limit 张命中的卡片生成视图。
+func (ix *boardIndex) list(f *filter, limit int) *CardList {
 	out := &CardList{Cards: []*CardView{}}
-	for _, card := range ix.sortCards(cards) {
+	for _, card := range ix.sortCards(ix.all) {
 		if !f.match(card, ix) {
 			continue
 		}

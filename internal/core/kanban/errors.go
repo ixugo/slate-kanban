@@ -49,6 +49,21 @@ var (
 	// ErrAgentPickupColumn agent 不能把新卡片直接放进开启了 agent 领取的列，那会绕开由人决定做什么的约定。
 	ErrAgentPickupColumn = reason.NewError("ErrAgentPickupColumn", "agent 不能把卡片直接放进由 agent 处理的列").WithHTTPStatus(403)
 
+	// ErrAgentOnly 领取是 agent 的概念，人不需要领取，通过拖动卡片来分配工作。
+	ErrAgentOnly = reason.NewError("ErrAgentOnly", "领取只给 agent 使用，人通过拖动卡片来分配工作").WithHTTPStatus(403)
+
+	// ErrCardHumanOnly 卡片被标记为只能由人处理，agent 不能领取。
+	ErrCardHumanOnly = reason.NewError("ErrCardHumanOnly", "这张卡片只能由人处理").WithHTTPStatus(403)
+
+	// ErrColumnNotPickup 卡片所在的列没有开启 agent 领取。
+	ErrColumnNotPickup = reason.NewError("ErrColumnNotPickup", "这一列不允许 agent 处理").WithHTTPStatus(403)
+
+	// ErrCardWaiting 卡片依赖的卡片还没有完成，现在不能开始。
+	ErrCardWaiting = reason.NewError("ErrCardWaiting", "卡片还在等待其他卡片完成").WithHTTPStatus(409)
+
+	// ErrCardClaimed 卡片正被另一个 agent 持有，租约还没有到期。
+	ErrCardClaimed = reason.NewError("ErrCardClaimed", "卡片已经被其他 agent 领取").WithHTTPStatus(409)
+
 	// ErrProjectPathLocked agent 只能在项目路径为空时写入，已经有值就只有人能改。
 	ErrProjectPathLocked = reason.NewError("ErrProjectPathLocked", "项目路径已经设置，只有人可以修改").WithHTTPStatus(403)
 )
