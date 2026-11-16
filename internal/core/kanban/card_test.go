@@ -22,20 +22,24 @@ const (
 	colDone
 )
 
-// cardEnv 是卡片测试的公共环境：一个用 dev 模板建好的看板（标识 TST，五列）。
+// cardEnv 是卡片测试的公共环境：一个用 dev 模板建好的看板（标识 TST，五列），不带起步规则。
 type cardEnv struct {
 	core  kanban.Core
 	db    kanbandb.DB
 	board *kanban.BoardDetail
 }
 
-// newCardEnv 创建卡片测试环境。
+// newCardEnv 创建卡片测试环境。起步规则会在创建和换列时改卡片、写 automation.fired 事件，
+// 会干扰卡片测试对版本和事件的断言，所以这里把它们删掉；要测自动化的用例自己创建规则。
 func newCardEnv(t *testing.T, opts ...kanban.Option) *cardEnv {
 	t.Helper()
 	core, db := newBare(t, opts...)
-	return &cardEnv{core: core, db: db, board: mustCreateBoard(t, core, kanban.CreateBoardInput{
-		Name: "卡片测试", Slug: "TST", Locale: "zh-CN",
-	})}
+	board := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "卡片测试", Slug: "TST", Locale: "zh-CN"})
+	if err := db.Rule().DeleteByBoard(context.Background(), board.ID); err != nil {
+		t.Fatalf("清掉起步规则失败: %v", err)
+	}
+	board.Rules = []*kanban.Rule{}
+	return &cardEnv{core: core, db: db, board: board}
 }
 
 // col 返回 dev 模板里第 i 列的主键。

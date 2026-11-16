@@ -16,6 +16,7 @@ type Storer interface {
 	Column() ColumnStorer
 	Card() CardStorer
 	Comment() CommentStorer
+	Rule() RuleStorer
 	Event() EventStorer
 	Cursor() CursorStorer
 }

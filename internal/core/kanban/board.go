@@ -60,7 +60,7 @@ func (c Core) CreateBoard(ctx context.Context, actor Actor, in CreateBoardInput)
 	return nil, ErrBoardSlugTaken.Withf("自动生成的标识连续 %d 次都被占用，请手动指定", maxSlugAttempts)
 }
 
-// createBoardOnce 在一个事务里用给定的标识创建看板、起步的列，并追加 board.created 事件。
+// createBoardOnce 在一个事务里用给定的标识创建看板、起步的列和规则，并追加 board.created 事件。
 // 看板还不存在，没有行可锁，所以传 0 给 run。
 func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardInput, slug string) (*BoardDetail, error) {
 	var out *BoardDetail
@@ -80,7 +80,11 @@ func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardIn
 		if err != nil {
 			return err
 		}
-		out = &BoardDetail{Board: b, Columns: cols, Rules: []*Rule{}}
+		rules, err := u.seedRules(ctx, b.ID, in.Locale, cols)
+		if err != nil {
+			return err
+		}
+		out = &BoardDetail{Board: b, Columns: cols, Rules: rules}
 		return u.emit(ctx, actor, newEvent{
 			BoardID: b.ID, Type: EventBoardCreated,
 			Payload: map[string]any{"name": b.Name, "slug": b.Slug},
@@ -101,7 +105,7 @@ func (c Core) ListBoards(ctx context.Context) ([]*Board, error) {
 	return items, nil
 }
 
-// GetBoard 返回看板和它的列。看板不存在返回 404。人和 agent 都可以读。
+// GetBoard 返回看板、它的列和自动化规则（含停用的）。看板不存在返回 404。人和 agent 都可以读。
 func (c Core) GetBoard(ctx context.Context, id int64) (*BoardDetail, error) {
 	b, err := c.store.Board().GetByID(ctx, id)
 	if err != nil {
@@ -111,7 +115,11 @@ func (c Core) GetBoard(ctx context.Context, id int64) (*BoardDetail, error) {
 	if err != nil {
 		return nil, wrapDB("读取列", err)
 	}
-	return &BoardDetail{Board: b, Columns: cols, Rules: []*Rule{}}, nil
+	rules, err := c.store.Rule().ListByBoard(ctx, id)
+	if err != nil {
+		return nil, wrapDB("读取规则", err)
+	}
+	return &BoardDetail{Board: b, Columns: cols, Rules: rules}, nil
 }
 
 // UpdateBoard 修改看板的名称、说明或项目路径，只更新入参里出现的字段。
