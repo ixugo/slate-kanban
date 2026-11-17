@@ -34,6 +34,9 @@ var (
 	// ErrColumnLimit 看板的列数已经到了上限。
 	ErrColumnLimit = reason.NewError("ErrColumnLimit", fmt.Sprintf("每个看板最多 %d 列", maxColumnsPerBoard))
 
+	// ErrColumnNotEmpty 要删除的列里还有卡片，又没有指定把它们移到哪一列。
+	ErrColumnNotEmpty = reason.NewError("ErrColumnNotEmpty", "列里还有卡片，请指定把它们移入的列").WithHTTPStatus(409)
+
 	// ErrColumnOrderStale 调整顺序的请求和当前的列集合对不上，说明请求依据的是过期的数据。
 	ErrColumnOrderStale = reason.NewError("ErrColumnOrderStale", "列已经发生变化，请刷新后重新调整顺序").WithHTTPStatus(409)
 

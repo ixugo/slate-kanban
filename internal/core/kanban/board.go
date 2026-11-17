@@ -177,3 +177,48 @@ func checkBoardPatchAllowed(actor Actor, in UpdateBoardInput) error {
 	}
 	return ErrHumanOnly.WithMsg("agent 只能在项目路径为空时写入项目路径，其他修改只允许人执行")
 }
+
+// DeleteBoard 删除看板和它的全部数据：评论、卡片、规则、列、agent 的读取进度和事件。只有人能操作。
+// 全部在一个事务里按依赖顺序删除，任何一步失败整体回滚，不会留下孤儿数据。
+// 删除是幂等的：看板已经不存在也返回成功。事件随看板一起删了，所以提交后只广播一次唤醒信号，
+// 让还在等待这个看板更新的人醒来，重新查询时得到"看板不存在"。
+func (c Core) DeleteBoard(ctx context.Context, actor Actor, id int64) error {
+	if err := requireHuman(actor); err != nil {
+		return err
+	}
+	err := c.run(ctx, id, func(u *unit) error {
+		return u.deleteBoard(ctx, id)
+	})
+	if errors.Is(err, ErrBoardNotFound) {
+		return nil
+	}
+	return err
+}
+
+// deleteBoard 在事务里按依赖顺序删除看板的全部数据，最后删看板自己，并标记要广播。
+// 一个看板的卡片数量预期在几千张以内，每类数据一条删除语句，所以是常数条语句。
+func (u *unit) deleteBoard(ctx context.Context, id int64) error {
+	b, err := u.board.GetByID(ctx, id)
+	if err != nil {
+		return mapNotFound(err, ErrBoardNotFound, "读取看板")
+	}
+	steps := []struct {
+		what string
+		del  func() error
+	}{
+		{"评论", func() error { return u.comment.DeleteByBoard(ctx, id) }},
+		{"卡片", func() error { return u.card.DeleteByBoard(ctx, id) }},
+		{"规则", func() error { return u.rule.DeleteByBoard(ctx, id) }},
+		{"列", func() error { return u.column.DeleteByBoard(ctx, id) }},
+		{"读取进度", func() error { return u.cursor.DeleteByBoard(ctx, id) }},
+		{"事件", func() error { return u.event.DeleteByBoard(ctx, id) }},
+		{"看板", func() error { return u.board.Delete(ctx, b) }},
+	}
+	for _, s := range steps {
+		if err := s.del(); err != nil {
+			return wrapDB("删除看板的"+s.what, err)
+		}
+	}
+	u.touch(id)
+	return nil
+}

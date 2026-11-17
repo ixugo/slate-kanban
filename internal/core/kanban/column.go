@@ -2,6 +2,7 @@ package kanban
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/ixugo/goddd/pkg/orm"
@@ -222,4 +223,112 @@ func (u *unit) applyColumnOrder(ctx context.Context, cols []*Column, ids []int64
 		ordered[i] = col
 	}
 	return ordered, true, nil
+}
+
+// DeleteColumn 删除一列。只有人能操作。列是空的就直接删；列里有卡片时必须用 moveTo 指定
+// 把它们移入的另一列（原顺序追加到那一列末尾），否则返回 409，防止卡片因为删列而消失。
+// 其他列指向它的"下一列"会被清掉，引用它的启用中的规则会被停用，因为这些规则已经不可能正常工作。
+// 列已经不存在时返回成功（幂等）。因为删列而搬走的卡片不触发自动化规则，这是结构调整，
+// 不是有人在流程里推进卡片；事件里只记搬走的张数，不为每张卡片单独写事件。
+func (c Core) DeleteColumn(ctx context.Context, actor Actor, boardID, columnID, moveTo int64) error {
+	if err := requireHuman(actor); err != nil {
+		return err
+	}
+	return c.run(ctx, boardID, func(u *unit) error {
+		return u.deleteColumn(ctx, actor, boardID, columnID, moveTo)
+	})
+}
+
+// deleteColumn 在事务里完成 DeleteColumn：先搬走卡片，再清理指向这一列的引用，最后删列并追加事件。
+func (u *unit) deleteColumn(ctx context.Context, actor Actor, boardID, columnID, moveTo int64) error {
+	cols, err := u.column.ListByBoard(ctx, boardID)
+	if err != nil {
+		return wrapDB("读取列", err)
+	}
+	col := columnByID(cols, columnID)
+	if col == nil {
+		return nil
+	}
+	toID, moved, err := u.evacuateColumn(ctx, actor, cols, col, moveTo)
+	if err != nil {
+		return err
+	}
+	if err := u.column.ClearNextColumn(ctx, boardID, columnID); err != nil {
+		return wrapDB("清除指向被删列的下一列", err)
+	}
+	if err := u.disableRulesUsing(ctx, actor, boardID, columnID); err != nil {
+		return err
+	}
+	if err := u.column.Delete(ctx, col); err != nil {
+		return wrapDB("删除列", err)
+	}
+	return u.emit(ctx, actor, newEvent{
+		BoardID: boardID, Type: EventColumnDeleted,
+		Payload: map[string]any{"column_id": col.ID, "name": col.Name, "moved_to_id": toID, "moved_cards": moved},
+	})
+}
+
+// evacuateColumn 把列里的卡片按原顺序追加到 moveTo 指定的列末尾，返回目标列的主键和搬走的张数。
+// 列是空的不需要目标列，返回 0 和 0。卡片换了列，原来的领取不再有意义，所以一并清掉。
+// 复杂度是这一列的卡片数，一列的卡片数预期在几百张以内。
+func (u *unit) evacuateColumn(ctx context.Context, actor Actor, cols []*Column, col *Column, moveTo int64) (int64, int, error) {
+	cards, err := u.card.ListByColumn(ctx, col.ID)
+	if err != nil {
+		return 0, 0, wrapDB("读取列里的卡片", err)
+	}
+	if len(cards) == 0 {
+		return 0, 0, nil
+	}
+	if moveTo == 0 {
+		return 0, 0, ErrColumnNotEmpty.WithMsg(fmt.Sprintf("「%s」列里还有 %d 张卡片，请指定把它们移入的列", col.Name, len(cards)))
+	}
+	target := columnByID(cols, moveTo)
+	if target == nil || target.ID == col.ID {
+		return 0, 0, invalidf("移入的列不存在，或者不属于这个看板，也不能是要删除的列本身")
+	}
+	pos, err := u.appendPosition(ctx, target.ID)
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, card := range cards {
+		if err := u.clearClaim(ctx, actor, card, releaseMoved); err != nil {
+			return 0, 0, err
+		}
+		card.ColumnID, card.Position = target.ID, pos
+		pos += positionStep
+		if err := u.saveCard(ctx, actor, card); err != nil {
+			return 0, 0, err
+		}
+	}
+	return target.ID, len(cards), nil
+}
+
+// disableRulesUsing 停用引用了这一列的启用中的规则（触发所在的列，或者移动列动作的目标列），
+// 每条追加一个 rule.updated 事件。已经停用的规则不用动：想重新启用时，保存前的校验会指出列不存在。
+func (u *unit) disableRulesUsing(ctx context.Context, actor Actor, boardID, columnID int64) error {
+	rules, err := u.rule.ListByBoard(ctx, boardID)
+	if err != nil {
+		return wrapDB("读取规则", err)
+	}
+	for _, r := range rules {
+		if !r.Enabled || !ruleUsesColumn(r, columnID) {
+			continue
+		}
+		r.Enabled, r.UpdatedAt = false, u.now()
+		if err := u.rule.Save(ctx, r); err != nil {
+			return wrapDB("停用规则", err)
+		}
+		err := u.emit(ctx, actor, newEvent{BoardID: boardID, Type: EventRuleUpdated, Payload: rulePayload(r)})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ruleUsesColumn 判断规则是否引用了这一列：触发所在的列，或者某个移动列动作的目标列。
+func ruleUsesColumn(r *Rule, columnID int64) bool {
+	return r.ColumnID == columnID || slices.ContainsFunc(r.Actions, func(a RuleAction) bool {
+		return a.Type == ActionMoveToColumn && a.ColumnID == columnID
+	})
 }
