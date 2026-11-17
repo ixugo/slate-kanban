@@ -64,6 +64,9 @@ var (
 	// ErrCardClaimed 卡片正被另一个 agent 持有，租约还没有到期。
 	ErrCardClaimed = reason.NewError("ErrCardClaimed", "卡片已经被其他 agent 领取").WithHTTPStatus(409)
 
+	// ErrRuleLimit 看板的自动化规则数已经到了上限。
+	ErrRuleLimit = reason.NewError("ErrRuleLimit", fmt.Sprintf("每个看板最多 %d 条规则", maxRulesPerBoard))
+
 	// ErrProjectPathLocked agent 只能在项目路径为空时写入，已经有值就只有人能改。
 	ErrProjectPathLocked = reason.NewError("ErrProjectPathLocked", "项目路径已经设置，只有人可以修改").WithHTTPStatus(403)
 )
