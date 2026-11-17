@@ -9,3 +9,12 @@ type ClaimCardInput struct {
 type NextCardInput struct {
 	LeaseMinutes int `json:"lease_minutes"`
 }
+
+// FinishCardInput 是完成交接的入参。Summary 是必填的工作总结，会作为评论写在卡片下；
+// Branch 和 URL 为空表示不改；ColumnID 为 0 表示移到当前列设置的下一列。
+type FinishCardInput struct {
+	Summary  string `json:"summary"`
+	Branch   string `json:"branch"`
+	URL      string `json:"url"`
+	ColumnID int64  `json:"column_id"`
+}
