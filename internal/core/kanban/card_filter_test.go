@@ -93,9 +93,46 @@ func TestFilterMatches(t *testing.T) {
 		{"title:api", []int64{4}},
 		{"desc:theme", []int64{2}},
 		{"title:theme", []int64{}},
+		// 优先级
+		{"priority:high", []int64{1}},
+		{"priority:3", []int64{1}},
+		{"priority:>=2", []int64{1, 2}},
+		{"priority:<2", []int64{3, 4, 5}},
+		{"priority:none", []int64{3, 5}},
+		{"priority:=low", []int64{4}},
+		{"priority:>0", []int64{1, 2, 4}},
 		// 领取
 		{"claimed:claude", []int64{2}},
 		{"claimed:codex", []int64{}},
+		// is:
+		{"is:done", []int64{3}},
+		{"is:open", []int64{1, 2, 4, 5}},
+		{"is:human", []int64{4}},
+		{"is:claimed", []int64{2}},
+		{"is:free", []int64{1, 3, 4, 5}},
+		{"is:waiting", []int64{4}},
+		{"is:overdue", []int64{1}},
+		{"is:started", []int64{2}},
+		{"is:finished", []int64{3}},
+		{"IS:Done", []int64{3}},
+		// has: 和 no:
+		{"has:due", []int64{1, 2, 3}},
+		{"no:due", []int64{4, 5}},
+		{"has:branch", []int64{1}},
+		{"has:url", []int64{3}},
+		{"has:tags", []int64{1, 2, 4}},
+		{"no:tags", []int64{3, 5}},
+		{"has:desc", []int64{1, 2}},
+		{"has:deps", []int64{4, 5}},
+		// 日期按自然日比较
+		{"due:today", []int64{2}},
+		{"due:<today", []int64{1, 3}},
+		{"due:>=2026-11-16", []int64{1, 2}},
+		{"due:2026-11-01", []int64{3}},
+		{"due:>2026-12-01", []int64{}},
+		{"created:today", []int64{5}},
+		{"created:<2026-11-10", []int64{1, 3}},
+		{"updated:today", []int64{3, 5}},
 		// 引号和取反
 		{`"add dark"`, []int64{2}},
 		{`"Dark Mode"`, []int64{2}},
@@ -106,12 +143,30 @@ func TestFilterMatches(t *testing.T) {
 		{"-", []int64{1, 2, 3, 4, 5}},
 		{`""`, []int64{1, 2, 3, 4, 5}},
 		// 多个词都满足才命中
+		{"is:open -tag:bug priority:>=1", []int64{2, 4}},
+		{"col:待办 is:waiting", []int64{4}},
 		{"col:待办 col:进行中", []int64{}},
 	}
 	for _, c := range cases {
 		got, err := runFilter(c.q, ix, cards)
 		if err != nil || !slices.Equal(got, c.want) {
 			t.Errorf("筛选 %q：期望 %v，实际 %v，错误 %v", c.q, c.want, got, err)
+		}
+	}
+}
+
+// TestFilterDatesUseConfiguredTimeZone 验证日期按配置的时区算自然日：
+// K-2 在 UTC 的 11 月 17 日 18 点到期，在东八区已经是 11 月 18 日凌晨，而"现在"在东八区还是 17 日晚上。
+func TestFilterDatesUseConfiguredTimeZone(t *testing.T) {
+	ix, cards := filterFixture(time.FixedZone("CST", 8*3600))
+	for q, want := range map[string][]int64{
+		"due:today":      {},
+		"due:2026-11-18": {2},
+		"due:>today":     {2},
+	} {
+		got, err := runFilter(q, ix, cards)
+		if err != nil || !slices.Equal(got, want) {
+			t.Errorf("东八区筛选 %q：期望 %v，实际 %v，错误 %v", q, want, got, err)
 		}
 	}
 }
@@ -124,9 +179,18 @@ func TestFilterErrors(t *testing.T) {
 		q    string
 		must []string // 错误提示里必须出现的内容
 	}{
+		{"is:foo", []string{"is:foo", "done、open、human、claimed、free、waiting、overdue、started、finished"}},
+		{"has:foo", []string{"has:foo", "due、branch、url、tags、desc、deps"}},
+		{"no:foo", []string{"no:foo", "due、branch"}},
 		{"foo:bar", []string{"foo:bar", "foo", "双引号"}},
 		{"https://example.com", []string{"https://example.com", "双引号"}},
 		{"tag:", []string{"tag:", "不能为空"}},
+		{"priority:9", []string{"priority:9", "优先级"}},
+		{"priority:abc", []string{"priority:abc", "优先级"}},
+		{"priority:>=", []string{"priority:>=", "优先级"}},
+		{"due:abc", []string{"due:abc", "日期"}},
+		{"due:2026-13-45", []string{"due:2026-13-45", "日期"}},
+		{"created:<", []string{"created:<", "日期"}},
 		{`tag:"没有闭合`, []string{"tag:没有闭合", "双引号"}},
 		{`"abc`, []string{"abc", "双引号"}},
 		{strings.Repeat("a", maxFilterLen+1), []string{"筛选条件"}},

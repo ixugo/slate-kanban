@@ -48,7 +48,9 @@ type rawTerm struct {
 // termBuilders 是各种前缀对应的解析函数。词里冒号前面的部分不区分大小写地查这张表。
 var termBuilders = map[string]func(text, value string) (testFunc, error){
 	"tag": buildTag, "col": buildColumn, "column": buildColumn, "key": buildKey,
-	"title": buildTitle, "desc": buildDesc, "claimed": buildClaimed,
+	"title": buildTitle, "desc": buildDesc, "priority": buildPriority, "claimed": buildClaimed,
+	"is": buildIs, "has": buildHas, "no": buildNo,
+	"due": buildDue, "created": buildCreated, "updated": buildUpdated,
 }
 
 // parseFilter 把筛选字符串解析成筛选条件，语法见 kanban.card.go.md 的"筛选语法"。
