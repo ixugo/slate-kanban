@@ -56,3 +56,8 @@ configs/*.db-shm
 configs/*.db-wal
 tmp/
 /slate
+
+# 设计文档放在 .cursor/scopes，需要进仓库；用户全局忽略了 .cursor/，这里只放开这一个子目录
+!.cursor/
+.cursor/*
+!.cursor/scopes/
