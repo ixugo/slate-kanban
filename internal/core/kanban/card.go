@@ -3,6 +3,7 @@ package kanban
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/ixugo/goddd/pkg/orm"
 )
@@ -156,4 +157,103 @@ func (c Core) GetCard(ctx context.Context, id int64) (*Card, error) {
 		return nil, mapNotFound(err, ErrCardNotFound, "读取卡片")
 	}
 	return card, nil
+}
+
+// boardOfCard 在事务之外查出卡片属于哪个看板，用来决定要锁哪个看板的行。
+// 卡片不会换看板，所以事务里再读卡片时只需要确认它还在。
+func (c Core) boardOfCard(ctx context.Context, cardID int64) (int64, error) {
+	card, err := c.store.Card().GetByID(ctx, cardID)
+	if err != nil {
+		return 0, mapNotFound(err, ErrCardNotFound, "读取卡片")
+	}
+	return card.BoardID, nil
+}
+
+// loadCard 在事务里读取卡片，并确认它属于 boardID。卡片已经被删除（比如在查看板和锁看板之间）
+// 或者不属于这个看板，都按不存在处理。
+func (u *unit) loadCard(ctx context.Context, boardID, cardID int64) (*Card, error) {
+	card, err := u.card.GetByID(ctx, cardID)
+	if err != nil {
+		return nil, mapNotFound(err, ErrCardNotFound, "读取卡片")
+	}
+	if card.BoardID != boardID {
+		return nil, ErrCardNotFound
+	}
+	return card, nil
+}
+
+// checkCardWritable 判断操作者能不能写这张卡片：人可以；agent 只能写自己持有的。
+// 持有的判断只看 ClaimedBy，租约过期但还没被别人接手时仍然算持有，
+// 这样耗时很长的任务不会因为忘了续租而白做。
+func checkCardWritable(actor Actor, card *Card) error {
+	if actor.IsAgent() && card.ClaimedBy != actor.Name {
+		return ErrNotHolder
+	}
+	return nil
+}
+
+// saveCardChange 保存一次真实的卡片修改：版本号加一，记下修改者和时间，写入，再追加事件。
+// 事件的内容是卡片的 key 和标题加上 extra 里的字段。
+func (u *unit) saveCardChange(ctx context.Context, actor Actor, card *Card, eventType string, extra map[string]any) error {
+	card.Version++
+	card.UpdatedBy = actor.Name
+	card.UpdatedAt = u.now()
+	if err := u.card.Save(ctx, card); err != nil {
+		return wrapDB("保存卡片", err)
+	}
+	payload := map[string]any{"key": card.Key, "title": card.Title}
+	for k, v := range extra {
+		payload[k] = v
+	}
+	return u.emit(ctx, actor, newEvent{BoardID: card.BoardID, CardID: card.ID, Type: eventType, Payload: payload})
+}
+
+// UpdateCard 修改卡片，只更新入参里出现的字段，值没变的字段不算修改。
+// 人可以改全部字段；agent 只能改自己持有的卡片，并且只能改标题、描述、标签、分支和链接，
+// 优先级、依赖、时间这些规划类字段只有人能动。
+// 入参带了 Version 并且和当前不一致返回 409；没有任何字段真的变化时不涨版本、不写事件。
+func (c Core) UpdateCard(ctx context.Context, actor Actor, cardID int64, in UpdateCardInput) (*Card, error) {
+	if err := requireWriter(actor); err != nil {
+		return nil, err
+	}
+	if actor.IsAgent() && in.touchesPlanning() {
+		return nil, ErrHumanOnly.WithMsg("agent 不能修改优先级、依赖、时间和仅限人处理这些规划类字段")
+	}
+	boardID, err := c.boardOfCard(ctx, cardID)
+	if err != nil {
+		return nil, err
+	}
+	var out *Card
+	err = c.run(ctx, boardID, func(u *unit) error {
+		card, err := u.loadCard(ctx, boardID, cardID)
+		if err != nil {
+			return err
+		}
+		out = card
+		return u.updateCard(ctx, actor, card, in)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// updateCard 在事务里完成 UpdateCard 的检查、赋值和保存。card 是刚读出的最新数据。
+func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in UpdateCardInput) error {
+	if err := checkCardWritable(actor, card); err != nil {
+		return err
+	}
+	if in.Version != nil && *in.Version != card.Version {
+		return ErrCardVersionConflict
+	}
+	changed, err := in.apply(card)
+	if err != nil || len(changed) == 0 {
+		return err
+	}
+	if slices.Contains(changed, "waits_on") {
+		if err := u.checkWaitsOn(ctx, card.BoardID, card.ID, card.WaitsOn); err != nil {
+			return err
+		}
+	}
+	return u.saveCardChange(ctx, actor, card, EventCardUpdated, map[string]any{"fields": changed})
 }

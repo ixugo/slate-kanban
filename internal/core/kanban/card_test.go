@@ -296,3 +296,233 @@ func TestCreateCardNumbersAreUniqueUnderConcurrency(t *testing.T) {
 		t.Fatalf("编号不应该回收，实际 %s", next.Key)
 	}
 }
+
+// hold 直接在数据库里把卡片标成由某个 agent 持有。领取功能有自己的测试，
+// 这里只需要"被持有"这个状态，用它测试权限判断。
+func (e *cardEnv) hold(t *testing.T, id int64, agent string) {
+	t.Helper()
+	c := e.stored(t, id)
+	expires := time.Now().Add(time.Hour).UTC()
+	c.ClaimedBy, c.ClaimExpiresAt = agent, &expires
+	if err := e.db.Card().Save(context.Background(), c); err != nil {
+		t.Fatalf("标记持有失败: %v", err)
+	}
+}
+
+// intPtr 返回整数的指针，用来构造"出现的字段"。
+func intPtr(n int) *int { return &n }
+
+// TestUpdateCardByHuman 验证人修改卡片：只更新出现的字段，版本加一，记录修改者，
+// 事件里记录变化的字段名；值没变的字段不算变化。
+func TestUpdateCardByHuman(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	c := e.card(t, colTodo, "旧标题")
+	tags := []string{"a", "A", "b"}
+	due := "2026-12-01T00:00:00Z"
+
+	got, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{
+		Title: strPtr(" 新标题 "), Description: strPtr("说明"), Priority: intPtr(2), Tags: &tags, DueAt: &due,
+		Branch: strPtr("feat/a"), URL: strPtr("https://example.com/1"),
+	})
+	if err != nil {
+		t.Fatalf("修改失败: %v", err)
+	}
+	if got.Title != "新标题" || got.Priority != 2 || got.Version != 2 || got.UpdatedBy != "admin" || got.Position != c.Position {
+		t.Fatalf("返回的卡片不对: %+v", got)
+	}
+	stored := e.stored(t, c.ID)
+	if stored.Title != "新标题" || stored.Description != "说明" || strings.Join(stored.Tags, ",") != "a,b" ||
+		stored.DueAt == nil || stored.Branch != "feat/a" || stored.URL != "https://example.com/1" || stored.Version != 2 {
+		t.Fatalf("读出来的卡片不对: %+v", stored)
+	}
+	want := `{"fields":["title","description","branch","url","priority","tags","due_at"],"key":"TST-1","title":"新标题"}`
+	if ev := e.lastEvent(t); ev.Type != kanban.EventCardUpdated || ev.CardID != c.ID || ev.Payload != want {
+		t.Fatalf("事件不对: %+v，期望内容 %s", ev, want)
+	}
+}
+
+// TestUpdateCardClearsFields 验证清空：标签和依赖传空数组、时间传空字符串、布尔值传 false 都能真正清掉。
+func TestUpdateCardClearsFields(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	dep := e.card(t, colTodo, "依赖")
+	c, err := e.core.CreateCard(ctx, testActor, e.board.ID, kanban.CreateCardInput{
+		Title: "x", Tags: []string{"a"}, WaitsOn: []int64{dep.ID}, HumanOnly: true, DueAt: "2026-01-01T00:00:00Z", Priority: 3,
+	})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	none, noDeps, empty, no := []string{}, []int64{}, "", false
+	if _, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{
+		Tags: &none, WaitsOn: &noDeps, DueAt: &empty, HumanOnly: &no, Priority: intPtr(0),
+	}); err != nil {
+		t.Fatalf("清空失败: %v", err)
+	}
+	got := e.stored(t, c.ID)
+	if len(got.Tags) != 0 || len(got.WaitsOn) != 0 || got.DueAt != nil || got.HumanOnly || got.Priority != 0 {
+		t.Fatalf("字段应该都被清掉: %+v", got)
+	}
+}
+
+// TestUpdateCardNoChange 验证没有真实变化时不涨版本、不写事件：空请求、值相同、标题只多了空白、
+// 标签传空数组而卡片本来就没有标签、优先级和到期时间传的就是现有值。
+func TestUpdateCardNoChange(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	c := e.card(t, colTodo, "标题")
+	before := len(e.events(t))
+	same := []string{}
+
+	for _, in := range []kanban.UpdateCardInput{
+		{}, {Title: strPtr("标题")}, {Title: strPtr("  标题 ")}, {Tags: &same}, {Priority: intPtr(0)}, {DueAt: strPtr("")},
+	} {
+		got, err := e.core.UpdateCard(ctx, testActor, c.ID, in)
+		if err != nil || got.Version != 1 {
+			t.Fatalf("没有变化也应该成功且版本不变: %+v %v", got, err)
+		}
+	}
+	if after := len(e.events(t)); after != before {
+		t.Fatalf("没有变化不应该写事件，事件数 %d → %d", before, after)
+	}
+	if e.stored(t, c.ID).Version != 1 {
+		t.Fatal("数据库里的版本不应该变化")
+	}
+}
+
+// TestUpdateCardVersionConflict 验证乐观锁：带着过期的版本号提交返回 409 且不生效，
+// 带当前版本号可以成功，不带版本号不检查。
+func TestUpdateCardVersionConflict(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	c := e.card(t, colTodo, "标题")
+	one, two := int64(1), int64(2)
+
+	if _, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{Title: strPtr("第二版"), Version: &one}); err != nil {
+		t.Fatalf("版本一致应该成功: %v", err)
+	}
+	_, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{Title: strPtr("过期的修改"), Version: &one})
+	if !errors.Is(err, kanban.ErrCardVersionConflict) {
+		t.Fatalf("版本过期应该得到 ErrCardVersionConflict，实际 %v", err)
+	}
+	if e.stored(t, c.ID).Title != "第二版" {
+		t.Fatal("冲突的修改不应该生效")
+	}
+	if _, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{Title: strPtr("第三版"), Version: &two}); err != nil {
+		t.Fatalf("带当前版本应该成功: %v", err)
+	}
+	if _, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{Title: strPtr("不带版本")}); err != nil {
+		t.Fatalf("不带版本不检查: %v", err)
+	}
+}
+
+// TestUpdateCardByAgent 验证 agent 的权限：只能改自己持有的卡片，并且只能改五个允许的字段；
+// 没持有、被别的 agent 持有都得到 ErrNotHolder；碰规划类字段得到 ErrHumanOnly。
+func TestUpdateCardByAgent(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	c := e.card(t, colDoing, "标题")
+	patch := kanban.UpdateCardInput{Title: strPtr("agent 改的")}
+
+	if _, err := e.core.UpdateCard(ctx, testAgent, c.ID, patch); !errors.Is(err, kanban.ErrNotHolder) {
+		t.Fatalf("没持有应该得到 ErrNotHolder，实际 %v", err)
+	}
+	e.hold(t, c.ID, "someone-else")
+	if _, err := e.core.UpdateCard(ctx, testAgent, c.ID, patch); !errors.Is(err, kanban.ErrNotHolder) {
+		t.Fatalf("被别的 agent 持有应该得到 ErrNotHolder，实际 %v", err)
+	}
+
+	e.hold(t, c.ID, testAgent.Name)
+	tags := []string{"done"}
+	got, err := e.core.UpdateCard(ctx, testAgent, c.ID, kanban.UpdateCardInput{
+		Title: strPtr("agent 改的"), Description: strPtr("进展"), Tags: &tags, Branch: strPtr("feat/x"), URL: strPtr("https://example.com/pr/2"),
+	})
+	if err != nil || got.UpdatedBy != "claude" || got.Version != 2 {
+		t.Fatalf("持有者应该能改允许的字段: %+v %v", got, err)
+	}
+	if ev := e.lastEvent(t); ev.ActorKind != "agent" || ev.Actor != "claude" {
+		t.Fatalf("事件应该记录 agent: %+v", ev)
+	}
+
+	yes, due := true, "2026-01-01T00:00:00Z"
+	deps := []int64{}
+	for name, in := range map[string]kanban.UpdateCardInput{
+		"优先级": {Priority: intPtr(3)}, "仅限人处理": {HumanOnly: &yes}, "依赖": {WaitsOn: &deps},
+		"到期时间": {DueAt: &due}, "开始时间": {StartedAt: &due}, "完成时间": {FinishedAt: &due},
+		"混合": {Title: strPtr("x"), Priority: intPtr(1)},
+	} {
+		if _, err := e.core.UpdateCard(ctx, testAgent, c.ID, in); !errors.Is(err, kanban.ErrHumanOnly) {
+			t.Errorf("%s：应该得到 ErrHumanOnly，实际 %v", name, err)
+		}
+	}
+	if e.stored(t, c.ID).Priority != 0 {
+		t.Fatal("被拒绝的修改不应该生效")
+	}
+}
+
+// TestUpdateCardDependencies 验证修改依赖时的校验：能设置、能清除；指向自己、成环、不存在的卡都返回 ErrInvalidInput，
+// 并且失败的修改不生效。
+func TestUpdateCardDependencies(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	a, b, c := e.card(t, colTodo, "A"), e.card(t, colTodo, "B"), e.card(t, colTodo, "C")
+	set := func(id int64, deps ...int64) error {
+		_, err := e.core.UpdateCard(ctx, testActor, id, kanban.UpdateCardInput{WaitsOn: &deps})
+		return err
+	}
+
+	if err := set(a.ID, b.ID); err != nil { // A 等 B
+		t.Fatalf("设置依赖失败: %v", err)
+	}
+	if err := set(b.ID, c.ID); err != nil { // B 等 C
+		t.Fatalf("设置依赖失败: %v", err)
+	}
+	for name, tc := range map[string]struct {
+		card int64
+		deps []int64
+	}{
+		"依赖自己":   {a.ID, []int64{a.ID}},
+		"直接成环":   {b.ID, []int64{a.ID}},
+		"间接成环":   {c.ID, []int64{a.ID}},
+		"依赖不存在的": {c.ID, []int64{9999}},
+	} {
+		if err := set(tc.card, tc.deps...); !errors.Is(err, kanban.ErrInvalidInput) {
+			t.Errorf("%s：应该得到 ErrInvalidInput，实际 %v", name, err)
+		}
+	}
+	if got := e.stored(t, c.ID); len(got.WaitsOn) != 0 || got.Version != 1 {
+		t.Fatalf("失败的修改不应该生效: %+v", got)
+	}
+	if err := set(a.ID); err != nil {
+		t.Fatalf("清除依赖失败: %v", err)
+	}
+	if got := e.stored(t, a.ID); len(got.WaitsOn) != 0 {
+		t.Fatalf("依赖应该已清除: %+v", got)
+	}
+}
+
+// TestUpdateCardRejects 验证其他拒绝情况：卡片不存在、输入不合法、身份无效，失败都不改动卡片。
+func TestUpdateCardRejects(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	c := e.card(t, colTodo, "标题")
+
+	if _, err := e.core.UpdateCard(ctx, testActor, 9999, kanban.UpdateCardInput{Title: strPtr("x")}); !errors.Is(err, kanban.ErrCardNotFound) {
+		t.Fatalf("不存在应该得到 ErrCardNotFound，实际 %v", err)
+	}
+	for name, in := range map[string]kanban.UpdateCardInput{
+		"标题为空": {Title: strPtr(" ")}, "优先级越界": {Priority: intPtr(9)},
+		"时间格式不对": {DueAt: strPtr("明天")}, "链接不合法": {URL: strPtr("file:///etc/passwd")},
+		"前面合法后面不合法": {Title: strPtr("新"), Branch: strPtr(strings.Repeat("a", 201))},
+	} {
+		if _, err := e.core.UpdateCard(ctx, testActor, c.ID, in); !errors.Is(err, kanban.ErrInvalidInput) {
+			t.Errorf("%s：应该得到 ErrInvalidInput，实际 %v", name, err)
+		}
+	}
+	if _, err := e.core.UpdateCard(ctx, kanban.Actor{}, c.ID, kanban.UpdateCardInput{Title: strPtr("x")}); !errors.Is(err, kanban.ErrInvalidActor) {
+		t.Fatalf("身份无效应该得到 ErrInvalidActor，实际 %v", err)
+	}
+	if got := e.stored(t, c.ID); got.Title != "标题" || got.Version != 1 {
+		t.Fatalf("失败的修改不应该生效: %+v", got)
+	}
+}
