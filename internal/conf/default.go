@@ -10,7 +10,8 @@ func DefaultConfig() Bootstrap {
 	return Bootstrap{
 		Server: Server{
 			HTTP: ServerHTTP{
-				Port:      8080,
+				Host:      "127.0.0.1",
+				Port:      7070,
 				Timeout:   Duration(30 * time.Second),
 				JwtSecret: orm.GenerateRandomString(32),
 				PProf: ServerPPROF{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -42,15 +43,16 @@ func Run(bc *conf.Bootstrap) {
 	defer watchCancel()
 	go conf.WatchConfig(watchCtx, bc, webhookWorkersReloader())
 
+	addr := net.JoinHostPort(bc.Server.HTTP.Host, strconv.Itoa(bc.Server.HTTP.Port))
 	svc := server.New(handler,
-		server.Port(strconv.Itoa(bc.Server.HTTP.Port)),
+		server.Port(addr),
 		server.ReadTimeout(bc.Server.HTTP.Timeout.Duration()),
 		server.WriteTimeout(bc.Server.HTTP.Timeout.Duration()),
 	)
 	go svc.Start()
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
-	fmt.Println("服务启动成功 port:", bc.Server.HTTP.Port)
+	fmt.Println("服务启动成功:", displayURL(bc))
 
 	select {
 	case s := <-interrupt:
@@ -87,4 +89,13 @@ func webhookWorkersReloader() conf.ReloadCallback {
 		slog.Info("配置变更")
 		return nil
 	}
+}
+
+// displayURL 返回给用户看的访问地址；监听 0.0.0.0 或 :: 时展示 localhost，避免误导。
+func displayURL(bc *conf.Bootstrap) string {
+	host := bc.Server.HTTP.Host
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "localhost"
+	}
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(bc.Server.HTTP.Port))
 }
