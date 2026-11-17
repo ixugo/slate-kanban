@@ -8,12 +8,13 @@ import (
 	"gorm.io/gorm"
 
 	"slate-kanban/internal/core/kanban"
+	"slate-kanban/internal/core/kanban/kanbantest"
 )
 
 // migrateAll 迁移全部领域模型，供模型测试使用。
 func migrateAll(t *testing.T) *gorm.DB {
 	t.Helper()
-	db := newTestDB(t)
+	db := kanbantest.NewRawDB(t)
 	err := db.AutoMigrate(
 		new(kanban.Board), new(kanban.Column), new(kanban.Card), new(kanban.Comment),
 		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor),
