@@ -51,6 +51,32 @@ func TestSummarize(t *testing.T) {
 	}
 }
 
+// TestBriefOf 验证写入结果的卡片字段：不含描述，也不含要靠整个看板才能算出的派生状态，
+// 标签和依赖永远是数组，版本号和编号都在。
+func TestBriefOf(t *testing.T) {
+	raw, err := json.Marshal(briefOf(&kanban.Card{ID: 7, Key: "SLATE-7", Title: "做登录", Description: "secret-description", Version: 4}))
+	if err != nil {
+		t.Fatalf("序列化失败: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("不是 JSON 对象: %v", err)
+	}
+	for _, k := range []string{"description", "column", "done", "waiting", "claim_active"} {
+		if _, has := got[k]; has {
+			t.Errorf("不应该有字段 %s: %s", k, raw)
+		}
+	}
+	if got["id"] != float64(7) || got["key"] != "SLATE-7" || got["version"] != float64(4) {
+		t.Errorf("编号和版本号不对: %s", raw)
+	}
+	for _, k := range []string{"tags", "waits_on"} {
+		if list, ok := got[k].([]any); !ok || len(list) != 0 {
+			t.Errorf("%s 应该是空数组而不是 null: %v", k, got[k])
+		}
+	}
+}
+
 // TestSummarizeAllNeverNil 验证没有卡片时返回空切片，序列化出来是 [] 而不是 null。
 func TestSummarizeAllNeverNil(t *testing.T) {
 	raw, err := json.Marshal(summarizeAll(nil))
