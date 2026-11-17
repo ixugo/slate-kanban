@@ -25,6 +25,7 @@ func New(core kanban.Core) API {
 // Register 注册全部看板路由。r 应该是已经挂了认证中间件的路由组，处理函数从请求上下文取身份。
 func Register(r gin.IRouter, a API) {
 	a.boardRoutes(r)
+	a.cardRoutes(r)
 }
 
 // empty 是没有内容的成功响应，序列化成 {}。
