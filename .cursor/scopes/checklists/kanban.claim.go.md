@@ -17,11 +17,12 @@
 ## 一致性
 - [x] CHK009 - 卡片设计中的换列清除领取与本文的领取状态图是否一致？[Conflict] 已核对：状态图含卡片换列回到空闲
 - [x] CHK010 - card.released 事件的 why 取值是否在事件设计里列出？[Conflict] 已解决：事件设计文档的类型表补充 released、revoked、moved
-- [x] CHK011 - 完成交接是否重复写 card.released？[Conflict] 已解决：不写，card.moved 已表达
+- [x] CHK011 - 完成交接是否重复写 card.released？[Conflict] 已解决：换列时不写，card.moved 已表达；留在原列时没有别的事件，补一条 card.released
 
 ## 边界场景
 - [x] CHK012 - 两个 agent 同时取同一张卡，失败方的行为是否定义？[Edge Case] 已解决：串行后失败方自动取下一张
 - [x] CHK013 - 过期未被接手时原持有者续租是否会涨版本？[Edge Case] 已解决：只顺延到期时间，不涨版本
-- [x] CHK014 - 完成交接指定的目标列是进行中这类开启 AgentPickup 的列时是否拦截？[Edge Case] 已解决：agent 指定时返回 400
+- [x] CHK014 - 完成交接指定的目标列是进行中这类开启 AgentPickup 的列时是否拦截？[Edge Case] 已解决：agent 指定时返回 403（ErrAgentPickupColumn），目标列不存在返回 400
 - [x] CHK015 - 目标列由列的下一列配置得出且恰好开启 AgentPickup 时是否允许？[Edge Case] 已解决：允许，因为这是人配置的流转
 - [x] CHK016 - 卡片处于等待中但已经被某 agent 持有，能否完成交接？[Edge Case] 已解决：可以，等待只影响领取，不影响已持有卡片的交接
+- [x] CHK017 - 别的 agent 释放不属于自己的卡片怎么办？[Edge Case] 已解决：对方租约还有效返回 409；已经过期按空闲处理，成功且不写事件

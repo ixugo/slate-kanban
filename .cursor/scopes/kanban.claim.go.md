@@ -84,11 +84,15 @@ flowchart TD
     B --> C{卡片当前被持有}
     C -->|否| D[提交, 按幂等返回成功]
     C -->|是| E{操作者是人, 或是持有者本人}
-    E -->|否| Z2[回滚, 返回 403]
+    E -->|否| E2{持有者的租约还有效}
+    E2 -->|是| Z2[回滚, 返回 409]
+    E2 -->|否| D2[提交, 按幂等返回成功, 不写事件]
     E -->|是| F[清空 ClaimedBy 和到期时间, Version 加一]
     F --> G[写 card.released 事件, 持有者本人为 released, 人为 revoked]
     G --> H[提交并广播]
 ```
+
+说明：别的 agent 想释放自己不持有的卡片，对方的租约还有效就拒绝（409）；已经过期的领取在它看来本来就是空闲，什么都不做。
 
 ## 完成交接
 
@@ -101,9 +105,11 @@ flowchart TD
     C --> D{操作者是 agent 且自己持有这张卡}
     D -->|否, 是 agent| Z3[回滚, 返回 409, 别人持有或无人持有都一样]
     D -->|是, 或操作者是人| E{指定了目标列}
-    E -->|是| F{目标列属于该看板, 且 agent 指定时它不开启 AgentPickup}
+    E -->|是| F{目标列属于该看板}
     F -->|否| Z4[回滚, 返回 400]
-    F -->|是| I
+    F -->|是| F2{操作者是 agent 且目标列开启 AgentPickup}
+    F2 -->|是| Z6[回滚, 返回 403, 否则它能把卡放回队列绕过评审]
+    F2 -->|否| I
     E -->|否| G{当前列设置了下一列}
     G -->|否| Z5[回滚, 返回 400, 提示指定目标列或让用户设置下一列]
     G -->|是| I[确定目标列]
@@ -111,14 +117,20 @@ flowchart TD
     J --> K{传了分支或链接}
     K -->|是| L[校验并写入, 写 card.updated 事件]
     K -->|否| M
-    L --> M[把卡片追加到目标列末尾, 清空领取, Version 加一]
-    M --> N[写 card.moved 事件]
+    L --> M{目标列就是当前列}
+    M -->|是| M2[只清空领取, 写 card.released 事件, 保存]
+    M -->|否| M3[把卡片追加到目标列末尾, 清空领取]
+    M3 --> N[写 card.moved 事件]
     N --> O[触发自动化: 离开原列与进入目标列]
-    O --> P[提交并广播]
+    O --> O2[保存卡片, 规则的改动和换列一起落库, Version 加一]
+    O2 --> P[提交并广播]
+    M2 --> P
 ```
 
 说明：写总结评论、改分支和链接、换列、清空领取、触发自动化都在同一个事务里，任何一步失败整体回滚，
-所以不会出现总结已经写了但卡片还留在进行中的半成品。卡片被 agent 完成时，持有者的释放不再单独写 card.released 事件，因为 card.moved 已经表达了这件事。
+所以不会出现总结已经写了但卡片还留在进行中的半成品。换了列时持有者的释放不再单独写 card.released 事件，因为 card.moved 已经表达了这件事；
+留在原列时没有别的事件，才补一条 card.released。人也可以完成任何卡片，这时同样清空领取。
+换列的收尾和手动移动共用 commitMove，所以规则对谁的操作都一样生效。
 
 ## 领取状态
 
@@ -147,11 +159,13 @@ stateDiagram-v2
 
 | 步骤 | 函数 | 文件 |
 |------|------|------|
-| 取下一张卡 | Core.NextCard | internal/core/kanban/claim.go |
-| 指定领取与续租 | Core.ClaimCard | internal/core/kanban/claim.go |
-| 释放 | Core.ReleaseCard | internal/core/kanban/claim.go |
-| 完成交接 | Core.FinishCard | internal/core/kanban/claim.go |
-| 领取资格 | checkClaimable | internal/core/kanban/claim.go |
-| 持有与有效租约判断 | cardHeldBy, claimActive | internal/core/kanban/claim.go |
+| 取下一张卡 | Core.NextCard, unit.claimNext | internal/core/kanban/claim_acquire.go |
+| 指定领取与续租 | Core.ClaimCard, unit.grantClaim | internal/core/kanban/claim_acquire.go |
+| 释放 | Core.ReleaseCard, unit.releaseCard | internal/core/kanban/claim_release.go |
+| 完成交接 | Core.FinishCard, unit.finishCard, finishTarget, recordLinks, handOver | internal/core/kanban/claim_finish.go |
+| 领取资格 | checkClaimable, notPickupError | internal/core/kanban/claim.go |
+| 有效租约、清除领取、顺延租约 | claimActive, unit.clearClaim, unit.renewLease | internal/core/kanban/claim.go |
 | 租约时长校验 | normalizeLease | internal/core/kanban/claim.go |
+| 开启领取的列与看板索引 | boardIndex.pickupColumns, unit.boardIndex, unit.claimIndex | internal/core/kanban/claim.go, claim_acquire.go |
+| 写入权限（持有者判断） | checkCardWritable | internal/core/kanban/card.go |
 | 入参结构 | NextCardInput, ClaimCardInput, FinishCardInput | internal/core/kanban/claim.param.go |
