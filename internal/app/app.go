@@ -17,9 +17,10 @@ import (
 	"github.com/ixugo/goddd/pkg/system"
 
 	"slate-kanban/internal/conf"
+	"slate-kanban/internal/lifecycle"
 )
 
-// Run 装配依赖并启动 HTTP 服务，阻塞到收到退出信号。
+// Run 装配依赖并启动 HTTP 服务，阻塞到收到退出信号；收到信号后先通知长连接结束，再等普通请求处理完并关闭。
 // 相对路径（配置、数据库、日志）都以启动时的工作目录为基准，
 // 以服务方式运行时请由服务管理器设置 WorkingDirectory。
 func Run(bc *conf.Bootstrap) {
@@ -40,6 +41,12 @@ func Run(bc *conf.Bootstrap) {
 		panic(err)
 	}
 	defer cleanUp()
+
+	// 关闭服务前先取消 closing，通知长连接（实时流、阻塞等待）自己结束；
+	// 否则 Shutdown 要一直等到超时，还会留下一条错误日志
+	closing, closeNow := context.WithCancel(context.Background())
+	defer closeNow()
+	handler = lifecycle.Wrap(handler, closing)
 
 	// 启动配置文件热重载
 	watchCtx, watchCancel := context.WithCancel(context.Background())
@@ -66,6 +73,7 @@ func Run(bc *conf.Bootstrap) {
 		system.ErrPrintf("err: %s\n", err.Error())
 		slog.Error(`<-shutdown by server.Notify`, "err", err)
 	}
+	closeNow()
 	if err := svc.Shutdown(); err != nil {
 		slog.Error(`server.Shutdown`, "err", err)
 	}
