@@ -40,6 +40,15 @@ func computePosition(cards []*Card, beforeID, afterID int64) (float64, int, erro
 	return pos, idx, err
 }
 
+// appendPosition 读出某一列当前最大的位置，返回放到这一列末尾的位置，空列是第一个间距。
+func (u *unit) appendPosition(ctx context.Context, columnID int64) (float64, error) {
+	maxPos, err := u.card.MaxPosition(ctx, columnID)
+	if err != nil {
+		return 0, wrapDB("读取列尾位置", err)
+	}
+	return maxPos + positionStep, nil
+}
+
 // tailPosition 返回放到列尾的位置：最后一张的位置加一个间距，空列是第一个间距。
 func tailPosition(cards []*Card) float64 {
 	if len(cards) == 0 {

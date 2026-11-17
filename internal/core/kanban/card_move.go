@@ -124,7 +124,16 @@ func (u *unit) relocateCard(ctx context.Context, actor Actor, card *Card, from, 
 		return err
 	}
 	card.ColumnID, card.Position = to.ID, pos
-	return u.saveCardChange(ctx, actor, card, EventCardMoved, map[string]any{
-		"from_id": from.ID, "from": from.Name, "to_id": to.ID, "to": to.Name,
-	})
+	return u.commitMove(ctx, actor, card, from, to)
+}
+
+// commitMove 在卡片的新列和位置已经写到内存里之后收尾：保存卡片并追加 card.moved 事件。
+// 手动移动和完成交接都走这里，换列的收尾只有这一处。
+func (u *unit) commitMove(ctx context.Context, actor Actor, card *Card, from, to *Column) error {
+	return u.saveCardChange(ctx, actor, card, EventCardMoved, movedPayload(from, to))
+}
+
+// movedPayload 是 card.moved 事件里除了卡片编号和标题以外的内容：原列和目标列的主键与名称。
+func movedPayload(from, to *Column) map[string]any {
+	return map[string]any{"from_id": from.ID, "from": from.Name, "to_id": to.ID, "to": to.Name}
 }

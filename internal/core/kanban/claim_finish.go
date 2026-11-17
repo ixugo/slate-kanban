@@ -106,13 +106,11 @@ func (u *unit) handOver(ctx context.Context, actor Actor, card *Card, from, to *
 		}
 		return u.saveCard(ctx, actor, card)
 	}
-	maxPos, err := u.card.MaxPosition(ctx, to.ID)
+	pos, err := u.appendPosition(ctx, to.ID)
 	if err != nil {
-		return wrapDB("读取目标列末尾位置", err)
+		return err
 	}
 	card.ClaimedBy, card.ClaimExpiresAt = "", nil
-	card.ColumnID, card.Position = to.ID, maxPos+positionStep
-	return u.saveCardChange(ctx, actor, card, EventCardMoved, map[string]any{
-		"from_id": from.ID, "from": from.Name, "to_id": to.ID, "to": to.Name,
-	})
+	card.ColumnID, card.Position = to.ID, pos
+	return u.commitMove(ctx, actor, card, from, to)
 }

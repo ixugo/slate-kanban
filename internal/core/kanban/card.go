@@ -141,11 +141,11 @@ func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card) error {
 	}
 	card.Number = number
 	card.Key = fmt.Sprintf("%s-%d", board.Slug, number)
-	maxPos, err := u.card.MaxPosition(ctx, card.ColumnID)
+	pos, err := u.appendPosition(ctx, card.ColumnID)
 	if err != nil {
-		return wrapDB("读取列尾位置", err)
+		return err
 	}
-	card.Position = maxPos + positionStep
+	card.Position = pos
 	return nil
 }
 
