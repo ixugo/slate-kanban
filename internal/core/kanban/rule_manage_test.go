@@ -48,11 +48,7 @@ func (e *cardEnv) ruleNames(t *testing.T) []string {
 	if err != nil {
 		t.Fatalf("列规则失败: %v", err)
 	}
-	names := make([]string, 0, len(rules))
-	for _, r := range rules {
-		names = append(names, r.Name)
-	}
-	return names
+	return ruleTitles(rules)
 }
 
 // TestCreateRule 验证创建：名称被整理，默认启用，规则排在已有规则后面，动作被整理成只含自己用到的字段，

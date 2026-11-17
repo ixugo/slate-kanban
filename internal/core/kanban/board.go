@@ -101,7 +101,7 @@ func (c Core) ListBoards(ctx context.Context) ([]*Board, error) {
 	return items, nil
 }
 
-// GetBoard 返回看板和它的列。看板不存在返回 404。人和 agent 都可以读。
+// GetBoard 返回看板、它的列和自动化规则（含停用的）。看板不存在返回 404。人和 agent 都可以读。
 func (c Core) GetBoard(ctx context.Context, id int64) (*BoardDetail, error) {
 	b, err := c.store.Board().GetByID(ctx, id)
 	if err != nil {
@@ -111,7 +111,11 @@ func (c Core) GetBoard(ctx context.Context, id int64) (*BoardDetail, error) {
 	if err != nil {
 		return nil, wrapDB("读取列", err)
 	}
-	return &BoardDetail{Board: b, Columns: cols, Rules: []*Rule{}}, nil
+	rules, err := c.store.Rule().ListByBoard(ctx, id)
+	if err != nil {
+		return nil, wrapDB("读取规则", err)
+	}
+	return &BoardDetail{Board: b, Columns: cols, Rules: rules}, nil
 }
 
 // UpdateBoard 修改看板的名称、说明或项目路径，只更新入参里出现的字段。
