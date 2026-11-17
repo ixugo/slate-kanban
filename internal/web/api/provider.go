@@ -8,10 +8,17 @@ import (
 	"github.com/ixugo/goddd/domain/uniqueid"
 	"github.com/ixugo/goddd/domain/uniqueid/store/uniqueiddb"
 	"github.com/ixugo/goddd/domain/version/versionapi"
-	"slate-kanban/internal/conf"
 	"github.com/ixugo/goddd/pkg/orm"
 	"github.com/ixugo/goddd/pkg/web"
 	"gorm.io/gorm"
+
+	"slate-kanban/internal/conf"
+	"slate-kanban/internal/core/access"
+	"slate-kanban/internal/core/access/stores/accessdb"
+	"slate-kanban/internal/core/kanban"
+	"slate-kanban/internal/core/kanban/stores/kanbandb"
+	"slate-kanban/internal/web/api/accessapi"
+	"slate-kanban/internal/web/api/kanbanapi"
 )
 
 var (
@@ -20,13 +27,20 @@ var (
 		wire.Struct(new(Usecase), "*"),
 		NewHTTPHandler,
 		versionapi.New,
+		NewAccessCore,
+		accessapi.New,
+		NewKanbanCore,
+		kanbanapi.New,
 	)
 )
 
+// Usecase 汇总路由需要的全部依赖，由 Wire 按字段装配。
 type Usecase struct {
 	Conf    *conf.Bootstrap
 	DB      *gorm.DB
 	Version versionapi.API
+	Access  accessapi.API
+	Kanban  kanbanapi.API
 }
 
 // NewHTTPHandler 生成Gin框架路由内容
@@ -57,4 +71,19 @@ func NewHTTPHandler(uc *Usecase) http.Handler {
 func NewUniqueID(db *gorm.DB) uniqueid.Core {
 	store := uniqueiddb.NewDB(db).AutoMigrate(orm.GetEnabledAutoMigrate())
 	return uniqueid.NewCore(store, 6)
+}
+
+// NewAccessCore 创建令牌领域：令牌表接到数据库，管理令牌取自配置。
+// Core 构造函数带可变参数，Wire 不能直接用，所以这里包一层。表结构是否迁移由全局开关决定，和 NewUniqueID 一致。
+func NewAccessCore(db *gorm.DB, bc *conf.Bootstrap) access.Core {
+	store := accessdb.NewDB(db).AutoMigrate(orm.GetEnabledAutoMigrate())
+	return access.NewCore(store, bc.Auth.AdminToken)
+}
+
+// NewKanbanCore 创建看板领域：看板相关的表接到数据库。
+// 同样因为 Core 构造函数带可变参数而包一层；REST、SSE 和之后的 MCP 共用这一个 Core，
+// 这样任何入口产生的更新，都能通过它内部的订阅通知到所有等待的连接。
+func NewKanbanCore(db *gorm.DB) kanban.Core {
+	store := kanbandb.NewDB(db).AutoMigrate(orm.GetEnabledAutoMigrate())
+	return kanban.NewCore(store)
 }
