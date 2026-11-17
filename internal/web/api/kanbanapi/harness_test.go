@@ -2,6 +2,7 @@ package kanbanapi_test
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -10,7 +11,9 @@ import (
 
 	"slate-kanban/internal/core/access"
 	"slate-kanban/internal/core/access/accesstest"
+	"slate-kanban/internal/core/kanban"
 	"slate-kanban/internal/core/kanban/kanbantest"
+	"slate-kanban/internal/core/kanban/stores/kanbandb"
 	"slate-kanban/internal/web/api/accessapi"
 	"slate-kanban/internal/web/api/apitest"
 	"slate-kanban/internal/web/api/kanbanapi"
@@ -21,20 +24,50 @@ const adminToken = "admin-secret"
 // stack 是一套接好内存数据库的完整接口：令牌、看板，路由和正式环境一样挂了认证中间件。
 type stack struct {
 	apitest.Client
-	tokens map[string]string // agent 名称 -> 令牌明文
-	access access.Core
+	tokens   map[string]string // agent 名称 -> 令牌明文
+	access   access.Core
+	db       kanbandb.DB   // 看板的数据库，个别测试要直接动它，比如模拟事件被清理
+	finished chan struct{} // 每处理完一个请求写一次，用来确认长连接的处理函数确实退出了
 }
 
 // newStack 搭一套全新的接口。
 func newStack(t *testing.T) *stack {
 	t.Helper()
+	return newStackWith(t, func(a kanbanapi.API) kanbanapi.API { return a })
+}
+
+// newStackWith 和 newStack 一样，但允许先调整看板接口，比如缩短实时流的心跳间隔。
+func newStackWith(t *testing.T, tune func(kanbanapi.API) kanbanapi.API) *stack {
+	t.Helper()
 	acore := accesstest.NewCore(t, adminToken)
 	aapi := accessapi.New(acore)
+	db := kanbantest.NewDB(t)
+	s := &stack{tokens: map[string]string{}, access: acore, db: db, finished: make(chan struct{}, 16)}
 	engine := gin.New()
+	engine.Use(func(c *gin.Context) {
+		c.Next()
+		select {
+		case s.finished <- struct{}{}:
+		default:
+		}
+	})
 	v1 := engine.Group("/api/v1", aapi.Middleware())
 	accessapi.Register(v1, aapi)
-	kanbanapi.Register(v1, kanbanapi.New(kanbantest.NewCore(t)))
-	return &stack{Client: apitest.Client{Engine: engine}, tokens: map[string]string{}, access: acore}
+	kanbanapi.Register(v1, tune(kanbanapi.New(kanban.NewCore(db))))
+	s.Client = apitest.Client{Engine: engine}
+	return s
+}
+
+// serve 启动一个真正监听端口的服务，测试实时流这类要持续读取的响应时用。测试结束时先断开所有连接再关闭，
+// 否则还在流着的连接会让关闭一直等下去。
+func (s *stack) serve(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(s.Engine)
+	t.Cleanup(func() {
+		srv.CloseClientConnections()
+		srv.Close()
+	})
+	return srv
 }
 
 // token 返回名为 name 的 agent 令牌，第一次用到时才创建。
