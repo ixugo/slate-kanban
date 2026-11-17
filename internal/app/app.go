@@ -47,7 +47,9 @@ func Run(bc *conf.Bootstrap) {
 	svc := server.New(handler,
 		server.Port(addr),
 		server.ReadTimeout(bc.Server.HTTP.Timeout.Duration()),
-		server.WriteTimeout(bc.Server.HTTP.Timeout.Duration()),
+		// 不设整体写超时：SSE 推送和 MCP 阻塞等待都是长连接，需要持续写入；
+		// 普通接口的耗时由各自的 context 控制
+		server.WriteTimeout(0),
 	)
 	go svc.Start()
 	interrupt := make(chan os.Signal, 1)
