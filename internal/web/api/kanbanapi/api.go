@@ -27,6 +27,7 @@ func Register(r gin.IRouter, a API) {
 	a.boardRoutes(r)
 	a.columnRoutes(r)
 	a.cardRoutes(r)
+	a.claimRoutes(r)
 }
 
 // empty 是没有内容的成功响应，序列化成 {}。
