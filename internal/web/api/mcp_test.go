@@ -101,6 +101,9 @@ func TestMCPSharesTokensAndBoards(t *testing.T) {
 	createRESTBoard(t, "MCP 共用看板", "RTMCPSHARE")
 
 	sess := mcpConnect(t, srv, plain, nil)
+	if got := sess.InitializeResult().ServerInfo.Version; got != testBuildVersion {
+		t.Errorf("MCP 服务应该报告构建版本号 %q，实际 %q", testBuildVersion, got)
+	}
 	who, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "whoami"})
 	if err != nil || who.IsError {
 		t.Fatalf("whoami 失败: %v %+v", err, who)

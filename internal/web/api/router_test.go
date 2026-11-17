@@ -29,6 +29,9 @@ import (
 // testAdminToken 是测试路由使用的管理令牌。
 const testAdminToken = "router-test-admin-token-0123456789"
 
+// testBuildVersion 是测试路由使用的构建版本号，MCP 服务会把它报给客户端。
+const testBuildVersion = "router-test-version"
+
 // shared 是整个测试进程共用的一套完整路由，由 TestMain 组装。
 var shared struct {
 	engine *gin.Engine
@@ -67,6 +70,7 @@ func runWithSharedRouter(m *testing.M) int {
 
 	bc := &conf.Bootstrap{}
 	bc.Auth.AdminToken = testAdminToken
+	bc.Runtime.BuildVersion = testBuildVersion
 	acore, kcore := NewAccessCore(db, bc), NewKanbanCore(db)
 	mcpAPI, stopMCP := NewMCP(bc, acore, kcore)
 	defer stopMCP() // 在关闭数据库之前停掉通知器
