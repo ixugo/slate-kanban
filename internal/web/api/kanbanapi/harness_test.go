@@ -1,6 +1,7 @@
 package kanbanapi_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"slate-kanban/internal/core/kanban"
 	"slate-kanban/internal/core/kanban/kanbantest"
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
+	"slate-kanban/internal/lifecycle"
 	"slate-kanban/internal/web/api/accessapi"
 	"slate-kanban/internal/web/api/apitest"
 	"slate-kanban/internal/web/api/kanbanapi"
@@ -28,6 +30,8 @@ type stack struct {
 	access   access.Core
 	db       kanbandb.DB   // 看板的数据库，个别测试要直接动它，比如模拟事件被清理
 	finished chan struct{} // 每处理完一个请求写一次，用来确认长连接的处理函数确实退出了
+	closing  context.Context
+	closeNow context.CancelFunc // 调用它模拟服务开始关闭；只对 serve 起的真实服务有效
 }
 
 // newStack 搭一套全新的接口。
@@ -43,6 +47,7 @@ func newStackWith(t *testing.T, tune func(kanbanapi.API) kanbanapi.API) *stack {
 	aapi := accessapi.New(acore)
 	db := kanbantest.NewDB(t)
 	s := &stack{tokens: map[string]string{}, access: acore, db: db, finished: make(chan struct{}, 16)}
+	s.closing, s.closeNow = context.WithCancel(t.Context())
 	engine := gin.New()
 	engine.Use(func(c *gin.Context) {
 		c.Next()
@@ -58,11 +63,11 @@ func newStackWith(t *testing.T, tune func(kanbanapi.API) kanbanapi.API) *stack {
 	return s
 }
 
-// serve 启动一个真正监听端口的服务，测试实时流这类要持续读取的响应时用。测试结束时先断开所有连接再关闭，
-// 否则还在流着的连接会让关闭一直等下去。
+// serve 启动一个真正监听端口的服务，测试实时流这类要持续读取的响应时用。和正式运行一样用 lifecycle.Wrap 包了一层，
+// 调用 closeNow 就等于服务开始关闭。测试结束时先断开所有连接再关闭，否则还在流着的连接会让关闭一直等下去。
 func (s *stack) serve(t *testing.T) *httptest.Server {
 	t.Helper()
-	srv := httptest.NewServer(s.Engine)
+	srv := httptest.NewServer(lifecycle.Wrap(s.Engine, s.closing))
 	t.Cleanup(func() {
 		srv.CloseClientConnections()
 		srv.Close()
