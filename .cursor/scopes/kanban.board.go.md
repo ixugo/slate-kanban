@@ -164,7 +164,12 @@ flowchart TD
     K --> L[提交并广播]
 ```
 
-说明：因删除列而被迁移的卡片不会触发自动化规则，因为这是结构调整，不是用户在流程里推进卡片；事件里记录移动的张数。
+说明：
+
+- 因删除列而被迁移的卡片不会触发自动化规则，因为这是结构调整，不是用户在流程里推进卡片；事件里只记录移动的张数，不为每张卡片单独写 card.moved。
+- 卡片换了列，原来的领取不再有意义，所以被迁移的卡片领取一并清掉（有领取的写 card.released，why 为 moved），版本各加一。
+- 列已经不存在时直接返回成功；移入目标列不存在、不属于该看板或就是要删的列本身，返回 400。
+- 引用这一列的规则指触发所在的列是它，或者某个 move_to_column 动作的目标列是它；已经停用的规则不用动，想重新启用时保存前的校验会指出列不存在。
 
 ## 调整列顺序
 
@@ -181,6 +186,25 @@ flowchart TD
     G --> H[提交并广播]
 ```
 
+## 删除看板
+
+```mermaid
+flowchart TD
+    A[收到删除看板请求] --> B{操作者是人}
+    B -->|否| Z1[返回 403]
+    B -->|是| C[开启事务, 锁定看板行]
+    C --> D{看板存在}
+    D -->|否| Z0[返回成功, 删除是幂等的]
+    D -->|是| E[依次删除评论, 卡片, 规则, 列, agent 读取进度, 事件]
+    E -->|任何一步失败| Z2[整体回滚, 返回数据库错误]
+    E --> F[删除看板本身]
+    F --> G[标记要广播, 但不写事件]
+    G --> H[提交并广播一次]
+```
+
+说明：事件随看板一起删除，所以只广播、不写事件；正在等待这个看板的 agent 和网页被唤醒后重新查询，得到"看板不存在"。
+删除顺序按依赖从子到父，每类数据一条删除语句，所以不管卡片多少，语句数是固定的。
+
 ## 整板快照
 
 网页首次加载和断线恢复时使用。先读最新事件序号，再读数据，所以快照里的数据一定不比这个序号旧；
@@ -196,7 +220,7 @@ sequenceDiagram
     C->>D: 查询该看板最新事件序号
     C->>D: 查询看板, 列
     C->>D: 查询全部卡片, 按列顺序和卡片位置排序
-    C-->>W: 返回看板, 列, 卡片和 seq
+    C-->>W: 返回看板, 列, 规则, 卡片和 seq
     W->>C: 建立实时连接, Last-Event-ID 等于 seq
     C-->>W: 补发 seq 之后的事件, 然后转为实时
 ```
@@ -216,11 +240,15 @@ sequenceDiagram
 | 步骤 | 函数 | 文件 |
 |------|------|------|
 | 看板存储接口与锁行 | BoardStorer, BoardStorer.Lock | internal/core/kanban/board.go |
-| 创建、修改、删除、列表、详情 | Core.CreateBoard, UpdateBoard, DeleteBoard, ListBoards, GetBoard | internal/core/kanban/board.go |
-| slug 生成与校验 | generateSlug, validateSlug | internal/core/kanban/board.go |
-| 项目路径校验 | validateProjectPath | internal/core/kanban/board.go |
-| 起步模板 | boardTemplates, localizedTemplate | internal/core/kanban/board_template.go |
+| 创建、修改、删除、列表、详情 | Core.CreateBoard, createBoardOnce, UpdateBoard, DeleteBoard, ListBoards, GetBoard | internal/core/kanban/board.go |
+| agent 能否写项目路径 | checkBoardPatchAllowed | internal/core/kanban/board.go |
+| 删除看板的事务内步骤 | unit.deleteBoard | internal/core/kanban/board.go |
+| slug 生成与校验 | generateSlug, validateSlug, maxSlugAttempts | internal/core/kanban/board.param.go |
+| 项目路径校验 | validateProjectPath | internal/core/kanban/board.param.go |
+| 起步模板的列与文案 | normalizeLocale, textsFor, unit.seedColumns | internal/core/kanban/board_template.go |
+| 起步模板的规则 | defaultRules, unit.seedRules | internal/core/kanban/board_template.go |
 | 列的增删改与排序 | Core.CreateColumn, UpdateColumn, DeleteColumn, ReorderColumns | internal/core/kanban/column.go |
+| 删除列的事务内步骤 | unit.deleteColumn, evacuateColumn, disableRulesUsing, ruleUsesColumn | internal/core/kanban/column.go |
 | 整板快照 | Core.BoardSnapshot | internal/core/kanban/snapshot.go |
-| 入参结构 | CreateBoardInput, UpdateBoardInput 等 | internal/core/kanban/board.param.go, column.param.go |
-| 错误定义 | ErrBoardNotFound 等 | internal/core/kanban/errors.go |
+| 入参结构 | CreateBoardInput, UpdateBoardInput, CreateColumnInput, UpdateColumnInput | internal/core/kanban/board.param.go, column.param.go |
+| 错误定义 | ErrBoardNotFound, ErrColumnNotEmpty 等 | internal/core/kanban/errors.go |
