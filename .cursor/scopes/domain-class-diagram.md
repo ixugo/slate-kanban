@@ -53,7 +53,7 @@ classDiagram
         +int64 BoardID
         +string Name
         +bool Enabled
-        +string Trigger
+        +string TriggerType
         +int64 ColumnID
         +string Condition
         +List~RuleAction~ Actions
