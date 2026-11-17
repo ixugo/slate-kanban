@@ -85,6 +85,7 @@ func (a API) Handler() http.Handler {
 // newServer 创建一个视图对应的 MCP Server，并注册这个视图能用的全部工具。
 func (a API) newServer(v view) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: serverName, Title: serverTitle, Version: a.version}, &mcp.ServerOptions{
+		Instructions:       instructionsFor(v),
 		SubscribeHandler:   a.subscribe,
 		UnsubscribeHandler: a.unsubscribe,
 	})
