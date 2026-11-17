@@ -138,7 +138,7 @@ func (u *unit) commitMove(ctx context.Context, actor Actor, card *Card, from, to
 	if err != nil {
 		return err
 	}
-	if err := u.newRuleRun(card).moved(ctx, from.ID, to.ID); err != nil {
+	if err := u.newRuleRun(card).moved(ctx, from.ID, to.ID, 0); err != nil {
 		return err
 	}
 	return u.saveCard(ctx, actor, card)

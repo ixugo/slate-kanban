@@ -6,6 +6,10 @@ import (
 	"slices"
 )
 
+// maxRuleDepth 规则引发的连锁移动最多往下几层：人的操作是第 0 层，规则把卡片移走是第 1 层，依此类推。
+// 超过就不再触发规则，和"同一条规则一次操作里只执行一次"一起防止规则互相把卡片移来移去。
+const maxRuleDepth = 3
+
 // ruleRun 是一次操作里规则引擎的运行状态。一次操作指创建一张卡片、移动一张卡片或完成一次交接。
 // 这期间启用的规则只读一次，同一条规则最多执行一次，规则对卡片的改动都落在内存里的卡片上，
 // 由调用方在最后统一保存，所以不管命中几条规则，卡片只写一次、版本只加一次。
@@ -40,7 +44,7 @@ func (u *unit) fireCreateRules(ctx context.Context, actor Actor, card *Card) err
 // created 触发创建卡片的规则：先是 card_created，再是进入初始列的 card_entered。
 func (r *ruleRun) created(ctx context.Context) error {
 	for _, kind := range []string{TriggerCardCreated, TriggerCardEntered} {
-		if err := r.trigger(ctx, kind, r.card.ColumnID); err != nil {
+		if err := r.trigger(ctx, kind, r.card.ColumnID, 0); err != nil {
 			return err
 		}
 	}
@@ -48,16 +52,23 @@ func (r *ruleRun) created(ctx context.Context) error {
 }
 
 // moved 触发卡片换列的规则：先是离开原列的 card_left，再是进入新列的 card_entered。
-func (r *ruleRun) moved(ctx context.Context, fromID, toID int64) error {
-	if err := r.trigger(ctx, TriggerCardLeft, fromID); err != nil {
+// depth 是连锁的层数，人的操作传 0，规则引发的移动比引发它的规则深一层。
+func (r *ruleRun) moved(ctx context.Context, fromID, toID int64, depth int) error {
+	if err := r.trigger(ctx, TriggerCardLeft, fromID, depth); err != nil {
 		return err
 	}
-	return r.trigger(ctx, TriggerCardEntered, toID)
+	return r.trigger(ctx, TriggerCardEntered, toID, depth)
 }
 
 // trigger 按规则的执行顺序，依次执行触发类型和列都匹配、本次操作里还没执行过、条件也满足的规则。
-// 复杂度是规则数（最多 maxRulesPerBoard）乘以每条规则的动作数（最多 maxRuleActions）。
-func (r *ruleRun) trigger(ctx context.Context, kind string, columnID int64) error {
+// 连锁超过 maxRuleDepth 层就停下并记一条警告。
+// 复杂度是规则数（最多 maxRulesPerBoard）乘以每条规则的动作数（最多 maxRuleActions），
+// 连锁的层数又被 maxRuleDepth 限住，所以一次操作的工作量有上限。
+func (r *ruleRun) trigger(ctx context.Context, kind string, columnID int64, depth int) error {
+	if depth > maxRuleDepth {
+		slog.WarnContext(ctx, "规则的连锁超过最大层数，不再触发", "board_id", r.card.BoardID, "card", r.card.Key, "depth", depth)
+		return nil
+	}
 	rules, err := r.enabledRules(ctx)
 	if err != nil {
 		return err
@@ -74,7 +85,7 @@ func (r *ruleRun) trigger(ctx context.Context, kind string, columnID int64) erro
 			continue
 		}
 		r.fired[rule.ID] = true
-		if err := r.execute(ctx, rule); err != nil {
+		if err := r.execute(ctx, rule, depth); err != nil {
 			return err
 		}
 	}
@@ -135,10 +146,10 @@ func (r *ruleRun) conditionHolds(ctx context.Context, rule *Rule) (bool, error) 
 // actions 列出真正生效的动作，skipped 列出因为参数原因无法执行的动作；
 // 全是"本来就不需要改动"的空操作时不写事件，免得活动记录被没有意义的条目刷屏。
 // 只有数据库错误才会返回错误让整个操作回滚。
-func (r *ruleRun) execute(ctx context.Context, rule *Rule) error {
+func (r *ruleRun) execute(ctx context.Context, rule *Rule, depth int) error {
 	done, skipped := []string{}, []string{}
 	for _, a := range rule.Actions {
-		effect, skip, err := r.apply(ctx, rule, a)
+		effect, skip, err := r.apply(ctx, rule, a, depth)
 		if err != nil {
 			return err
 		}
@@ -161,13 +172,50 @@ func (r *ruleRun) execute(ctx context.Context, rule *Rule) error {
 }
 
 // apply 执行一个动作。effect 表示动作生效了，skip 不为空表示动作无法执行，值是原因。
-// 评论动作单独处理；其余动作只改内存里的卡片，改动了就标记 changed，等调用方保存。
-func (r *ruleRun) apply(ctx context.Context, rule *Rule, a RuleAction) (effect bool, skip string, err error) {
-	if a.Type == ActionAddComment {
+// 评论和移动列需要读写数据库，单独处理；其余动作只改内存里的卡片，改动了就标记 changed，等调用方保存。
+func (r *ruleRun) apply(ctx context.Context, rule *Rule, a RuleAction, depth int) (effect bool, skip string, err error) {
+	switch a.Type {
+	case ActionAddComment:
 		_, err := r.u.addComment(ctx, AutomationActor(rule.Name), r.card, a.Text)
 		return err == nil, "", err
+	case ActionMoveToColumn:
+		return r.move(ctx, rule, a, depth)
 	}
 	changed, skip := applyFieldAction(r.card, a, r.u.now())
 	r.changed = r.changed || changed
 	return changed, skip, nil
+}
+
+// move 执行 move_to_column：把卡片移到目标列末尾，追加 card.moved 事件（操作者是 system），
+// 再以更深一层继续触发离开原列和进入目标列的规则。目标列已经不存在时跳过并说明原因，
+// 卡片本来就在目标列时什么都不做。进入规则的时候卡片一定没有领取：创建时没有，
+// 换列和完成交接已经清掉了，所以这里不用再清。
+func (r *ruleRun) move(ctx context.Context, rule *Rule, a RuleAction, depth int) (effect bool, skip string, err error) {
+	ix, err := r.index(ctx)
+	if err != nil {
+		return false, "", err
+	}
+	to, from := ix.columns[a.ColumnID], ix.columns[r.card.ColumnID]
+	switch {
+	case to == nil:
+		return false, "目标列已经不存在", nil
+	case from == nil:
+		return false, "卡片所在的列已经不存在", nil
+	case from.ID == to.ID:
+		return false, "", nil
+	}
+	pos, err := r.u.appendPosition(ctx, to.ID)
+	if err != nil {
+		return false, "", err
+	}
+	r.card.ColumnID, r.card.Position = to.ID, pos
+	r.changed = true
+	err = r.u.emit(ctx, AutomationActor(rule.Name), newEvent{
+		BoardID: r.card.BoardID, CardID: r.card.ID, Type: EventCardMoved,
+		Payload: cardPayload(r.card, movedPayload(from, to)),
+	})
+	if err != nil {
+		return false, "", err
+	}
+	return true, "", r.moved(ctx, from.ID, to.ID, depth+1)
 }
