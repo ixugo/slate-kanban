@@ -16,13 +16,16 @@ var startRuntime = time.Now()
 const (
 	// apiPrefix 是全部 REST 接口的路径前缀。
 	apiPrefix = "/api/v1"
+	// mcpPath 是 MCP 服务的路径。它不在 /api/v1 下：认证、请求体上限和格式检查都由 MCP 适配器自己做，
+	// 套上 REST 的 requireJSON 等检查反而会误拦 MCP 协议里的 GET 和 DELETE 请求。
+	mcpPath = "/mcp"
 	// tokenPathPrefix 是令牌管理接口的路径前缀。创建令牌的响应里有令牌明文，
 	// 无论什么环境，这些接口的请求体和响应体都不记日志。
 	tokenPathPrefix = apiPrefix + "/agent-tokens"
 )
 
-// setupRouter 装配全部路由：日志、统计等全局中间件；免认证的健康检查；
-// 以及需要令牌的 /api/v1 接口组。认证排在请求体检查之前，没有令牌的人看不到后面的检查结果。
+// setupRouter 装配全部路由：日志、统计等全局中间件；免认证的健康检查；需要令牌的 /mcp 和 /api/v1 接口组。
+// 认证排在请求体检查之前，没有令牌的人看不到后面的检查结果。
 func setupRouter(r *gin.Engine, uc *Usecase) {
 	r.Use(
 		web.Recover(),
@@ -42,6 +45,9 @@ func setupRouter(r *gin.Engine, uc *Usecase) {
 	r.Any("/health", web.WrapH(uc.getHealth))
 	// 请求统计里有各接口的调用情况，需要令牌才能看
 	r.GET("/app/metrics/api", uc.Access.Middleware(), web.WrapH(uc.getMetricsAPI))
+
+	// MCP 的认证在适配器内部，没有令牌的请求在那里被拒绝
+	r.Any(mcpPath, gin.WrapH(uc.MCP.Handler()))
 
 	v1 := r.Group(apiPrefix, uc.Access.Middleware(), limitBody(maxRequestBody), requireJSON())
 	accessapi.Register(v1, uc.Access)

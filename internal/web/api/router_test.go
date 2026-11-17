@@ -67,12 +67,16 @@ func runWithSharedRouter(m *testing.M) int {
 
 	bc := &conf.Bootstrap{}
 	bc.Auth.AdminToken = testAdminToken
+	acore, kcore := NewAccessCore(db, bc), NewKanbanCore(db)
+	mcpAPI, stopMCP := NewMCP(bc, acore, kcore)
+	defer stopMCP() // 在关闭数据库之前停掉通知器
 	uc := &Usecase{
 		Conf:    bc,
 		DB:      db,
 		Version: versionapi.New(versionapi.NewVersionCore(db)),
-		Access:  accessapi.New(NewAccessCore(db, bc)),
-		Kanban:  kanbanapi.New(NewKanbanCore(db)),
+		Access:  accessapi.New(acore),
+		Kanban:  kanbanapi.New(kcore),
+		MCP:     mcpAPI,
 	}
 	engine, ok := NewHTTPHandler(uc).(*gin.Engine)
 	if !ok {

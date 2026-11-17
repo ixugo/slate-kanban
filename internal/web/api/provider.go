@@ -19,6 +19,7 @@ import (
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 	"slate-kanban/internal/web/api/accessapi"
 	"slate-kanban/internal/web/api/kanbanapi"
+	"slate-kanban/internal/web/mcpapi"
 )
 
 var (
@@ -31,6 +32,7 @@ var (
 		accessapi.New,
 		NewKanbanCore,
 		kanbanapi.New,
+		NewMCP,
 	)
 )
 
@@ -41,6 +43,7 @@ type Usecase struct {
 	Version versionapi.API
 	Access  accessapi.API
 	Kanban  kanbanapi.API
+	MCP     mcpapi.API
 }
 
 // NewHTTPHandler 生成Gin框架路由内容
@@ -86,4 +89,12 @@ func NewAccessCore(db *gorm.DB, bc *conf.Bootstrap) access.Core {
 func NewKanbanCore(db *gorm.DB) kanban.Core {
 	store := kanbandb.NewDB(db).AutoMigrate(orm.GetEnabledAutoMigrate())
 	return kanban.NewCore(store)
+}
+
+// NewMCP 创建 MCP 适配器。它和 REST、SSE 共用同一个令牌 Core 和看板 Core：
+// 认证是同一批令牌，任何入口产生的更新都会通知到订阅了看板的 agent。
+// mcpapi.New 带可变参数的选项，Wire 不能直接用，所以这里包一层，不传选项；
+// 返回的清理函数停止通知器，由 Wire 在程序退出时调用。
+func NewMCP(bc *conf.Bootstrap, acore access.Core, core kanban.Core) (mcpapi.API, func()) {
+	return mcpapi.New(acore, core, bc.Runtime.BuildVersion)
 }

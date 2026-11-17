@@ -30,15 +30,18 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 	accessapiAPI := accessapi.New(accessCore)
 	kanbanCore := api.NewKanbanCore(db)
 	kanbanapiAPI := kanbanapi.New(kanbanCore)
+	mcpapiAPI, cleanup2 := api.NewMCP(bc, accessCore, kanbanCore)
 	usecase := &api.Usecase{
 		Conf:    bc,
 		DB:      db,
 		Version: versionapiAPI,
 		Access:  accessapiAPI,
 		Kanban:  kanbanapiAPI,
+		MCP:     mcpapiAPI,
 	}
 	handler := api.NewHTTPHandler(usecase)
 	return handler, func() {
+		cleanup2()
 		cleanup()
 	}, nil
 }
