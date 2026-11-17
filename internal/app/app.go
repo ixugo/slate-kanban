@@ -26,6 +26,9 @@ func Run(bc *conf.Bootstrap) {
 	log, clean := SetupLog(bc)
 	defer clean()
 
+	// 先补齐管理令牌再生成临时的 JWT 密钥，避免把随机密钥写回配置文件
+	ensureAdminToken(bc)
+
 	// 检查是否设置了 JWT 密钥，如果未设置，则生成一个随机字符串作为密钥
 	if bc.Server.HTTP.JwtSecret == "" {
 		bc.Server.HTTP.JwtSecret = orm.GenerateRandomString(32)
@@ -66,6 +69,22 @@ func Run(bc *conf.Bootstrap) {
 	if err := svc.Shutdown(); err != nil {
 		slog.Error(`server.Shutdown`, "err", err)
 	}
+}
+
+// ensureAdminToken 保证管理令牌存在：为空时随机生成并写回配置文件，
+// 这样重启后令牌不变，网页和 agent 配置过的令牌继续有效。
+// 写回失败不阻断启动，只是令牌仅本次运行有效，并明确提示用户。
+func ensureAdminToken(bc *conf.Bootstrap) {
+	if bc.Auth.AdminToken != "" {
+		return
+	}
+	bc.Auth.AdminToken = orm.GenerateRandomString(32)
+	if err := conf.WriteConfig(bc, bc.Runtime.ConfigPath); err != nil {
+		slog.Warn("管理令牌写回配置失败，仅本次运行有效", "path", bc.Runtime.ConfigPath, "err", err)
+		fmt.Println("管理令牌（仅本次运行有效）:", bc.Auth.AdminToken)
+		return
+	}
+	fmt.Println("已生成管理令牌，保存在", bc.Runtime.ConfigPath, "的 Auth.AdminToken")
 }
 
 // SetupLog 初始化日志

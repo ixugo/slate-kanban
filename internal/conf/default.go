@@ -20,6 +20,9 @@ func DefaultConfig() Bootstrap {
 				},
 			},
 		},
+		Auth: Auth{
+			AdminToken: orm.GenerateRandomString(32),
+		},
 		Data: Data{
 			Database: Database{
 				Dsn:             "./configs/data.db",

@@ -5,8 +5,15 @@ import "time"
 type Bootstrap struct {
 	Runtime Runtime // 运行时
 	Server  Server  // 服务器
+	Auth    Auth    // 访问鉴权
 	Data    Data    // 数据
 	Log     Log     // 日志
+}
+
+// Auth 访问鉴权配置。
+// 网页登录、REST 管理接口和 MCP 都用 Bearer 令牌访问，不再另设账号密码。
+type Auth struct {
+	AdminToken string `comment:"管理令牌，网页登录与全部管理类接口使用；首次启动自动生成，请妥善保管"` // 管理令牌
 }
 
 type Runtime struct {
