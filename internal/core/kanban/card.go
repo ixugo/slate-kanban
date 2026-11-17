@@ -112,12 +112,20 @@ func pickCreateColumn(cols []*Column, columnID int64) (*Column, error) {
 		}
 		return cols[0], nil
 	}
-	for _, col := range cols {
-		if col.ID == columnID {
-			return col, nil
-		}
+	if col := columnByID(cols, columnID); col != nil {
+		return col, nil
 	}
 	return nil, invalidf("目标列不存在，或者不属于这个看板")
+}
+
+// columnByID 在看板的列里按主键找一列，找不到返回 nil。
+func columnByID(cols []*Column, id int64) *Column {
+	for _, col := range cols {
+		if col.ID == id {
+			return col
+		}
+	}
+	return nil
 }
 
 // assignNumberAndPosition 给新卡片分配看板内的编号和目标列末尾的位置。
@@ -192,20 +200,32 @@ func checkCardWritable(actor Actor, card *Card) error {
 	return nil
 }
 
-// saveCardChange 保存一次真实的卡片修改：版本号加一，记下修改者和时间，写入，再追加事件。
-// 事件的内容是卡片的 key 和标题加上 extra 里的字段。
-func (u *unit) saveCardChange(ctx context.Context, actor Actor, card *Card, eventType string, extra map[string]any) error {
+// saveCard 保存一次真实的卡片修改：版本号加一，记下修改者和时间，写入数据库。
+func (u *unit) saveCard(ctx context.Context, actor Actor, card *Card) error {
 	card.Version++
 	card.UpdatedBy = actor.Name
 	card.UpdatedAt = u.now()
 	if err := u.card.Save(ctx, card); err != nil {
 		return wrapDB("保存卡片", err)
 	}
+	return nil
+}
+
+// cardPayload 返回卡片事件的公共内容：卡片编号和标题，再并入 extra 里的字段。
+func cardPayload(card *Card, extra map[string]any) map[string]any {
 	payload := map[string]any{"key": card.Key, "title": card.Title}
 	for k, v := range extra {
 		payload[k] = v
 	}
-	return u.emit(ctx, actor, newEvent{BoardID: card.BoardID, CardID: card.ID, Type: eventType, Payload: payload})
+	return payload
+}
+
+// saveCardChange 保存卡片并追加一条以它为主角的事件，事件内容是 cardPayload(card, extra)。
+func (u *unit) saveCardChange(ctx context.Context, actor Actor, card *Card, eventType string, extra map[string]any) error {
+	if err := u.saveCard(ctx, actor, card); err != nil {
+		return err
+	}
+	return u.emit(ctx, actor, newEvent{BoardID: card.BoardID, CardID: card.ID, Type: eventType, Payload: cardPayload(card, extra)})
 }
 
 // UpdateCard 修改卡片，只更新入参里出现的字段，值没变的字段不算修改。
