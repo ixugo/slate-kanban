@@ -36,6 +36,16 @@ func (d DB) Column() kanban.ColumnStorer {
 	return Column(d)
 }
 
+// Event 返回事件日志存储。
+func (d DB) Event() kanban.EventStorer {
+	return Event(d)
+}
+
+// Cursor 返回 agent 读取进度存储。
+func (d DB) Cursor() kanban.CursorStorer {
+	return Cursor(d)
+}
+
 // AutoMigrate 同步表结构。它在每次启动时都会执行，所以必须可以重复执行：
 // 已有的表只会补齐缺失的列和索引，不会删除或改写数据。
 func (d DB) AutoMigrate(ok bool) DB {

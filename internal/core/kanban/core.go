@@ -13,6 +13,8 @@ type Storer interface {
 	Begin() (orm.Tx, error)
 	Board() BoardStorer
 	Column() ColumnStorer
+	Event() EventStorer
+	Cursor() CursorStorer
 }
 
 // Core 是看板领域的业务入口，是个很小的值类型，可以直接按值传递。
