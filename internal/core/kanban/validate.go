@@ -73,3 +73,15 @@ func checkLine(field, s string, minLen, maxLen int) error {
 	}
 	return nil
 }
+
+// normalizeLimit 把调用方给的数量换成实际使用的数量：0 取 fallback，超过 ceiling 取 ceiling，负数返回 400。
+// 列表类接口都用它，默认值和上限各自传入。
+func normalizeLimit(n, fallback, ceiling int) (int, error) {
+	switch {
+	case n < 0:
+		return 0, invalidf("limit 不能是负数")
+	case n == 0:
+		return fallback, nil
+	}
+	return min(n, ceiling), nil
+}

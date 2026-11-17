@@ -29,13 +29,7 @@ type CardList struct {
 
 // normalizeListLimit 把调用方给的数量换成实际使用的数量：0 取默认值，超过上限取上限，负数返回错误。
 func normalizeListLimit(n int) (int, error) {
-	switch {
-	case n < 0:
-		return 0, invalidf("limit 不能是负数")
-	case n == 0:
-		return defaultListLimit, nil
-	}
-	return min(n, maxListLimit), nil
+	return normalizeLimit(n, defaultListLimit, maxListLimit)
 }
 
 // ListCards 按筛选条件列出看板里的卡片，顺序和看板上看到的一致：先按列从左到右，同一列里按位置。
