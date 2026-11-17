@@ -44,3 +44,15 @@ CLAUDE.local.md
 *.mp4
 *.mp3
 **/.DS_Store
+
+# 前端依赖与构建产物（保留 dist/.gitkeep，让 go:embed 在未构建前端时也能通过编译）
+web/node_modules/
+web/dist/*
+!web/dist/.gitkeep
+
+# 本地运行产生的配置、数据库与临时文件（config.toml 内含管理令牌，不进仓库）
+configs/config.toml
+configs/*.db-shm
+configs/*.db-wal
+tmp/
+/slate
