@@ -82,57 +82,80 @@ flowchart TD
 
 ## 读取路径：拉取更新
 
-`PullUpdates` 的参数是看板、agent 名、since（可选）、limit（默认 100，最大 500）。
+`PullUpdates` 的参数是看板、agent 名、since（可选）、limit（默认 100，最大 500）。只有 agent 能调用，人调用返回 403。
 
 ```mermaid
 flowchart TD
-    A[收到拉取请求] --> B{看板存在}
+    A[收到拉取请求] --> A2{since 或 limit 是负数}
+    A2 -->|是| Z0[返回 400]
+    A2 -->|否| B{看板存在}
     B -->|否| Z1[返回看板不存在]
-    B -->|是| C[读取该 agent 的游标]
+    B -->|是| C[读取看板当前最新序号]
     C --> D{传了 since}
-    D -->|是| E[把游标推进到 since, 只增不减]
-    D -->|否| F{游标记录存在}
+    D -->|是| E[游标推进到 since 和最新序号中较小的一个, 只增不减]
+    D -->|否| F{这个 agent 的游标记录存在}
     F -->|否| G[游标建在当前最新序号, 本次返回空列表并标记 first]
-    F -->|是| H[起点取游标]
+    F -->|是| H[起点取已记着的游标]
     E --> H
     G --> Z2[结束]
-    H --> I{起点早于保留范围的起始序号}
-    I -->|是| J[起点改为保留范围起始, 标记 truncated]
+    H --> I{起点加一小于保留范围里最早的事件序号}
+    I -->|是| J[起点改为最早序号减一, 标记 truncated]
     I -->|否| K[查询起点之后的事件, 多取一条用来判断是否还有]
     J --> K
-    K --> L[过滤掉 actor 是自己的 agent 事件]
+    K --> L[过滤掉自己的事件和噪声类型]
     L --> M[返回事件, 新游标, 最新序号, 是否还有更多]
 ```
 
 说明：
 
 - 过滤有两类：actor 是自己的 agent 事件；以及对 agent 没有意义的噪声类型 card.reordered、column.reordered、automation.fired。网页的实时流不做任何过滤。
+- 先分页再过滤：limit 限制的是读出来的原始事件数。一页事件全被过滤掉时，返回的事件为空，但游标照样前进、has_more 仍为真，调用方应该继续拉。
 - 新游标等于本批扫描到的最后一个序号，包含被过滤掉的事件，这样自己的事件不会让下一次拉取原地踏步。
-- 返回里的 cursor 不会自动保存。agent 下一次调用把它作为 since 传回来，才算确认。
-- since 比服务端已有游标小的话忽略，游标永远不倒退。
+- 返回里的 cursor 不会自动保存。agent 下一次调用把它作为 since 传回来，才算确认；不传 since 就从服务端记着的游标重新读，所以结果丢了也不会漏。
+- since 比服务端已有游标小的话忽略，游标永远不倒退；比最新序号大的部分按最新序号算，免得写错的大数字把以后的新事件都跳过去。
+- 判断 truncated 用"起点加一小于最早保留的事件序号"。序号是所有看板共用的，同一看板里相邻事件的序号本来就可能不连续，只有起点比最早保留的事件序号还早一个以上，中间才可能缺了事件。
 - 第一次见到某个 agent 时只记录当前位置，不回放历史。历史状态由读取整块看板获得，事件只负责告诉它之后发生了什么。
+- 看板不存在时不会为它留下游标记录。
 
 ## 读取路径：阻塞等待
 
-`WaitUpdates` 在拉取的基础上加了等待。timeout 默认 30 秒，最大 50 秒，因为多数 MCP 客户端一分钟左右就会判定请求超时。
+`WaitUpdates` 在拉取的基础上加了等待。timeout 默认 30 秒，最大 50 秒，因为多数 MCP 客户端和反向代理一分钟左右就会判定请求超时。
 
 ```mermaid
 flowchart TD
-    A[收到等待请求] --> B[先向 Hub 订阅该看板]
+    A[收到等待请求] --> A2{身份, 数量, 超时合法}
+    A2 -->|否| Z0[返回错误]
+    A2 -->|是| B[先向 Hub 订阅该看板]
     B --> C[执行一次拉取]
-    C --> D{有事件}
-    D -->|是| E[取消订阅, 返回事件]
-    D -->|否| F{拉取时看板不存在}
-    F -->|是| G[取消订阅, 返回看板不存在]
-    F -->|否| H[等待 Hub 信号, 超时, 或请求被取消]
-    H -->|被唤醒| I[重新拉取, 用上次的 since 之后的位置]
-    I --> D
+    C -->|出错, 例如看板不存在| G[取消订阅, 返回错误]
+    C -->|成功| D{有事件, 或 first, 或 truncated}
+    D -->|是| E[取消订阅, 立刻返回]
+    D -->|否| M{上一页之后还有更多事件}
+    M -->|是| I
+    M -->|否| H[等待 Hub 信号, 超时, 或请求被取消]
+    H -->|被唤醒| I[确认看板还在, 从上一次结果的游标之后读一页]
+    I -->|看板已被删除| G
+    I --> D2{有事件, 或 truncated}
+    D2 -->|是| E
+    D2 -->|否, 事件全被过滤| M
     H -->|超时| J[取消订阅, 返回空列表并标记 timed_out]
     H -->|请求取消| K[取消订阅, 返回取消错误]
 ```
 
-说明：必须先订阅再拉取。如果反过来，在拉取结束到订阅开始的空隙里发生的更新，唤醒信号会丢，等待者要白等到超时。
-Hub 给每个订阅者的信号通道容量为 1，发送时不阻塞，多次更新合并成一次唤醒，唤醒后一次查库把所有新事件取回。
+说明：
+
+- 必须先订阅再拉取。如果反过来，在拉取结束到订阅开始的空隙里发生的更新，唤醒信号会丢，等待者要白等到超时。
+- Hub 给每个订阅者的信号通道容量为 1，发送时不阻塞，多次更新合并成一次唤醒，唤醒后一次查库把所有新事件取回。
+- agent 自己的操作也会唤醒自己，但事件被过滤掉了，所以醒来后读不到值得通知的事件，继续等。下一次从上一次结果的游标之后读，不重读已经过滤掉的事件。
+- 一页事件全被过滤、后面还有更多事件时不等信号，直接读下一页，否则会白白等到超时。
+- 超时不是错误，返回空事件并标记 timed_out，游标已经越过被过滤的事件；调用方把它作为 since 立刻再等一次。
+- 等待本身不推进服务端游标，只有下一次调用带的 since 才确认。
+
+## 读取路径：网页补发
+
+`ListEvents(boardID, afterSeq, limit)` 给网页的实时流重连和活动列表用，人和 agent 都能读。它不做任何过滤，
+limit 默认 200、最大 1000。起点早于保留范围时同样标记 truncated 并从保留范围的开头读起，
+网页收到 truncated 就丢掉本地数据，重新读整板快照（见看板设计）。
 
 ## 时序：离线补拉与实时唤醒
 
@@ -171,11 +194,14 @@ sequenceDiagram
 |------|-----------|------|
 | 事务执行器，开始时锁看板行 | Core.run, BoardStorer.Lock | internal/core/kanban/unit.go, board.go |
 | 追加事件并按需清理 | unit.emit | internal/core/kanban/unit.go |
-| 提交后广播 | Core.run 的末尾调用 notifier | internal/core/kanban/unit.go |
-| 事件与游标存储接口 | EventStorer, CursorStorer | internal/core/kanban/event.go |
-| 拉取 | Core.PullUpdates | internal/core/kanban/event.go |
-| 阻塞等待 | Core.WaitUpdates | internal/core/kanban/event.go |
-| 网页补发 | Core.ListEvents | internal/core/kanban/event.go |
-| 唤醒器 | Hub.Subscribe, Hub.Publish, Hub.Observe | internal/core/kanban/hub.go |
+| 提交后广播 | Core.publish, Hub.publish | internal/core/kanban/unit.go, hub.go |
+| 事件类型常量、事件与游标存储接口 | EventCardMoved 等, EventStorer, CursorStorer | internal/core/kanban/event.go |
+| 读一页事件并判断 truncated | Core.readWindow | internal/core/kanban/event_read.go |
+| 网页补发 | Core.ListEvents | internal/core/kanban/event_read.go |
+| 数量整理 | normalizeLimit | internal/core/kanban/validate.go |
+| 拉取、确认游标、过滤 | Core.PullUpdates, ackCursor, advanceCursor, scanUpdates, relevantToAgent, quietEventTypes | internal/core/kanban/event_pull.go |
+| 阻塞等待 | Core.WaitUpdates, updateWaiter.wait, normalizeWaitTimeout | internal/core/kanban/event_wait.go |
+| 整板快照 | Core.BoardSnapshot | internal/core/kanban/snapshot.go |
+| 唤醒器与观察者 | Hub.Subscribe, Hub.Register, Core.Subscribe, Core.Observe | internal/core/kanban/hub.go, core.go |
 | 事件模型与游标模型 | Event, AgentCursor | internal/core/kanban/event.model.go |
-| 数据库实现 | kanbandb.Event, kanbandb.AgentCursor | internal/core/kanban/stores/kanbandb/ |
+| 数据库实现 | kanbandb.Event, kanbandb.Cursor | internal/core/kanban/stores/kanbandb/event.db.go |
