@@ -235,10 +235,7 @@ func (a API) claimCard(ctx context.Context, actor kanban.Actor, in claimCardIn) 
 
 // releaseCard 释放领取。
 func (a API) releaseCard(ctx context.Context, actor kanban.Actor, in cardIn) (any, error) {
-	if err := a.core.ReleaseCard(ctx, actor, in.CardID); err != nil {
-		return nil, err
-	}
-	return okOut{OK: true}, nil
+	return finished(a.core.ReleaseCard(ctx, actor, in.CardID))
 }
 
 // finishCard 完成交接，返回交接后的卡片摘要（带着新的所在列），不回显评论和描述。

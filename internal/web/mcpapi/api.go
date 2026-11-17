@@ -69,6 +69,9 @@ func (a API) newServer(v view) *mcp.Server {
 		a.registerSyncTools(s)
 	}
 	a.registerWorkTools(s, v)
+	if v == viewAdmin {
+		a.registerAdminTools(s)
+	}
 	return s
 }
 

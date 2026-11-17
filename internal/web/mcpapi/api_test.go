@@ -23,6 +23,8 @@ var (
 	adminTools = []string{
 		"whoami", "list_boards", "get_board", "list_cards", "get_card", "list_events",
 		"release_card", "finish_card", "comment_card", "create_card", "update_card", "move_card",
+		"create_board", "update_board", "delete_board", "create_column", "update_column", "reorder_columns", "delete_column",
+		"create_rule", "update_rule", "delete_rule", "delete_card", "delete_comment",
 	}
 )
 
