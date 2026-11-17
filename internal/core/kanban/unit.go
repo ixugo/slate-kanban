@@ -25,6 +25,8 @@ type unit struct {
 	core    Core
 	board   BoardStorer
 	column  ColumnStorer
+	card    CardStorer
+	comment CommentStorer
 	event   EventStorer
 	touched map[int64]int64 // 本事务动过的看板 → 其中最大的事件序号，提交后据此广播
 }
@@ -43,6 +45,8 @@ func newUnit(c Core, tx orm.Tx) *unit {
 		core:    c,
 		board:   c.store.Board().WithTx(tx),
 		column:  c.store.Column().WithTx(tx),
+		card:    c.store.Card().WithTx(tx),
+		comment: c.store.Comment().WithTx(tx),
 		event:   c.store.Event().WithTx(tx),
 		touched: make(map[int64]int64),
 	}
