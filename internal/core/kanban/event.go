@@ -6,6 +6,29 @@ import (
 	"github.com/ixugo/goddd/pkg/orm"
 )
 
+// 事件类型。每种类型的 Payload 字段见设计文档 .cursor/scopes/kanban.event.go.md。
+const (
+	EventBoardCreated    = "board.created"
+	EventBoardUpdated    = "board.updated"
+	EventColumnCreated   = "column.created"
+	EventColumnUpdated   = "column.updated"
+	EventColumnDeleted   = "column.deleted"
+	EventColumnReordered = "column.reordered"
+	EventCardCreated     = "card.created"
+	EventCardUpdated     = "card.updated"
+	EventCardMoved       = "card.moved"
+	EventCardReordered   = "card.reordered"
+	EventCardDeleted     = "card.deleted"
+	EventCardClaimed     = "card.claimed"
+	EventCardReleased    = "card.released"
+	EventCommentAdded    = "comment.added"
+	EventCommentDeleted  = "comment.deleted"
+	EventRuleCreated     = "rule.created"
+	EventRuleUpdated     = "rule.updated"
+	EventRuleDeleted     = "rule.deleted"
+	EventAutomationFired = "automation.fired"
+)
+
 // EventStorer 是事件日志的数据持久化接口。事件只追加，不修改。
 type EventStorer interface {
 	// WithTx 返回绑定到事务的副本，事务内的所有读写都必须用它。
