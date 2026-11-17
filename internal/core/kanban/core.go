@@ -11,6 +11,7 @@ import (
 // 不能直接用聚合上的访问器，否则在只有一个连接的 SQLite 上会把自己卡死。
 type Storer interface {
 	Begin() (orm.Tx, error)
+	Board() BoardStorer
 }
 
 // Core 是看板领域的业务入口，是个很小的值类型，可以直接按值传递。
