@@ -10,20 +10,18 @@ import (
 	"strconv"
 	"syscall"
 
-	"slate-kanban/internal/conf"
 	"github.com/ixugo/goddd/pkg/logger"
 	"github.com/ixugo/goddd/pkg/orm"
 	"github.com/ixugo/goddd/pkg/server"
 	"github.com/ixugo/goddd/pkg/system"
+
+	"slate-kanban/internal/conf"
 )
 
+// Run 装配依赖并启动 HTTP 服务，阻塞到收到退出信号。
+// 相对路径（配置、数据库、日志）都以启动时的工作目录为基准，
+// 以服务方式运行时请由服务管理器设置 WorkingDirectory。
 func Run(bc *conf.Bootstrap) {
-	// 以可执行文件所在目录为工作目录，防止以服务方式运行时，工作目录切换到其它位置
-	bin, _ := os.Executable()
-	if err := os.Chdir(filepath.Dir(bin)); err != nil {
-		slog.Error("change work dir fail", "err", err)
-	}
-
 	log, clean := SetupLog(bc)
 	defer clean()
 
