@@ -89,3 +89,42 @@ func TestTemplateColumns(t *testing.T) {
 		t.Errorf("simple 模板应该有 3 列，实际 %d", got)
 	}
 }
+
+// TestDefaultRulesValid 验证每种模板、每种语言生成的起步规则都能通过保存前校验，
+// 并且数量和触发正好是：开始计时、完成计时、重新打开；empty 模板没有规则。
+func TestDefaultRulesValid(t *testing.T) {
+	for _, template := range []string{TemplateDev, TemplateSimple} {
+		specs := templateColumns[template]
+		cols := make([]*Column, len(specs))
+		for i, s := range specs {
+			cols[i] = &Column{ID: int64(i + 1), AgentPickup: s.AgentPickup, IsDone: s.IsDone}
+		}
+		for _, locale := range supportedLocales {
+			rules := defaultRules(textsFor(locale), cols)
+			if len(rules) != 3 {
+				t.Fatalf("%s/%s 应该有 3 条起步规则，实际 %d", template, locale, len(rules))
+			}
+			for _, r := range rules {
+				if err := normalizeRule(r, cols); err != nil {
+					t.Errorf("%s/%s 的规则 %q 校验失败: %v", template, locale, r.Name, err)
+				}
+			}
+		}
+	}
+	if rules := defaultRules(textsFor("en"), nil); len(rules) != 0 {
+		t.Fatalf("没有列就不应该有规则: %+v", rules)
+	}
+}
+
+// TestDefaultRulesDoNotNeedBothColumns 验证只有领活列或只有完成列时，只生成对应的规则，不会因为缺列而出错。
+func TestDefaultRulesDoNotNeedBothColumns(t *testing.T) {
+	texts := textsFor("en")
+	onlyDoing := defaultRules(texts, []*Column{{ID: 1, AgentPickup: true}})
+	if len(onlyDoing) != 1 || onlyDoing[0].Name != texts.RuleStart || onlyDoing[0].ColumnID != 1 {
+		t.Fatalf("只有领活列应该只生成开始计时: %+v", onlyDoing)
+	}
+	onlyDone := defaultRules(texts, []*Column{{ID: 2, IsDone: true}})
+	if len(onlyDone) != 2 || onlyDone[0].Name != texts.RuleFinish || onlyDone[1].Name != texts.RuleReopen {
+		t.Fatalf("只有完成列应该生成完成计时和重新打开: %+v", onlyDone)
+	}
+}

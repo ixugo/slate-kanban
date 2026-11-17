@@ -272,3 +272,38 @@ func (u *unit) seedColumns(ctx context.Context, boardID int64, template, locale 
 	}
 	return cols, nil
 }
+
+// defaultRules 按列的情况生成起步的自动化规则，名称按界面语言。
+// 以"agent 领活的列"当作进行中、"完成列"当作完成，所以只要模板里有这样的列就有对应的规则：
+// 进入进行中写开始时间、进入完成写完成时间、离开完成清空完成时间。写时间都只在为空时才写，
+// 不会覆盖人手动填的值。empty 模板没有列，也就没有规则。
+func defaultRules(texts localeTexts, cols []*Column) []*Rule {
+	var doing, done *Column
+	for _, c := range cols {
+		if c.AgentPickup && doing == nil {
+			doing = c
+		}
+		if c.IsDone && done == nil {
+			done = c
+		}
+	}
+	var rules []*Rule
+	if doing != nil {
+		rules = append(rules, &Rule{
+			Name: texts.RuleStart, TriggerType: TriggerCardEntered, ColumnID: doing.ID,
+			Actions: []RuleAction{{Type: ActionSetStartedAt, Mode: ModeIfEmpty}},
+		})
+	}
+	if done != nil {
+		rules = append(rules,
+			&Rule{
+				Name: texts.RuleFinish, TriggerType: TriggerCardEntered, ColumnID: done.ID,
+				Actions: []RuleAction{{Type: ActionSetFinishedAt, Mode: ModeIfEmpty}},
+			},
+			&Rule{
+				Name: texts.RuleReopen, TriggerType: TriggerCardLeft, ColumnID: done.ID,
+				Actions: []RuleAction{{Type: ActionClearFinishedAt}},
+			})
+	}
+	return rules
+}
