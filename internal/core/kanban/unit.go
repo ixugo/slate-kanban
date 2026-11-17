@@ -29,6 +29,7 @@ type unit struct {
 	comment CommentStorer
 	rule    RuleStorer
 	event   EventStorer
+	cursor  CursorStorer
 	touched map[int64]int64 // 本事务动过的看板 → 其中最大的事件序号，提交后据此广播
 }
 
@@ -50,6 +51,7 @@ func newUnit(c Core, tx orm.Tx) *unit {
 		comment: c.store.Comment().WithTx(tx),
 		rule:    c.store.Rule().WithTx(tx),
 		event:   c.store.Event().WithTx(tx),
+		cursor:  c.store.Cursor().WithTx(tx),
 		touched: make(map[int64]int64),
 	}
 }

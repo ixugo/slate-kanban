@@ -34,7 +34,13 @@ type cardEnv struct {
 func newCardEnv(t *testing.T, opts ...kanban.Option) *cardEnv {
 	t.Helper()
 	core, db := newBare(t, opts...)
-	board := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "卡片测试", Slug: "TST", Locale: "zh-CN"})
+	return newCardEnvOn(t, core, db, "TST")
+}
+
+// newCardEnvOn 在已有的 Core 上再建一个标识为 slug 的看板，用于需要两个看板的测试。
+func newCardEnvOn(t *testing.T, core kanban.Core, db kanbandb.DB, slug string) *cardEnv {
+	t.Helper()
+	board := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "卡片测试 " + slug, Slug: slug, Locale: "zh-CN"})
 	if err := db.Rule().DeleteByBoard(context.Background(), board.ID); err != nil {
 		t.Fatalf("清掉起步规则失败: %v", err)
 	}
