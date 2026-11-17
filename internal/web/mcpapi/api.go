@@ -64,10 +64,7 @@ func (a API) Handler() http.Handler {
 // newServer 创建一个视图对应的 MCP Server，并注册这个视图能用的全部工具。
 func (a API) newServer(v view) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: serverName, Title: serverTitle, Version: a.version}, nil)
-	register(s, spec{
-		name: "whoami", kind: kindRead,
-		desc: "返回你当前的身份（名称和类型）、使用的工具视图、服务版本，以及订阅看板更新用的资源地址模板。连上之后先调用它确认自己是谁。",
-	}, a.whoami(v))
+	a.registerReadTools(s, v)
 	return s
 }
 
