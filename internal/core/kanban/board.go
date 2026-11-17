@@ -60,7 +60,7 @@ func (c Core) CreateBoard(ctx context.Context, actor Actor, in CreateBoardInput)
 	return nil, ErrBoardSlugTaken.Withf("自动生成的标识连续 %d 次都被占用，请手动指定", maxSlugAttempts)
 }
 
-// createBoardOnce 在一个事务里用给定的标识创建看板、起步的列，并追加 board.created 事件。
+// createBoardOnce 在一个事务里用给定的标识创建看板、起步的列和规则，并追加 board.created 事件。
 // 看板还不存在，没有行可锁，所以传 0 给 run。
 func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardInput, slug string) (*BoardDetail, error) {
 	var out *BoardDetail
@@ -80,7 +80,11 @@ func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardIn
 		if err != nil {
 			return err
 		}
-		out = &BoardDetail{Board: b, Columns: cols, Rules: []*Rule{}}
+		rules, err := u.seedRules(ctx, b.ID, in.Locale, cols)
+		if err != nil {
+			return err
+		}
+		out = &BoardDetail{Board: b, Columns: cols, Rules: rules}
 		return u.emit(ctx, actor, newEvent{
 			BoardID: b.ID, Type: EventBoardCreated,
 			Payload: map[string]any{"name": b.Name, "slug": b.Slug},

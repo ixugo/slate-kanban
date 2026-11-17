@@ -307,3 +307,21 @@ func defaultRules(texts localeTexts, cols []*Column) []*Rule {
 	}
 	return rules
 }
+
+// seedRules 为新看板创建起步的自动化规则并返回，顺序就是执行顺序。
+// 起步规则是模板自己生成的，不走用户输入的校验，但测试会保证它们都能通过 normalizeRule。
+func (u *unit) seedRules(ctx context.Context, boardID int64, locale string, cols []*Column) ([]*Rule, error) {
+	rules := defaultRules(textsFor(locale), cols)
+	now := u.now()
+	for i, r := range rules {
+		r.BoardID, r.Enabled, r.Sort = boardID, true, int64(i+1)*ruleSortStep
+		r.CreatedAt, r.UpdatedAt = now, now
+		if err := u.rule.Create(ctx, r); err != nil {
+			return nil, wrapDB("创建起步的规则", err)
+		}
+	}
+	if rules == nil {
+		rules = []*Rule{}
+	}
+	return rules, nil
+}

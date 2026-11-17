@@ -38,6 +38,80 @@ func TestGetBoardListsRules(t *testing.T) {
 	}
 }
 
+// TestCreateBoardSeedsDefaultRules 验证 dev 模板创建看板时同时创建三条起步规则：
+// 都启用，按开始计时、完成计时、重新打开的顺序，分别绑定进行中和完成列，写时间只在为空时写。
+func TestCreateBoardSeedsDefaultRules(t *testing.T) {
+	e := newCardEnv(t)
+	rules := e.board.Rules
+	if got, want := ruleTitles(rules), []string{"开始计时", "完成计时", "重新打开"}; !slices.Equal(got, want) {
+		t.Fatalf("起步规则名称应该是 %v，实际 %v", want, got)
+	}
+	doing, done := e.col(colDoing), e.col(colDone)
+	want := []struct {
+		trigger string
+		column  int64
+		action  kanban.RuleAction
+	}{
+		{kanban.TriggerCardEntered, doing, kanban.RuleAction{Type: kanban.ActionSetStartedAt, Mode: kanban.ModeIfEmpty}},
+		{kanban.TriggerCardEntered, done, kanban.RuleAction{Type: kanban.ActionSetFinishedAt, Mode: kanban.ModeIfEmpty}},
+		{kanban.TriggerCardLeft, done, kanban.RuleAction{Type: kanban.ActionClearFinishedAt}},
+	}
+	for i, w := range want {
+		r := rules[i]
+		if !r.Enabled || r.BoardID != e.board.ID || r.TriggerType != w.trigger || r.ColumnID != w.column ||
+			!slices.Equal(r.Actions, []kanban.RuleAction{w.action}) {
+			t.Errorf("第 %d 条规则不对: %+v", i, r)
+		}
+		if i > 0 && r.Sort <= rules[i-1].Sort {
+			t.Errorf("规则的排序值应该递增: %d 之后是 %d", rules[i-1].Sort, r.Sort)
+		}
+	}
+}
+
+// TestSeededRulesSurviveReload 验证起步规则落了库：GetBoard 读到的和创建时返回的一致，
+// 并且它们能通过完整校验（空修改不报错、不写事件）。
+func TestSeededRulesSurviveReload(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	got, err := e.core.GetBoard(ctx, e.board.ID)
+	if err != nil {
+		t.Fatalf("读取看板失败: %v", err)
+	}
+	if !slices.Equal(ruleTitles(got.Rules), ruleTitles(e.board.Rules)) || len(got.Rules) != 3 {
+		t.Fatalf("重新读取的规则和创建时不一致: %v", ruleTitles(got.Rules))
+	}
+	events := len(e.events(t))
+	for _, r := range got.Rules {
+		if _, err := e.core.UpdateRule(ctx, testActor, r.ID, kanban.UpdateRuleInput{}); err != nil {
+			t.Errorf("起步规则 %q 应该能通过校验: %v", r.Name, err)
+		}
+	}
+	if len(e.events(t)) != events {
+		t.Fatalf("空修改不应该写事件")
+	}
+}
+
+// TestSeededRulesLocaleAndTemplates 验证起步规则的名称跟随界面语言，simple 模板也有三条且绑定自己的列，
+// empty 模板没有规则。
+func TestSeededRulesLocaleAndTemplates(t *testing.T) {
+	core, _ := newBare(t)
+	simple := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "S1", Template: kanban.TemplateSimple, Locale: "en"})
+	if got, want := ruleTitles(simple.Rules), []string{"Start timer", "Finish timer", "Reopen"}; !slices.Equal(got, want) {
+		t.Fatalf("英文名称应该是 %v，实际 %v", want, got)
+	}
+	if simple.Rules[0].ColumnID != simple.Columns[1].ID || simple.Rules[1].ColumnID != simple.Columns[2].ID {
+		t.Fatalf("simple 的规则应该绑定自己的进行中和完成列: %+v", simple.Rules)
+	}
+	empty := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "E1", Template: kanban.TemplateEmpty})
+	if empty.Rules == nil || len(empty.Rules) != 0 {
+		t.Fatalf("empty 模板不应该有规则，且是空数组: %+v", empty.Rules)
+	}
+	got, err := core.GetBoard(context.Background(), empty.ID)
+	if err != nil || got.Rules == nil || len(got.Rules) != 0 {
+		t.Fatalf("读回的 empty 模板规则也应该是空数组: %+v %v", got, err)
+	}
+}
+
 // ruleTitles 返回一组规则的名称。
 func ruleTitles(rules []*kanban.Rule) []string {
 	names := make([]string, 0, len(rules))
