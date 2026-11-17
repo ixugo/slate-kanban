@@ -88,3 +88,31 @@ func TestListEventsTruncated(t *testing.T) {
 		t.Fatalf("起点刚好在保留范围前一个序号，没有缺口: %+v %v", edge, err)
 	}
 }
+
+// TestLatestSeq 验证最新序号：等于补发接口返回的最新序号，新增事件之后变大，
+// 不受别的看板的事件影响；看板不存在返回 404。
+func TestLatestSeq(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	other := newCardEnvOn(t, e.core, e.db, "OTH")
+	page, err := e.core.ListEvents(ctx, e.board.ID, 0, 0)
+	if err != nil {
+		t.Fatalf("读取事件失败: %v", err)
+	}
+	before, err := e.core.LatestSeq(ctx, e.board.ID)
+	if err != nil || before != page.Latest || before == 0 {
+		t.Fatalf("应该等于补发接口的最新序号 %d: %d %v", page.Latest, before, err)
+	}
+
+	other.card(t, colTodo, "别的看板的")
+	if same, err := e.core.LatestSeq(ctx, e.board.ID); err != nil || same != before {
+		t.Fatalf("别的看板的事件不应该影响本看板: %d %v", same, err)
+	}
+	e.card(t, colTodo, "A")
+	if after, err := e.core.LatestSeq(ctx, e.board.ID); err != nil || after <= before {
+		t.Fatalf("新增事件之后序号应该变大: %d %v", after, err)
+	}
+	if _, err := e.core.LatestSeq(ctx, e.board.ID+9999); !errors.Is(err, kanban.ErrBoardNotFound) {
+		t.Errorf("看板不存在应该返回 404: %v", err)
+	}
+}

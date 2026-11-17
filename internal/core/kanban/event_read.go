@@ -79,3 +79,16 @@ func (c Core) ListEvents(ctx context.Context, boardID, afterSeq int64, limit int
 	}
 	return &EventPage{Events: w.events, Latest: w.latest, HasMore: w.hasMore, Truncated: w.truncated}, nil
 }
+
+// LatestSeq 返回看板当前最新的事件序号，看板里还没有事件时为 0；看板不存在返回 404。
+// 实时流刚连上、调用方没有说明从哪里续传时，用它确定起点，比读整块快照轻得多。
+func (c Core) LatestSeq(ctx context.Context, boardID int64) (int64, error) {
+	if _, err := c.store.Board().GetByID(ctx, boardID); err != nil {
+		return 0, mapNotFound(err, ErrBoardNotFound, "读取看板")
+	}
+	seq, err := c.store.Event().LatestSeq(ctx, boardID)
+	if err != nil {
+		return 0, wrapDB("读取最新事件序号", err)
+	}
+	return seq, nil
+}
