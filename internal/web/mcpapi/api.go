@@ -65,6 +65,9 @@ func (a API) Handler() http.Handler {
 func (a API) newServer(v view) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: serverName, Title: serverTitle, Version: a.version}, nil)
 	a.registerReadTools(s, v)
+	if v == viewAgent {
+		a.registerSyncTools(s)
+	}
 	return s
 }
 

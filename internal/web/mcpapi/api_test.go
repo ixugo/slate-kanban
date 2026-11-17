@@ -15,7 +15,7 @@ import (
 // agentTools 和 adminTools 是两个视图里应该有的全部工具，每增加一个工具就要同步这里，
 // 这样"哪个视图能看到什么"永远有一份明确的清单。
 var (
-	agentTools = []string{"whoami", "list_boards", "get_board", "list_cards", "get_card"}
+	agentTools = []string{"whoami", "list_boards", "get_board", "list_cards", "get_card", "pull_updates", "wait_for_updates"}
 	adminTools = []string{"whoami", "list_boards", "get_board", "list_cards", "get_card", "list_events"}
 )
 
