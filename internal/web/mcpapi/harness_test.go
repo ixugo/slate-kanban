@@ -24,20 +24,21 @@ const adminToken = "admin-secret"
 // stack 是一套接好内存数据库的完整 MCP 服务：令牌、看板，监听真实的端口，
 // 和正式运行一样用 lifecycle.Wrap 包了一层，所以测试可以模拟服务开始关闭。
 type stack struct {
-	URL      string
-	access   access.Core
-	core     kanban.Core
-	api      mcpapi.API
-	tokens   map[string]string  // agent 名称 -> 令牌明文
-	closeNow context.CancelFunc // 调用它模拟服务开始关闭
+	URL          string
+	access       access.Core
+	core         kanban.Core
+	api          mcpapi.API
+	tokens       map[string]string  // agent 名称 -> 令牌明文
+	closeNow     context.CancelFunc // 调用它模拟服务开始关闭
+	stopNotifier func()             // 提前停止通知器，测试结束时还会再调用一次，所以必须可以重复调用
 }
 
-// newStack 搭一套全新的服务。
-func newStack(t *testing.T) *stack {
+// newStack 搭一套全新的服务，opts 调整 MCP 适配器的可选行为。
+func newStack(t *testing.T, opts ...mcpapi.Option) *stack {
 	t.Helper()
 	acore := accesstest.NewCore(t, adminToken)
 	core := kanban.NewCore(kanbantest.NewDB(t))
-	api, stop := mcpapi.New(acore, core, "test")
+	api, stop := mcpapi.New(acore, core, "test", opts...)
 	t.Cleanup(stop)
 	closing, closeNow := context.WithCancel(t.Context())
 	mux := http.NewServeMux()
@@ -47,7 +48,10 @@ func newStack(t *testing.T) *stack {
 		srv.CloseClientConnections()
 		srv.Close()
 	})
-	return &stack{URL: srv.URL + "/mcp", access: acore, core: core, api: api, tokens: map[string]string{}, closeNow: closeNow}
+	return &stack{
+		URL: srv.URL + "/mcp", access: acore, core: core, api: api, tokens: map[string]string{},
+		closeNow: closeNow, stopNotifier: stop,
+	}
 }
 
 // token 返回名为 name 的 agent 令牌，第一次用到时才创建。

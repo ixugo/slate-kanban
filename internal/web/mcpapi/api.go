@@ -47,13 +47,34 @@ type API struct {
 	handler http.Handler
 }
 
-// New 创建 MCP 适配器。version 是服务的构建版本号。返回的函数用来在服务退出时释放后台资源。
-func New(acore access.Core, core kanban.Core, version string) (API, func()) {
+// config 是 New 的可选配置。
+type config struct {
+	notifyDelay time.Duration
+}
+
+// Option 调整 API 的可选行为。生产环境不需要传，主要给测试用。
+type Option func(*config)
+
+// WithNotifyDelay 设置通知的合并窗口，默认 200 毫秒。测试里调大它，才能稳定地验证"窗口内的多次更新只发一条"。
+func WithNotifyDelay(d time.Duration) Option {
+	return func(c *config) { c.notifyDelay = d }
+}
+
+// New 创建 MCP 适配器：两个视图的 Server、通知器和 HTTP 处理器。version 是服务的构建版本号。
+// 它会在 core 上注册观察者，所以必须在开始处理请求之前调用，并且同一个 core 只能调用一次。
+// 返回的函数用来在服务退出时停止通知器，可以重复调用。
+func New(acore access.Core, core kanban.Core, version string, opts ...Option) (API, func()) {
+	cfg := config{notifyDelay: defaultNotifyDelay}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 	a := API{core: core, version: version}
 	a.agent = a.newServer(viewAgent)
 	a.admin = a.newServer(viewAdmin)
 	a.handler = a.newHandler(acore)
-	return a, func() {}
+	n := newNotifier(cfg.notifyDelay, a.agent, a.admin)
+	core.Observe(observerKey, n.mark)
+	return a, n.close
 }
 
 // Handler 返回挂在 /mcp 上的 HTTP 处理器，已经包含认证。
@@ -63,7 +84,11 @@ func (a API) Handler() http.Handler {
 
 // newServer 创建一个视图对应的 MCP Server，并注册这个视图能用的全部工具。
 func (a API) newServer(v view) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: serverName, Title: serverTitle, Version: a.version}, nil)
+	s := mcp.NewServer(&mcp.Implementation{Name: serverName, Title: serverTitle, Version: a.version}, &mcp.ServerOptions{
+		SubscribeHandler:   a.subscribe,
+		UnsubscribeHandler: a.unsubscribe,
+	})
+	a.registerResources(s)
 	a.registerReadTools(s, v)
 	if v == viewAgent {
 		a.registerSyncTools(s)
