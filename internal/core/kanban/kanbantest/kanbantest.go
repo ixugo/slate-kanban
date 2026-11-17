@@ -1,4 +1,4 @@
-// Package kanbantest 提供看板领域测试用的构造函数：内存 SQLite、迁移好的表、完整的 Core。
+// Package kanbantest 提供看板领域测试用的构造函数：默认内存 SQLite、可选 PostgreSQL（见 PostgresDSNEnv）、完整的 Core。
 // 它只被测试使用，生产代码不应该引用。
 package kanbantest
 
@@ -40,5 +40,11 @@ func NewDB(t testing.TB) kanbandb.DB {
 // NewCore 创建一个接好内存数据库的 Core，供业务测试使用。
 func NewCore(t testing.TB, opts ...kanban.Option) kanban.Core {
 	t.Helper()
-	return kanban.NewCore(NewDB(t), opts...)
+	return NewCoreFromDB(t, NewDB(t), opts...)
+}
+
+// NewCoreFromDB 用调用方提供的存储 DB 组装 Core，PostgreSQL 并发场景与已有 store 共用同一连接。
+func NewCoreFromDB(t testing.TB, db kanbandb.DB, opts ...kanban.Option) kanban.Core {
+	t.Helper()
+	return kanban.NewCore(db, opts...)
 }
