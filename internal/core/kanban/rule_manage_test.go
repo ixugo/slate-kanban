@@ -285,3 +285,39 @@ func TestUpdateRuleRejected(t *testing.T) {
 		t.Fatalf("被拒绝的修改不应该有任何痕迹: %+v", stored)
 	}
 }
+
+// TestDeleteRule 验证删除：规则消失并追加 rule.deleted 事件，重复删除幂等且不再写事件；
+// agent 和自动化不能删，规则保留。
+func TestDeleteRule(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	keep := e.mustCreateRule(t, newRuleInput("保留", 0))
+	gone := e.mustCreateRule(t, newRuleInput("删掉", 0))
+
+	for name, actor := range map[string]kanban.Actor{"agent": testAgent, "自动化": kanban.AutomationActor("x")} {
+		if err := e.core.DeleteRule(ctx, actor, gone.ID); !errors.Is(err, kanban.ErrHumanOnly) {
+			t.Errorf("%s 不能删规则，实际: %v", name, err)
+		}
+	}
+	if !slices.Contains(e.ruleNames(t), "删掉") {
+		t.Fatalf("被拒绝的删除不应该删规则")
+	}
+
+	if err := e.core.DeleteRule(ctx, testActor, gone.ID); err != nil {
+		t.Fatalf("删除失败: %v", err)
+	}
+	want := fmt.Sprintf(`{"name":"删掉","rule_id":%d}`, gone.ID)
+	if ev := e.lastEvent(t); ev.Type != kanban.EventRuleDeleted || ev.Payload != want {
+		t.Fatalf("事件不对: %+v", ev)
+	}
+	events := len(e.events(t))
+	if err := e.core.DeleteRule(ctx, testActor, gone.ID); err != nil {
+		t.Fatalf("重复删除应该成功: %v", err)
+	}
+	if len(e.events(t)) != events {
+		t.Fatalf("重复删除不应该写事件")
+	}
+	if names := e.ruleNames(t); slices.Contains(names, "删掉") || !slices.Contains(names, keep.Name) {
+		t.Fatalf("只应该删掉目标规则: %v", names)
+	}
+}
