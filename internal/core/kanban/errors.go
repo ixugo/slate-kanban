@@ -37,6 +37,18 @@ var (
 	// ErrColumnOrderStale 调整顺序的请求和当前的列集合对不上，说明请求依据的是过期的数据。
 	ErrColumnOrderStale = reason.NewError("ErrColumnOrderStale", "列已经发生变化，请刷新后重新调整顺序").WithHTTPStatus(409)
 
+	// ErrCardNotFound 卡片不存在，可能已经被删除。
+	ErrCardNotFound = reason.NewError("ErrCardNotFound", "卡片不存在").WithHTTPStatus(404)
+
+	// ErrCardVersionConflict 带着旧版本号提交修改，说明卡片已经被别人改过，需要刷新后再改。
+	ErrCardVersionConflict = reason.NewError("ErrCardVersionConflict", "卡片已被其他人修改，请刷新后重试").WithHTTPStatus(409)
+
+	// ErrNotHolder agent 要写的卡片当前不归它持有：没领取过、已被收回，或者被别的 agent 接手了。
+	ErrNotHolder = reason.NewError("ErrNotHolder", "你当前没有持有这张卡片，请先领取").WithHTTPStatus(409)
+
+	// ErrAgentPickupColumn agent 不能把新卡片直接放进开启了 agent 领取的列，那会绕开由人决定做什么的约定。
+	ErrAgentPickupColumn = reason.NewError("ErrAgentPickupColumn", "agent 不能把卡片直接放进由 agent 处理的列").WithHTTPStatus(403)
+
 	// ErrProjectPathLocked agent 只能在项目路径为空时写入，已经有值就只有人能改。
 	ErrProjectPathLocked = reason.NewError("ErrProjectPathLocked", "项目路径已经设置，只有人可以修改").WithHTTPStatus(403)
 )
