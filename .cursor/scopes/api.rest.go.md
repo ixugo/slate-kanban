@@ -23,12 +23,14 @@ REST 层是看板领域（kanban）和令牌（access）对外的第一个适配
 | 12 | agent 用 REST 阻塞等待，被反向代理的 60 秒超时切断 | agent 反复断线重连 | 等待默认 30 秒、最长 50 秒（Core 已限制），超时返回空结果而不是错误 | 实施 |
 | 13 | 各接口的错误格式不一样 | 客户端要写很多分支才能提示用户 | 统一用 goddd 的 `web.Fail`：`{reason, msg, trace_id}`，状态码取自 Core 返回的错误；Core 的错误必须原样返回，不能再包一层 | 实施 |
 | 14 | 网页和接口不同源 | 要开跨域，扩大攻击面 | 网页由同一个服务提供，不开跨域；开发时用 Vite 的代理转发 `/api` | 实施 |
+| 15 | 关闭服务时，挂着的实时流和阻塞等待让 Shutdown 一直等到超时 | 每次重启都卡 5 秒还留下一条错误日志；开着网页的人按 Ctrl-C 也会这样 | 关闭前先取消"关闭中"信号，长连接用 `lifecycle.Bind` 得到的上下文，收到信号后自己结束：实时流直接结束（客户端带最后的 id 重连），阻塞等待返回 503；普通请求不受影响。实测挂着一条流和一条等待时，退出耗时从 5.07 秒降到 0.11 秒 | 实施 |
+| 16 | 没有令牌的人能试探请求检查的结果，或者读到调用统计 | 通过 413、415 判断接口的行为；统计里暴露各接口的调用情况 | 认证排在请求体上限和 JSON 检查之前；`/app/metrics/api` 也要令牌，只有 `/health` 免认证 | 实施 |
 
 ## 路由
 
 基础路径 `/api/v1`，请求和响应都是 JSON，字段名用下划线。成功时直接返回资源本身（goddd 的约定，状态码固定 200，创建也是 200），
-失败时返回 `{reason, msg, trace_id}` 和对应状态码。除了 `/health` 和 `/app/metrics/api`（框架自带，不在 `/api/v1` 下），
-下面所有接口都要 `Authorization: Bearer 令牌`，没有或无效返回 401。
+失败时返回 `{reason, msg, trace_id}` 和对应状态码。除了 `/health`（框架自带，不在 `/api/v1` 下，免认证），
+其余接口都要 `Authorization: Bearer 令牌`，没有或无效返回 401；`/app/metrics/api`（请求统计，也不在 `/api/v1` 下）同样要令牌。
 
 "谁能调用"一列只是说明，真正的判断在 Core 里。
 
@@ -52,7 +54,7 @@ REST 层是看板领域（kanban）和令牌（access）对外的第一个适配
 | DELETE /boards/:board_id/columns/:column_id | DeleteColumn | 人 | 查询 move_to（卡片要搬去的列） | `{}` |
 | GET /boards/:board_id/cards | ListCards | 全部 | 查询 query、limit | CardList |
 | POST /boards/:board_id/cards | CreateCard | 人和 agent（agent 不能填规划类字段） | CreateCardInput | Card |
-| POST /boards/:board_id/cards/next | NextCard | agent | NextCardInput | CardDetail |
+| POST /boards/:board_id/cards/next | NextCard | agent | NextCardInput | `{card: CardDetail 或 null}`，没有可领的卡片时是 null |
 | POST /boards/:board_id/rules | CreateRule | 人 | CreateRuleInput | Rule |
 | PATCH /rules/:rule_id | UpdateRule | 人 | UpdateRuleInput | Rule |
 | DELETE /rules/:rule_id | DeleteRule | 人 | — | `{}` |
@@ -69,25 +71,28 @@ REST 层是看板领域（kanban）和令牌（access）对外的第一个适配
 | POST /agent-tokens | CreateToken | 管理令牌 | `{name}` | 令牌信息加明文，明文只此一次 |
 | DELETE /agent-tokens/:token_id | DeleteToken | 管理令牌 | — | `{}` |
 
-看板详情里已经带了规则，所以没有单独列出规则的接口。
+没有对应路由的 Core 方法：`ListRules`（看板详情里已经带了规则）、`GetCard`（卡片详情接口已经覆盖）、
+`Observe`（留给 MCP 做更新通知）、`Subscribe` 和 `LatestSeq`（实时流内部使用）。
 
 ## 一次请求怎么走
 
 ```mermaid
 flowchart TD
-    A[收到 /api/v1 请求] --> B{声明的请求体超过 1 MiB}
+    A[收到 /api/v1 请求] --> D[认证中间件: 解析 Authorization 请求头]
+    D -->|失败| Z3[401]
+    D -->|成功| E[把 Principal 和 kanban.Actor 放进请求上下文]
+    E --> B{声明的请求体超过 1 MiB}
     B -->|是| Z1[413]
     B -->|否| C{有请求体且不是 JSON}
     C -->|是| Z2[415]
-    C -->|否| D[认证中间件: 解析 Authorization 请求头]
-    D -->|失败| Z3[401]
-    D -->|成功| E[把 Principal 和 kanban.Actor 放进请求上下文]
-    E --> F[goddd 的 WrapH 绑定路径、查询和请求体到请求结构体]
+    C -->|否| F[goddd 的 WrapH 绑定路径、查询和请求体到请求结构体]
     F -->|绑定失败| Z4[400]
     F --> G[处理函数: 取 Actor, 调用 Core]
     G -->|Core 返回错误| H[web.Fail: 状态码取自错误]
     G -->|成功| I[200 加 JSON]
 ```
+
+认证排在最前面，没有令牌的人看不到 413、415 这些检查结果。
 
 ## 请求怎么绑定
 
@@ -123,7 +128,7 @@ gin 的 `*gin.Context` 本身不会去读请求上下文里的值。MCP 适配�
 |--------|-----------|------|----------------|
 | ready | 连上后的第一条 | `{"latest": 当前最新序号}` | 标记已连接 |
 | board | 每一条新事件 | 事件的 JSON，id 行是事件序号 | 刷新相关数据，记下 id |
-| reset | 续传起点比保留的最早事件还早 | `{"latest": 序号}`，发完就结束 | 丢掉本地数据，重新取快照，再用快照的 seq 连流 |
+| reset | 续传起点比保留的最早事件还早（中间的被清理了），或者比服务端最新序号还大（服务端数据回退过，比如从备份恢复） | `{"latest": 序号}`，发完就结束 | 丢掉本地数据，重新取快照，再用快照的 seq 连流 |
 | error | 流开始之后读库失败，比如看板被删了 | `{reason, msg}`，发完就结束 | 停止重连，提示用户 |
 | 注释行 `: ping` | 每 20 秒一次 | 无 | 忽略，只是为了保活和发现断线 |
 
@@ -132,6 +137,7 @@ flowchart TD
     A[收到流请求] --> B[确定起点: after, Last-Event-ID, 或当前最新序号]
     B -->|看板不存在| Z1[404, 还没有开始流]
     B --> C[写响应头并立刻发 ready]
+    C -->|起点比最新序号还大| Z6[发 reset 并结束]
     C --> D[订阅看板的更新信号]
     D --> E[读起点之后的一页事件]
     E -->|起点早于保留范围| Z2[发 reset 并结束]
@@ -145,6 +151,7 @@ flowchart TD
     I --> H
     H -->|连接满 10 分钟| Z4[正常结束, 客户端用最后的 id 重连]
     H -->|客户端断开| Z5[取消订阅, 结束]
+    H -->|服务开始关闭| Z7[不发事件直接结束, 客户端重连]
 ```
 
 要点：
@@ -154,14 +161,32 @@ flowchart TD
 - 流里的事件是完整未过滤的（人和 agent 看到的一样）；agent 自己用 pull 和 wait，它们才有游标和过滤。
 - 不用框架自带的 `web.SSE`：它没有心跳注释行，生产者和连接是两个协程，连接断了以后生产者可能卡在写满的通道上泄漏；
   写超时也只在开头设一次。这里一个协程顺序读写，逻辑更简单。
-- 每次写之后立即 Flush，用 `http.NewResponseController`，经过框架的日志包装也能透传。响应头里加 `X-Accel-Buffering: no`，防止 nginx 缓冲。
+- 每次写之后立即 Flush：gin 的响应写入器自带 Flush，调试模式下日志中间件包的那一层也会透传，有测试覆盖。响应头里加 `X-Accel-Buffering: no`，防止 nginx 缓冲。
+- 服务开始关闭时流直接结束，不发 error，因为这不是错误；客户端带着最后收到的 id 重连，新进程起来后就接得上。
+
+## 关闭服务时的长连接
+
+实时流和阻塞等待可以挂很久。`http.Server.Shutdown` 要等所有请求结束，如果不通知它们，每次关闭都要等满 5 秒的超时，还会留下一条 `context deadline exceeded` 错误日志。
+
+做法放在 `internal/lifecycle`：
+
+| 步骤 | 谁做 | 做什么 |
+|------|------|--------|
+| 1 | `app.Run` | 创建 closing 上下文，用 `lifecycle.Wrap` 给整个处理器包一层，每个请求的上下文里都带上它 |
+| 2 | 长连接的处理函数 | 用 `lifecycle.Bind(请求上下文)` 得到一个"请求结束或服务关闭都会取消"的上下文，用它做等待 |
+| 3 | `app.Run` | 收到退出信号后先取消 closing，再调用 `Shutdown`；长连接马上结束，普通请求照常处理完 |
+| 4 | 阻塞等待的处理函数 | 等待被取消但请求本身还好好的（`lifecycle.Interrupted`），说明是服务在关闭，返回 `lifecycle.ErrShuttingDown`（503），客户端稍后重试 |
+
+不直接取消所有请求的上下文：那样会把正在写库的普通请求也打断。MCP 的阻塞等待以后用同样的三个函数。
+
 
 ## 接线
 
 | 位置 | 做什么 |
 |------|--------|
 | internal/web/api/provider.go | 新增两个构造函数：`NewKanbanCore(db)` 建表并创建 kanban.Core，`NewAccessCore(db, conf)` 建表并创建 access.Core（管理令牌取自配置）；把 accessapi.New、kanbanapi.New 加进 ProviderSet；Usecase 增加 Kanban 和 Access 两个字段 |
-| internal/web/api/api.go | `/api/v1` 路由组：请求体上限、JSON 检查、认证中间件，再挂 accessapi 和 kanbanapi；版本接口也挪到这个组下；日志的"记录请求体"对令牌管理路径关闭；去掉没人签发 JWT 的 `auth` |
+| internal/web/api/api.go | `/api/v1` 路由组：认证中间件、请求体上限、JSON 检查，再挂 accessapi、kanbanapi 和版本接口；`/app/metrics/api` 加认证中间件；日志的"记录请求体"对令牌管理路径关闭；去掉没人签发 JWT 的 `auth`（配置里的 JwtSecret 字段保留，不再使用） |
+| internal/app/app.go | 用 `lifecycle.Wrap` 包一层处理器；收到退出信号后先取消 closing 再 `Shutdown` |
 | 重新生成依赖注入 | `make wire`，不手改 `wire_gen.go` |
 
 ## 代码对照
@@ -172,9 +197,13 @@ flowchart TD
 | 认证中间件、取身份 | accessapi.Middleware, ActorFrom, PrincipalFrom | internal/web/api/accessapi/middleware.go |
 | 身份和令牌接口 | accessapi.API, me, createToken, listTokens, deleteToken | internal/web/api/accessapi/api.go, token.go |
 | 看板、列、规则接口 | kanbanapi.API 的 board、column、rule 处理函数 | internal/web/api/kanbanapi/board.go, column.go, rule.go |
-| 卡片、领取、评论接口 | card、claim、comment 处理函数 | internal/web/api/kanbanapi/card.go, claim.go, comment.go |
-| 快照、事件、拉取、等待 | snapshot、listEvents、pull、wait | internal/web/api/kanbanapi/event.go |
-| 实时流 | stream, streamLoop | internal/web/api/kanbanapi/stream.go |
-| 路由表和取身份的通用包装 | Register, act | internal/web/api/kanbanapi/api.go |
+| 卡片、评论接口 | card、comment 处理函数 | internal/web/api/kanbanapi/card.go |
+| 领取、释放、完成、取下一张 | claim 处理函数 | internal/web/api/kanbanapi/claim.go |
+| 快照、事件、拉取、等待 | snapshot、listEvents、pullUpdates、waitUpdates | internal/web/api/kanbanapi/event.go |
+| 实时流 | stream, streamCursor, streamSession 的 run、sendPage、wait | internal/web/api/kanbanapi/stream.go |
+| 路由表和取身份的通用包装 | Register, route | internal/web/api/kanbanapi/api.go |
+| 关闭时通知长连接 | Wrap, Bind, Interrupted, ErrShuttingDown | internal/lifecycle/lifecycle.go |
 | 依赖装配 | NewKanbanCore, NewAccessCore, ProviderSet | internal/web/api/provider.go |
 | 路由挂载 | setupRouter | internal/web/api/api.go |
+| 退出流程 | Run | internal/app/app.go |
+| 完整路由的测试 | TestAPIRequiresToken, TestAgentLifecycle, TestGuardsMounted, TestTokenPathsNotLogged, TestStreamThroughRouter | internal/web/api/router_test.go |
