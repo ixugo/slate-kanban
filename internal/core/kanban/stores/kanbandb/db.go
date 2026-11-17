@@ -46,6 +46,11 @@ func (d DB) Comment() kanban.CommentStorer {
 	return Comment(d)
 }
 
+// Rule 返回自动化规则存储。
+func (d DB) Rule() kanban.RuleStorer {
+	return Rule(d)
+}
+
 // Event 返回事件日志存储。
 func (d DB) Event() kanban.EventStorer {
 	return Event(d)

@@ -1,7 +1,10 @@
 package kanban
 
 import (
+	"context"
 	"strings"
+
+	"github.com/ixugo/goddd/pkg/orm"
 )
 
 const (
@@ -53,6 +56,25 @@ const (
 	// ModeAlways 无论原来有没有值都覆盖。
 	ModeAlways = "always"
 )
+
+// RuleStorer 是自动化规则的数据持久化接口。读出的规则都已经调用过 Normalize。
+// 规则的修改都发生在已经锁住看板行的事务里，所以更新直接用 Save，不再重复加行锁。
+type RuleStorer interface {
+	// WithTx 返回绑定到事务的副本，事务内的所有读写都必须用它。
+	WithTx(orm.Tx) RuleStorer
+	// Create 新增一条规则。
+	Create(context.Context, *Rule) error
+	// Save 把整条规则写回数据库，布尔值和 0 值也会写入。
+	Save(context.Context, *Rule) error
+	// Delete 按主键删除，幂等：规则不存在也返回成功。
+	Delete(context.Context, *Rule) error
+	// GetByID 按主键读取，不存在时返回可用 orm.IsErrRecordNotFound 判断的错误。
+	GetByID(context.Context, int64) (*Rule, error)
+	// ListByBoard 返回看板的全部规则（包括停用的），按排序值升序，排序值相同按主键升序，也就是执行顺序。
+	ListByBoard(context.Context, int64) ([]*Rule, error)
+	// DeleteByBoard 删除看板的全部规则，用于删除看板。
+	DeleteByBoard(context.Context, int64) error
+}
 
 // normalizeRule 整理并校验一条规则：名称和条件去掉首尾空白，动作只保留各自用到的字段，
 // 然后检查触发类型、列归属、条件语法和每个动作的参数。cols 是规则所在看板的全部列。
