@@ -21,6 +21,7 @@ func (a API) eventRoutes(r gin.IRouter) {
 	r.POST("/boards/:board_id/updates/pull", route(a.pullUpdates))
 	r.POST("/boards/:board_id/updates/wait", route(a.waitUpdates))
 	r.GET("/boards/:board_id/stream", a.stream)
+	r.GET("/boards/:board_id/export", a.export)
 }
 
 // listEventsInput 是读事件列表的请求，查询参数 after 是起点序号，limit 是最多返回几条。
