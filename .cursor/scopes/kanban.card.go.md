@@ -13,7 +13,7 @@ agent 只能碰它该碰的卡和字段，人的规划不能被 AI 改乱；卡�
 | 2 | 拖动卡片到两张卡之间 | 如果用整数下标，每次拖动要重写整列，并发拖动互相覆盖 | Position 用浮点数，插入时取两个相邻位置的中点；相邻差小于 0.000001 时整列重排为 1024 的整数倍 | 实施 |
 | 3 | 两个人同时编辑同一张卡 | 后保存的人静默覆盖先保存的人 | 卡片带 Version，每次真实修改加一；更新时带了 version 而与当前不一致，返回 409，提示刷新 | 实施 |
 | 4 | agent 擅自改优先级、依赖、到期时间等人设定的字段 | 人的规划被 AI 改动，且难以察觉 | 按权限表限制：agent 只能改自己持有的卡片，并且只能改标题、说明、标签、分支、链接 | 实施 |
-| 5 | agent 直接创建卡片放进进行中，再自己领取 | 绕开了由人决定做什么的约定 | agent 创建卡片时，目标列不能开启 AgentPickup；不指定列时进入第一列 | 实施 |
+| 5 | agent 直接创建卡片放进进行中，再自己领取 | 绕开了由人决定做什么的约定 | agent 创建卡片时，目标列不能开启 AgentPickup；不指定列时进入第一列。移动同理：agent 不能把卡片放进开启 AgentPickup 的列，否则它能把卡片重新放回队列 | 实施 |
 | 6 | 一张卡必须等另一张卡完成才能开始 | agent 先做了依赖未完成的卡，返工 | 卡片有 WaitsOn 列表；依赖卡不在完成列里就算等待中；取下一张卡时跳过等待中的卡 | 实施 |
 | 7 | 增加依赖时形成环（A 等 B，B 等 A） | 两张卡永远等待，都不会被领取 | 保存依赖前沿依赖链检查是否回到自己，成环返回 400 | 实施 |
 | 8 | 被依赖的卡片被删除 | 依赖悬空，等待它的卡永远显示等待中 | 删除卡片的事务里，把它从同看板其他卡的依赖里移除 | 实施 |
@@ -51,14 +51,16 @@ agent 只能碰它该碰的卡和字段，人的规划不能被 AI 改乱；卡�
 | 创建卡片 | 允许 | 允许，但不能放进开启 AgentPickup 的列 |
 | 修改标题、说明、标签、分支、链接 | 允许 | 仅限自己持有的卡片 |
 | 修改优先级、HumanOnly、依赖、到期、开始、完成时间 | 允许 | 拒绝 |
-| 移动卡片 | 允许 | 仅限自己持有的卡片 |
+| 移动卡片 | 允许 | 仅限自己持有的卡片，且不能放进开启 AgentPickup 的列 |
 | 删除卡片 | 允许 | 拒绝 |
 | 写评论 | 允许 | 允许 |
 | 删除评论 | 允许 | 拒绝 |
 | 读取卡片与评论 | 允许 | 允许 |
 
 自己持有的含义：卡片的 ClaimedBy 等于该 agent 的名字。租约过期但还没有被别的 agent 接手时仍然算持有，
-这样耗时很长的任务不会因为忘了续租而白做；一旦别的 agent 接手，原持有者的写入返回 409。领取的完整规则见 kanban.claim.go.md。
+这样耗时很长的任务不会因为忘了续租而白做；一旦别的 agent 接手，原持有者的写入返回 409。
+agent 对从没领取过的卡片写入同样返回 409，提示先领取。agent 改规划类字段（优先级、依赖、时间、仅限人处理）返回 403，
+这一项在读取卡片之前就判断。领取的完整规则见 kanban.claim.go.md。
 
 ## 创建卡片
 
@@ -93,21 +95,25 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[收到修改请求, 只带想改的字段] --> B[开启事务, 锁定看板行, 读取卡片]
+    A[收到修改请求, 只带想改的字段] --> A1{操作者是 agent 且改了规划类字段}
+    A1 -->|是| Z2[返回 403]
+    A1 -->|否| B[开启事务, 锁定看板行, 读取卡片]
     B -->|不存在| Z1[回滚, 返回 404]
     B --> C{操作者是 agent}
     C -->|是| D{自己持有}
-    D -->|否| Z2[回滚, 返回 403]
-    D -->|是| E{只改了允许的五个字段}
-    E -->|否| Z2
-    E -->|是| F
+    D -->|否| Z5[回滚, 返回 409]
+    D -->|是| F
     C -->|否| F{请求带了 version 且与当前不一致}
     F -->|是| Z3[回滚, 返回 409]
     F -->|否| G[逐个字段校验并应用到卡片副本]
     G -->|校验失败| Z4[回滚, 返回 400]
     G --> H{与原卡片相比有真实变化}
     H -->|否| I[直接返回, 不涨版本, 不写事件]
-    H -->|是| J[Version 加一, 保存]
+    H -->|是| H2{改了依赖}
+    H2 -->|是| H3[依赖检查: 同看板, 不含自己, 不成环]
+    H3 -->|不通过| Z4
+    H3 -->|通过| J
+    H2 -->|否| J[Version 加一, 保存]
     J --> K{操作者是当前领取者}
     K -->|是| L[租约顺延]
     K -->|否| M
@@ -123,30 +129,40 @@ flowchart TD
     B -->|不存在| Z1[回滚, 返回 404]
     B --> C{操作者是 agent}
     C -->|是| D{自己持有}
-    D -->|否| Z2[回滚, 返回 403]
+    D -->|否| Z2[回滚, 返回 409]
     D -->|是| E
-    C -->|否| E{目标列属于该看板}
-    E -->|否| Z3[回滚, 返回 400]
-    E -->|是| F{BeforeID 与 AfterID 同时给出}
-    F -->|是| Z3
-    F -->|否| G[读取目标列的卡片, 不含正在移动的这张, 按 Position 升序]
-    G --> H{指定了参照卡片}
-    H -->|否| I[新位置等于最大值加 1024, 空列为 1024]
-    H -->|是| J{参照卡片在目标列里}
-    J -->|否| Z3
-    J -->|是| K[取参照卡片与它相邻的一张, 新位置取两者中点, 到列头列尾时再加减 1024]
-    K --> L{新位置与相邻位置的差小于 0.000001}
-    L -->|是| M[整列按顺序重写 Position 为 1024 的整数倍, 再重新计算]
-    L -->|否| N
-    I --> N
-    M --> N[应用新位置]
-    N --> O{换了列}
-    O -->|否| P[保存, 追加 card.reordered 事件]
-    O -->|是| Q[清除领取, 保存, 追加 card.moved 事件]
-    Q --> R[执行自动化: 触发离开原列与进入目标列]
-    R --> S[提交并广播]
-    P --> S
+    C -->|否| E{目标列没填, 或就是当前列}
+    E -->|是| G
+    E -->|否| E2{目标列属于该看板}
+    E2 -->|否| Z3[回滚, 返回 400]
+    E2 -->|是| E3{操作者是 agent 且目标列开启 AgentPickup}
+    E3 -->|是| Z4[回滚, 返回 403]
+    E3 -->|否| G{BeforeID 与 AfterID 同时给出}
+    G -->|是| Z3
+    G -->|否| H[读取目标列的卡片, 不含正在移动的这张, 按 Position 升序]
+    H --> I{指定了参照卡片}
+    I -->|否| J[新位置等于最大值加 1024, 空列为 1024]
+    I -->|是| K{参照卡片在目标列里}
+    K -->|否| Z3
+    K -->|是| L[取参照卡片与它相邻的一张, 新位置取两者中点, 到列头列尾时再加减 1024]
+    L --> M{新位置与相邻位置的差小于 0.000001}
+    M -->|是| N[整列按顺序重写 Position 为 1024 的整数倍, 再重新计算]
+    M -->|否| O
+    J --> O
+    N --> O[得到新位置]
+    O --> P{换了列}
+    P -->|否| P2{在列里的次序没变}
+    P2 -->|是| T[直接返回, 不保存, 不写事件]
+    P2 -->|否| Q[保存, 追加 card.reordered 事件]
+    P -->|是| R[清除领取, 追加 card.moved 事件]
+    R --> R2[执行自动化: 触发离开原列与进入目标列]
+    R2 --> R3[保存卡片, 规则的改动和换列一起落库, Version 加一]
+    R3 --> S[提交并广播]
+    Q --> S
 ```
+
+说明：同一列里的"次序没变"指新位置排在它前面的卡片数量和原来一样；这种情况只可能是用户点了一下没有真的移动，所以什么都不做。
+换列和完成交接（见领取设计）共用同一个收尾 commitMove，所以规则对谁的操作都一样生效。
 
 ## 删除卡片与评论
 
@@ -187,7 +203,8 @@ flowchart TD
 | tag:xxx | 带有该标签 |
 | col:xxx 或 column:xxx | 所在列的名称等于 xxx，不区分大小写；也可以写列 id |
 | key:xxx | Key 等于 xxx，不区分大小写 |
-| title:xxx 或 desc:xxx | 标题或描述里包含 xxx |
+| title:xxx | 标题里包含 xxx，不区分大小写 |
+| desc:xxx | 描述里包含 xxx，不区分大小写 |
 | priority:high、priority:3、priority:>=2 | 优先级等于，或者用比较符；high、medium、low、none 对应 3、2、1、0 |
 | claimed:xxx | 当前被名为 xxx 的 agent 领取且租约有效 |
 | is:done | 位于完成列 |
@@ -199,7 +216,7 @@ flowchart TD
 | is:overdue | 有到期时间，已过期，且不在完成列 |
 | is:started、is:finished | 开始、完成时间不为空 |
 | has:xxx 与 no:xxx | xxx 取 due、branch、url、tags、desc、deps 之一，表示有或没有 |
-| due:、created:、updated: 加比较符加日期 | 比较符为 <、<=、>、>=、=；日期写 2026-11-17 或 today；按服务器所在时区的自然日比较 |
+| due:、created:、updated: 加比较符加日期 | 比较符为 <、<=、>、>=、=，不写比较符就是等于；日期写 2026-11-17 或 today；按服务器所在时区的自然日比较，所以 due:today 命中今天任意时刻到期的卡片 |
 
 出错的情况：未知的前缀、值不合法、引号没有闭合，都返回 400 并写出出错的词，例如：筛选词 is:foo 无法识别，可选值为 done、open、human、claimed、free、waiting、overdue、started、finished。
 
@@ -208,11 +225,16 @@ flowchart TD
 | 步骤 | 函数 | 文件 |
 |------|------|------|
 | 卡片存储接口与查询 | CardStorer | internal/core/kanban/card.go |
-| 创建、修改、移动、删除、详情、列表 | Core.CreateCard, UpdateCard, MoveCard, DeleteCard, GetCard, ListCards | internal/core/kanban/card.go |
-| 编号与 Key | unit.nextCardNumber | internal/core/kanban/card.go |
-| 位置计算与整列重排 | computePosition, renumberColumn | internal/core/kanban/card_position.go |
-| 依赖校验与等待判断 | validateWaitsOn, isWaiting | internal/core/kanban/card_deps.go |
-| 筛选解析与匹配 | ParseFilter, Filter.Match | internal/core/kanban/card_filter.go |
-| 评论 | Core.AddComment, DeleteComment | internal/core/kanban/comment.go |
-| 权限判断 | Actor.IsAgent, canAgentEdit | internal/core/kanban/actor.go, card.go |
+| 创建、修改 | Core.CreateCard, UpdateCard, unit.updateCard | internal/core/kanban/card.go |
+| 移动 | Core.MoveCard, unit.moveCard, resolveMove, relocateCard, reorderCard, commitMove | internal/core/kanban/card_move.go |
+| 删除 | Core.DeleteCard, unit.deleteCard, dropDependency | internal/core/kanban/card_delete.go |
+| 详情、列表 | Core.GetCard, GetCardDetail, ListCards | internal/core/kanban/card.go, card_detail.go, card_list.go |
+| 编号与 Key | unit.assignNumberAndPosition | internal/core/kanban/card.go |
+| 位置计算与整列重排 | computePosition, unit.placeCard, appendPosition, renumberColumn | internal/core/kanban/card_position.go |
+| 依赖校验与等待判断 | normalizeWaitsOn, validateWaitsOn, reachesTarget, unfinishedDeps, unit.checkWaitsOn | internal/core/kanban/card_deps.go, card.go |
+| 视图与看板索引 | CardView, boardIndex, newBoardIndex | internal/core/kanban/card_view.go |
+| 筛选解析与匹配 | parseFilter, filter.match, splitTerms, buildTerm | internal/core/kanban/card_filter.go |
+| 筛选词的具体写法 | buildIs, buildHas, buildNo, buildPriority, buildDate 等 | internal/core/kanban/card_filter_terms.go |
+| 评论 | Core.AddComment, unit.addComment, DeleteComment | internal/core/kanban/comment.go |
+| 权限判断 | requireHuman, requireWriter, checkCardWritable, UpdateCardInput.touchesPlanning | internal/core/kanban/validate.go, card.go, card.param.go |
 | 入参结构 | CreateCardInput, UpdateCardInput, MoveCardInput | internal/core/kanban/card.param.go |
