@@ -26,6 +26,7 @@ type CardView struct {
 type boardIndex struct {
 	now      time.Time
 	loc      *time.Location // 日期类筛选按这个时区的自然日比较
+	cols     []*Column      // 看板的列，从左到右
 	columns  map[int64]*Column
 	colOrder map[int64]int // 列主键到它在看板里从左到右的序号
 	cards    map[int64]*Card
@@ -36,7 +37,7 @@ type boardIndex struct {
 // 复杂度是列数加卡片数的线性级。
 func newBoardIndex(now time.Time, loc *time.Location, cols []*Column, cards []*Card) *boardIndex {
 	ix := &boardIndex{
-		now: now, loc: loc,
+		now: now, loc: loc, cols: cols,
 		columns:  make(map[int64]*Column, len(cols)),
 		colOrder: make(map[int64]int, len(cols)),
 		cards:    make(map[int64]*Card, len(cards)),

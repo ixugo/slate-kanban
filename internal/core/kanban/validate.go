@@ -30,6 +30,18 @@ func requireWriter(actor Actor) error {
 	return nil
 }
 
+// requireAgent 校验操作者合法并且是 agent。领取、取下一张卡是 agent 独有的动作，
+// 人通过拖动卡片分配工作，所以人调用会得到 ErrAgentOnly。
+func requireAgent(actor Actor) error {
+	if err := actor.Validate(); err != nil {
+		return err
+	}
+	if !actor.IsAgent() {
+		return ErrAgentOnly
+	}
+	return nil
+}
+
 // checkText 校验一段文本：必须是合法的 UTF-8、不含空字符，字符数在 [min, max] 之内。
 // 空字符和非法 UTF-8 在 PostgreSQL 里会让写入直接报错，在这里提前拦住，才能给出 400 而不是 500。
 // field 是面向用户的字段名，会出现在错误提示里。

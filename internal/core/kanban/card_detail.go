@@ -36,7 +36,7 @@ func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, err
 	if err != nil {
 		return nil, wrapDB("读取列", err)
 	}
-	deps, err := c.loadDependencies(ctx, card)
+	deps, err := loadDependencies(ctx, c.store.Card(), card)
 	if err != nil {
 		return nil, err
 	}
@@ -63,11 +63,11 @@ func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, err
 }
 
 // loadDependencies 按依赖列表的顺序读出卡片依赖的卡片，已经不存在的跳过。
-// 依赖最多 maxWaitsOn 个，所以逐个按主键读取的开销有限。
-func (c Core) loadDependencies(ctx context.Context, card *Card) ([]*Card, error) {
+// 依赖最多 maxWaitsOn 个，所以逐个按主键读取的开销有限。cards 可以是事务内的存储，也可以是普通存储。
+func loadDependencies(ctx context.Context, cards CardStorer, card *Card) ([]*Card, error) {
 	deps := make([]*Card, 0, len(card.WaitsOn))
 	for _, id := range card.WaitsOn {
-		dep, err := c.store.Card().GetByID(ctx, id)
+		dep, err := cards.GetByID(ctx, id)
 		if orm.IsErrRecordNotFound(err) {
 			continue
 		}
