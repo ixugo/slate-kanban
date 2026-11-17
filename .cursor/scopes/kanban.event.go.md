@@ -25,7 +25,9 @@
 ## 事件类型
 
 事件的 Payload 是一段 JSON，只放展示和判断需要的字段。网页根据 Type 和 Payload 在前端拼出各语言的活动文案，
-所以服务端不在事件里存任何自然语言。
+所以服务端不在事件里存任何自然语言。数据库里 Payload 存成文本，对外输出（REST、实时流、agent 拉取的结果）时
+Event 的 JSON 序列化会把它直接输出成 JSON 对象，不再套一层转义字符串；存的内容万一不是合法 JSON，
+就退回成字符串输出，不会让整个响应失效。
 
 | Type | 触发时机 | Payload 字段 |
 |------|----------|-------------|
@@ -156,6 +158,7 @@ flowchart TD
 `ListEvents(boardID, afterSeq, limit)` 给网页的实时流重连和活动列表用，人和 agent 都能读。它不做任何过滤，
 limit 默认 200、最大 1000。起点早于保留范围时同样标记 truncated 并从保留范围的开头读起，
 网页收到 truncated 就丢掉本地数据，重新读整板快照（见看板设计）。
+`LatestSeq(boardID)` 只返回看板当前最新的事件序号，实时流刚连上又没有指定续传位置时用它定起点。
 
 ## 时序：离线补拉与实时唤醒
 
@@ -197,7 +200,8 @@ sequenceDiagram
 | 提交后广播 | Core.publish, Hub.publish | internal/core/kanban/unit.go, hub.go |
 | 事件类型常量、事件与游标存储接口 | EventCardMoved 等, EventStorer, CursorStorer | internal/core/kanban/event.go |
 | 读一页事件并判断 truncated | Core.readWindow | internal/core/kanban/event_read.go |
-| 网页补发 | Core.ListEvents | internal/core/kanban/event_read.go |
+| 网页补发、最新序号 | Core.ListEvents, Core.LatestSeq | internal/core/kanban/event_read.go |
+| 事件内容输出成对象 | Event.MarshalJSON, Event.UnmarshalJSON | internal/core/kanban/event_json.go |
 | 数量整理 | normalizeLimit | internal/core/kanban/validate.go |
 | 拉取、确认游标、过滤 | Core.PullUpdates, ackCursor, advanceCursor, scanUpdates, relevantToAgent, quietEventTypes | internal/core/kanban/event_pull.go |
 | 阻塞等待 | Core.WaitUpdates, updateWaiter.wait, normalizeWaitTimeout | internal/core/kanban/event_wait.go |
