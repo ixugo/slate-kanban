@@ -103,6 +103,25 @@ func (in *UpdateBoardInput) normalize() error {
 	return nil
 }
 
+// apply 把入参里出现的字段写到看板上，返回真正发生变化的字段名（和 JSON 字段名一致）。
+// 值和原来相同的字段不算变化，所以重复提交同样的修改不会产生事件。
+func (in UpdateBoardInput) apply(b *Board) []string {
+	var changed []string
+	if in.Name != nil && *in.Name != b.Name {
+		b.Name = *in.Name
+		changed = append(changed, "name")
+	}
+	if in.Description != nil && *in.Description != b.Description {
+		b.Description = *in.Description
+		changed = append(changed, "description")
+	}
+	if in.ProjectPath != nil && *in.ProjectPath != b.ProjectPath {
+		b.ProjectPath = *in.ProjectPath
+		changed = append(changed, "project_path")
+	}
+	return changed
+}
+
 // checkBoardFields 校验创建时一定会出现的三个字段。
 func checkBoardFields(name, description, projectPath string) error {
 	if err := checkLine("看板名称", name, 1, maxBoardNameLen); err != nil {

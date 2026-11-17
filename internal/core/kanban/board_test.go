@@ -252,3 +252,165 @@ func TestListBoards(t *testing.T) {
 		t.Fatalf("应该按创建顺序返回 3 个看板，实际 %+v, %v", boards, err)
 	}
 }
+
+// boardEvents 返回看板里的事件，按序号升序。
+func boardEvents(t *testing.T, db kanbandb.DB, boardID int64) []*kanban.Event {
+	t.Helper()
+	items, err := db.Event().ListAfter(context.Background(), boardID, 0, 1000)
+	if err != nil {
+		t.Fatalf("读取事件失败: %v", err)
+	}
+	return items
+}
+
+// strPtr 返回字符串的指针，用来构造"出现的字段"。
+func strPtr(s string) *string { return &s }
+
+// TestUpdateBoardByHuman 验证人可以改三个字段：只更新出现的字段，标识不变，
+// 事件里记录真正变化的字段名，读出来的数据和返回的一致。
+func TestUpdateBoardByHuman(t *testing.T) {
+	ctx := context.Background()
+	core, db := newBare(t)
+	d := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "旧名字", Slug: "OLD", Description: "旧说明"})
+
+	got, err := core.UpdateBoard(ctx, testActor, d.ID, kanban.UpdateBoardInput{Name: strPtr("  新名字 "), ProjectPath: strPtr("/code/app")})
+	if err != nil {
+		t.Fatalf("修改失败: %v", err)
+	}
+	if got.Name != "新名字" || got.Description != "旧说明" || got.ProjectPath != "/code/app" || got.Slug != "OLD" {
+		t.Fatalf("只应该更新出现的字段，实际 %+v", got)
+	}
+	read, _ := core.GetBoard(ctx, d.ID)
+	if read.Name != "新名字" || read.ProjectPath != "/code/app" {
+		t.Fatalf("读出来的数据不一致: %+v", read.Board)
+	}
+	events := boardEvents(t, db, d.ID)
+	last := events[len(events)-1]
+	if len(events) != 2 || last.Type != kanban.EventBoardUpdated || last.Payload != `{"fields":["name","project_path"]}` {
+		t.Fatalf("应该多一条记录了变化字段的事件，实际 %+v", events)
+	}
+
+	cleared, err := core.UpdateBoard(ctx, testActor, d.ID, kanban.UpdateBoardInput{ProjectPath: strPtr("")})
+	if err != nil || cleared.ProjectPath != "" {
+		t.Fatalf("人可以清空项目路径: %+v %v", cleared, err)
+	}
+}
+
+// TestUpdateBoardNoChange 验证提交的值和原来相同时，不写事件也不广播。
+func TestUpdateBoardNoChange(t *testing.T) {
+	ctx := context.Background()
+	core, db := newBare(t)
+	d := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "名字", Slug: "SAME"})
+	published := 0
+	core.Observe("count", func(context.Context, kanban.Published) error { published++; return nil })
+
+	for _, in := range []kanban.UpdateBoardInput{{}, {Name: strPtr("名字")}, {Description: strPtr("")}} {
+		if _, err := core.UpdateBoard(ctx, testActor, d.ID, in); err != nil {
+			t.Fatalf("没有变化也应该成功: %v", err)
+		}
+	}
+	if n := len(boardEvents(t, db, d.ID)); n != 1 {
+		t.Fatalf("没有变化不应该写事件，实际 %d 条", n)
+	}
+	if published != 0 {
+		t.Fatalf("没有变化不应该广播，实际 %d 次", published)
+	}
+}
+
+// TestUpdateBoardByAgent 验证 agent 的权限：只能在项目路径为空时写入项目路径；
+// 路径已有值时改成别的值被拒绝，写成相同的值按幂等成功；改名称、说明或什么都不改都被拒绝；
+// 人始终可以修改。
+func TestUpdateBoardByAgent(t *testing.T) {
+	ctx := context.Background()
+	core, db := newBare(t)
+	d := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "名字", Slug: "AG"})
+
+	if _, err := core.UpdateBoard(ctx, testAgent, d.ID, kanban.UpdateBoardInput{ProjectPath: strPtr("/work/a")}); err != nil {
+		t.Fatalf("路径为空时 agent 应该能写入: %v", err)
+	}
+	events := boardEvents(t, db, d.ID)
+	if last := events[len(events)-1]; last.ActorKind != "agent" || last.Actor != "claude" || last.Type != kanban.EventBoardUpdated {
+		t.Fatalf("事件应该记录 agent 为操作者: %+v", last)
+	}
+
+	if _, err := core.UpdateBoard(ctx, testAgent, d.ID, kanban.UpdateBoardInput{ProjectPath: strPtr("/work/b")}); !errors.Is(err, kanban.ErrProjectPathLocked) {
+		t.Fatalf("路径已有值时 agent 改成别的值应该得到 ErrProjectPathLocked，实际 %v", err)
+	}
+	if _, err := core.UpdateBoard(ctx, testAgent, d.ID, kanban.UpdateBoardInput{ProjectPath: strPtr("/work/a")}); err != nil {
+		t.Fatalf("写成相同的值应该按幂等成功: %v", err)
+	}
+	for _, in := range []kanban.UpdateBoardInput{
+		{Name: strPtr("agent 改的名字")},
+		{Description: strPtr("agent 改的说明")},
+		{Name: strPtr("x"), ProjectPath: strPtr("/work/a")},
+		{},
+	} {
+		if _, err := core.UpdateBoard(ctx, testAgent, d.ID, in); !errors.Is(err, kanban.ErrHumanOnly) {
+			t.Errorf("agent 改其他字段应该得到 ErrHumanOnly，实际 %v", err)
+		}
+	}
+	if _, err := core.UpdateBoard(ctx, testActor, d.ID, kanban.UpdateBoardInput{ProjectPath: strPtr("/work/c")}); err != nil {
+		t.Fatalf("人应该可以修改已有的路径: %v", err)
+	}
+	system := kanban.AutomationActor("规则")
+	if _, err := core.UpdateBoard(ctx, system, d.ID, kanban.UpdateBoardInput{Name: strPtr("x")}); !errors.Is(err, kanban.ErrHumanOnly) {
+		t.Fatalf("系统操作者不能改看板，实际 %v", err)
+	}
+}
+
+// TestUpdateBoardAgentsRace 验证多个 agent 同时写项目路径时，只有第一个成功，
+// 其余的看到已有值而被拒绝，最终路径就是赢家写的那个。
+func TestUpdateBoardAgentsRace(t *testing.T) {
+	ctx := context.Background()
+	core, _ := newBare(t)
+	d := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "名字", Slug: "RACE"})
+
+	const n = 6
+	var mu sync.Mutex
+	winners := map[string]bool{}
+	within(t, 20*time.Second, func() {
+		var wg sync.WaitGroup
+		for i := range n {
+			wg.Go(func() {
+				path := fmt.Sprintf("/work/%d", i)
+				_, err := core.UpdateBoard(ctx, kanban.Actor{Kind: kanban.ActorAgent, Name: fmt.Sprintf("a%d", i)}, d.ID,
+					kanban.UpdateBoardInput{ProjectPath: &path})
+				switch {
+				case err == nil:
+					mu.Lock()
+					winners[path] = true
+					mu.Unlock()
+				case !errors.Is(err, kanban.ErrProjectPathLocked):
+					t.Errorf("意外的错误: %v", err)
+				}
+			})
+		}
+		wg.Wait()
+	})
+	got, _ := core.GetBoard(ctx, d.ID)
+	if len(winners) != 1 || !winners[got.ProjectPath] {
+		t.Fatalf("应该恰好一个赢家且路径一致，赢家 %v，最终路径 %q", winners, got.ProjectPath)
+	}
+}
+
+// TestUpdateBoardRejects 验证看板不存在、输入不合法、身份无效时的错误。
+func TestUpdateBoardRejects(t *testing.T) {
+	ctx := context.Background()
+	core, _ := newBare(t)
+	d := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "名字", Slug: "REJ"})
+
+	if _, err := core.UpdateBoard(ctx, testActor, 9999, kanban.UpdateBoardInput{Name: strPtr("x")}); !errors.Is(err, kanban.ErrBoardNotFound) {
+		t.Fatalf("看板不存在应该得到 ErrBoardNotFound，实际 %v", err)
+	}
+	for _, in := range []kanban.UpdateBoardInput{{Name: strPtr("   ")}, {ProjectPath: strPtr("relative")}} {
+		if _, err := core.UpdateBoard(ctx, testActor, d.ID, in); !errors.Is(err, kanban.ErrInvalidInput) {
+			t.Errorf("应该得到 ErrInvalidInput，实际 %v", err)
+		}
+	}
+	if _, err := core.UpdateBoard(ctx, kanban.Actor{}, d.ID, kanban.UpdateBoardInput{Name: strPtr("x")}); !errors.Is(err, kanban.ErrInvalidActor) {
+		t.Fatalf("身份无效应该得到 ErrInvalidActor，实际 %v", err)
+	}
+	if got, _ := core.GetBoard(ctx, d.ID); got.Name != "名字" {
+		t.Fatalf("失败的修改不应该生效: %+v", got.Board)
+	}
+}

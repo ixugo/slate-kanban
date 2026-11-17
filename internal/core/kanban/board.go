@@ -113,3 +113,59 @@ func (c Core) GetBoard(ctx context.Context, id int64) (*BoardDetail, error) {
 	}
 	return &BoardDetail{Board: b, Columns: cols, Rules: []*Rule{}}, nil
 }
+
+// UpdateBoard 修改看板的名称、说明或项目路径，只更新入参里出现的字段。
+// 人可以改全部三项；agent 只能在项目路径为空时写入项目路径，其他一律拒绝。
+// 没有字段真的变化时直接返回当前看板，不写事件。
+func (c Core) UpdateBoard(ctx context.Context, actor Actor, id int64, in UpdateBoardInput) (*Board, error) {
+	if err := actor.Validate(); err != nil {
+		return nil, err
+	}
+	if err := in.normalize(); err != nil {
+		return nil, err
+	}
+	if err := checkBoardPatchAllowed(actor, in); err != nil {
+		return nil, err
+	}
+	var out *Board
+	err := c.run(ctx, id, func(u *unit) error {
+		// run 已经锁住了看板行，这里读到的一定是最新值，
+		// 所以两个 agent 同时写项目路径时，后到的会看到前一个写入的值而被拒绝。
+		b, err := u.board.GetByID(ctx, id)
+		if err != nil {
+			return mapNotFound(err, ErrBoardNotFound, "读取看板")
+		}
+		if actor.IsAgent() && b.ProjectPath != "" && *in.ProjectPath != b.ProjectPath {
+			return ErrProjectPathLocked
+		}
+		out = b
+		changed := in.apply(b)
+		if len(changed) == 0 {
+			return nil
+		}
+		b.UpdatedAt = u.now()
+		if err := u.board.Save(ctx, b); err != nil {
+			return wrapDB("保存看板", err)
+		}
+		return u.emit(ctx, actor, newEvent{
+			BoardID: id, Type: EventBoardUpdated, Payload: map[string]any{"fields": changed},
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// checkBoardPatchAllowed 在进入事务之前先挡掉明显越权的修改：
+// 人可以改任何字段，agent 只能提交项目路径这一个字段，系统操作者不能改看板。
+// "路径是否已有值"要在锁住看板行之后再判断，不在这里。
+func checkBoardPatchAllowed(actor Actor, in UpdateBoardInput) error {
+	switch {
+	case actor.IsHuman():
+		return nil
+	case actor.IsAgent() && in.Name == nil && in.Description == nil && in.ProjectPath != nil:
+		return nil
+	}
+	return ErrHumanOnly.WithMsg("agent 只能在项目路径为空时写入项目路径，其他修改只允许人执行")
+}
