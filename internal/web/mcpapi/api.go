@@ -68,6 +68,7 @@ func (a API) newServer(v view) *mcp.Server {
 	if v == viewAgent {
 		a.registerSyncTools(s)
 	}
+	a.registerWorkTools(s, v)
 	return s
 }
 
