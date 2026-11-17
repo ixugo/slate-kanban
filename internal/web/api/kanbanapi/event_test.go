@@ -1,10 +1,13 @@
 package kanbanapi_test
 
 import (
+	"io"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"slate-kanban/internal/web/api/apitest"
 )
 
 // updates 是拉取和等待的响应。
@@ -106,5 +109,54 @@ func TestWaitUpdates(t *testing.T) {
 	woke := decode[updates](t, s.agent(t, "claude", http.MethodPost, wait, map[string]any{"since": idle.Cursor, "timeout_seconds": 30}))
 	if woke.TimedOut || len(woke.Events) != 1 || time.Since(start) > 5*time.Second {
 		t.Fatalf("已经有新事件应该马上返回: %+v 用时 %v", woke, time.Since(start))
+	}
+}
+
+// TestWaitInterruptedByShutdown 验证等待更新期间服务开始关闭：请求马上得到 503，不用等到超时（这里请求的等待时间是 50 秒）。
+// 无论关闭信号比请求先到还是后到，结果都一样，所以不依赖时序。
+func TestWaitInterruptedByShutdown(t *testing.T) {
+	s := newStack(t)
+	srv := s.serve(t)
+	b := s.newBoard(t, "WSD")
+	first := decode[updates](t, s.agent(t, "claude", http.MethodPost, "/boards/"+id(b.ID)+"/updates/pull", nil))
+
+	body := strings.NewReader(`{"since":` + id(first.Cursor) + `,"timeout_seconds":50}`)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, srv.URL+"/api/v1/boards/"+id(b.ID)+"/updates/wait", body)
+	if err != nil {
+		t.Fatalf("构造请求失败: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+s.token(t, "claude"))
+	req.Header.Set("Content-Type", "application/json")
+
+	type result struct {
+		code int
+		raw  []byte
+		err  error
+	}
+	got := make(chan result, 1)
+	go func() {
+		resp, err := srv.Client().Do(req)
+		if err != nil {
+			got <- result{err: err}
+			return
+		}
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Logf("关闭响应体: %v", err)
+			}
+		}()
+		raw, err := io.ReadAll(resp.Body)
+		got <- result{code: resp.StatusCode, raw: raw, err: err}
+	}()
+	time.AfterFunc(200*time.Millisecond, s.closeNow)
+
+	select {
+	case r := <-got:
+		if r.err != nil {
+			t.Fatalf("请求失败: %v", r.err)
+		}
+		wantFail(t, "关闭中的等待", apitest.Response{Code: r.code, Body: r.raw}, http.StatusServiceUnavailable, "ErrServiceUnavailable")
+	case <-time.After(within):
+		t.Fatal("服务开始关闭后，等待应该立刻结束")
 	}
 }

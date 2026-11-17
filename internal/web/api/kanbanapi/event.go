@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"slate-kanban/internal/core/kanban"
+	"slate-kanban/internal/lifecycle"
 )
 
 // maxTimeoutSeconds 是请求里等待秒数的上限，只用来防止换算成纳秒时溢出；
@@ -58,7 +59,14 @@ func (a API) pullUpdates(ctx context.Context, actor kanban.Actor, in *pullUpdate
 }
 
 // waitUpdates 和 pullUpdates 一样，但没有新更新时会等到有更新或超时，只有 agent 能做。
+// 等待期间服务开始关闭会被打断，返回 503，客户端稍后重试即可。
 func (a API) waitUpdates(ctx context.Context, actor kanban.Actor, in *waitUpdatesInput) (*kanban.Updates, error) {
 	timeout := time.Duration(min(in.TimeoutSeconds, maxTimeoutSeconds)) * time.Second
-	return a.core.WaitUpdates(ctx, actor, in.BoardID, kanban.WaitInput{PullInput: in.PullInput, Timeout: timeout})
+	bound, cancel := lifecycle.Bind(ctx)
+	defer cancel()
+	out, err := a.core.WaitUpdates(bound, actor, in.BoardID, kanban.WaitInput{PullInput: in.PullInput, Timeout: timeout})
+	if lifecycle.Interrupted(ctx, err) {
+		return nil, lifecycle.ErrShuttingDown
+	}
+	return out, err
 }

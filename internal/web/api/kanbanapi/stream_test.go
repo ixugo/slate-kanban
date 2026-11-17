@@ -355,3 +355,15 @@ func TestStreamClientDisconnect(t *testing.T) {
 		t.Fatal("客户端断开后，处理函数应该退出")
 	}
 }
+
+// TestStreamEndsOnShutdown 验证服务开始关闭时，实时流主动结束，不用等客户端自己断开；
+// 结束前不发 error 事件（客户端带着最后的序号重连即可）。
+func TestStreamEndsOnShutdown(t *testing.T) {
+	s := newStack(t)
+	srv := s.serve(t)
+	b := s.newBoard(t, "SHD")
+	conn := openStream(t, srv, adminToken, "/boards/"+id(b.ID)+"/stream", nil)
+	conn.ready(t)
+	s.closeNow()
+	conn.wantEnd(t)
+}

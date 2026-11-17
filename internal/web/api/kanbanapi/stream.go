@@ -16,6 +16,7 @@ import (
 	"github.com/ixugo/goddd/pkg/web"
 
 	"slate-kanban/internal/core/kanban"
+	"slate-kanban/internal/lifecycle"
 )
 
 const (
@@ -36,7 +37,8 @@ const (
 
 // stream 处理实时流请求 GET /boards/:board_id/stream。
 // 起点的确定和看板是否存在的检查都在写响应头之前完成，所以这些错误还能返回正常的 JSON 错误；
-// 响应头写出去之后出的错只能用 error 事件通知客户端。
+// 响应头写出去之后出的错只能用 error 事件通知客户端。服务开始关闭时流直接结束，不发事件，
+// 客户端带着最后收到的序号重连就能接上。
 func (a API) stream(c *gin.Context) {
 	boardID, err := strconv.ParseInt(c.Param("board_id"), 10, 64)
 	if err != nil {
@@ -70,7 +72,10 @@ func (a API) stream(c *gin.Context) {
 		s.finish(ctx, sseReset, map[string]int64{"latest": latest})
 		return
 	}
-	s.run(ctx)
+	// 长时间的循环用绑定后的上下文：服务开始关闭时流也跟着结束，不会拖住关闭
+	bound, cancel := lifecycle.Bind(ctx)
+	defer cancel()
+	s.run(bound)
 }
 
 // streamCursor 读出续传位置：查询参数 after 优先，其次是请求头 Last-Event-ID。
