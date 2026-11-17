@@ -1,19 +1,16 @@
 package conf
 
-import (
-	"time"
+import "time"
 
-	"github.com/ixugo/goddd/pkg/orm"
-)
-
+// DefaultConfig 返回首次生成配置文件时用的默认值：只监听本机，Host 白名单为空。
 func DefaultConfig() Bootstrap {
 	return Bootstrap{
 		Server: Server{
 			HTTP: ServerHTTP{
-				Host:      "127.0.0.1",
-				Port:      7070,
-				Timeout:   Duration(30 * time.Second),
-				JwtSecret: orm.GenerateRandomString(32),
+				Host:         "127.0.0.1",
+				Port:         7070,
+				Timeout:      Duration(30 * time.Second),
+				AllowedHosts: nil,
 				PProf: ServerPPROF{
 					Enabled:   true,
 					AccessIps: []string{"::1", "127.0.0.1"},

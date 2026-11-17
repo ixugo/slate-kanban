@@ -11,9 +11,12 @@ import (
 	"net/http"
 
 	"github.com/ixugo/goddd/domain/version/versionapi"
+
 	"slate-kanban/internal/conf"
 	"slate-kanban/internal/data"
 	"slate-kanban/internal/web/api"
+	"slate-kanban/internal/web/api/connectapi"
+	"slate-kanban/internal/web/api/kanbanapi"
 )
 
 // Injectors from wire.go:
@@ -25,13 +28,21 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 	}
 	core := versionapi.NewVersionCore(db)
 	versionapiAPI := versionapi.New(core)
+	kanbanCore := api.NewKanbanCore(db)
+	kanbanapiAPI := kanbanapi.New(kanbanCore)
+	mcpapiAPI, cleanup2 := api.NewMCP(bc, kanbanCore)
+	connectapiAPI := connectapi.New()
 	usecase := &api.Usecase{
 		Conf:    bc,
 		DB:      db,
 		Version: versionapiAPI,
+		Kanban:  kanbanapiAPI,
+		MCP:     mcpapiAPI,
+		Connect: connectapiAPI,
 	}
 	handler := api.NewHTTPHandler(usecase)
 	return handler, func() {
+		cleanup2()
 		cleanup()
 	}, nil
 }

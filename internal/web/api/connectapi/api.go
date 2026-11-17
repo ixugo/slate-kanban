@@ -15,7 +15,7 @@ const (
 	// markdownType 是说明页的内容类型。
 	markdownType = "text/markdown; charset=utf-8"
 	// installPath 和 skillPath 是免认证的两个页面的路径。
-	// 免认证是因为 agent 在拿到令牌、装好 MCP 之前就要读它们；里面没有任何敏感信息。
+	// 免认证是因为 agent 在装好 MCP 之前就要读它们；里面没有任何敏感信息。
 	installPath = "/install.md"
 	skillPath   = "/skills/" + skillName + "/SKILL.md"
 )
@@ -34,7 +34,7 @@ func RegisterPublic(r gin.IRouter, a API) {
 	r.GET(skillPath, a.skillDoc)
 }
 
-// Register 注册需要令牌的结构化说明。r 应该是已经套好认证的 /api/v1 路由组。
+// Register 注册结构化接入说明（免认证，和 REST 同组挂 /api/v1）。
 func Register(r gin.IRouter, a API) {
 	r.GET("/connect", web.WrapH(a.connect))
 }

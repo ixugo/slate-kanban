@@ -1,6 +1,7 @@
 package data
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,8 @@ import (
 // ProviderSet is data providers.
 var ProviderSet = wire.NewSet(SetupDB)
 
-// SetupDB 初始化数据存储
+// SetupDB 初始化数据存储。返回的清理函数在服务退出时调用，会真正关闭数据库连接，
+// 这样 SQLite 能把 WAL 里还没合并的内容写回主文件。
 func SetupDB(c *conf.Bootstrap) (*gorm.DB, func(), error) {
 	cfg := c.Data.Database
 	dial, isSQLite := getDialector(cfg.Dsn)
@@ -32,15 +34,22 @@ func SetupDB(c *conf.Bootstrap) (*gorm.DB, func(), error) {
 		ConnMaxLifetime: cfg.ConnMaxLifetime.Duration(),
 		SlowThreshold:   cfg.SlowThreshold.Duration(),
 	})
-
-	closeFn := func() {
-		sqlDB, err := db.DB()
-		if err != nil {
-			_ = sqlDB.Close()
-		}
+	if err != nil {
+		return nil, func() {}, err
 	}
+	return db, func() { closeDB(db) }, nil
+}
 
-	return db, closeFn, err
+// closeDB 关闭 gorm 底层的连接池；失败只记日志，因为这时服务已经在退出，没有别的补救办法。
+func closeDB(db *gorm.DB) {
+	sqlDB, err := db.DB()
+	if err != nil {
+		slog.Error("取数据库连接失败，无法关闭", "err", err)
+		return
+	}
+	if err := sqlDB.Close(); err != nil {
+		slog.Error("关闭数据库失败", "err", err)
+	}
 }
 
 // getDialector 返回 dial 和 是否 sqlite

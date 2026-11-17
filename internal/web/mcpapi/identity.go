@@ -8,7 +8,7 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// actorKey 是 TokenInfo.Extra 里存放看板操作者的键，和以前的令牌方案保持一致，测试里也会用到。
+// actorKey 是 TokenInfo.Extra 里存放看板操作者的键，工具从 req.Extra 取出，测试里也会用到。
 const actorKey = "actor"
 
 // actorFromHeaders 从 HTTP 请求头取出 middleware 写入的操作者。

@@ -23,7 +23,7 @@ const (
 	// streamHeartbeat 是实时流发保活注释行的间隔：既防止代理因为空闲断开连接，也能借写失败发现客户端已经走了。
 	streamHeartbeat = 20 * time.Second
 	// streamMaxAge 是单次实时连接的最长时间。到点服务端主动结束，客户端带着最后的事件序号重连，
-	// 这样被删除的令牌最多再多读 10 分钟，半开的连接也不会一直占着资源。
+	// 避免半开的连接一直占着资源。
 	streamMaxAge = 10 * time.Minute
 )
 

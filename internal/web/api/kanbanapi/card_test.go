@@ -67,7 +67,7 @@ func TestCardList(t *testing.T) {
 	wantFail(t, "看板不存在", s.human(t, http.MethodGet, "/boards/9999/cards", nil), http.StatusNotFound, "ErrBoardNotFound")
 }
 
-// TestCardMoveAndComments 验证移动和评论：移到另一列后列变了；评论作者取自令牌身份；
+// TestCardMoveAndComments 验证移动和评论：移到另一列后列变了；评论作者取自 REST 固定的人身份；
 // 详情里能看到评论；只有人能删评论；评论为空返回 400。
 func TestCardMoveAndComments(t *testing.T) {
 	s := newStack(t)
