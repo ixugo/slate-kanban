@@ -8,7 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"slate-kanban/internal/core/access"
 	"slate-kanban/internal/core/access/accesstest"
+	"slate-kanban/internal/core/kanban"
 	"slate-kanban/internal/web/api/accessapi"
 	"slate-kanban/internal/web/api/apitest"
 )
@@ -79,6 +81,24 @@ func TestMe(t *testing.T) {
 	resp.JSON(t, &me)
 	if resp.Code != http.StatusOK || me.Name != "claude" || me.Kind != "agent" {
 		t.Fatalf("agent 令牌应该是 agent: %d %+v", resp.Code, me)
+	}
+}
+
+// TestActorOf 验证身份换算：管理员是人，名称是 admin；其他令牌是 agent，名称沿用令牌绑定的名称。
+// MCP 适配器和 REST 用同一个函数换算，所以两个入口对同一个令牌得到同一个操作者。
+func TestActorOf(t *testing.T) {
+	cases := []struct {
+		name string
+		in   access.Principal
+		want kanban.Actor
+	}{
+		{"管理员", access.Principal{Admin: true, Name: access.AdminName}, kanban.Actor{Kind: kanban.ActorHuman, Name: "admin"}},
+		{"agent", access.Principal{Name: "claude"}, kanban.Actor{Kind: kanban.ActorAgent, Name: "claude"}},
+	}
+	for _, tc := range cases {
+		if got := accessapi.ActorOf(tc.in); got != tc.want {
+			t.Errorf("%s：期望 %+v，实际 %+v", tc.name, tc.want, got)
+		}
 	}
 }
 

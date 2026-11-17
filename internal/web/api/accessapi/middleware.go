@@ -33,16 +33,21 @@ func (a API) Middleware() gin.HandlerFunc {
 	}
 }
 
-// WithPrincipal 把令牌身份和它对应的看板操作者放进上下文。
-// 管理令牌对应人（名称 admin），其余令牌对应 agent（名称是令牌绑定的名称）。
-// 认证中间件和需要模拟已登录请求的测试都用它。
-func WithPrincipal(ctx context.Context, p access.Principal) context.Context {
+// ActorOf 由令牌身份算出看板操作者：管理令牌对应人（名称 admin），其余令牌对应 agent（名称是令牌绑定的名称）。
+// REST 的认证中间件和 MCP 适配器都用它，保证同一个令牌在两个入口里是同一个操作者。
+func ActorOf(p access.Principal) kanban.Actor {
 	kind := kanban.ActorAgent
 	if p.Admin {
 		kind = kanban.ActorHuman
 	}
+	return kanban.Actor{Kind: kind, Name: p.Name}
+}
+
+// WithPrincipal 把令牌身份和它对应的看板操作者放进上下文。
+// 认证中间件和需要模拟已登录请求的测试都用它。
+func WithPrincipal(ctx context.Context, p access.Principal) context.Context {
 	ctx = context.WithValue(ctx, principalKey, p)
-	return context.WithValue(ctx, actorKey, kanban.Actor{Kind: kind, Name: p.Name})
+	return context.WithValue(ctx, actorKey, ActorOf(p))
 }
 
 // PrincipalFrom 取出认证通过的令牌身份，用于令牌管理，权限由 access.Core 判断。
