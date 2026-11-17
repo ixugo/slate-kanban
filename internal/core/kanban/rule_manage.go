@@ -2,6 +2,7 @@ package kanban
 
 import (
 	"context"
+	"slices"
 )
 
 // ListRules 列出看板的全部规则（包括停用的），按执行顺序排列。人和 agent 都可以读，
@@ -68,4 +69,56 @@ func nextRuleSort(rules []*Rule) int64 {
 // rulePayload 是规则事件的内容：规则的主键和名称。
 func rulePayload(r *Rule) map[string]any {
 	return map[string]any{"rule_id": r.ID, "name": r.Name}
+}
+
+// UpdateRule 修改规则，只更新入参里出现的字段，修改后整条规则重新校验。只允许人。
+// 没有任何字段真的变化时不写库、不写事件。
+func (c Core) UpdateRule(ctx context.Context, actor Actor, ruleID int64, in UpdateRuleInput) (*Rule, error) {
+	if err := requireHuman(actor); err != nil {
+		return nil, err
+	}
+	found, err := c.store.Rule().GetByID(ctx, ruleID)
+	if err != nil {
+		return nil, mapNotFound(err, ErrRuleNotFound, "读取规则")
+	}
+	var out *Rule
+	err = c.run(ctx, found.BoardID, func(u *unit) error {
+		r, err := u.rule.GetByID(ctx, ruleID)
+		if err != nil {
+			return mapNotFound(err, ErrRuleNotFound, "读取规则")
+		}
+		out = r
+		return u.updateRule(ctx, actor, r, in)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// updateRule 在事务里应用修改、重新校验、保存并追加 rule.updated 事件。
+func (u *unit) updateRule(ctx context.Context, actor Actor, r *Rule, in UpdateRuleInput) error {
+	cols, err := u.column.ListByBoard(ctx, r.BoardID)
+	if err != nil {
+		return wrapDB("读取列", err)
+	}
+	before := *r
+	in.apply(r)
+	if err := normalizeRule(r, cols); err != nil {
+		return err
+	}
+	if sameRule(&before, r) {
+		return nil
+	}
+	r.UpdatedAt = u.now()
+	if err := u.rule.Save(ctx, r); err != nil {
+		return wrapDB("保存规则", err)
+	}
+	return u.emit(ctx, actor, newEvent{BoardID: r.BoardID, Type: EventRuleUpdated, Payload: rulePayload(r)})
+}
+
+// sameRule 判断两条规则的可配置内容是否完全一样。
+func sameRule(a, b *Rule) bool {
+	return a.Name == b.Name && a.Enabled == b.Enabled && a.TriggerType == b.TriggerType &&
+		a.ColumnID == b.ColumnID && a.Condition == b.Condition && slices.Equal(a.Actions, b.Actions)
 }

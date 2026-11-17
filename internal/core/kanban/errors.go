@@ -64,6 +64,9 @@ var (
 	// ErrCardClaimed 卡片正被另一个 agent 持有，租约还没有到期。
 	ErrCardClaimed = reason.NewError("ErrCardClaimed", "卡片已经被其他 agent 领取").WithHTTPStatus(409)
 
+	// ErrRuleNotFound 自动化规则不存在，可能已经被删除。
+	ErrRuleNotFound = reason.NewError("ErrRuleNotFound", "规则不存在").WithHTTPStatus(404)
+
 	// ErrRuleLimit 看板的自动化规则数已经到了上限。
 	ErrRuleLimit = reason.NewError("ErrRuleLimit", fmt.Sprintf("每个看板最多 %d 条规则", maxRulesPerBoard))
 

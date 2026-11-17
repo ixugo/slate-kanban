@@ -31,6 +31,16 @@ func (e *cardEnv) mustCreateRule(t *testing.T, in kanban.CreateRuleInput) *kanba
 	return r
 }
 
+// storedRule 直接从数据库读出规则的当前状态。
+func (e *cardEnv) storedRule(t *testing.T, id int64) *kanban.Rule {
+	t.Helper()
+	r, err := e.db.Rule().GetByID(context.Background(), id)
+	if err != nil {
+		t.Fatalf("读取规则 %d 失败: %v", id, err)
+	}
+	return r
+}
+
 // ruleNames 返回看板里全部规则的名称，顺序就是执行顺序。
 func (e *cardEnv) ruleNames(t *testing.T) []string {
 	t.Helper()
@@ -185,5 +195,93 @@ func TestListRules(t *testing.T) {
 	}
 	if _, err := e.core.ListRules(ctx, 9999); !errors.Is(err, kanban.ErrBoardNotFound) {
 		t.Fatalf("看板不存在应该返回 ErrBoardNotFound: %v", err)
+	}
+}
+
+// TestUpdateRulePartial 验证只改出现的字段：改名、停用、换动作各自独立生效，其余字段保持不变，
+// 每次真的有变化都追加 rule.updated 事件。
+func TestUpdateRulePartial(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	r := e.mustCreateRule(t, newRuleInput("原名", e.col(colDoing)))
+
+	name, off := "新名", false
+	got, err := e.core.UpdateRule(ctx, testActor, r.ID, kanban.UpdateRuleInput{Name: &name, Enabled: &off})
+	if err != nil || got.Name != "新名" || got.Enabled || got.ColumnID != e.col(colDoing) || got.TriggerType != kanban.TriggerCardEntered {
+		t.Fatalf("改名和停用不对: %+v %v", got, err)
+	}
+	actions := []kanban.RuleAction{{Type: kanban.ActionSetPriority, Priority: 3}, {Type: kanban.ActionAddTag, Tag: "急"}}
+	trigger, anyColumn := kanban.TriggerCardLeft, int64(0)
+	got, err = e.core.UpdateRule(ctx, testActor, r.ID, kanban.UpdateRuleInput{Actions: &actions, Trigger: &trigger, ColumnID: &anyColumn})
+	if err != nil || !slices.Equal(got.Actions, actions) || got.TriggerType != kanban.TriggerCardLeft || got.ColumnID != 0 || got.Name != "新名" {
+		t.Fatalf("换动作和触发不对: %+v %v", got, err)
+	}
+	stored := e.storedRule(t, r.ID)
+	if stored.Name != "新名" || stored.Enabled || !slices.Equal(stored.Actions, actions) {
+		t.Fatalf("库里的内容不对: %+v", stored)
+	}
+	want := fmt.Sprintf(`{"name":"新名","rule_id":%d}`, r.ID)
+	if ev := e.lastEvent(t); ev.Type != kanban.EventRuleUpdated || ev.Payload != want {
+		t.Fatalf("事件不对: %+v", ev)
+	}
+}
+
+// TestUpdateRuleNoChange 验证没有任何字段真的变化时不写库、不写事件，更新时间也不变。
+func TestUpdateRuleNoChange(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	r := e.mustCreateRule(t, newRuleInput("原名", 0))
+	first := e.storedRule(t, r.ID)
+	events := len(e.events(t))
+	same := "  原名 "
+
+	got, err := e.core.UpdateRule(ctx, testActor, r.ID, kanban.UpdateRuleInput{Name: &same})
+	if err != nil || got.Name != "原名" {
+		t.Fatalf("没变化应该成功: %+v %v", got, err)
+	}
+	if _, err := e.core.UpdateRule(ctx, testActor, r.ID, kanban.UpdateRuleInput{}); err != nil {
+		t.Fatalf("空修改应该成功: %v", err)
+	}
+	if len(e.events(t)) != events {
+		t.Fatalf("没有变化不应该写事件")
+	}
+	if stored := e.storedRule(t, r.ID); !stored.UpdatedAt.Equal(first.UpdatedAt) {
+		t.Fatalf("没有变化不应该动更新时间: %v -> %v", first.UpdatedAt, stored.UpdatedAt)
+	}
+}
+
+// TestUpdateRuleRejected 验证被拒绝的修改不留任何痕迹：非法内容、非人身份、规则不存在。
+func TestUpdateRuleRejected(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	r := e.mustCreateRule(t, newRuleInput("原名", 0))
+	events := len(e.events(t))
+
+	empty, none := "", []kanban.RuleAction{}
+	for name, in := range map[string]kanban.UpdateRuleInput{
+		"空名称":  {Name: &empty},
+		"空动作":  {Actions: &none},
+		"错误条件": {Condition: strPtr("nosuch:x")},
+	} {
+		if _, err := e.core.UpdateRule(ctx, testActor, r.ID, in); !errors.Is(err, kanban.ErrInvalidInput) {
+			t.Errorf("%s：应该返回 ErrInvalidInput，实际 %v", name, err)
+		}
+	}
+	newName := "改名"
+	for name, tc := range map[string]struct {
+		actor kanban.Actor
+		id    int64
+		want  error
+	}{
+		"agent": {testAgent, r.ID, kanban.ErrHumanOnly},
+		"自动化":   {kanban.AutomationActor("x"), r.ID, kanban.ErrHumanOnly},
+		"规则不存在": {testActor, 9999, kanban.ErrRuleNotFound},
+	} {
+		if _, err := e.core.UpdateRule(ctx, tc.actor, tc.id, kanban.UpdateRuleInput{Name: &newName}); !errors.Is(err, tc.want) {
+			t.Errorf("%s：期望 %v，实际 %v", name, tc.want, err)
+		}
+	}
+	if stored := e.storedRule(t, r.ID); stored.Name != "原名" || len(e.events(t)) != events {
+		t.Fatalf("被拒绝的修改不应该有任何痕迹: %+v", stored)
 	}
 }
