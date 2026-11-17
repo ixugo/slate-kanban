@@ -127,10 +127,21 @@ func (u *unit) relocateCard(ctx context.Context, actor Actor, card *Card, from, 
 	return u.commitMove(ctx, actor, card, from, to)
 }
 
-// commitMove 在卡片的新列和位置已经写到内存里之后收尾：保存卡片并追加 card.moved 事件。
-// 手动移动和完成交接都走这里，换列的收尾只有这一处。
+// commitMove 在卡片的新列和位置已经写到内存里之后收尾：先追加 card.moved 事件，
+// 再触发离开原列和进入新列的规则，最后保存一次卡片，规则对卡片的改动和换列一起落库。
+// 手动移动和完成交接都走这里，换列的收尾只有这一处，所以规则对谁的操作都一样生效。
 func (u *unit) commitMove(ctx context.Context, actor Actor, card *Card, from, to *Column) error {
-	return u.saveCardChange(ctx, actor, card, EventCardMoved, movedPayload(from, to))
+	err := u.emit(ctx, actor, newEvent{
+		BoardID: card.BoardID, CardID: card.ID, Type: EventCardMoved,
+		Payload: cardPayload(card, movedPayload(from, to)),
+	})
+	if err != nil {
+		return err
+	}
+	if err := u.newRuleRun(card).moved(ctx, from.ID, to.ID); err != nil {
+		return err
+	}
+	return u.saveCard(ctx, actor, card)
 }
 
 // movedPayload 是 card.moved 事件里除了卡片编号和标题以外的内容：原列和目标列的主键与名称。

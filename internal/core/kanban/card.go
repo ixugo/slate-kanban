@@ -55,12 +55,16 @@ func (c Core) CreateCard(ctx context.Context, actor Actor, boardID int64, in Cre
 			return err
 		}
 		out = card
-		return u.emit(ctx, actor, newEvent{
+		err = u.emit(ctx, actor, newEvent{
 			BoardID: boardID, CardID: card.ID, Type: EventCardCreated,
 			Payload: map[string]any{
 				"key": card.Key, "title": card.Title, "column_id": card.ColumnID, "column": columnName,
 			},
 		})
+		if err != nil {
+			return err
+		}
+		return u.fireCreateRules(ctx, actor, card)
 	})
 	if err != nil {
 		return nil, err

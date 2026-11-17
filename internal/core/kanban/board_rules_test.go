@@ -41,12 +41,13 @@ func TestGetBoardListsRules(t *testing.T) {
 // TestCreateBoardSeedsDefaultRules 验证 dev 模板创建看板时同时创建三条起步规则：
 // 都启用，按开始计时、完成计时、重新打开的顺序，分别绑定进行中和完成列，写时间只在为空时写。
 func TestCreateBoardSeedsDefaultRules(t *testing.T) {
-	e := newCardEnv(t)
-	rules := e.board.Rules
+	core, _ := newBare(t)
+	board := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "起步", Slug: "SEED", Locale: "zh-CN"})
+	rules := board.Rules
 	if got, want := ruleTitles(rules), []string{"开始计时", "完成计时", "重新打开"}; !slices.Equal(got, want) {
 		t.Fatalf("起步规则名称应该是 %v，实际 %v", want, got)
 	}
-	doing, done := e.col(colDoing), e.col(colDone)
+	doing, done := board.Columns[colDoing].ID, board.Columns[colDone].ID
 	want := []struct {
 		trigger string
 		column  int64
@@ -58,7 +59,7 @@ func TestCreateBoardSeedsDefaultRules(t *testing.T) {
 	}
 	for i, w := range want {
 		r := rules[i]
-		if !r.Enabled || r.BoardID != e.board.ID || r.TriggerType != w.trigger || r.ColumnID != w.column ||
+		if !r.Enabled || r.BoardID != board.ID || r.TriggerType != w.trigger || r.ColumnID != w.column ||
 			!slices.Equal(r.Actions, []kanban.RuleAction{w.action}) {
 			t.Errorf("第 %d 条规则不对: %+v", i, r)
 		}
@@ -72,21 +73,22 @@ func TestCreateBoardSeedsDefaultRules(t *testing.T) {
 // 并且它们能通过完整校验（空修改不报错、不写事件）。
 func TestSeededRulesSurviveReload(t *testing.T) {
 	ctx := context.Background()
-	e := newCardEnv(t)
-	got, err := e.core.GetBoard(ctx, e.board.ID)
+	core, db := newBare(t)
+	board := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "起步", Slug: "SEED", Locale: "zh-CN"})
+	got, err := core.GetBoard(ctx, board.ID)
 	if err != nil {
 		t.Fatalf("读取看板失败: %v", err)
 	}
-	if !slices.Equal(ruleTitles(got.Rules), ruleTitles(e.board.Rules)) || len(got.Rules) != 3 {
+	if !slices.Equal(ruleTitles(got.Rules), ruleTitles(board.Rules)) || len(got.Rules) != 3 {
 		t.Fatalf("重新读取的规则和创建时不一致: %v", ruleTitles(got.Rules))
 	}
-	events := len(e.events(t))
+	events := len(boardEvents(t, db, board.ID))
 	for _, r := range got.Rules {
-		if _, err := e.core.UpdateRule(ctx, testActor, r.ID, kanban.UpdateRuleInput{}); err != nil {
+		if _, err := core.UpdateRule(ctx, testActor, r.ID, kanban.UpdateRuleInput{}); err != nil {
 			t.Errorf("起步规则 %q 应该能通过校验: %v", r.Name, err)
 		}
 	}
-	if len(e.events(t)) != events {
+	if len(boardEvents(t, db, board.ID)) != events {
 		t.Fatalf("空修改不应该写事件")
 	}
 }
