@@ -4,6 +4,7 @@ package kanbanapi
 
 import (
 	"context"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ixugo/goddd/pkg/web"
@@ -12,14 +13,16 @@ import (
 	"slate-kanban/internal/web/api/accessapi"
 )
 
-// API 持有看板领域的业务入口。
+// API 持有看板领域的业务入口，以及实时流的时间参数。
 type API struct {
-	core kanban.Core
+	core      kanban.Core
+	heartbeat time.Duration // 实时流发保活注释行的间隔
+	maxAge    time.Duration // 实时流单次连接的最长时间
 }
 
 // New 创建看板领域的 REST 适配器。
 func New(core kanban.Core) API {
-	return API{core: core}
+	return API{core: core, heartbeat: streamHeartbeat, maxAge: streamMaxAge}
 }
 
 // Register 注册全部看板路由。r 应该是已经挂了认证中间件的路由组，处理函数从请求上下文取身份。

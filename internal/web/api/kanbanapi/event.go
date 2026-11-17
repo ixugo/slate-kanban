@@ -13,12 +13,13 @@ import (
 // 真正的等待上限由 Core 决定，超过的会被它压到上限。
 const maxTimeoutSeconds = 3600
 
-// eventRoutes 注册快照、事件和 agent 拉取更新的路由。
+// eventRoutes 注册快照、事件、agent 拉取更新和实时流的路由。
 func (a API) eventRoutes(r gin.IRouter) {
 	r.GET("/boards/:board_id/snapshot", route(a.snapshot))
 	r.GET("/boards/:board_id/events", route(a.listEvents))
 	r.POST("/boards/:board_id/updates/pull", route(a.pullUpdates))
 	r.POST("/boards/:board_id/updates/wait", route(a.waitUpdates))
+	r.GET("/boards/:board_id/stream", a.stream)
 }
 
 // listEventsInput 是读事件列表的请求，查询参数 after 是起点序号，limit 是最多返回几条。
