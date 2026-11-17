@@ -1,6 +1,9 @@
 package kanban
 
-import "strings"
+import (
+	"context"
+	"strings"
+)
 
 // 起步模板只在创建看板时使用一次：列名、说明、指令和默认规则的名称按界面语言生成，
 // 之后全部是看板自己的数据，用户可以随意修改。所以这里的文案不会随版本升级而回头改动已有看板。
@@ -237,4 +240,35 @@ var templateTexts = map[string]localeTexts{
 		},
 		RuleStart: "시작 시간 기록", RuleFinish: "완료 시간 기록", RuleReopen: "다시 열기",
 	},
+}
+
+// seedColumns 按模板和语言为新看板创建起步的列，返回的列按从左到右排列。
+// 先把所有列建好，再回填各列的下一列，因为建某一列时它的下一列还没有主键。
+// 一个模板最多几列，所以逐条写入即可。
+func (u *unit) seedColumns(ctx context.Context, boardID int64, template, locale string) ([]*Column, error) {
+	specs := templateColumns[template]
+	texts := textsFor(locale)
+	now := u.now()
+	cols := make([]*Column, len(specs))
+	for i, s := range specs {
+		t := texts.Columns[s.Text]
+		cols[i] = &Column{
+			BoardID: boardID, Name: t.Name, Description: t.Description, Instruction: t.Instruction,
+			AgentPickup: s.AgentPickup, IsDone: s.IsDone,
+			Sort: int64(i+1) * columnSortStep, CreatedAt: now, UpdatedAt: now,
+		}
+		if err := u.column.Create(ctx, cols[i]); err != nil {
+			return nil, wrapDB("创建起步的列", err)
+		}
+	}
+	for i, s := range specs {
+		if s.Next < 0 {
+			continue
+		}
+		cols[i].NextColumnID = cols[s.Next].ID
+		if err := u.column.Save(ctx, cols[i]); err != nil {
+			return nil, wrapDB("回填下一列", err)
+		}
+	}
+	return cols, nil
 }
