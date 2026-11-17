@@ -127,6 +127,36 @@ func TestDeleteColumnInvalidTarget(t *testing.T) {
 	}
 }
 
+// TestDeleteColumnDisablesRules 验证删列时停用引用它的启用中的规则：触发所在的列、移动列动作的目标列都算引用，
+// 每条追加 rule.updated 事件，并且排在 column.deleted 之前；没引用的和本来就停用的规则不动。
+func TestDeleteColumnDisablesRules(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	review := e.col(colReview)
+	byTrigger := e.enterRule(t, "按触发列引用", review, kanban.RuleAction{Type: kanban.ActionSetPriority, Priority: 1})
+	byAction := e.enterRule(t, "按目标列引用", e.col(colDoing), kanban.RuleAction{Type: kanban.ActionMoveToColumn, ColumnID: review})
+	unrelated := e.enterRule(t, "无关的", e.col(colDoing), kanban.RuleAction{Type: kanban.ActionSetPriority, Priority: 2})
+	off := false
+	alreadyOff := e.mustCreateRule(t, kanban.CreateRuleInput{
+		Name: "本来就停用", Enabled: &off, Trigger: kanban.TriggerCardEntered, ColumnID: review,
+		Actions: []kanban.RuleAction{{Type: kanban.ActionSetPriority, Priority: 1}},
+	})
+	events := len(e.events(t))
+
+	if err := e.core.DeleteColumn(ctx, testActor, e.board.ID, review, 0); err != nil {
+		t.Fatalf("删除失败: %v", err)
+	}
+	for r, wantEnabled := range map[*kanban.Rule]bool{byTrigger: false, byAction: false, unrelated: true, alreadyOff: false} {
+		if got := e.storedRule(t, r.ID); got.Enabled != wantEnabled {
+			t.Errorf("规则 %s 的启用状态应该是 %v", r.Name, wantEnabled)
+		}
+	}
+	want := []string{kanban.EventRuleUpdated, kanban.EventRuleUpdated, kanban.EventColumnDeleted}
+	if got := e.eventTypes(t, events); !slices.Equal(got, want) {
+		t.Fatalf("事件应该是 %v，实际 %v", want, got)
+	}
+}
+
 // TestDeleteColumnIdempotentAndDenied 验证列已经不存在时返回成功且不写事件；
 // agent、自动化、身份无效不能删，看板不存在返回 404。
 func TestDeleteColumnIdempotentAndDenied(t *testing.T) {

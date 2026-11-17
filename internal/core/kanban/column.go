@@ -227,7 +227,7 @@ func (u *unit) applyColumnOrder(ctx context.Context, cols []*Column, ids []int64
 
 // DeleteColumn 删除一列。只有人能操作。列是空的就直接删；列里有卡片时必须用 moveTo 指定
 // 把它们移入的另一列（原顺序追加到那一列末尾），否则返回 409，防止卡片因为删列而消失。
-// 其他列指向它的"下一列"会被清掉。
+// 其他列指向它的"下一列"会被清掉，引用它的启用中的规则会被停用，因为这些规则已经不可能正常工作。
 // 列已经不存在时返回成功（幂等）。因为删列而搬走的卡片不触发自动化规则，这是结构调整，
 // 不是有人在流程里推进卡片；事件里只记搬走的张数，不为每张卡片单独写事件。
 func (c Core) DeleteColumn(ctx context.Context, actor Actor, boardID, columnID, moveTo int64) error {
@@ -239,7 +239,7 @@ func (c Core) DeleteColumn(ctx context.Context, actor Actor, boardID, columnID, 
 	})
 }
 
-// deleteColumn 在事务里完成 DeleteColumn：先搬走卡片，再清掉指向这一列的下一列，最后删列并追加事件。
+// deleteColumn 在事务里完成 DeleteColumn：先搬走卡片，再清理指向这一列的引用，最后删列并追加事件。
 func (u *unit) deleteColumn(ctx context.Context, actor Actor, boardID, columnID, moveTo int64) error {
 	cols, err := u.column.ListByBoard(ctx, boardID)
 	if err != nil {
@@ -255,6 +255,9 @@ func (u *unit) deleteColumn(ctx context.Context, actor Actor, boardID, columnID,
 	}
 	if err := u.column.ClearNextColumn(ctx, boardID, columnID); err != nil {
 		return wrapDB("清除指向被删列的下一列", err)
+	}
+	if err := u.disableRulesUsing(ctx, actor, boardID, columnID); err != nil {
+		return err
 	}
 	if err := u.column.Delete(ctx, col); err != nil {
 		return wrapDB("删除列", err)
@@ -298,4 +301,34 @@ func (u *unit) evacuateColumn(ctx context.Context, actor Actor, cols []*Column, 
 		}
 	}
 	return target.ID, len(cards), nil
+}
+
+// disableRulesUsing 停用引用了这一列的启用中的规则（触发所在的列，或者移动列动作的目标列），
+// 每条追加一个 rule.updated 事件。已经停用的规则不用动：想重新启用时，保存前的校验会指出列不存在。
+func (u *unit) disableRulesUsing(ctx context.Context, actor Actor, boardID, columnID int64) error {
+	rules, err := u.rule.ListByBoard(ctx, boardID)
+	if err != nil {
+		return wrapDB("读取规则", err)
+	}
+	for _, r := range rules {
+		if !r.Enabled || !ruleUsesColumn(r, columnID) {
+			continue
+		}
+		r.Enabled, r.UpdatedAt = false, u.now()
+		if err := u.rule.Save(ctx, r); err != nil {
+			return wrapDB("停用规则", err)
+		}
+		err := u.emit(ctx, actor, newEvent{BoardID: boardID, Type: EventRuleUpdated, Payload: rulePayload(r)})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ruleUsesColumn 判断规则是否引用了这一列：触发所在的列，或者某个移动列动作的目标列。
+func ruleUsesColumn(r *Rule, columnID int64) bool {
+	return r.ColumnID == columnID || slices.ContainsFunc(r.Actions, func(a RuleAction) bool {
+		return a.Type == ActionMoveToColumn && a.ColumnID == columnID
+	})
 }
