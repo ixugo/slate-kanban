@@ -107,3 +107,19 @@ func (u *unit) clearClaim(ctx context.Context, actor Actor, card *Card, why stri
 		Payload: cardPayload(card, map[string]any{"agent": agent, "why": why}),
 	})
 }
+
+// renewLease 在持有者对自己的卡片有动作（改卡、写评论）时顺延租约，返回到期时间有没有变化，
+// 调用方负责保存卡片。顺延到"现在加默认租约时长"，但从不缩短：agent 领取时要的更长租约会被保留。
+// 租约已经过期但还没人接手的持有者同样适用，这样它回来继续干活就自动续上了。
+// 不是 agent、或者不是这张卡的持有者，什么都不做。
+func (u *unit) renewLease(actor Actor, card *Card) bool {
+	if !actor.IsAgent() || card.ClaimedBy != actor.Name {
+		return false
+	}
+	renewed := u.now().Add(defaultLeaseMinutes * time.Minute).UTC()
+	if card.ClaimExpiresAt != nil && !card.ClaimExpiresAt.Before(renewed) {
+		return false
+	}
+	card.ClaimExpiresAt = &renewed
+	return true
+}

@@ -275,5 +275,6 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 			return err
 		}
 	}
+	u.renewLease(actor, card)
 	return u.saveCardChange(ctx, actor, card, EventCardUpdated, map[string]any{"fields": changed})
 }

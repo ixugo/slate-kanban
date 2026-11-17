@@ -53,8 +53,10 @@ func (c Core) AddComment(ctx context.Context, actor Actor, cardID int64, body st
 		if err != nil {
 			return err
 		}
-		out, err = u.addComment(ctx, actor, card, body)
-		return err
+		if out, err = u.addComment(ctx, actor, card, body); err != nil {
+			return err
+		}
+		return u.saveRenewedLease(ctx, actor, card)
 	})
 	if err != nil {
 		return nil, err
@@ -126,4 +128,15 @@ func (c Core) DeleteComment(ctx context.Context, actor Actor, commentID int64) e
 			Payload: map[string]any{"key": card.Key, "comment_id": current.ID},
 		})
 	})
+}
+
+// saveRenewedLease 持有者在自己的卡片下写评论时顺延租约并保存。续租不改变卡片内容，所以不涨版本号也不写事件。
+func (u *unit) saveRenewedLease(ctx context.Context, actor Actor, card *Card) error {
+	if !u.renewLease(actor, card) {
+		return nil
+	}
+	if err := u.card.Save(ctx, card); err != nil {
+		return wrapDB("顺延租约", err)
+	}
+	return nil
 }
