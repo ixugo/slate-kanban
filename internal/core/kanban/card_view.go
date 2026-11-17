@@ -29,6 +29,7 @@ type boardIndex struct {
 	cols     []*Column      // 看板的列，从左到右
 	columns  map[int64]*Column
 	colOrder map[int64]int // 列主键到它在看板里从左到右的序号
+	all      []*Card       // 建索引时传入的卡片，调用方把所有权交给了索引，排序时会就地改动顺序
 	cards    map[int64]*Card
 	doneCols map[int64]bool
 }
@@ -37,7 +38,7 @@ type boardIndex struct {
 // 复杂度是列数加卡片数的线性级。
 func newBoardIndex(now time.Time, loc *time.Location, cols []*Column, cards []*Card) *boardIndex {
 	ix := &boardIndex{
-		now: now, loc: loc, cols: cols,
+		now: now, loc: loc, cols: cols, all: cards,
 		columns:  make(map[int64]*Column, len(cols)),
 		colOrder: make(map[int64]int, len(cols)),
 		cards:    make(map[int64]*Card, len(cards)),
