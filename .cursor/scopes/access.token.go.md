@@ -83,7 +83,7 @@ access 包不引用 kanban 包，两个领域之间只通过接口层的这一�
 |------|-----------|------|
 | 令牌模型 | Token | internal/core/access/token.model.go |
 | 存储接口 | Storer, TokenStorer | internal/core/access/core.go |
-| 认证 | Core.Authenticate, parseBearer, hashToken | internal/core/access/core.go |
+| 认证 | Core.Authenticate, parseBearer, hashToken | internal/core/access/authenticate.go |
 | 创建、列出、删除 | Core.CreateToken, ListTokens, DeleteToken, checkName | internal/core/access/token.go |
 | 错误定义 | ErrTokenNameTaken, ErrAdminOnly 等 | internal/core/access/errors.go |
 | 数据库实现 | accessdb.Token | internal/core/access/stores/accessdb/token.db.go |
