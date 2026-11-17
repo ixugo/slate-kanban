@@ -66,3 +66,19 @@ func TestRequireHuman(t *testing.T) {
 		t.Fatalf("没有名称应该得到 ErrInvalidActor，实际 %v", err)
 	}
 }
+
+// TestNormalizeLimit 验证数量整理：0 取默认值，超过上限取上限，正常值原样，负数返回 400。
+func TestNormalizeLimit(t *testing.T) {
+	cases := []struct {
+		in, want int
+		wantErr  bool
+	}{
+		{0, 100, false}, {1, 1, false}, {500, 500, false}, {501, 500, false}, {1 << 30, 500, false}, {-1, 0, true},
+	}
+	for _, c := range cases {
+		got, err := normalizeLimit(c.in, 100, 500)
+		if got != c.want || (err != nil) != c.wantErr || (err != nil && !errors.Is(err, ErrInvalidInput)) {
+			t.Errorf("normalizeLimit(%d) = %d, %v，期望 %d，出错=%v", c.in, got, err, c.want, c.wantErr)
+		}
+	}
+}

@@ -52,8 +52,8 @@ var (
 	// ErrAgentPickupColumn agent 不能把新卡片直接放进开启了 agent 领取的列，那会绕开由人决定做什么的约定。
 	ErrAgentPickupColumn = reason.NewError("ErrAgentPickupColumn", "agent 不能把卡片直接放进由 agent 处理的列").WithHTTPStatus(403)
 
-	// ErrAgentOnly 领取是 agent 的概念，人不需要领取，通过拖动卡片来分配工作。
-	ErrAgentOnly = reason.NewError("ErrAgentOnly", "领取只给 agent 使用，人通过拖动卡片来分配工作").WithHTTPStatus(403)
+	// ErrAgentOnly 领取、取下一张卡、拉取更新都是 agent 的概念，人在网页上直接操作，例如拖动卡片来分配工作。
+	ErrAgentOnly = reason.NewError("ErrAgentOnly", "该操作只给 agent 使用，人在网页上直接操作，例如拖动卡片来分配工作").WithHTTPStatus(403)
 
 	// ErrCardHumanOnly 卡片被标记为只能由人处理，agent 不能领取。
 	ErrCardHumanOnly = reason.NewError("ErrCardHumanOnly", "这张卡片只能由人处理").WithHTTPStatus(403)
