@@ -14,6 +14,7 @@ import (
 	"slate-kanban/internal/data"
 	"slate-kanban/internal/web/api"
 	"slate-kanban/internal/web/api/accessapi"
+	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
 )
 
@@ -31,6 +32,7 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 	kanbanCore := api.NewKanbanCore(db)
 	kanbanapiAPI := kanbanapi.New(kanbanCore)
 	mcpapiAPI, cleanup2 := api.NewMCP(bc, accessCore, kanbanCore)
+	connectapiAPI := connectapi.New()
 	usecase := &api.Usecase{
 		Conf:    bc,
 		DB:      db,
@@ -38,6 +40,7 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 		Access:  accessapiAPI,
 		Kanban:  kanbanapiAPI,
 		MCP:     mcpapiAPI,
+		Connect: connectapiAPI,
 	}
 	handler := api.NewHTTPHandler(usecase)
 	return handler, func() {

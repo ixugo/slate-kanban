@@ -8,6 +8,7 @@ import (
 	"github.com/ixugo/goddd/pkg/web"
 
 	"slate-kanban/internal/web/api/accessapi"
+	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
 )
 
@@ -24,7 +25,7 @@ const (
 	tokenPathPrefix = apiPrefix + "/agent-tokens"
 )
 
-// setupRouter 装配全部路由：日志、统计等全局中间件；免认证的健康检查；需要令牌的 /mcp 和 /api/v1 接口组。
+// setupRouter 装配全部路由：日志、统计等全局中间件；免认证的健康检查、安装说明和 skill 下载；需要令牌的 /mcp 和 /api/v1 接口组。
 // 认证排在请求体检查之前，没有令牌的人看不到后面的检查结果。
 func setupRouter(r *gin.Engine, uc *Usecase) {
 	r.Use(
@@ -48,9 +49,12 @@ func setupRouter(r *gin.Engine, uc *Usecase) {
 
 	// MCP 的认证在适配器内部，没有令牌的请求在那里被拒绝
 	r.Any(mcpPath, gin.WrapH(uc.MCP.Handler()))
+	// 安装说明和 skill 下载免认证：agent 在拿到令牌、装好 MCP 之前就要读它们，里面没有敏感信息
+	connectapi.RegisterPublic(r, uc.Connect)
 
 	v1 := r.Group(apiPrefix, uc.Access.Middleware(), limitBody(maxRequestBody), requireJSON())
 	accessapi.Register(v1, uc.Access)
+	connectapi.Register(v1, uc.Connect)
 	kanbanapi.Register(v1, uc.Kanban)
 	versionapi.Register(v1, uc.Version)
 }

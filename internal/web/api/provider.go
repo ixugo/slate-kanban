@@ -18,6 +18,7 @@ import (
 	"slate-kanban/internal/core/kanban"
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 	"slate-kanban/internal/web/api/accessapi"
+	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
 	"slate-kanban/internal/web/mcpapi"
 )
@@ -33,6 +34,7 @@ var (
 		NewKanbanCore,
 		kanbanapi.New,
 		NewMCP,
+		connectapi.New,
 	)
 )
 
@@ -44,6 +46,7 @@ type Usecase struct {
 	Access  accessapi.API
 	Kanban  kanbanapi.API
 	MCP     mcpapi.API
+	Connect connectapi.API
 }
 
 // NewHTTPHandler 生成Gin框架路由内容

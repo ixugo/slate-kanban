@@ -23,6 +23,7 @@ import (
 	"slate-kanban/internal/conf"
 	"slate-kanban/internal/web/api/accessapi"
 	"slate-kanban/internal/web/api/apitest"
+	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
 )
 
@@ -81,6 +82,7 @@ func runWithSharedRouter(m *testing.M) int {
 		Access:  accessapi.New(acore),
 		Kanban:  kanbanapi.New(kcore),
 		MCP:     mcpAPI,
+		Connect: connectapi.New(),
 	}
 	engine, ok := NewHTTPHandler(uc).(*gin.Engine)
 	if !ok {
