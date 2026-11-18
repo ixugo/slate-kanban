@@ -35,7 +35,6 @@ v1 全部免认证：REST 中间件固定操作者为 `human`；全局 `security
 
 | 方法和路径 | Core 方法 | 谁能调用 | 请求 | 返回 |
 |-----------|-----------|----------|------|------|
-| GET /me | — | 全部 | — | `{name, kind}`，kind 是 human 或 agent |
 | GET /version | 框架自带 | 全部 | — | `{version, remark}` |
 | GET /boards | ListBoards | 全部 | — | 看板数组 |
 | POST /boards | CreateBoard | 人 | CreateBoardInput | BoardDetail |
@@ -109,8 +108,14 @@ agent 通过 MCP 接入，身份由 `GET/POST /mcp?name=...&role=worker|manager`
 
 ## 导出
 
-`GET /boards/:board_id/export?format=json|md`，默认 JSON。非法 `format` 返回 400（`ErrInvalidInput`）；看板不存在 404。
-响应带 `Content-Disposition: attachment` 和对应 `Content-Type`（JSON 或 Markdown）。整板一次性读出，权限与快照相同，细节见 kanban.board.go.md。
+`GET /boards/:board_id/export?format=json|md`，默认 `json`。Core 的 `ExportBoard` 一次读出看板、列、规则、全部卡片（含 `CardView` 派生字段）和每张卡的评论，以及导出前的最新事件序号 `seq`；评论用 `ListByBoard` 批量加载，避免 N+1。权限与 `BoardSnapshot` 相同，看板不存在返回 404；`format` 不是 `json` 或 `md` 返回 400（`ErrInvalidInput`）。
+
+| 格式 | Content-Type | 正文 |
+|------|--------------|------|
+| json | `application/json; charset=utf-8` | 信封：`format: slate-board-export`、`version: 1`、`exported_at`（RFC3339）、`seq`、`board`、`columns`、`rules`、`cards[]`（每项带 `comments`） |
+| md | `text/markdown; charset=utf-8` | 在 `kanbanapi` 用 `renderBoardMarkdown` 渲染，按列分组、列内顺序与看板一致 |
+
+两种格式都带 `Content-Disposition: attachment; filename="<slug 小写>-YYYYMMDD.json|md"`；文件名只保留 slug 的合法字符，防止响应头注入。整板不分页，规模按个人看板设计。
 
 ## 实时流
 
@@ -176,26 +181,29 @@ flowchart TD
 
 | 位置 | 做什么 |
 |------|--------|
-| internal/web/api/provider.go | 新增两个构造函数：`NewKanbanCore(db)` 建表并创建 kanban.Core，`NewAccessCore(db, conf)` 建表并创建 access.Core（管理令牌取自配置）；把 accessapi.New、kanbanapi.New 加进 ProviderSet；Usecase 增加 Kanban 和 Access 两个字段 |
-| internal/web/api/api.go | `/api/v1` 路由组：认证中间件、请求体上限、JSON 检查，再挂 accessapi、kanbanapi 和版本接口；`/app/metrics/api` 加认证中间件；日志的"记录请求体"对令牌管理路径关闭；去掉没人签发 JWT 的 `auth`（配置里的 JwtSecret 字段保留，不再使用） |
-| internal/app/app.go | 用 `lifecycle.Wrap` 包一层处理器；收到退出信号后先取消 closing 再 `Shutdown` |
-| 重新生成依赖注入 | `make wire`，不手改 `wire_gen.go` |
+| internal/web/api/provider.go | `NewKanbanCore` 建表并创建 `kanban.Core`；`NewMCP` 创建 MCP 适配器；`ProviderSet` 装配 `kanbanapi`、`connectapi`、版本接口；`NewHTTPHandler` 挂全局安全中间件和 SPA |
+| internal/web/api/api.go | `setupRouter`：全局 `securityMiddleware`、健康检查与指标（免认证）；`/mcp` 交给 MCP 处理器；`/api/v1` 固定 `restactor.Middleware`、请求体上限、`requireJSON`，再挂看板接口、`/connect`、版本 |
+| internal/app/app.go | `lifecycle.Wrap` 包处理器；退出时先取消 closing 再 `Shutdown` |
+| 依赖注入 | `make wire` 生成 `internal/app/wire_gen.go`，不手改 |
 
 ## 代码对照
 
 | 步骤 | 函数或类型 | 文件 |
 |------|-----------|------|
+| Host/Origin、安全头 | securityMiddleware, checkHost, checkOrigin, canonicalHostPort | internal/web/api/security.go |
 | 请求体上限、JSON 检查 | limitBody, requireJSON | internal/web/api/guard.go |
-| 认证中间件、取身份 | accessapi.Middleware, ActorFrom, PrincipalFrom | internal/web/api/accessapi/middleware.go |
-| 身份和令牌接口 | accessapi.API, me, createToken, listTokens, deleteToken | internal/web/api/accessapi/api.go, token.go |
-| 看板、列、规则接口 | kanbanapi.API 的 board、column、rule 处理函数 | internal/web/api/kanbanapi/board.go, column.go, rule.go |
-| 卡片、评论接口 | card、comment 处理函数 | internal/web/api/kanbanapi/card.go |
-| 领取、释放、完成、取下一张 | claim 处理函数 | internal/web/api/kanbanapi/claim.go |
+| REST 固定人身份 | restactor.Middleware, restactor.From | internal/web/restactor/actor.go |
+| 看板、列、规则 | boardRoutes 等 | internal/web/api/kanbanapi/board.go, column.go, rule.go |
+| 卡片、评论 | cardRoutes | internal/web/api/kanbanapi/card.go |
+| 领取、完成 | claimRoutes | internal/web/api/kanbanapi/claim.go |
 | 快照、事件、拉取、等待 | snapshot、listEvents、pullUpdates、waitUpdates | internal/web/api/kanbanapi/event.go |
-| 实时流 | stream, streamCursor, streamSession 的 run、sendPage、wait | internal/web/api/kanbanapi/stream.go |
-| 路由表和取身份的通用包装 | Register, route | internal/web/api/kanbanapi/api.go |
-| 关闭时通知长连接 | Wrap, Bind, Interrupted, ErrShuttingDown | internal/lifecycle/lifecycle.go |
-| 依赖装配 | NewKanbanCore, NewAccessCore, ProviderSet | internal/web/api/provider.go |
-| 路由挂载 | setupRouter | internal/web/api/api.go |
-| 退出流程 | Run | internal/app/app.go |
-| 完整路由的测试 | TestAPIRequiresToken, TestAgentLifecycle, TestGuardsMounted, TestTokenPathsNotLogged, TestStreamThroughRouter | internal/web/api/router_test.go |
+| 导出 | export, exportAttachmentName, renderBoardMarkdown | internal/web/api/kanbanapi/export.go, export_md.go |
+| 实时流 | stream 及 streamSession | internal/web/api/kanbanapi/stream.go |
+| 路由注册 | Register, route | internal/web/api/kanbanapi/api.go |
+| 整板导出（Core） | ExportBoard, ListByBoard | internal/core/kanban/export.go, comment.go |
+| 关闭时长连接 | Wrap, Bind, Interrupted, ErrShuttingDown | internal/lifecycle/lifecycle.go |
+| 装配 | NewKanbanCore, NewMCP, NewHTTPHandler, setupRouter | internal/web/api/provider.go, api.go |
+| 退出 | Run | internal/app/app.go |
+| 路由与安全测试 | TestHealthIsOpen, TestAPINoAuthHuman, TestGuardsMounted, TestStreamThroughRouter, TestSecurityHostAndOrigin, TestConnectNoTokenString | internal/web/api/router_test.go |
+| 导出 API 测试 | TestBoardExportJSON, TestBoardExportMarkdown, TestRenderBoardMarkdownGolden | internal/web/api/kanbanapi/board_export_test.go, export_md_test.go |
+| Core 导出测试 | TestExportBoardComplete 等 | internal/core/kanban/board_export_test.go |
