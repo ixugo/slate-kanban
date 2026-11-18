@@ -8,8 +8,12 @@ import { makeCard, makeSnapshot } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
 import { installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from './BoardPage'
+import { columnCollapseKey } from './useCollapsedColumns'
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  localStorage.clear()
+})
 
 const snapshot = makeSnapshot({
   name: '测试看板',
@@ -92,5 +96,60 @@ describe('BoardPage', () => {
     })
     renderBoard()
     expect(await screen.findByText(en.board.gone.title)).toBeInTheDocument()
+  })
+
+  it('完成列默认显示为窄边，点击展开', async () => {
+    installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
+    const user = userEvent.setup()
+    renderBoard()
+    await screen.findByText('Alpha')
+    const expandDone = screen.getByRole('button', {
+      name: en.board.expandColumn.replace('{{name}}', '完成').replace('{{count}}', '0'),
+    })
+    expect(expandDone).toHaveAttribute('aria-expanded', 'false')
+    await user.click(expandDone)
+    expect(screen.getByRole('heading', { name: '完成' })).toBeInTheDocument()
+    expect(screen.getByLabelText(en.board.collapseColumn.replace('{{name}}', '完成'))).toBeInTheDocument()
+  })
+
+  it('收起按钮可再次收起列', async () => {
+    localStorage.setItem(columnCollapseKey(1, 3), '0')
+    installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
+    const user = userEvent.setup()
+    renderBoard()
+    await screen.findByText('Alpha')
+    const collapse = screen.getByLabelText(en.board.collapseColumn.replace('{{name}}', '完成'))
+    await user.click(collapse)
+    expect(
+      screen.getByRole('button', {
+        name: en.board.expandColumn.replace('{{name}}', '完成').replace('{{count}}', '0'),
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('刷新后保持列收起偏好', async () => {
+    localStorage.setItem(columnCollapseKey(1, 1), '1')
+    installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
+    renderBoard()
+    await screen.findByText('Beta')
+    expect(
+      screen.getByRole('button', {
+        name: en.board.expandColumn.replace('{{name}}', '待办').replace('{{count}}', '1'),
+      }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '待办' })).toBeNull()
+  })
+
+  it('键盘 Enter 展开窄边列', async () => {
+    installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
+    const user = userEvent.setup()
+    renderBoard()
+    await screen.findByText('Alpha')
+    const expandDone = screen.getByRole('button', {
+      name: en.board.expandColumn.replace('{{name}}', '完成').replace('{{count}}', '0'),
+    })
+    expandDone.focus()
+    await user.keyboard('{Enter}')
+    expect(screen.getByRole('heading', { name: '完成' })).toBeInTheDocument()
   })
 })

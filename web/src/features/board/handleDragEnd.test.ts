@@ -15,4 +15,11 @@ describe('handleDragEnd', () => {
     const { plan } = handleDragEnd(original, original, 1, null, false)
     expect(plan).toBeNull()
   })
+
+  it('落在收起列的窄边上（列落点）时仍能跨列移入', () => {
+    const original = { 1: [1, 2], 3: [] as number[] }
+    const during = moveToColumn(original, 1, 3, 0)
+    const { plan } = handleDragEnd(during, original, 1, 3, true)
+    expect(plan).toEqual({ columnId: 3 })
+  })
 })
