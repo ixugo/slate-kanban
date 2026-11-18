@@ -48,6 +48,7 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 | GET /boards/:board_id/snapshot | BoardSnapshot | 全部 | — | Snapshot（看板、列、规则、全部卡片、seq） |
 | GET /boards/:board_id/export | ExportBoard | 全部 | 查询 format=json\|md，默认 json | JSON 信封或 Markdown 附件（见 kanban.board.go.md） |
 | GET /boards/:board_id/events | ListEvents | 全部 | 查询 after、limit | EventPage |
+| GET /boards/:board_id/activity | ListActivity | 全部 | 查询 before、limit、types（逗号分隔的事件类型）、actor_kind、actor | ActivityPage：events 从新到旧，has_more，latest，actors（见 kanban.event.go.md「读取路径：活动流」） |
 | GET /boards/:board_id/stream | 见"实时流" | 全部 | 查询 after 或头 Last-Event-ID | text/event-stream |
 | POST /boards/:board_id/updates/pull | PullUpdates | agent | PullInput | Updates |
 | POST /boards/:board_id/updates/wait | WaitUpdates | agent | PullInput 加 timeout_seconds | Updates |

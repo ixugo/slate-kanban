@@ -160,6 +160,18 @@ limit 默认 200、最大 1000。起点早于保留范围时同样标记 truncat
 网页收到 truncated 就丢掉本地数据，重新读整板快照（见看板设计）。
 `LatestSeq(boardID)` 只返回看板当前最新的事件序号，实时流刚连上又没有指定续传位置时用它定起点。
 
+## 读取路径：活动流
+
+`ListActivity(boardID, ActivityQuery)` 给网页的活动抽屉用，人和 agent 都能读。和 `ListEvents` 的区别有三点：
+顺序是从新到旧；可以按条件筛选；翻页用 `before`（只看序号比它小的事件），不用 `after`。
+
+- 筛选条件有三个，都可以不填，同时填表示都要满足：`types`（事件类型，取并集）、`actor_kind`（human、agent、system 之一）、`actor`（操作者名称，名称首尾空白会被去掉）。
+- 事件类型必须是上面列出的已知类型，不认识的返回 400，而不是悄悄返回一个永远为空的列表。类型重复写多次会被合并，保证查询里的 IN 列表最多 19 项。
+- 筛选发生在数据库里，再翻页。所以每一页都是满的，不会出现「翻了一页却全被过滤掉」。每个看板最多保留 10000 条事件，筛选条件很少命中时最坏也只扫这么多行。
+- 多读一条来判断 `has_more`：读 `limit + 1` 条，多出来的那条只用来说明后面还有，不返回。`limit` 默认 50，最大 200。
+- 返回里的 `latest` 是看板当前最新的事件序号，`actors` 是这个看板的事件里出现过的所有操作者（类型加名称，按类型再按名称排序）。这两个值都不受筛选条件影响，网页靠它们判断「有没有新事件」和生成操作者下拉。
+- 看板不存在返回 404；`before`、`limit` 为负数，或筛选条件不合法，返回 400。
+
 ## 时序：离线补拉与实时唤醒
 
 ```mermaid
@@ -201,6 +213,7 @@ sequenceDiagram
 | 事件类型常量、事件与游标存储接口 | EventCardMoved 等, EventStorer, CursorStorer | internal/core/kanban/event.go |
 | 读一页事件并判断 truncated | Core.readWindow | internal/core/kanban/event_read.go |
 | 网页补发、最新序号 | Core.ListEvents, Core.LatestSeq | internal/core/kanban/event_read.go |
+| 活动流（筛选加从新到旧翻页） | Core.ListActivity, normalizeActivityFilter, EventStorer.ListBefore, EventStorer.Actors | internal/core/kanban/event_activity.go, event.go |
 | 事件内容输出成对象 | Event.MarshalJSON, Event.UnmarshalJSON | internal/core/kanban/event_json.go |
 | 数量整理 | normalizeLimit | internal/core/kanban/validate.go |
 | 拉取、确认游标、过滤 | Core.PullUpdates, ackCursor, advanceCursor, scanUpdates, relevantToAgent, quietEventTypes | internal/core/kanban/event_pull.go |
