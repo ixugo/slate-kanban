@@ -30,7 +30,8 @@
 - [ ] CHK014 - 拖动中 SSE 刷新会重置 `items`，极端竞态未单测。[Edge Case]
 - [x] CHK015 - `markdown.test.tsx` 覆盖 script、`javascript:`、HTML 图片语法；描述/评论共 `markdown.tsx`。
 - [ ] CHK016 - 弹窗打开时卡被删/移列：404 显示 `card.notFound`；移列依赖 invalidate，未单独集成测。[Edge Case]
-- [ ] CHK017 - 键盘：`/` `n`、磁贴 Enter/Space+方向键、弹窗 Esc 由 Radix 处理；**未**覆盖「关闭弹窗仅 Esc」的专用测。[部分实施]
+- [x] CHK017 - 键盘：`/` `n`、磁贴 Enter/Space+方向键、**窄边 Enter 展开**（`BoardPage.test.tsx`）；弹窗 Esc 由 Radix。[部分：关闭弹窗专用测仍无]
+- [x] CHK021 - 列收起：默认 `is_done`、localStorage 键、`useDroppable` 落点、`handleDragEnd` 列落点单测、无障碍文案 `board.collapseColumn` / `expandColumn`。
 
 ## v1 未做（与产品卡对齐）
 

@@ -26,6 +26,7 @@
 | 14 | 创建看板的参数多 | 新手面对空看板不知道怎么开始 | 创建对话框：名称（必填）、编号前缀（选填，不填服务端按名称生成）、说明、项目路径（选填）、模板三选一（研发流程、简单三列、空白）；语言取当前界面语言，起步的列和规则就是这种语言 | 实施 |
 | 15 | 导出备份 | 只能截图或调 API | 工具栏「导出」下拉：`GET /api/v1/boards/:id/export?format=json` 与 `?format=md`，浏览器下载附件（`BoardToolbar` 链到同源 `API_PREFIX`） | 实施 |
 | 16 | 首屏尽量少拉大组件 | 用不到的页面也加载 Tooltip 栈 | 根组件 `App.tsx` 不再包全局 `TooltipProvider`；**看板页**根节点包一层 `TooltipProvider`（列头 AI 说明等悬停提示）；卡片弹窗懒加载且内部不用 Tooltip | 实施 |
+| 17 | 完成列常驻占位太宽 | 横向空间浪费，和 kanzo 一样希望侧边收起 | 每一列列头有收起按钮；收成 **48px** 窄边（宽约 250ms 过渡，`motion-reduce` 无动画）：展开图标、匹配卡片数、竖排列名；窄边为 `button`（`aria-expanded=false`，`board.expandColumn`），点整块或 Enter/空格展开；展开列头按钮 `board.collapseColumn`。无偏好时 **`is_done` 列默认收起**，其余展开。偏好键 `slate.col.<boardId>.<columnId>`，值 `1` 收起 / `0` 展开（`useCollapsedColumns`）。收起列仍注册 `useDroppable`（`type: column`），可拖进；搜索时窄边数字=当前可见卡数，不自动展开 | 实施 |
 
 ## v1 明确不做
 
@@ -130,7 +131,7 @@ sequenceDiagram
 | 路径 | 内容 |
 |------|------|
 | `web/src/features/boards/` | `BoardListPage.tsx`、`CreateBoardDialog.tsx`、`useBoards.ts`、`validation.ts` |
-| `web/src/features/board/` | `BoardPage.tsx`、`BoardToolbar.tsx`、`BoardCanvas.tsx`、`ColumnView.tsx`、`CardTile.tsx`、`AddCard.tsx`、`SearchBox.tsx`、`SearchHelp.tsx`、`LiveStatus.tsx`、`BoardGone.tsx`、`dnd.ts`、`handleDragEnd.ts`、`useBoard.ts`、`useBoardLive.ts`、`useMoveCard.ts`、`useBoardSearch.ts`、`useCreateCard.ts`、`useBoardKeyboard.ts` |
+| `web/src/features/board/` | `BoardPage.tsx`、`BoardToolbar.tsx`、`BoardCanvas.tsx`、`ColumnView.tsx`、`CardTile.tsx`、`AddCard.tsx`、`SearchBox.tsx`、`SearchHelp.tsx`、`LiveStatus.tsx`、`BoardGone.tsx`、`dnd.ts`、`handleDragEnd.ts`、`useBoard.ts`、`useBoardLive.ts`、`useMoveCard.ts`、`useBoardSearch.ts`、`useCreateCard.ts`、`useBoardKeyboard.ts`、`useCollapsedColumns.ts` |
 | `web/src/features/card/` | `CardDialog.tsx`、`CardDialogBody.tsx`、`CardProperties.tsx`、`TagEditor.tsx`、`tagList.ts`、`CardTimeMeta.tsx`、`DescriptionEditor.tsx`、`Comments.tsx`、`DependencyPicker.tsx`、`useCardDetail.ts`、`useCardUpdate.ts`、`validateUrl.ts` |
 | `web/src/lib/markdown.tsx` | 安全 Markdown 渲染（描述与评论共用） |
 
@@ -139,11 +140,12 @@ sequenceDiagram
 | 内容 | 怎么验证 |
 |------|----------|
 | `dnd.ts` | `dnd.test.ts`：见文件内用例（`buildItems`、`planMove`、`computePosition`、`applyMoveToSnapshot` 等） |
-| `handleDragEnd` | `handleDragEnd.test.ts`：`跨列移动时产生 columnId`、`没有落点时不发 plan` |
+| `handleDragEnd` | `handleDragEnd.test.ts`：`跨列移动时产生 columnId`、`没有落点时不发 plan`、`落在收起列的窄边上（列落点）时仍能跨列移入` |
+| 列收起偏好 | `useCollapsedColumns.test.tsx`：默认、读写 localStorage、看板隔离、存储失败回退 |
 | `useMoveCard` | `useMoveCard.test.tsx`：乐观更新、成功失效、失败回滚、取消在飞请求、无快照不崩溃 |
 | `useBoardLive` | `useBoardLive.test.tsx`：连接 ready、事件合并刷新、board.* 刷新列表、reset 重连、404 看板不存在、卸载关闭等（**无**令牌/401 用例） |
 | `LiveStatus` | `LiveStatus.test.tsx`：`已连接时圆点为绿色` |
-| `BoardPage` 集成 | `BoardPage.test.tsx`：渲染列与卡片、非法 id、搜索防抖与语法错误、快捷键 `n`、新建卡片 POST、快照 404 |
+| `BoardPage` 集成 | `BoardPage.test.tsx`：渲染列与卡片、非法 id、搜索防抖与语法错误、快捷键 `n`、新建卡片 POST、快照 404、完成列默认窄边/点击与键盘展开、收起按钮、刷新保留偏好 |
 | 标签纯逻辑 | `tagList.test.ts`：去重、上限、截断、删除 |
 | 卡片弹窗 | `CardDialog.test.tsx`：`?card= 打开后修改标题带 version`、`版本冲突时不丢输入框内容（仍可编辑）`、`标签可添加，重复标签不重复提交`、`标签达到上限时内联提示`、`显示开始时间、无完成时间，领取可释放`、`弹窗内同时有属性区、描述与评论` |
 | Markdown | `markdown.test.tsx`：标题粗体、拒绝 `javascript:`、不渲染原始 HTML/图片标签 |
