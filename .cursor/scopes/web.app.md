@@ -2,156 +2,248 @@
 
 ## 需求目标
 
-人通过网页管理看板，agent 通过 MCP 或 REST 管理同一块看板。网页要做到：打开就能用、别人（包括 agent）改了马上看到、
-五种语言、深浅两种主题、出错时给得出人话的提示。网页是纯静态资源，由 Go 服务同源提供（后面会嵌进二进制），
-所以没有跨域，也没有单独部署的前端。
+人通过浏览器管理看板，agent 通过 MCP 或 REST 操作同一块数据。**免登录**：打开就能用，没有登录页、没有令牌存储。
+网页是纯静态资源，由 Go 服务同源提供（构建后嵌入二进制），无跨域。
 
-这一份文档只讲"骨架"：登录、接口调用、实时同步、多语言、主题、页面框架。看板、卡片、设置、令牌这些具体页面各有自己的设计文档
-（`web.board.md`、`web.admin.md`）。
+本文件只讲**骨架**：路由与外框、接口调用、实时同步、多语言、主题、提示、Markdown、体积预算。
+看板画布、卡片弹窗、设置、接入说明等有独立 scope（`web.board.md`、`web.settings.md`、`web.agents.md`）。
 
-技术栈：Vite 8 + React 19 + TypeScript 7 + Tailwind CSS 4 + shadcn/ui（radix 版，lyra 风格，图标用 lucide）+ TanStack Query 5 +
-React Router 7 + i18next + dnd-kit + vitest。包管理用 npm（本机只有 npm）。
+技术栈：Vite 8、React 19、TypeScript 7、Tailwind CSS 4、**vendored shadcn/ui**（`radix-ui` 聚合包 + lucide）、TanStack Query 5、React Router 7、@dnd-kit（看板页）、Vitest + Testing Library + jsdom。包管理只用 **npm**。
 
-| 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
-|------|----------|-------------|---------|------|
-| 1 | 网页用什么凭证登录、放在哪 | 令牌被当成普通口令随便存，或者 agent 令牌登进来后到处报 403 | 登录用管理令牌（配置里的 `AdminToken`）。登录时先调 `GET /me`，只接受 `kind` 是 `human` 的令牌，agent 令牌直接提示"网页要用管理令牌"。令牌放 `localStorage`：页面同源、没有第三方脚本；剩下的风险是 XSS，所以服务端嵌入静态资源时会加严格的内容安全策略。任何接口返回 401 就清掉令牌回登录页 | 实施 |
-| 2 | 实时流用 `EventSource` 就只能把令牌放进 URL | 令牌出现在访问日志和浏览器历史里 | 所有请求包括实时流都用 `Authorization` 请求头，实时流用 `fetch` 读响应流，自己解析 SSE | 实施 |
-| 3 | 别人改了看板，网页要马上看到 | 看到的是旧数据，拖卡片时和别人互相覆盖 | 收到流里的 `board` 事件后重新取一次快照（150 毫秒内的多条事件合并成一次）。不在前端逐种事件去改本地数据：那样前端要重复实现一遍服务端的规则（自动化规则会连续改好几处），迟早和服务端对不上 | 实施 |
-| 4 | 网络断了、笔记本睡眠、服务重启 | 页面悄悄停止更新，用户不知道 | 带着最后收到的事件序号用 `after` 重连，失败按 1、2、4…最长 15 秒退避；45 秒没有任何数据（服务端每 20 秒发一次心跳）就认为连接半开，主动断开重连；收到 `reset` 丢掉缓存重新取快照；收到 `error`（比如看板被删）停止重连并提示；页面顶部用一个小圆点显示"已连接/重连中" | 实施 |
-| 5 | 拖卡片要立刻有反应，但服务端可能拒绝 | 要么拖完卡一下才动，要么显示成功但其实失败 | 乐观更新：拖完先改本地缓存，再调接口；失败恢复拖之前的快照并提示原因。成功时不额外提示，等流事件把缓存校准到服务端的真实顺序 | 实施 |
-| 6 | 要支持简体、繁体、英、日、韩 | 漏翻译显示成键名，或者某种语言的占位符写错导致显示 `{{name}}` | 文案放 `src/i18n/locales/*.ts`，英文是基准，其余四种声明成同一个类型，缺键或多键编译就报错；测试再检查每个键的占位符在五种语言里一致；用浏览器语言自动选，用户手动选的存 `localStorage`；`<html lang>` 随语言更新，中日韩同一个汉字才会选对字形 | 实施 |
-| 7 | 服务端的错误提示是中文兜底文案 | 日文用户看到中文报错 | 服务端每个错误有固定的 `reason`，网页按 `errors.<reason>` 取翻译，没有翻译才显示服务端的 `msg`；错误里的 `trace_id` 放在 toast 的描述里方便报告问题 | 实施 |
-| 8 | 深色模式 | 夜里刺眼，或者刷新时先白一下再变黑 | 浅色、深色、跟随系统三选一，存 `localStorage`；`public/theme-init.js` 在 `<head>` 里同步执行，渲染前就给 `<html>` 加好 `dark` 类（外链脚本，不需要放开内容安全策略的内联脚本） | 实施 |
-| 9 | 卡片描述和评论是别人写的文本（agent 写的评论常带 Markdown） | 原样显示难读；允许 HTML 就是 XSS | 用 `react-markdown` 渲染 Markdown，不解析原始 HTML；链接只放行 `http`、`https`、`mailto`，并加 `target=_blank` 和 `rel=noreferrer noopener`；其余文本都走 React 的转义 | 实施 |
-| 10 | 切换看板或离开页面时请求还在飞 | 旧看板的数据回来覆盖新看板，或者在已卸载的页面里报错 | 查询把 TanStack Query 给的 `signal` 传给 `fetch`；实时流随页面卸载 `abort` | 实施 |
-| 11 | 把"只有人能做的操作"在前端藏起来当作权限控制 | 绕过前端就能调用 | 权限一律在服务端（Core）判断；网页只用 `kind` 决定要不要显示入口，并且只接受人登录，不依赖前端隐藏 | 实施 |
-| 12 | 鼠标之外的操作方式 | 键盘和读屏用户用不了看板 | 弹窗、菜单、下拉都用 Radix（自带焦点管理）；拖拽加上键盘传感器（空格拿起、方向键移动、空格放下）；按 `/` 聚焦搜索框 | 实施 |
-| 13 | 开发时前端和后端不同端口 | 要开跨域，扩大攻击面 | 开发时 Vite 把 `/api`、`/mcp`、`/health`、`/install.md`、`/skills` 转发给 `SLATE_BACKEND`（默认 `http://127.0.0.1:7070`）；线上同源，不开跨域 | 实施 |
+| 编号 | 场景 | 做法 | 状态 |
+|------|------|------|------|
+| 1 | 身份与 REST | 前端不发任何认证头；服务端把所有 REST 写操作当作**人**（固定操作者名，见后端 identity scope） | 实施 |
+| 2 | 实时更新 | 看板页用原生 **`EventSource`** 连 `GET /api/v1/boards/:id/stream`；事件 `ready` / `board` / `reset` / `error`；断线后浏览器带 **`Last-Event-ID`** 续传 | 实施 |
+| 3 | 收到 `board` 后如何刷新 | 150 ms 内合并多次事件，再 `invalidateQueries` 重取快照；不在前端按事件类型改本地快照 | 实施 |
+| 4 | 流异常 | `reset` 关连接、刷快照、重连；服务端 `error` 事件或连接关闭后查快照，404 视为看板已删；否则约 5 s 后手动 `epoch` 重连；顶栏圆点显示连接状态 | 实施 |
+| 5 | 多语言 | 自研 `src/i18n`：`en` 打进主包，`zh-CN` / `zh-TW` / `ja` / `ko` 动态 chunk；`@/i18n/react` 的 `useTranslation`；存储键 `slate.lang` | 实施 |
+| 6 | 主题 | `slate.theme`；`public/theme-init.js` 在首屏前给 `<html>` 加 `dark`；顶栏**循环按钮**（浅 → 深 → 跟随系统） | 实施 |
+| 7 | 顶栏控件 | 语言、看板切换用原生 **`<select>`**（不用 Radix dropdown，减首屏体积） | 实施 |
+| 8 | 提示 | 自研 `src/lib/toast.ts` + `src/components/ui/sonner.tsx`（仅导出名 `Toaster`，非 npm sonner） | 实施 |
+| 9 | Markdown | 自研 `src/lib/markdown.tsx`（不接 react-markdown）；链接仅 `http`/`https`/`mailto` | 实施 |
+| 10 | 样式合并 | `cn` 来自 npm 包 **`cn`**（`src/lib/utils.ts` 再导出）；**不会**像 `tailwind-merge` 那样去掉冲突类名——覆盖宽度等同断点前缀（如 `sm:max-w-4xl` 盖过 `sm:max-w-sm`） | 实施 |
+| 11 | Tooltip | **`TooltipProvider` 不在 `App.tsx` 根部**；仅 **`BoardPage`** 内包裹需要提示的画布区域 | 实施 |
+| 12 | 请求取消 | `fetch` 把 TanStack Query 的 `signal` 传给接口；切换看板关 `EventSource` | 实施 |
+| 13 | 开发代理 | Vite 把 `/api`、`/mcp`、`/health`、`/install.md`、`/skills` 转到 `SLATE_BACKEND`（默认 `http://127.0.0.1:7070`） | 实施 |
 
-## 页面和路由
+## 页面与路由
 
-用 `BrowserRouter`（历史模式的路径），服务端要对所有非接口路径回退到 `index.html`（嵌入时实现）。
+路由定义在 `web/src/app/AppRoutes.tsx`（`BrowserRouter` + 历史路径；生产环境由 Go 做 SPA 回退）。
 
-| 路径 | 页面 | 说明 |
-|------|------|------|
-| `/login` | LoginPage | 输入管理令牌；已登录访问会跳到 `/` |
-| `/` | BoardListPage | 看板列表、新建看板 |
-| `/b/:boardId` | BoardPage | 看板本体 |
-| `/b/:boardId/settings` | SettingsPage | 看板设置，用 `?tab=general\|columns\|automation` 切换 |
-| `/agents` | AgentsPage | agent 令牌和接入说明 |
-| `*` | NotFoundPage | 没有这个页面 |
+| 路径 | 页面 | 加载方式 |
+|------|------|----------|
+| `/` | `BoardListPage` | 首屏同步 |
+| `/b/:boardId` | `BoardPage` | `lazy` + `Suspense` |
+| `/b/:boardId/settings` | `SettingsPage` | `lazy`；页内 Tabs（general / columns / automation），**无** URL `?tab=` |
+| `/agents` | `AgentsPage` | `lazy` |
+| `*` | `NotFoundPage` | 同步 |
 
-除 `/login` 外都要登录；没有令牌时跳到 `/login`，并记住原来想去的地址，登录后回去。
+所有页面都在 `AppShell` 外框内；**没有** `/login` 或 auth 路由。
 
-## 一次打开看板的流程
+## 免登录与 HTTP 客户端
+
+- `web/src/lib/api/client.ts`：`request()` 只设 `Accept` / `Content-Type`，**无** `Authorization`。
+- 错误体解析为 `ApiError`（`status`、`reason`、`traceId`）；`web/src/lib/errors.ts` 用 `t('errors.<reason>')` 展示文案。
+
+## 实时流（`useBoardLive`）
+
+- 连接：`new EventSource(\`${API_PREFIX}/boards/${boardId}/stream\`)`。
+- `ready`：若 `latest` 大于缓存快照的 `seq`，补刷一次。
+- `board`：合并刷新（见 `REFRESH_COALESCE_MS = 150`）。
+- `reset`：关闭、刷快照、`epoch++` 新连接。
+- `error`（`MessageEvent` 或 `EventSource.CLOSED`）：离线状态，快照 404 则 `onGone`，否则定时重连。
+- 测试用 `web/src/test/fakeEventSource.ts`；`setup.ts` 里 `beforeEach` 安装假实现，避免 jsdom 无 `EventSource`。
 
 ```mermaid
 sequenceDiagram
-    participant P as 页面
-    participant Q as TanStack Query 缓存
+    participant P as BoardPage
+    participant Q as Query 缓存
     participant S as 服务
 
-    P->>Q: useQuery(['board', id])
+    P->>Q: useQuery 取快照
     Q->>S: GET /boards/:id/snapshot
-    S-->>Q: 看板、列、规则、全部卡片、seq
-    Q-->>P: 渲染
-    P->>S: fetch GET /boards/:id/stream?after=seq，带 Authorization 头
-    S-->>P: ready
-    Note over P,S: agent 或别的人改了看板
-    S-->>P: board 事件，id 是事件序号
-    P->>P: 记下序号，150 毫秒内的事件合并
-    P->>Q: invalidateQueries(['board', id])
-    Q->>S: 重新取快照
-    S-->>Q: 新快照
-    Q-->>P: 重新渲染
-```
-
-快照里的 `seq` 是"读数据之前的最新事件序号"，用它做 `after` 不会漏事件，期间发生的变化最多让页面多刷新一次。
-
-## 实时流客户端
-
-```mermaid
-stateDiagram-v2
-    [*] --> connecting: 开始，起点 after=快照 seq
-    connecting --> live: 收到 ready
-    connecting --> backoff: 请求失败或网络错误
-    connecting --> stopped: 401，清令牌回登录
-    connecting --> stopped: 404，看板已经不存在
-    live --> live: 收到 board 事件，记下序号
-    live --> connecting: 服务端到点结束，立刻带序号重连
-    live --> connecting: 45 秒没有任何数据，主动断开
-    live --> resetting: 收到 reset
-    live --> stopped: 收到 error
-    backoff --> connecting: 等待 1、2、4…最长 15 秒
-    resetting --> connecting: 重新取快照后，用新的 seq 重连
-    stopped --> [*]
-```
-
-SSE 的解析规则（`lib/sse.ts`）：按行读取，行结束符是 `\n`、`\r\n` 或 `\r`；空行表示一条消息结束；`event:` 是事件名，缺省是 `message`；
-多个 `data:` 行用换行连起来；`id:` 是事件序号；以冒号开头的是注释（心跳 `: ping`）直接忽略；一次读到的数据可能把一行从中间切断，所以要保留没有结束的半行。
-
-## 乐观更新
-
-```mermaid
-sequenceDiagram
-    participant U as 用户
-    participant C as 本地缓存
-    participant S as 服务
-
-    U->>C: 拖完卡片，先把卡片挪到新位置
-    C->>S: POST /cards/:id/move
-    alt 成功
-        S-->>C: 200
-        Note over C: 流里的 card.moved 事件触发重取，顺序以服务端为准
-    else 失败
-        S-->>C: 4xx 或 5xx
-        C->>C: 恢复拖之前的快照
-        C-->>U: 提示失败原因
-    end
+    S-->>Q: 快照 + seq
+    P->>S: EventSource …/stream
+    S-->>P: ready / board / reset / error
+    P->>Q: invalidateQueries 重取快照
 ```
 
 ## 多语言
 
-- 五种语言代码和服务端一致：`zh-CN`、`zh-TW`、`en`、`ja`、`ko`（创建看板时把当前语言原样传给 `locale`，起步的列和规则就是这种语言）。
-- 自动选择：先看 `localStorage` 里用户选过的，再看 `navigator.languages`，归并规则和服务端 `normalizeLocale` 一致
-  （`zh-TW`、`zh-HK`、`zh-MO`、`zh-Hant*` 归繁体，其余 `zh*` 归简体，`ja*`、`ko*`，其余归英文）。
-- 文案不用复数形式：显示数量时写成"标签：3"这样的结构，避免各语言复数规则不同；日期用 `Intl.DateTimeFormat`、相对时间用 `Intl.RelativeTimeFormat`，跟随当前语言。
-- 活动流的文案由事件类型加载荷拼出来：`activity.<事件类型>` 一个键对应一种事件，占位符取自事件载荷。
+- 文案：`web/src/i18n/locales/*.ts`（`en` 为类型基准）。
+- 运行时：`default` 导出 `i18n`（`language`、`t`、`changeLanguage`、`getFixedT`）；`main.tsx` 在 `render` 前 `await loadLanguage(initialLanguage())`。
+- 对外统一：`import { useTranslation } from '@/i18n/react'`。
+- 语言归并：`web/src/i18n/languages.ts`，与后端 `normalizeLocale` 对齐。
 
-## 目录规划
+## 顶栏与主题
 
-| 路径 | 内容 |
+| 文件 | 行为 |
 |------|------|
-| `web/index.html`、`web/public/theme-init.js` | 入口页；渲染前设置深浅主题 |
-| `web/vite.config.ts` | 路径别名 `@`、Tailwind 插件、开发代理 |
-| `web/src/main.tsx` | 挂载：主题、多语言、查询缓存、路由、提示 |
-| `web/src/index.css` | Tailwind 和设计变量（浅色、深色、字体、看板底纹） |
-| `web/src/components/ui/` | shadcn 生成的基础组件，不手改（`sonner.tsx` 改成用自己的主题钩子，去掉 `next-themes`） |
-| `web/src/lib/api/` | `client.ts` 请求封装与错误类型；`types.ts` 和后端 JSON 一一对应的类型；`endpoints.ts` 每个接口一个函数 |
-| `web/src/lib/auth.tsx` | 令牌存取、登录、退出、当前身份 |
-| `web/src/lib/sse.ts`、`web/src/lib/stream.ts` | SSE 解析；实时流的连接、重连、续传 |
-| `web/src/lib/theme.tsx` | 主题 |
-| `web/src/lib/format.ts` | 时间、相对时间格式化 |
-| `web/src/lib/errors.ts` | 把 `ApiError` 翻译成人话 |
-| `web/src/i18n/` | 初始化和五种语言的文案 |
-| `web/src/features/` | 按功能分目录：`auth`、`boards`、`board`、`card`、`settings`、`agents`、`activity` |
-| `web/src/app/` | 路由、整体框架（顶栏、语言、主题、用户菜单）、错误兜底 |
+| `LanguageMenu.tsx` | 原生 `<select>`，五种 `option` 带 `lang`；窄屏图标 + 透明 select 扩大点击区 |
+| `ThemeMenu.tsx` | 单按钮循环；`theme.cycleLabel` 写 `aria-label` / `title` |
+| `BoardSwitcher.tsx` | 原生 `<select>`，项为 `SLUG 名称`，首项「所有看板」；列表未加载时占位 |
 
-## 验证计划
+## 应用根组件
 
-| 内容 | 怎么验证 |
-|------|----------|
-| SSE 解析 | vitest：块边界切在行中间、`\r\n`、多行 data、注释、没有结尾空行、`id` 和 `retry` |
-| 流客户端 | vitest：模拟 fetch，验证 ready、续传的 `after`、`reset`、`error`、401、退避、半开超时 |
-| 接口封装 | vitest：令牌放头里、查询参数、错误体解析、401 清令牌、网络错误 |
-| 多语言 | vitest：五种语言键一致（编译期 + 运行期）、占位符一致、语言归并规则 |
-| 登录 | vitest + Testing Library：agent 令牌被拒绝、人令牌通过 |
-| 页面真实渲染 | 起一个临时服务，用浏览器看每个页面的浅色、深色、窄屏、五种语言，并截图核对 |
-| 构建 | `tsc -b`、`oxlint`、`vite build` 全部通过 |
+`web/src/app/App.tsx`：`ErrorBoundary` → `ThemeProvider` → `QueryClientProvider` → `BrowserRouter` + `AppRoutes` + `Toaster`。**无** `TooltipProvider`。
+
+## 体积预算
+
+- 脚本：`web/scripts/check-size.mjs`（可选第 1 参数指定 dist 目录）。
+- 规则：统计 `index.html` 里 **`<script src>` 与 `<link rel="modulepreload" href="…js">`** 的 gzip 之和为首屏 JS；整个 dist 的 gzip 总和。
+- 上限（见 `v1.scope.md`）：首屏 JS **≤ 130 kB**，dist **≤ 300 kB**。
+- 当前集成构建约：**首屏 118.5 kB**，**dist 243.9 kB**（2026-11 实测）。
+- `npm run build` = `tsc -b` + `vite build` → `internal/web/spa/dist`（gitignore）+ 跑 `check-size.mjs`。
+
+## 目录与文件（骨架相关）
+
+### 入口与配置
+
+| 路径 | 职责 |
+|------|------|
+| `web/index.html` | 挂 `#root`，引用 `theme-init.js` |
+| `web/public/theme-init.js` | 首屏前读 `slate.theme` 设 `dark` |
+| `web/vite.config.ts` | 别名 `@`、`outDir`、代理、vitest `setupFiles` |
+| `web/package.json` | `dev` / `build` / `test` / `lint` / `typecheck` / `size` |
+| `web/scripts/check-size.mjs` | 体积门禁 |
+
+### `web/src/app/`
+
+| 文件 | 职责 |
+|------|------|
+| `App.tsx` | 根 Provider、路由、Toaster |
+| `AppRoutes.tsx` | 路由表与懒加载 |
+| `AppShell.tsx` | 顶栏 + `Outlet` |
+| `AppShell.test.tsx` | 外框行为测试 |
+| `BoardSwitcher.tsx` | 看板 `<select>` |
+| `LanguageMenu.tsx` | 语言 `<select>` |
+| `ThemeMenu.tsx` | 主题循环按钮 |
+| `ErrorBoundary.tsx` / `ErrorBoundary.test.tsx` | 渲染错误兜底 |
+| `NotFoundPage.tsx` | 404 |
+| `PageFallback.tsx` | 懒加载占位 |
+| `Logo.tsx` | 标志 |
+
+### `web/src/lib/`
+
+| 文件 | 职责 |
+|------|------|
+| `api/client.ts` / `client.test.ts` | HTTP 封装 |
+| `api/endpoints.ts` / `types.ts` | 接口函数与 JSON 类型 |
+| `errors.ts` / `errors.test.ts` | 错误文案 |
+| `format.ts` / `format.test.ts` | 时间格式化 |
+| `route.ts` / `route.test.ts` | 路径参数解析 |
+| `theme.tsx` / `theme.test.tsx` | `ThemeProvider` |
+| `theme-context.ts` | 主题类型与 `THEME_KEY` |
+| `toast.ts` / `toast-store.ts` / `toast.test.tsx` | 提示 API 与 UI store |
+| `markdown.tsx` / `markdown.test.tsx` | 安全 Markdown |
+| `queryClient.ts` / `queryKeys.ts` | Query 默认选项与键 |
+| `useErrorToast.ts` | 统一错误 toast |
+| `useDocumentTitle.ts` / `useDocumentTitle.test.tsx` | 文档标题 |
+| `limits.ts` / `limits.test.ts` | 与后端一致的长度上限 |
+| `utils.ts` | 导出 `cn` 包 |
+
+### `web/src/i18n/`
+
+| 文件 | 职责 |
+|------|------|
+| `index.ts` | `i18n` 默认导出、`loadLanguage` 等 |
+| `react.ts` | `useTranslation`、`TFunction` |
+| `runtime.ts` / `bundles.ts` / `lookup.ts` / `types.ts` | 运行时、按需语言包、查找、类型 |
+| `languages.ts` / `languages.test.ts` | 语言代码与归并 |
+| `useLanguage.ts` | `lang` + `setLang` 钩子 |
+| `locales/*.ts` | 五语文案 |
+| `locales.test.ts` | 键一致、占位符、与 Go 错误对齐 |
+
+### `web/src/components/ui/`
+
+vendored shadcn 组件（`button`、`dialog`、`dropdown-menu` 等）。**不要求**每个函数都写中文注释；业务改动的部分应注释。看板工具栏「导出」等仍可能用 `dropdown-menu`（懒加载 chunk，非首屏）。
+
+### `web/src/test/`
+
+| 文件 | 职责 |
+|------|------|
+| `setup.ts` | jsdom 补丁、预加载五语、假 EventSource、每用例恢复 `en` |
+| `renderApp.tsx` | 测试用 Provider 树 |
+| `fakeApi.ts` / `factories.ts` | 假 REST |
+| `fakeEventSource.ts` | 假 SSE |
+
+### 骨架相关 feature 测试（其它 feature 见各自 scope）
+
+| 文件 | 覆盖 |
+|------|------|
+| `features/boards/BoardListPage.test.tsx` | 列表、新建看板对话框 |
+| `features/boards/validation.test.ts` | 表单校验 |
+| `features/board/useBoardLive.test.tsx` | EventSource 客户端 |
+
+## 测试清单（用例名称以源码为准）
+
+**`AppShell.test.tsx`**
+
+- 有「跳到正文」链接，正文区域可以被它聚焦
+- 切换语言：界面文字、`<html lang>`、i18n 当前语言一起变
+- 语言下拉里五种语言都用自己的文字显示
+- 切换到深色主题：`<html>` 带上 dark 类
+- 看板切换：显示当前看板名，可以跳到别的看板或回到列表
+- 不在看板页时，切换框选中「所有看板」
+- 在 agent 页面时，agent 链接标为当前页
+- 地址不存在时显示 404 并能回到列表
+
+**`ErrorBoundary.test.tsx`**
+
+- 子组件正常时原样渲染
+- 子组件渲染出错：显示兜底界面，并把错误记到控制台
+
+**`lib/api/client.test.ts`**：GET/POST、查询参数、错误体、网络错误、`AbortSignal` 等（见文件内 `it` 标题）。
+
+**`lib/errors.test.ts`**：`describeError`、`isAbortError`、`isVersionConflict`。
+
+**`lib/format.test.ts`**：`parseTime`、`formatRelative`、`formatDate` / `formatDateTime`、`isPast`、本地时间输入互转。
+
+**`lib/route.test.ts`**：`parseId`。
+
+**`lib/theme.test.tsx`**：`ThemeProvider` 与 `localStorage`、`matchMedia`。
+
+**`lib/toast.test.tsx`**：显示、自动消失、悬停暂停、关闭、堆叠、同 id 更新、`role="alert"`。
+
+**`lib/markdown.test.tsx`**：标题粗体、拒绝 `javascript:`、不渲染图片标签。
+
+**`lib/limits.test.ts`**：输入上限与后端一致。
+
+**`lib/useDocumentTitle.test.tsx`**：标题格式与卸载恢复。
+
+**`i18n/languages.test.ts`**：`normalizeLanguage`、`pickLanguage`、`LANGUAGES`。
+
+**`i18n/locales.test.ts`**：五语键与占位符、Go 错误翻译、`setLanguage` / `loadLanguage`、订阅重渲染。
+
+**`features/boards/*`**：见 `BoardListPage.test.tsx`、`validation.test.ts`。
+
+**`features/board/useBoardLive.test.tsx`**：ready、合并刷新、reset、error、重连、卸载等（见文件内 16 个 `it`）。
+
+全仓库 vitest 约 **324** 条用例；以 `cd web && npm run test` 为准。
+
+## 开发与构建
+
+| 命令 | 作用 |
+|------|------|
+| `make web/dev` | Vite 5173，代理到 7070 |
+| `make web/test` | `tsc -b` + `oxlint` + `vitest run` |
+| `make web/build` | 前端构建 + 体积检查 |
+| `make build` | 含 `web/build`，产出 `./slate`（`-tags embed_web`） |
+
+仓库内亦可：`cd web && npm run dev|build|test|lint|typecheck|size`。
+
+## 验证门禁
+
+| 项 | 命令 |
+|----|------|
+| 类型 | `cd web && npx tsc -b` |
+| 静态分析 | `cd web && npx oxlint` |
+| 单测 | `cd web && npx vitest run` |
+| 体积 | `cd web && npm run build`（或已有 dist 时 `node scripts/check-size.mjs`） |
 
 ## 限制
 
-- 令牌放在 `localStorage`，页面里出现 XSS 就会泄露；所以不渲染原始 HTML，并在嵌入静态资源时加内容安全策略。
-- 快照每次取全部卡片，个人和小团队（几千张卡片以内）够用；再大要改成按列分页，需要新增接口。
-- 每个看板一条实时流，切换看板会断开旧的再连新的。
-- `npm audit` 当前报告的 `picomatch` 问题只在构建工具链里（Vite 的依赖），不会进入浏览器里的代码，要等 Vite 上游升级。
+- 无登录≠无风险：默认本机监听 + Host 白名单 + 跨站写拦截（见 `identity.open.go.md`）。
+- 快照一次取全板卡片，规模超大时要分页（需新接口）。
+- 每块看板一条 `EventSource`，换看板会关旧连接。
+- Radix 弹窗、部分懒加载页仍带来额外 chunk；首屏预算由 `check-size.mjs` 把关。
