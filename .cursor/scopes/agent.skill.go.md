@@ -11,7 +11,7 @@ agent 光有 MCP 工具还不够：它得知道怎么用——项目路径问不
 | 2 | 项目在本机的位置没人告诉 agent | agent 不知道去哪个目录建 worktree，或者每次都问用户 | 路径记在看板上（`project_path`），不在本地另存：看板上有就直接用，没有才问用户一次，再用 `set_project_path` 写回；agent 只能写还是空的，已有的只有人能改 | 实施 |
 | 3 | 来活之后主 agent 自己干 | 上下文被代码细节占满，一次只能做一张，卡片租约到期 | 主 agent 只做调度：领卡、派子 agent、续租、交接；每张卡一个子 agent、一个 worktree、一个分支；同时进行的卡片数有上限（默认 2）。host 没有子 agent 能力时，主 agent 自己在 worktree 里做，一次一张 | 实施 |
 | 4 | 不同 host 有的能长时间阻塞调用，有的不能 | 要么 agent 空转轮询，要么错过新活 | skill 给出选择：优先用 `wait_for_updates` 阻塞守候；工具调用超时短就缩短 `timeout_seconds`；host 不能保持会话就用它自己的定时功能周期性检查 | 实施 |
-| 5 | 装 MCP 和 skill 要翻各 host 的文档，令牌还容易写进被提交的文件 | 接入门槛高，令牌泄露 | `/install.md`（免认证）写好 Claude Code、Cursor、Codex 的安装步骤，地址用请求里的；令牌一律走环境变量 `SLATE_TOKEN`，不写进文件；网页的"连接 Agent"用 `/api/v1/connect` 取同一份结构化说明，不在前端另写一套命令 | 实施 |
+| 5 | 装 MCP 和 skill 要翻各 host 的文档 | 接入门槛高 | `/install.md`（免认证）写好 Claude Code、Cursor、Codex 的安装步骤，MCP URL 带 `?name=`（管理步骤带 `&role=manager`）；网页「连接 Agent」用免认证的 `/api/v1/connect` 取同一份结构化说明 | 实施 |
 | 6 | skill 和服务端版本对不上 | skill 里提到的工具不存在或已改名，agent 去调用不存在的工具 | skill 内嵌在服务二进制里，由服务提供：`/skills/slate-kanban/SKILL.md` 和 MCP 资源 `slate://skills/slate-kanban`；测试保证 skill 提到的工具和错误名都真实存在，agent 视图的每个工具 skill 里都有 | 实施 |
 | 7 | agent 连上 MCP 时还没装 skill | 不知道还有流程说明 | 连接时下发的 `instructions` 提示：没装就读取资源 `slate://skills/slate-kanban`，经用户同意后存成自己的 skill | 实施 |
 | 8 | 免认证的地址被用来做文章 | 通过 Host 头注入内容，或被缓存污染 | 只返回静态内容和从请求里算出的服务地址；Host 和转发头严格校验，不合格返回 400；说明页不缓存；里面没有任何令牌 | 实施 |
@@ -27,16 +27,15 @@ sequenceDiagram
     participant A as agent
     participant S as 服务
 
-    H->>W: 在 Agents 页创建令牌
-    W-->>H: 令牌明文（只显示一次）和一句提示词
-    H->>A: 粘贴提示词：请阅读 {服务地址}/install.md 并安装
+    H->>W: 打开「连接 Agent」或把服务地址给 agent
+    W-->>H: /api/v1/connect 里的 MCP URL（含自选的 name）
+    H->>A: 请阅读 {服务地址}/install.md 并安装
     A->>S: GET /install.md（免认证）
-    S-->>A: 按这个 host 的安装步骤，地址已经替换好
-    A->>A: 令牌放进环境变量 SLATE_TOKEN，装 MCP
+    S-->>A: 按 host 的步骤，MCP 地址已带好 ?name=
     A->>S: GET /skills/slate-kanban/SKILL.md（免认证）
     A->>A: 存进自己的 skills 目录
-    A->>S: MCP whoami
-    S-->>A: name 是令牌名称，kind 是 agent
+    A->>S: MCP whoami（连上时用的 URL 决定身份）
+    S-->>A: name 与 URL 的 name 一致，kind 是 agent 或 human（manager）
 ```
 
 没有走安装页的 agent 也能自救：它连上 MCP 后，`instructions` 提示去读资源 `slate://skills/slate-kanban`，再经用户同意存成自己的 skill。
@@ -85,12 +84,12 @@ flowchart TD
 
 | 路径 | 认证 | 内容 |
 |------|------|------|
-| `GET /install.md` | 无 | Markdown 安装说明：令牌、三种 host 的 MCP 安装命令、skill 安装命令、验证方法 |
+| `GET /install.md` | 无 | Markdown 安装说明：三种 host 的 MCP（带 `?name=`）与 skill 安装命令、验证方法 |
 | `GET /skills/slate-kanban/SKILL.md` | 无 | skill 全文，文件和仓库里的 `skills/slate-kanban/SKILL.md` 是同一份（编译时内嵌） |
-| `GET /api/v1/connect` | 令牌 | 同一份说明的 JSON 形式，网页的"连接 Agent"用它渲染带复制按钮的代码块 |
-| MCP 资源 `slate://skills/slate-kanban` | 令牌 | skill 全文，两个视图都有 |
+| `GET /api/v1/connect` | 无 | 同一份说明的 JSON 形式，网页「连接 Agent」用它渲染带复制按钮的代码块 |
+| MCP 资源 `slate://skills/slate-kanban` | MCP 会话 | skill 全文，两个视图都有 |
 
-免认证的两个地址不返回任何敏感信息：skill 是使用说明，安装说明里令牌的位置只是占位符。它们免认证是因为 agent 在拿到令牌、装好 MCP 之前就需要它们。
+免认证页面不返回敏感信息。MCP 身份在连接 URL 的查询参数里，不靠环境变量里的秘密。
 
 ### 服务地址怎么算
 
@@ -112,7 +111,6 @@ flowchart TD
   "mcp_url": "https://kanban.example.com/mcp",
   "install_url": "https://kanban.example.com/install.md",
   "skill_url": "https://kanban.example.com/skills/slate-kanban/SKILL.md",
-  "token_env": "SLATE_TOKEN",
   "hosts": [
     {
       "id": "claude-code",
@@ -124,19 +122,16 @@ flowchart TD
 }
 ```
 
-令牌不在里面：所有命令都引用环境变量 `SLATE_TOKEN`。网页在用户刚创建完令牌时，自己在最前面加一行 `export SLATE_TOKEN='…'`，这样令牌明文只出现在浏览器和用户的终端里。
-
 ### 三种 host 的安装方式
 
-| host | MCP | skill 目录 | 依据 |
-|------|-----|-----------|------|
-| Claude Code | `claude mcp add --transport http --scope user slate {地址}/mcp --header 'Authorization: Bearer ${SLATE_TOKEN}'`（单引号，让 shell 不展开，原样写进配置） | `~/.claude/skills/slate-kanban/` | Claude Code 官方 MCP 文档：`--scope user`；配置里的 `headers` 支持 `${VAR}` 引用环境变量，加载时才展开；文档列出的"读成空值"的凭据名里没有 `SLATE_TOKEN` |
-| Cursor | `mcp.json` 里写 `url` 和 `headers`，令牌用 `${env:SLATE_TOKEN}` 引用；全局 `~/.cursor/mcp.json`，项目 `.cursor/mcp.json` | `~/.cursor/skills/slate-kanban/` | Cursor 官方文档的 MCP 一节 |
-| Codex | `codex mcp add slate --url {地址}/mcp --bearer-token-env-var SLATE_TOKEN` | `~/.codex/skills/slate-kanban/` | 本机 `codex mcp add --help` |
+| host | MCP（工作视图） | MCP（管理视图，可选） | skill 目录 |
+|------|----------------|----------------------|-----------|
+| Claude Code | `claude mcp add ... slate '{地址}/mcp?name=你的agent名'` | 再加一条 `...&role=manager` 注册 `slate-manager` | `~/.claude/skills/slate-kanban/` |
+| Cursor | `mcp.json` 里 `url` 指向 `{地址}/mcp?name=...`（无需 Authorization 头） | 另起一条 `role=manager` | `~/.cursor/skills/slate-kanban/` |
+| Codex | `codex mcp add slate --url {地址}/mcp?name=...` | `--url ...&role=manager` | `~/.codex/skills/slate-kanban/` |
 
-三种 host 记录的都是环境变量的名字，令牌明文不会落进它们的配置文件，更不会进入会被提交的文件。
-代价是：启动 host 的进程必须能读到 `SLATE_TOKEN`。说明页提示用户把 `export` 写进自己的 shell 配置（例如 `~/.zshrc`）；
-如果 Cursor 桌面版没有继承终端的环境变量（表现是连接 401），就从装好变量的终端里启动它，或者在 `mcp.json` 里直接写令牌（这个文件不要提交）。
+服务端 `bearerGate` 会在没有 Authorization 时自动补占位 `Bearer open`；客户端不必配置真实 Bearer。
+不同 agent 实例应使用不同的 `name`，便于在看板事件和评论里区分来源。
 
 ## 资源和 instructions
 
@@ -153,7 +148,7 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 3. skill 里出现的、长得像工具名的词，必须是 agent 视图里真实存在的工具（拼错、改名或提到管理视图的工具会失败）。
 4. skill 里出现的 `ErrXxx` 错误名，必须在测试里登记的真实错误里（改名会让测试编译失败，提醒同步 skill）。
 5. `/skills/slate-kanban/SKILL.md`、MCP 资源、编译进二进制的内容三者完全一致。
-6. 安装说明里的 JSON 片段必须是合法 JSON，每个 host 都有 MCP 和 skill 两组步骤，命令里的地址和请求一致，没有令牌明文。
+6. 安装说明里的 JSON 片段必须是合法 JSON，每个 host 都有 MCP 和 skill 两组步骤，命令里的地址和请求一致，MCP URL 含 `?name=` 且不含 Bearer 秘密。
 
 ## 验证记录
 
@@ -161,8 +156,8 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 |------|---------|------|
 | 单元和路由测试 | skill 的格式和对服务端的一致性（`internal/web/mcpapi/skill_test.go`）；地址算法、说明内容、Markdown、页面的头和 400（`internal/web/api/connectapi`）；认证边界，以及说明里给的地址真的能连上 MCP、下载的 skill 与资源和编译进去的一致（`internal/web/api/connect_test.go`） | 通过，`-race` 在最终验收时统一跑 |
 | 变异验证 | 在 skill、资源、说明、地址校验、渲染和路由上共造 35 处变异（`tmp/mutate-mcp/run.py`） | 全部被测试发现；其中"代码围栏没有闭合"一处最初漏网：原来只数围栏个数，同时少了偶数个关闭围栏时发现不了，改成检查严格一开一关交替 |
-| 真实进程：页面 | 编译二进制启动，用 curl 检查两个免认证页面的类型和缓存头、代理头下的地址、非法主机返回 400、`/api/v1/connect` 无令牌和错令牌返回 401 | 符合预期；skill 下载与仓库文件逐字节一致；非法 `Host` 在到达我们的代码之前就被 Go 的 HTTP 库以 400 拒绝 |
-| 真实进程：host 命令 | 把页面上的命令原样取出，在临时的 HOME 和 CODEX_HOME 里执行（没有碰真实配置） | Claude Code 和 Codex 的命令都被接受；Claude Code 保存的是 `${SLATE_TOKEN}` 引用，配置里没有令牌明文；带环境变量时 `claude mcp list` 显示已连接，不带时返回 401；Codex 只保存变量名；三种 host 的 skill 安装命令都能执行，装好的文件与仓库一致 |
+| 真实进程：页面 | curl 检查免认证页面头、`/api/v1/connect` 免认证 JSON、非法 Host 400 | skill 与仓库一致 |
+| 真实进程：host 命令 | 临时 HOME 执行安装命令 | MCP URL 带 `?name=`，无 SLATE_TOKEN；三种 host skill 安装可执行 |
 | 真实进程：流程 | `tmp/smoke-mcp/smoke_skill_test.go` 用脚本照着 skill 走完整流程：确认并写入项目路径、守候、用 `list_cards` 加 `claim_card` 领两张、按 skill 的命令建 worktree 和分支、子 agent 提交、交接到审查、人返工后再交接、释放做不下去的卡片、人合并后清理；并触发错误对照表里的每个错误 | 通过：skill 里的 git 命令、查询写法和每个错误名，都和服务端真实行为一致 |
 | 没有验证的 | Cursor 没有命令行可以验证，只验证了 JSON 合法、结构符合官方文档；大模型会不会真的照着 skill 做，需要用真实的 agent 试用才知道，测试只能保证 skill 写的东西是对的、可执行的 | 见"限制" |
 

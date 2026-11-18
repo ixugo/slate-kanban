@@ -225,6 +225,24 @@ sequenceDiagram
     C-->>W: 补发 seq 之后的事件, 然后转为实时
 ```
 
+## 整板导出
+
+网页工具栏的「导出」一次性拉出看板、列、规则、全部卡片（含列名、完成、等待、领取等派生字段）、每张卡的评论，以及导出时刻的最新事件序号。
+不分页，规模按个人看板设计（几千张卡以内）。人和 agent 都能读，权限与整板快照相同；看板不存在返回 404。
+
+| 格式 | 说明 |
+|------|------|
+| JSON（默认） | 顶层信封：`format: slate-board-export`、`version: 1`、`exported_at`（RFC3339）、`seq`、`board`、`columns`、`rules`、`cards[]`（每项含 `comments`） |
+| Markdown | 在 REST 层渲染：`# 看板名（SLUG）`，按列 `##`，卡片 `### KEY 标题`，元信息行、描述、评论引用块；卡片顺序与看板一致 |
+
+评论在 Core 里按看板批量读取，避免 N+1。REST 响应带 `Content-Disposition` 附件名和对应 `Content-Type`。
+
+| 步骤 | 函数 | 文件 |
+|------|------|------|
+| 导出数据 | Core.ExportBoard | internal/core/kanban/export.go |
+| 评论批量读 | CommentStorer.ListByBoard | internal/core/kanban/comment.go |
+| JSON/Markdown 与路由 | API.export, renderBoardMarkdown | internal/web/api/kanbanapi/export.go, export_md.go |
+
 ## 权限小结
 
 | 操作 | 人 | agent |
@@ -233,7 +251,7 @@ sequenceDiagram
 | 修改看板名称、说明 | 允许 | 拒绝 |
 | 写入项目路径 | 允许 | 仅当路径为空时允许 |
 | 列的增删改与排序 | 允许 | 拒绝 |
-| 读取看板、列、快照 | 允许 | 允许 |
+| 读取看板、列、快照、导出 | 允许 | 允许 |
 
 ## 代码对照
 
@@ -250,5 +268,6 @@ sequenceDiagram
 | 列的增删改与排序 | Core.CreateColumn, UpdateColumn, DeleteColumn, ReorderColumns | internal/core/kanban/column.go |
 | 删除列的事务内步骤 | unit.deleteColumn, evacuateColumn, disableRulesUsing, ruleUsesColumn | internal/core/kanban/column.go |
 | 整板快照 | Core.BoardSnapshot | internal/core/kanban/snapshot.go |
+| 整板导出 | Core.ExportBoard | internal/core/kanban/export.go |
 | 入参结构 | CreateBoardInput, UpdateBoardInput, CreateColumnInput, UpdateColumnInput | internal/core/kanban/board.param.go, column.param.go |
 | 错误定义 | ErrBoardNotFound, ErrColumnNotEmpty 等 | internal/core/kanban/errors.go |

@@ -20,9 +20,9 @@
 - [x] CHK011 - skill 里"不要自己拖进完成列"与服务端的权限（agent 不能放进领取列、`finish_card` 去下一列）是否一致？[Conflict]
 
 ## 边界场景
-- [x] CHK012 - 免认证的两个地址会不会泄露令牌或其他敏感信息？[Edge Case]
+- [x] CHK012 - 免认证页面会不会泄露 MCP 身份以外的敏感信息？[Edge Case]
 - [x] CHK013 - Host 或转发头里带恶意内容时会不会被写进说明页？[Edge Case]
-- [x] CHK014 - 令牌明文会不会被写进会提交的文件或日志？[Edge Case]
+- [x] CHK014 - 安装命令里会不会要求把秘密写进会提交的文件？[Edge Case]
 - [x] CHK015 - 看板的项目路径已有值但和当前目录不一致时，agent 会不会擅自改？[Edge Case]
 - [x] CHK016 - skill 被编译进二进制后，仓库里的文件、HTTP 下载、MCP 资源三者是否一致？[Edge Case]
 - [x] CHK017 - 服务放在反向代理后面（Host 是域名、协议是 https）时，说明里的地址对不对？[Edge Case]

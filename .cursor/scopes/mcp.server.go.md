@@ -9,15 +9,15 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 | 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
 |------|----------|-------------|---------|------|
 | 1 | MCP 工具里自己再写一套权限判断 | 同一个操作在不同入口结果不同，漏洞藏在某个入口里 | 工具只做"取身份、调 Core、转结果"，权限和校验全在 Core；工具视图只是减少干扰，不是安全边界 | 实施 |
-| 2 | MCP 请求没有可靠的身份；令牌被删除后还能继续用 | 被撤销的 agent 仍然能读写看板 | 每个 HTTP 请求都用 `Authorization: Bearer` 认证（复用 `access.Core.Authenticate`），令牌删除后下一个请求就是 401；会话绑定创建它的身份，换一个令牌拿不到别人的会话 | 实施 |
-| 3 | agent 看到一堆自己用不了的管理工具 | 占掉上下文，还会反复尝试越权再被拒绝 | 两套工具视图：agent 令牌看到 16 个工作工具，管理令牌看到 24 个管理工具；同名工具的入参也按身份裁剪（例如 agent 的创建卡片没有优先级、依赖、时间字段） | 实施 |
+| 2 | MCP 请求没有可靠的身份 | 不同入口的操作者混乱 | `identityMiddleware` 解析 `?name=` 与 `?role=worker|manager`，校验后写入 `X-Slate-Actor-*` 头；`bearerGate` 在无 Authorization 时补占位 `Bearer open`，SDK 用 `headerVerifier` 读头构造 TokenInfo 做会话绑定 | 实施 |
+| 3 | agent 看到一堆自己用不了的管理工具 | 占掉上下文，还会反复尝试越权再被拒绝 | 两套工具视图：`role=worker`（默认 agent 名）16 个工作工具，`role=manager` 24 个管理工具；同名工具入参按身份裁剪 | 实施 |
 | 4 | 一个工具返回整板卡片，每张描述最长 20000 字 | 一次响应几百 KB，把 agent 的上下文撑爆 | `list_cards` 和资源快照里的卡片只给摘要（没有描述和评论），要看全文用 `get_card`；`list_cards` 默认 50 张、最多 200 张；资源快照最多 200 张，并如实给出 `total` 和 `truncated`；创建、修改、移动卡片只返回精简字段，不把刚写进去的描述原样回传 | 实施 |
 | 5 | 服务端有更新，agent 不知道 | 只能盲目轮询 | agent 订阅资源 `slate://boards/{board_id}`，看板每次提交更新，服务端异步发 `notifications/resources/updated`（带最新事件序号）；200 毫秒内的多次更新合并成一次通知；通知不阻塞写请求 | 实施 |
 | 6 | agent 当时不在线，或者它的 host 不支持订阅通知 | 通知丢了就丢了更新 | 通知只是"有更新"的提示，不带数据也不保证送达；数据靠 `pull_updates`：进度按（看板，agent）存在服务端数据库里，离线多久都能补读；离线太久事件被清理时返回 `truncated`，agent 用 `list_cards` 重新了解现状 | 实施 |
 | 7 | agent 想一直挂着等活 | 定时轮询浪费请求，而且 host 的循环功能很笨重 | `wait_for_updates` 阻塞到有值得处理的更新为止，最长 50 秒（低于常见代理和客户端的一分钟超时）；超时返回 `timed_out`，不是错误，agent 带着返回的 `cursor` 立刻再等 | 实施 |
 | 8 | 关闭服务时，挂着的阻塞等待和通知流让 Shutdown 一直等到超时 | 每次重启卡 5 秒，还留下一条错误日志 | 和 REST 一样用 `lifecycle.Bind`：阻塞等待返回"服务正在关闭"，通知流直接结束；普通工具调用不受影响 | 实施 |
-| 9 | 通知流（客户端用 GET 一直挂着的连接）永远不断 | 令牌被删除后还能一直收到"看板有更新"的提示 | 服务端每分钟用这条流自己的令牌重新认证一次，令牌失效就结束这条流，客户端重连时认证失败得到 401。不按时间强制断开：无故断开会让一些客户端（例如 Go SDK，对"没有进展的重连"最多容忍 5 次）最终放弃整个会话 | 实施 |
-| 10 | 服务放在 nginx 后面，nginx 用 127.0.0.1 连过来，Host 头是域名 | SDK 默认的"本机服务只认本机 Host"校验会把它当成 DNS 重绑定攻击，全部返回 403 | 关闭这项校验。`/mcp` 一定要令牌，网页脚本跨站请求时没办法带上自定义的 Authorization 头，所以不会因此多出攻击面 | 实施 |
+| 9 | 通知流（客户端用 GET 一直挂着的连接）永远不断 | 僵尸连接占资源 | 依赖正常 TCP/代理超时与服务关闭时 `lifecycle.Bind` 结束；身份在连接 URL 里，换 name 重连即换身份 | 实施 |
+| 10 | 服务放在 nginx 后面，nginx 用 127.0.0.1 连过来，Host 头是域名 | SDK 默认 Host 校验误判 DNS 重绑定 | 关闭这项校验；MCP 身份在查询参数，不靠 Bearer 秘密 | 实施 |
 | 11 | 内部错误的细节原样返回给 agent | 数据库错误文本进了模型的上下文，还可能被写进它的记录里 | 业务错误返回 `reason: msg`；不是业务错误的只记日志，返回通用文案；错误的 details 一律不返回 | 实施 |
 | 12 | agent 不知道这个看板怎么用 | 领不该领的卡、把卡片拖进完成列、一直轮询 | 连接时下发简短的使用说明（instructions），每个工具的描述写清前置条件和后果；worktree、子 agent、项目路径这类更完整的流程放在 skill 里 | 实施 |
 | 13 | 会话越攒越多 | 内存一直涨 | 会话空闲 6 小时自动关闭，客户端按协议重新初始化 | 实施 |
@@ -56,7 +56,7 @@ agent 视图 16 个，管理视图 24 个（`whoami`、`list_boards`、`get_boar
 `create_card`、`update_card`、`move_card` 共 11 个共用，加上 13 个管理专用）。
 
 没有对应工具的 Core 方法：`BoardSnapshot`（作为资源提供，见"资源"）、`GetCard`（`get_card` 已覆盖）、`LatestSeq`、`Subscribe`、`Observe`（内部使用）。
-令牌管理（创建、列出、删除 agent 令牌）只在网页和 REST 里做，不放进 MCP：这样 agent 不可能通过 MCP 给自己或别人发令牌。
+不再提供 agent 令牌管理；MCP 通过 URL 自报名称区分 agent。
 
 工具注解（告诉 host 哪些调用可以放心自动执行）：读取类标 `readOnlyHint`；删除类标 `destructiveHint`；
 其余写入类明确标 `destructiveHint: false`（协议默认值是 true）；所有工具标 `openWorldHint: false`（只和这个看板打交道）。
@@ -65,11 +65,11 @@ agent 视图 16 个，管理视图 24 个（`whoami`、`list_boards`、`get_boar
 
 ```mermaid
 flowchart TD
-    A[POST 或 GET /mcp] --> B[认证: 解析 Authorization 请求头]
-    B -->|失败| Z1[401]
-    B -->|成功| C[TokenInfo 放进请求上下文: UserID 是 kind:name, Extra 里放 kanban.Actor]
+    A[POST 或 GET /mcp] --> B[identityMiddleware: ?name= ?role= 写入头]
+    B -->|失败| Z1[400 JSON]
+    B -->|成功| C[bearerGate: 缺 Authorization 补 Bearer open; headerVerifier 构造 TokenInfo]
     C --> D{GET 通知流}
-    D -->|是| E[随服务关闭而结束, 每分钟重新认证, 令牌失效就结束]
+    D -->|是| E[随服务关闭而结束]
     D -->|否| F[SDK 按 Mcp-Session-Id 找会话]
     E --> F
     F -->|没有会话ID| G[serverFor 按身份挑 agent 视图或管理视图, 新建会话并记下 UserID]
@@ -82,21 +82,22 @@ flowchart TD
     I -->|成功| K[对象放进 structuredContent, 同时序列化成文本内容]
 ```
 
-认证排在最前面，没有令牌的人看不到后面任何检查的结果。请求体上限 1 MiB 由 SDK 的 `MaxRequestBodyBytes` 在认证之后检查。
+身份解析排在 MCP 协议处理之前。请求体上限 1 MiB 由 SDK 的 `MaxRequestBodyBytes` 检查。
 单个请求的结果直接用 JSON 返回（`JSONResponse`），不占用 SSE 长连接；只有客户端用 GET 打开的通知流是长连接。
 
 ## 身份与会话
 
-`TokenVerifier` 调用 `access.Core.Authenticate`，成功后返回的 `auth.TokenInfo` 有三样东西：
+`headerVerifier` 只读 `X-Slate-Actor-Kind` 与 `X-Slate-Actor-Name`（由 `identityMiddleware` 写入，覆盖客户端自带同名头），不校验 Bearer 字符串含义。
+占位 `Bearer open` 只为满足 SDK 的 `RequireBearerToken` 形状。
 
 | 字段 | 内容 | 谁用 |
 |------|------|------|
-| UserID | `human:admin` 或 `agent:名称` | SDK 用它防止会话劫持：会话创建后，每个请求的 UserID 必须相同，不同返回 403 |
-| Extra["actor"] | `kanban.Actor`，和 REST 用同一个函数 `accessapi.ActorOf` 由 Principal 算出 | 工具处理函数从 `req.Extra.TokenInfo` 取出，传给 Core |
-| Expiration | 不设置，并打开 `AllowMissingExpiration` | 令牌没有过期时间，有效性由每个请求的认证决定 |
+| UserID | `human:名称` 或 `agent:名称` | SDK 防止会话劫持：会话创建后 UserID 必须一致 |
+| Extra["actor"] | `kanban.Actor` | 工具从 `req.Extra` 取出传给 Core |
+| Expiration | 不设置（`AllowMissingExpiration`） | 无真实令牌过期 |
 
-认证失败：令牌无效返回 401（`auth.ErrInvalidToken`）；查库出错返回 500。SDK 的认证中间件返回的是纯文本错误体，
-这符合 MCP 对 401 的要求，不另外包成 `{reason, msg}`。
+`?role=manager` 时 kind 为 human、视图为管理工具集；否则为 agent、工作视图。`name` 缺省时 worker 用 `agent`，manager 用 `manager`。
+非法 name/role 在进 MCP 协议前返回 400 JSON。
 
 ## 通知和离线补读
 
