@@ -18,18 +18,21 @@ export function AppShell() {
     <div className="flex h-dvh flex-col">
       <a
         href="#main"
-        className="sr-only z-50 bg-background px-3 py-2 text-xs focus:not-sr-only focus:absolute focus:top-2 focus:left-2"
+        className="sr-only z-50 rounded-full bg-background px-4 py-2 text-ui shadow-float focus:not-sr-only focus:absolute focus:top-3 focus:left-3"
       >
         {t('nav.skipToContent')}
       </a>
-      <header className="flex h-12 shrink-0 items-center gap-1 border-b bg-background px-2 sm:px-3">
-        <Link to="/" className="mr-1 flex items-center gap-2 px-1 font-semibold tracking-tight">
-          <Logo />
+      <header className="material-bar z-30 flex h-14 shrink-0 items-center gap-1.5 px-3 shadow-[0_0.5px_0_var(--border)] sm:px-5">
+        <Link
+          to="/"
+          className="mr-1 flex items-center gap-2.5 rounded-full py-1 pr-3 pl-1 text-body font-semibold tracking-tight transition-colors duration-200 outline-none hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/40"
+        >
+          <Logo className="size-7" />
           <span className="hidden sm:inline">{t('app.name')}</span>
         </Link>
         <BoardSwitcher />
         <div className="ml-auto flex items-center gap-0.5">
-          <Button asChild variant="ghost" size="sm" className={cn(onAgents && 'bg-muted')}>
+          <Button asChild variant="ghost" className={cn(onAgents && 'bg-secondary text-foreground')}>
             <Link to="/agents" aria-current={onAgents ? 'page' : undefined}>
               <BotIcon />
               <span className="hidden md:inline">{t('nav.agents')}</span>

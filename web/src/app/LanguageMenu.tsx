@@ -1,6 +1,6 @@
 // 语言选择：原生 select，五种语言 option 自带 lang；窄屏用透明 select 盖住地球图标扩大点击区域。
 
-import { ChevronDownIcon, GlobeIcon } from 'lucide-react'
+import { ChevronsUpDownIcon, GlobeIcon } from 'lucide-react'
 import type { ChangeEvent } from 'react'
 import { cn } from 'cn'
 import { useTranslation } from '@/i18n/react'
@@ -20,12 +20,12 @@ export function LanguageMenu() {
   return (
     <div
       className={cn(
-        'group/lang relative inline-flex h-7 min-w-7 items-center',
-        'rounded-none border border-transparent focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/50',
+        'group/lang relative inline-flex h-8 min-w-8 items-center rounded-full transition-shadow duration-200',
+        'focus-within:ring-[3px] focus-within:ring-ring/40',
       )}
     >
       <GlobeIcon
-        className="pointer-events-none absolute left-1.5 z-10 size-3.5 text-muted-foreground md:static md:ml-1.5 md:shrink-0"
+        className="pointer-events-none absolute left-2 z-10 size-4 text-muted-foreground md:static md:ml-3 md:shrink-0"
         aria-hidden
       />
       <select
@@ -33,9 +33,9 @@ export function LanguageMenu() {
         value={lang}
         onChange={onChange}
         className={cn(
-          'h-7 w-7 cursor-pointer appearance-none rounded-none border-0 bg-transparent p-0 text-xs outline-none',
-          'absolute inset-0 opacity-0 md:static md:w-auto md:min-w-[6.5rem] md:max-w-[9rem] md:cursor-pointer md:truncate md:pl-7 md:pr-6 md:opacity-100',
-          'md:hover:bg-muted md:dark:hover:bg-muted/50',
+          'h-8 w-8 cursor-pointer appearance-none rounded-full border-0 bg-transparent p-0 text-ui font-medium outline-none transition-colors duration-200',
+          'absolute inset-0 opacity-0 md:static md:w-auto md:min-w-[7rem] md:max-w-[9.5rem] md:cursor-pointer md:truncate md:pl-2 md:pr-7 md:opacity-100',
+          'md:-ml-5 md:pl-7 md:hover:bg-secondary',
         )}
       >
         {LANGUAGES.map((l) => (
@@ -44,8 +44,8 @@ export function LanguageMenu() {
           </option>
         ))}
       </select>
-      <ChevronDownIcon
-        className="pointer-events-none absolute right-1 hidden size-3.5 text-muted-foreground md:block"
+      <ChevronsUpDownIcon
+        className="pointer-events-none absolute right-2 hidden size-3.5 text-muted-foreground md:block"
         aria-hidden
       />
     </div>

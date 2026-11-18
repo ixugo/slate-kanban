@@ -6,8 +6,8 @@ import { useTranslation } from '@/i18n/react'
 export function PageFallback() {
   const { t } = useTranslation()
   return (
-    <div role="status" aria-label={t('common.loading')} className="h-0.5 w-full overflow-hidden bg-muted">
-      <div className="h-full w-1/3 animate-pulse bg-signal" />
+    <div role="status" aria-label={t('common.loading')} className="h-0.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
     </div>
   )
 }

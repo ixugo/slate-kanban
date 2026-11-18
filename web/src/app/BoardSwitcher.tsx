@@ -1,6 +1,6 @@
 // 看板切换：原生 select，第一项回列表；列表未加载时只显示占位文字，不撑破顶栏。
 
-import { ChevronDownIcon } from 'lucide-react'
+import { ChevronsUpDownIcon } from 'lucide-react'
 import type { ChangeEvent } from 'react'
 import { cn } from 'cn'
 import { useTranslation } from '@/i18n/react'
@@ -28,7 +28,7 @@ export function BoardSwitcher() {
   if (!boards) {
     return (
       <span
-        className="inline-flex h-7 max-w-28 items-center truncate px-2 text-xs text-muted-foreground sm:max-w-40"
+        className="inline-flex h-8 max-w-28 items-center truncate px-3 text-ui text-muted-foreground sm:max-w-40"
         aria-busy="true"
       >
         {current?.name ?? t('nav.boards')}
@@ -41,8 +41,8 @@ export function BoardSwitcher() {
   return (
     <div
       className={cn(
-        'relative inline-flex h-7 max-w-32 items-center sm:max-w-44',
-        'rounded-none border border-transparent focus-within:border-ring focus-within:ring-1 focus-within:ring-ring/50',
+        'relative inline-flex h-8 max-w-32 items-center rounded-full transition-shadow duration-200 sm:max-w-48',
+        'focus-within:ring-[3px] focus-within:ring-ring/40',
       )}
     >
       <select
@@ -50,8 +50,8 @@ export function BoardSwitcher() {
         value={selectValue}
         onChange={onChange}
         className={cn(
-          'h-7 w-full min-w-0 cursor-pointer appearance-none truncate rounded-none border-0 bg-transparent py-0 pl-2 pr-6 text-xs outline-none',
-          'hover:bg-muted dark:hover:bg-muted/50',
+          'h-8 w-full min-w-0 cursor-pointer appearance-none truncate rounded-full border-0 bg-transparent py-0 pl-3 pr-7 text-ui font-medium outline-none transition-colors duration-200',
+          'hover:bg-secondary',
         )}
       >
         <option value={HOME_VALUE}>{t('nav.allBoards')}</option>
@@ -61,8 +61,8 @@ export function BoardSwitcher() {
           </option>
         ))}
       </select>
-      <ChevronDownIcon
-        className="pointer-events-none absolute right-1 size-3.5 shrink-0 text-muted-foreground"
+      <ChevronsUpDownIcon
+        className="pointer-events-none absolute right-2 size-3.5 shrink-0 text-muted-foreground"
         aria-hidden
       />
     </div>
