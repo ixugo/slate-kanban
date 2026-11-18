@@ -45,17 +45,19 @@ CLAUDE.local.md
 *.mp3
 **/.DS_Store
 
-# 前端依赖与构建产物（保留 dist/.gitkeep，让 go:embed 在未构建前端时也能通过编译）
+# 前端依赖
 web/node_modules/
-web/dist/*
-!web/dist/.gitkeep
 
-# 本地运行产生的配置、数据库与临时文件（config.toml 内含管理令牌，不进仓库）
+# 本地运行产生的配置、数据库与临时文件（config.toml 是首次启动按默认值生成的，不进仓库）
 configs/config.toml
 configs/*.db-shm
 configs/*.db-wal
 tmp/
+# make build 生成的程序，以及直接 go build . 生成的程序
 /slate
+/slate-kanban
+# internal/conf 的测试会生成这个配置文件
+internal/conf/test.toml
 
 # 设计文档放在 .cursor/scopes，需要进仓库；用户全局忽略了 .cursor/，这里只放开这一个子目录
 !.cursor/
