@@ -7,6 +7,8 @@ export const queryKeys = {
   board: (boardId: number) => ['board', boardId] as const,
   /** 一张卡片的详情；不带编号表示全部卡片详情，用来整体失效 */
   card: (cardId?: number) => (cardId === undefined ? (['card'] as const) : (['card', cardId] as const)),
+  /** 一块看板的活动流（无限翻页） */
+  activity: (boardId: number) => ['activity', boardId] as const,
   /** agent 令牌列表 */
   tokens: ['tokens'] as const,
   /** 接入说明 */
