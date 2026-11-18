@@ -34,6 +34,8 @@ type ActivityFilter struct {
 	ActorKind ActorKind
 	// Actor 只看这个名字的操作者的事件。
 	Actor string
+	// CardID 只看和这张卡片有关的事件（建卡、改卡、移动、评论、认领等），0 表示不限。
+	CardID int64
 }
 
 // ActivityQuery 是读活动流的请求：从最新的事件往回翻页。
@@ -63,9 +65,12 @@ type ActivityPage struct {
 }
 
 // normalizeActivityFilter 校验并整理筛选条件：类型必须是已知类型，重复的去掉；
-// 操作者类型必须是三种之一；操作者名称去掉首尾空白，长度不超过名称上限。
+// 操作者类型必须是三种之一；操作者名称去掉首尾空白，长度不超过名称上限；卡片编号不能是负数。
 func normalizeActivityFilter(f ActivityFilter) (ActivityFilter, error) {
-	out := ActivityFilter{ActorKind: f.ActorKind, Actor: strings.TrimSpace(f.Actor)}
+	out := ActivityFilter{ActorKind: f.ActorKind, Actor: strings.TrimSpace(f.Actor), CardID: f.CardID}
+	if out.CardID < 0 {
+		return out, invalidf("card_id 不能是负数")
+	}
 	for _, t := range f.Types {
 		if !slices.Contains(knownEventTypes, t) {
 			return out, invalidf("不认识的事件类型 %q", t)

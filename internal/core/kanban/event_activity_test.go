@@ -149,6 +149,35 @@ func TestListActivityFilters(t *testing.T) {
 	}
 }
 
+// TestListActivityByCard 验证按卡片筛选：只返回这张卡片的事件（建卡、评论、移动），别的卡片和与卡片无关的事件都不出现。
+func TestListActivityByCard(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	a := e.card(t, colTodo, "A")
+	b := e.card(t, colTodo, "B")
+	if _, err := e.core.AddComment(ctx, codexActor, a.ID, "给 A 的留言"); err != nil {
+		t.Fatalf("评论失败: %v", err)
+	}
+	e.moveTo(t, testActor, a.ID, colDoing)
+
+	page, err := e.core.ListActivity(ctx, e.board.ID, kanban.ActivityQuery{ActivityFilter: kanban.ActivityFilter{CardID: a.ID}})
+	if err != nil {
+		t.Fatalf("读活动流失败: %v", err)
+	}
+	if len(page.Events) < 3 {
+		t.Fatalf("A 至少有建卡、评论、移动三条事件: %+v", page.Events)
+	}
+	for _, ev := range page.Events {
+		if ev.CardID != a.ID {
+			t.Fatalf("混进了别的卡片的事件: %+v", ev)
+		}
+	}
+	other, err := e.core.ListActivity(ctx, e.board.ID, kanban.ActivityQuery{ActivityFilter: kanban.ActivityFilter{CardID: b.ID, Types: []string{kanban.EventCommentAdded}}})
+	if err != nil || len(other.Events) != 0 {
+		t.Fatalf("B 没有评论，叠加类型后应该是空: %+v %v", other, err)
+	}
+}
+
 // TestListActivityActors 验证操作者列表：人、agent、规则各出现一次，不受筛选条件影响。
 func TestListActivityActors(t *testing.T) {
 	ctx := context.Background()
@@ -191,6 +220,7 @@ func TestListActivityInvalid(t *testing.T) {
 	bad := map[string]kanban.ActivityQuery{
 		"负数 before":   {Before: -1},
 		"负数 limit":    {Limit: -1},
+		"负数卡片编号":      {ActivityFilter: kanban.ActivityFilter{CardID: -1}},
 		"不认识的类型":      {ActivityFilter: kanban.ActivityFilter{Types: []string{"card.exploded"}}},
 		"空字符串类型":      {ActivityFilter: kanban.ActivityFilter{Types: []string{""}}},
 		"不认识的操作者类型":   {ActivityFilter: kanban.ActivityFilter{ActorKind: "robot"}},

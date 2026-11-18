@@ -68,6 +68,7 @@ func TestPullWaitHumanOnly(t *testing.T) {
 type activityPage struct {
 	Events []struct {
 		ID        int64  `json:"id"`
+		CardID    int64  `json:"card_id"`
 		Type      string `json:"type"`
 		ActorKind string `json:"actor_kind"`
 		Actor     string `json:"actor"`
@@ -154,6 +155,20 @@ func TestActivity(t *testing.T) {
 	if none := decode[activityPage](t, s.human(t, http.MethodGet, base+"?types=card.deleted", nil)); len(none.Events) != 0 || none.HasMore {
 		t.Fatalf("没有匹配应该返回空列表: %+v", none)
 	}
+	other := s.newCard(t, b, b.Columns[1].ID, "活动二")
+	own := decode[activityPage](t, s.human(t, http.MethodGet, base+"?card_id="+id(c.ID), nil))
+	if len(own.Events) < 3 {
+		t.Fatalf("按卡片筛选应该包含建卡、评论、移动: %+v", own.Events)
+	}
+	for _, e := range own.Events {
+		if e.CardID != c.ID {
+			t.Fatalf("混进了别的卡片的事件: %+v", e)
+		}
+	}
+	if only := decode[activityPage](t, s.human(t, http.MethodGet, base+"?card_id="+id(other.ID)+"&types=comment.added", nil)); len(only.Events) != 0 {
+		t.Fatalf("另一张卡片没有评论: %+v", only)
+	}
+	wantFail(t, "负数卡片", s.human(t, http.MethodGet, base+"?card_id=-1", nil), http.StatusBadRequest, "ErrInvalidInput")
 	if resp := s.human(t, http.MethodGet, base+"?types=card.deleted", nil); !strings.Contains(string(resp.Body), `"events":[]`) {
 		t.Fatalf("没有匹配应该返回 \"events\":[]: %s", resp.Body)
 	}
