@@ -3,6 +3,7 @@
 
 import { ListFilterIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
+import { useTemplateText } from '@/lib/useTemplateText'
 import { Button } from '@/components/ui/button'
 import { Chip, ChipGroup } from '@/components/ChipGroup'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -72,6 +73,7 @@ function withSelected<T>(options: readonly T[], selected: readonly T[], same: (a
 /** 「筛选」按钮和它的弹层 */
 export function FilterPopover({ filters, onChange, columns, tags, claimers }: FilterPopoverProps) {
   const { t } = useTranslation()
+  const { columnName } = useTemplateText()
   const count = countFilters(filters)
   const tagOptions = withSelected(
     tags,
@@ -143,7 +145,7 @@ export function FilterPopover({ filters, onChange, columns, tags, claimers }: Fi
                 selected={filters.columns.includes(column.id)}
                 onClick={() => onChange(toggleColumn(filters, column.id))}
               >
-                {column.name}
+                {columnName(column.name)}
               </Chip>
             ))}
           </ChipGroup>

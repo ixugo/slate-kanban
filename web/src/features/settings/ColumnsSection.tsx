@@ -10,6 +10,7 @@ import { useErrorToast } from '@/lib/useErrorToast'
 import { ColumnDialog } from './ColumnDialog'
 import { DeleteColumnDialog } from './DeleteColumnDialog'
 import { useSettingsMutations } from './useSettingsMutations'
+import { useTemplateText } from '@/lib/useTemplateText'
 import { countCardsInColumn, moveColumnDown, moveColumnUp } from './validation'
 
 interface Props {
@@ -25,6 +26,7 @@ export function ColumnsSection({ boardId, columns, cards }: Props) {
   const { reorderColumns } = useSettingsMutations(boardId)
   const [editor, setEditor] = useState<Column | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Column | null>(null)
+  const { columnName } = useTemplateText()
   const sorted = [...columns].sort((a, b) => a.sort - b.sort || a.id - b.id)
 
   const move = (columnId: number, dir: 'up' | 'down') => {
@@ -46,7 +48,7 @@ export function ColumnsSection({ boardId, columns, cards }: Props) {
         {sorted.map((col) => (
           <li key={col.id} className="flex flex-wrap items-center gap-2 px-4 py-3.5">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{col.name}</p>
+              <p className="truncate font-medium">{columnName(col.name)}</p>
               <p className="text-xs text-muted-foreground">
                 {t('settings.columns.cardCount', { count: countCardsInColumn(col.id, cards) })}
               </p>

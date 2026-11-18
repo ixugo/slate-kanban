@@ -80,7 +80,7 @@ describe('BoardPage', () => {
     renderBoard()
     await screen.findByText('Alpha')
     await user.keyboard('n')
-    const col = screen.getByText('待办').closest('section') as HTMLElement
+    const col = screen.getByText('To do').closest('section') as HTMLElement
     expect(within(col).getByLabelText(en.board.addCard)).toBeInTheDocument()
   })
 
@@ -113,12 +113,12 @@ describe('BoardPage', () => {
     renderBoard()
     await screen.findByText('Alpha')
     const expandDone = screen.getByRole('button', {
-      name: en.board.expandColumn.replace('{{name}}', '完成').replace('{{count}}', '0'),
+      name: en.board.expandColumn.replace('{{name}}', 'Done').replace('{{count}}', '0'),
     })
     expect(expandDone).toHaveAttribute('aria-expanded', 'false')
     await user.click(expandDone)
-    expect(screen.getByRole('heading', { name: '完成' })).toBeInTheDocument()
-    expect(screen.getByLabelText(en.board.collapseColumn.replace('{{name}}', '完成'))).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Done' })).toBeInTheDocument()
+    expect(screen.getByLabelText(en.board.collapseColumn.replace('{{name}}', 'Done'))).toBeInTheDocument()
   })
 
   it('收起按钮可再次收起列', async () => {
@@ -127,11 +127,11 @@ describe('BoardPage', () => {
     const user = userEvent.setup()
     renderBoard()
     await screen.findByText('Alpha')
-    const collapse = screen.getByLabelText(en.board.collapseColumn.replace('{{name}}', '完成'))
+    const collapse = screen.getByLabelText(en.board.collapseColumn.replace('{{name}}', 'Done'))
     await user.click(collapse)
     expect(
       screen.getByRole('button', {
-        name: en.board.expandColumn.replace('{{name}}', '完成').replace('{{count}}', '0'),
+        name: en.board.expandColumn.replace('{{name}}', 'Done').replace('{{count}}', '0'),
       }),
     ).toBeInTheDocument()
   })
@@ -143,10 +143,10 @@ describe('BoardPage', () => {
     await screen.findByText('Beta')
     expect(
       screen.getByRole('button', {
-        name: en.board.expandColumn.replace('{{name}}', '待办').replace('{{count}}', '1'),
+        name: en.board.expandColumn.replace('{{name}}', 'To do').replace('{{count}}', '1'),
       }),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '待办' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'To do' })).toBeNull()
   })
 
   it('键盘 Enter 展开窄边列', async () => {
@@ -155,10 +155,10 @@ describe('BoardPage', () => {
     renderBoard()
     await screen.findByText('Alpha')
     const expandDone = screen.getByRole('button', {
-      name: en.board.expandColumn.replace('{{name}}', '完成').replace('{{count}}', '0'),
+      name: en.board.expandColumn.replace('{{name}}', 'Done').replace('{{count}}', '0'),
     })
     expandDone.focus()
     await user.keyboard('{Enter}')
-    expect(screen.getByRole('heading', { name: '完成' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Done' })).toBeInTheDocument()
   })
 })

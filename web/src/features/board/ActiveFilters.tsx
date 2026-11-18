@@ -4,6 +4,7 @@ import { XIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import type { Column } from '@/lib/api/types'
+import { useLocalizedColumns } from '@/lib/useTemplateText'
 import { describeFilters } from './filterChips'
 import { EMPTY_FILTERS, type BoardFilters } from './filters'
 
@@ -16,7 +17,8 @@ interface ActiveFiltersProps {
 /** 当前筛选条件一览；什么都没选时不占位置 */
 export function ActiveFilters({ filters, columns, onChange }: ActiveFiltersProps) {
   const { t } = useTranslation()
-  const chips = describeFilters(filters, columns, t)
+  const localized = useLocalizedColumns(columns)
+  const chips = describeFilters(filters, localized, t)
   if (chips.length === 0) return null
   return (
     <div role="group" aria-label={t('filter.active')} className="flex shrink-0 flex-wrap items-center gap-1.5 px-4 pb-2 sm:px-6">

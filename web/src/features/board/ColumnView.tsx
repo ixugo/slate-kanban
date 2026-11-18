@@ -12,6 +12,7 @@ import { CardTile } from './CardTile'
 import { AddCard } from './AddCard'
 import { columnDropId } from './dnd'
 import { cn } from '@/lib/utils'
+import { useTemplateText } from '@/lib/useTemplateText'
 
 interface ColumnViewProps {
   column: Column
@@ -59,6 +60,9 @@ export function ColumnView({
   onCollapse,
 }: ColumnViewProps) {
   const { t } = useTranslation()
+  const { columnName, columnDescription } = useTemplateText()
+  const name = columnName(column.name)
+  const description = columnDescription(column.description)
   // id 带前缀，不会和同号的卡片撞车（见 columnDropId）；
   // data.collapsed 让碰撞检测知道这是收起的窄边，指针落在上面就选它（见 collision.ts）
   const { setNodeRef, isOver } = useDroppable({
@@ -82,7 +86,7 @@ export function ColumnView({
           ref={setNodeRef}
           type="button"
           aria-expanded={false}
-          aria-label={t('board.expandColumn', { name: column.name, count: String(cards.length) })}
+          aria-label={t('board.expandColumn', { name, count: String(cards.length) })}
           className="group/rail flex min-h-[12rem] w-12 flex-1 flex-col items-center gap-3 px-1 py-3.5 text-center outline-none transition-colors duration-200 hover:bg-foreground/[0.04] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset"
           onClick={narrowExpand}
         >
@@ -92,7 +96,7 @@ export function ColumnView({
           <span className="rounded-full bg-secondary px-1.5 text-[0.6875rem] font-medium tabular-nums text-muted-foreground">
             {cards.length}
           </span>
-          <span className="max-h-44 truncate text-ui font-semibold tracking-wide [writing-mode:vertical-rl]">{column.name}</span>
+          <span className="max-h-44 truncate text-ui font-semibold tracking-wide [writing-mode:vertical-rl]">{name}</span>
         </button>
       </section>
     )
@@ -103,17 +107,17 @@ export function ColumnView({
       <header className="flex items-start gap-2 px-2.5 pt-2 pb-2.5">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <h2 className="truncate text-body font-semibold tracking-tight">{column.name}</h2>
+            <h2 className="truncate text-body font-semibold tracking-tight">{name}</h2>
             <span className="rounded-full bg-secondary px-1.5 text-[0.6875rem] font-medium tabular-nums text-muted-foreground">
               {cards.length}
             </span>
           </div>
-          {column.description && (
+          {description && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <p className="mt-1 line-clamp-1 cursor-help text-xs text-muted-foreground">{column.description}</p>
+                <p className="mt-1 line-clamp-1 cursor-help text-xs text-muted-foreground">{description}</p>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs text-xs">{column.description}</TooltipContent>
+              <TooltipContent className="max-w-xs text-xs">{description}</TooltipContent>
             </Tooltip>
           )}
         </div>
@@ -122,7 +126,7 @@ export function ColumnView({
           variant="ghost"
           size="icon-sm"
           className="-mt-0.5 shrink-0 text-muted-foreground"
-          aria-label={t('board.collapseColumn', { name: column.name })}
+          aria-label={t('board.collapseColumn', { name })}
           onClick={(e) => {
             e.stopPropagation()
             onCollapse()

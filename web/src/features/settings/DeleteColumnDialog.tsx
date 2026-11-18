@@ -24,6 +24,7 @@ import {
 import type { CardView, Column } from '@/lib/api/types'
 import { toast } from '@/lib/toast'
 import { useErrorToast } from '@/lib/useErrorToast'
+import { useTemplateText } from '@/lib/useTemplateText'
 import { useSettingsMutations } from './useSettingsMutations'
 import { countCardsInColumn } from './validation'
 
@@ -38,6 +39,7 @@ interface Props {
 
 /** 删除列确认 */
 export function DeleteColumnDialog({ boardId, column, columns, cards, open, onOpenChange }: Props) {
+  const { columnName } = useTemplateText()
   const { t } = useTranslation()
   const toastError = useErrorToast()
   const { deleteColumn } = useSettingsMutations(boardId)
@@ -66,7 +68,7 @@ export function DeleteColumnDialog({ boardId, column, columns, cards, open, onOp
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t('settings.columns.deleteTitle', { name: column.name })}</AlertDialogTitle>
+          <AlertDialogTitle>{t('settings.columns.deleteTitle', { name: columnName(column.name) })}</AlertDialogTitle>
           <AlertDialogDescription>
             {needMove ? t('settings.columns.deleteBodyMove', { count: cardCount }) : t('settings.columns.deleteBodyEmpty')}
           </AlertDialogDescription>
@@ -81,7 +83,7 @@ export function DeleteColumnDialog({ boardId, column, columns, cards, open, onOp
               <SelectContent>
                 {targets.map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name}
+                    {columnName(c.name)}
                   </SelectItem>
                 ))}
               </SelectContent>

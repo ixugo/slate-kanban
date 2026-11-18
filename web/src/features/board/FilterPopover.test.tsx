@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { en } from '@/i18n/locales/en'
 import { installFakeApi, type FakeApi } from '@/test/fakeApi'
-import { makeCard, makeSnapshot } from '@/test/factories'
+import { makeCard, makeColumn, makeSnapshot } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
 import { installFakeEventSource } from '@/test/fakeEventSource'
 import type { CardView } from '@/lib/api/types'
@@ -18,7 +18,9 @@ afterEach(() => {
 const alpha = makeCard({ id: 1, title: 'Alpha', column_id: 1, tags: ['bug'] })
 const beta = makeCard({ id: 2, title: 'Beta', column_id: 1, tags: ['ui', 'bug'] })
 const gamma = makeCard({ id: 3, title: 'Gamma', column_id: 2, claimed_by: 'codex', claim_active: true })
-const snapshot = makeSnapshot({ name: '测试看板', cards: [alpha, beta, gamma] })
+// 列名故意不用起步模板的文案，免得被换成当前语言的说法后和「状态」组里的同名按钮撞上
+const columns = [makeColumn({ id: 1, name: 'Backlog' }), makeColumn({ id: 2, name: 'Doing', agent_pickup: true }), makeColumn({ id: 3, name: 'Shipped', is_done: true })]
+const snapshot = makeSnapshot({ name: '测试看板', columns, cards: [alpha, beta, gamma] })
 
 /** 假服务端：卡片接口返回 hits 里的卡片，调用方可以随时换 hits */
 function installBoard(hits: CardView[]): { api: FakeApi; setHits: (next: CardView[]) => void } {
@@ -91,8 +93,8 @@ describe('筛选弹层', () => {
     await screen.findByText('Gamma')
     await openFilter(user)
 
-    await user.click(screen.getByRole('button', { name: '进行中' }))
-    await user.click(screen.getByRole('button', { name: '完成' }))
+    await user.click(screen.getByRole('button', { name: 'Doing' }))
+    await user.click(screen.getByRole('button', { name: 'Shipped' }))
     await user.click(screen.getByRole('button', { name: en.filter.states.claimed }))
     await user.click(screen.getByRole('button', { name: en.filter.priority.high }))
     await user.click(screen.getByRole('button', { name: 'codex' }))

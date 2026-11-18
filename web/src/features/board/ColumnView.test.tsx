@@ -4,6 +4,9 @@ import { useEffect } from 'react'
 import { describe, expect, it } from 'vitest'
 import { makeCard, makeColumn } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
+import { screen } from '@testing-library/react'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { setLanguage } from '@/i18n'
 import { ColumnView } from './ColumnView'
 
 const noop = () => {}
@@ -41,5 +44,24 @@ describe('ColumnView 的拖拽落点编号', () => {
     await waitFor(() => expect(ids).toHaveLength(3))
     expect(new Set(ids).size).toBe(3)
     expect(ids).toContain('7')
+  })
+})
+
+describe('ColumnView 的起步模板文案', () => {
+  const common = { addOpen: false, onAddOpen: noop, onAddClose: noop, onAddCard: noop, columnCount: 1, onExpand: noop, onCollapse: noop, cards: [], cardIds: [], collapsed: false, columnIndex: 0 }
+
+  it('起步模板的列名和说明跟着界面语言走，自己起的名字原样显示', async () => {
+    await setLanguage('en')
+    renderApp(
+      <DndContext>
+        <TooltipProvider>
+        <ColumnView {...common} column={makeColumn({ id: 1, name: '待办', description: '确定要做、正在排队的任务。' })} />
+        <ColumnView {...common} column={makeColumn({ id: 2, name: '我的自定义列', description: '' })} />
+        </TooltipProvider>
+      </DndContext>,
+    )
+    expect(screen.getByRole('heading', { name: /To do/ })).toBeInTheDocument()
+    expect(screen.getByText('Tasks that are confirmed and waiting in line.')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /我的自定义列/ })).toBeInTheDocument()
   })
 })

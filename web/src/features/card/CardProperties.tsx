@@ -12,6 +12,7 @@ import { DependencyPicker } from './DependencyPicker'
 import { TagEditor } from './TagEditor'
 import { normalizeCardUrl } from './validateUrl'
 import { toast } from '@/lib/toast'
+import { useTemplateText } from '@/lib/useTemplateText'
 
 interface CardPropertiesProps {
   card: CardDetail
@@ -25,6 +26,7 @@ interface CardPropertiesProps {
 /** 属性表单（不含标题、描述、评论） */
 export function CardProperties({ card, columns, depOptions, version, onPatch, onColumn }: CardPropertiesProps) {
   const { t } = useTranslation()
+  const { columnName } = useTemplateText()
   const priorities = ['none', 'low', 'medium', 'high'] as const
 
   const saveUrl = (url: string) => {
@@ -47,7 +49,7 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
           <SelectContent>
             {columns.map((col) => (
               <SelectItem key={col.id} value={String(col.id)}>
-                {col.name}
+                {columnName(col.name)}
               </SelectItem>
             ))}
           </SelectContent>

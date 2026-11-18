@@ -20,6 +20,7 @@ import { useErrorToast } from '@/lib/useErrorToast'
 import { autoNameFromFormState, isAutoRuleName } from './ruleAutoName'
 import { listMissingRecommendedPresets } from './ruleMatch'
 import { buildRulePreset, presetToCreateInput, type RulePresetId } from './rulePresets'
+import { useLocalizedColumns, useTemplateText } from '@/lib/useTemplateText'
 import { RuleEditorDialog } from './RuleEditorDialog'
 import { RuleSummaryText } from './RuleSummaryText'
 import { useSettingsMutations } from './useSettingsMutations'
@@ -31,7 +32,9 @@ interface Props {
 }
 
 /** 自动化规则区块 */
-export function AutomationSection({ boardId, columns, rules }: Props) {
+export function AutomationSection({ boardId, columns: rawColumns, rules }: Props) {
+  const columns = useLocalizedColumns(rawColumns)
+  const { ruleName } = useTemplateText()
   const { t } = useTranslation()
   const toastError = useErrorToast()
   const { toggleRule, deleteRule, createRule } = useSettingsMutations(boardId)
@@ -104,11 +107,11 @@ export function AutomationSection({ boardId, columns, rules }: Props) {
               return (
                 <li key={rule.id} className="space-y-1 px-4 py-3.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-ui font-medium">{rule.name}</span>
+                    <span className="text-ui font-medium">{ruleName(rule.name)}</span>
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={rule.enabled}
-                        aria-label={`${t('settings.rules.enabled')}: ${rule.name}`}
+                        aria-label={`${t('settings.rules.enabled')}: ${ruleName(rule.name)}`}
                         onCheckedChange={(v) => toggleRule.mutate({ ruleId: rule.id, enabled: v }, { onError: toastError })}
                       />
                       <Button

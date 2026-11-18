@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useOnlineStatus } from '@/pwa/useOnlineStatus'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useTemplateText } from '@/lib/useTemplateText'
 import { AddCard } from './AddCard'
 import {
   DEFAULT_SORT,
@@ -83,6 +84,7 @@ export default function ListView({
 }: ListViewProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
+  const { columnName: localizeName } = useTemplateText()
   const online = useOnlineStatus()
   const [params] = useSearchParams()
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
@@ -92,7 +94,7 @@ export default function ListView({
     return sortCards(base, columns, sort)
   }, [cards, columns, visibleIds, sort])
 
-  const columnName = (card: CardView) => card.column || columns.find((c) => c.id === card.column_id)?.name || ''
+  const columnName = (card: CardView) => localizeName(card.column || columns.find((c) => c.id === card.column_id)?.name || '')
 
   const priorityLabel = (p: number) => {
     if (p === 1) return t('board.priority.low')

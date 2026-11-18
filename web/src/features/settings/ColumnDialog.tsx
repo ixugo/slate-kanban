@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import type { Column } from '@/lib/api/types'
 import { COLUMN_DESC_MAX, COLUMN_INSTRUCTION_MAX, COLUMN_NAME_MAX } from '@/lib/limits'
 import { useErrorToast } from '@/lib/useErrorToast'
+import { useTemplateText } from '@/lib/useTemplateText'
 import { useSettingsMutations } from './useSettingsMutations'
 import { validateColumnForm, type ColumnFormErrors, type ColumnFormValues } from './validation'
 
@@ -39,6 +40,7 @@ interface Props {
 /** 列表单对话框 */
 export function ColumnDialog({ boardId, columns, column, open, onOpenChange }: Props) {
   const { t } = useTranslation()
+  const { columnName } = useTemplateText()
   const toastError = useErrorToast()
   const { createColumn, updateColumn } = useSettingsMutations(boardId)
   const [values, setValues] = useState<ColumnFormValues>(() =>
@@ -122,7 +124,7 @@ export function ColumnDialog({ boardId, columns, column, open, onOpenChange }: P
                 <SelectItem value="0">{t('common.none')}</SelectItem>
                 {others.map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name}
+                    {columnName(c.name)}
                   </SelectItem>
                 ))}
               </SelectContent>
