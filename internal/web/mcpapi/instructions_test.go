@@ -29,7 +29,7 @@ func TestInstructions(t *testing.T) {
 	}{
 		{
 			"agent", agentTools,
-			[]string{"whoami", "list_boards", "get_board", "set_project_path", "next_card", "comment_card", "create_card", "finish_card", "release_card", "wait_for_updates", "pull_updates", "list_cards"},
+			[]string{"whoami", "list_boards", "get_board", "set_project_path", "next_card", "comment_card", "create_card", "finish_card", "release_card", "wait_for_updates", "pull_updates", "list_cards", "slate://skills/slate-kanban"},
 			s.agent(t, "claude").InitializeResult().Instructions,
 		},
 		{
