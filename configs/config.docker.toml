@@ -9,6 +9,8 @@
     Timeout = '30s'
     # 通过域名访问时，把域名（不含端口）写进来；IP 和 localhost 始终允许
     AllowedHosts = []
+    # 可选访问口令；非空时 REST、MCP 与网页登录都要带对，留空则免登录
+    Passcode = ''
 
     [Server.HTTP.PProf]
       Enabled = false

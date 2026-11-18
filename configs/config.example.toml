@@ -13,6 +13,8 @@
     # 额外允许的 Host 白名单（不含端口）；IP、localhost 和 *.localhost 始终允许
     # 容器或反向代理后面要把对外主机名写进来，否则 DNS 重绑定防护会返回 403
     AllowedHosts = []
+    # 可选访问口令；非空时网页登录与 MCP/REST 的 Bearer 头都要带对，留空则保持免登录
+    Passcode = ''
 
     [Server.HTTP.PProf]
       # 是否启用 pprof, 建议设置为 true
