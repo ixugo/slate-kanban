@@ -317,7 +317,7 @@ export const zhTW: Messages = {
       deleteBoard: '刪除專案',
       deleteTitle: '要刪除這個專案嗎？',
       deleteBody: '此動作無法復原。',
-      confirmSlug: '請輸入 {{slug}} 以確認',
+      confirmName: '請輸入專案名稱以確認',
       deletedToast: '專案已刪除',
       errors: { nameRequired: '請輸入有效的名稱。' },
     },

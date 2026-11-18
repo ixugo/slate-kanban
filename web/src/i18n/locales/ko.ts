@@ -317,7 +317,7 @@ export const ko: Messages = {
       deleteBoard: '프로젝트 삭제',
       deleteTitle: '이 프로젝트를 삭제할까요?',
       deleteBody: '되돌릴 수 없습니다.',
-      confirmSlug: '확인하려면 {{slug}} 입력',
+      confirmName: '확인하려면 프로젝트 이름을 입력',
       deletedToast: '프로젝트를 삭제했습니다',
       errors: { nameRequired: '올바른 이름을 입력하세요.' },
     },

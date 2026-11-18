@@ -319,7 +319,7 @@ export const en = {
       deleteBoard: 'Delete project',
       deleteTitle: 'Delete this project?',
       deleteBody: 'This cannot be undone.',
-      confirmSlug: 'Type {{slug}} to confirm',
+      confirmName: 'Type the project name to confirm',
       deletedToast: 'Project deleted',
       errors: { nameRequired: 'Enter a valid name.' },
     },

@@ -316,7 +316,7 @@ export const zhCN: Messages = {
       deleteBoard: '删除项目',
       deleteTitle: '删除这个项目？',
       deleteBody: '此操作不可撤销。',
-      confirmSlug: '输入 {{slug}} 以确认',
+      confirmName: '输入项目名称以确认',
       deletedToast: '项目已删除',
       errors: { nameRequired: '请填写合法的名称。' },
     },

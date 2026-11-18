@@ -1,7 +1,7 @@
-// 删除看板：必须输入看板 slug 才能确认，成功后回到看板列表。
+// 删除项目：弹出模态框，必须原样输入项目名称才能确认，成功后回到项目列表。
 
 import { Loader2Icon } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -27,18 +27,25 @@ interface Props {
   onOpenChange: (open: boolean) => void
 }
 
-/** 删除看板确认框 */
+/**
+ * 删除项目确认框。
+ * 删除会带走项目的全部列、卡片、规则、评论和活动，没有回收站，所以用模态框拦住误点：
+ * 输入的内容必须和项目名称完全一致（只忽略首尾空白，区分大小写）才放行；
+ * 名称单独放在输入框上方并且一点就能全选，方便人对照或复制。
+ */
 export function DeleteBoardDialog({ board, open, onOpenChange }: Props) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const toastError = useErrorToast()
   const { deleteBoard } = useSettingsMutations(board.id)
-  const [confirmSlug, setConfirmSlug] = useState('')
+  const [confirmName, setConfirmName] = useState('')
 
-  const canConfirm = confirmSlug.trim().toUpperCase() === board.slug.toUpperCase()
+  const canConfirm = confirmName.trim() === board.name.trim()
 
-  const onDelete = () => {
-    if (!canConfirm) return
+  /** 提交表单（点按钮或在输入框里回车）：名称对上了才发删除请求，成功后提示并回到项目列表 */
+  const onDelete = (e: FormEvent) => {
+    e.preventDefault()
+    if (!canConfirm || deleteBoard.isPending) return
     deleteBoard.mutate(undefined, {
       onSuccess: () => {
         toast.success(t('settings.general.deletedToast'))
@@ -53,30 +60,39 @@ export function DeleteBoardDialog({ board, open, onOpenChange }: Props) {
       open={open}
       onOpenChange={(v) => {
         onOpenChange(v)
-        if (!v) setConfirmSlug('')
+        if (!v) setConfirmName('')
       }}
     >
       <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t('settings.general.deleteTitle')}</AlertDialogTitle>
-          <AlertDialogDescription>{t('settings.general.deleteBody')}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="space-y-1.5">
-          <Label htmlFor="confirm-slug">{t('settings.general.confirmSlug', { slug: board.slug })}</Label>
-          <Input
-            id="confirm-slug"
-            value={confirmSlug}
-            onChange={(e) => setConfirmSlug(e.target.value)}
-            autoComplete="off"
-          />
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-          <Button variant="destructive" disabled={!canConfirm || deleteBoard.isPending} onClick={onDelete}>
-            {deleteBoard.isPending && <Loader2Icon className="animate-spin" />}
-            {t('common.delete')}
-          </Button>
-        </AlertDialogFooter>
+        <form onSubmit={onDelete} className="grid gap-4">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('settings.general.deleteTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('settings.general.deleteBody')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <p
+              id="confirm-name-target"
+              className="rounded-xl bg-secondary px-3 py-2 text-ui font-medium break-all select-all"
+            >
+              {board.name}
+            </p>
+            <Label htmlFor="confirm-name">{t('settings.general.confirmName')}</Label>
+            <Input
+              id="confirm-name"
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              aria-describedby="confirm-name-target"
+              autoComplete="off"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <Button type="submit" variant="destructive" disabled={!canConfirm || deleteBoard.isPending}>
+              {deleteBoard.isPending && <Loader2Icon className="animate-spin" />}
+              {t('common.delete')}
+            </Button>
+          </AlertDialogFooter>
+        </form>
       </AlertDialogContent>
     </AlertDialog>
   )

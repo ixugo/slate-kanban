@@ -317,7 +317,7 @@ export const ja: Messages = {
       deleteBoard: 'プロジェクトを削除',
       deleteTitle: 'このプロジェクトを削除しますか？',
       deleteBody: '元に戻せません。',
-      confirmSlug: '確認のため {{slug}} と入力',
+      confirmName: '確認のため、プロジェクト名を入力',
       deletedToast: 'プロジェクトを削除しました',
       errors: { nameRequired: '有効な名前を入力してください。' },
     },

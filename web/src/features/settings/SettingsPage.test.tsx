@@ -36,21 +36,55 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('tab', { name: en.settings.tabs.general })).toBeInTheDocument()
   })
 
-  it('删除看板需输入 slug', async () => {
+  it('删除项目必须输入项目名称：slug、半截名称、大小写不符都不放行，首尾空白忽略', async () => {
     const api = installFakeApi({
-      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ slug: 'SLATE' }),
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ name: 'Slate Kanban', slug: 'SLATE' }),
+      'DELETE /api/v1/boards/:id': {},
+    })
+    renderSettings()
+    await screen.findByRole('heading', { name: 'Slate Kanban' })
+    await userEvent.click(screen.getByRole('button', { name: en.settings.general.deleteBoard }))
+    const dialog = await screen.findByRole('alertdialog')
+    const del = within(dialog).getByRole('button', { name: en.common.delete })
+    const input = within(dialog).getByLabelText(en.settings.general.confirmName)
+    expect(within(dialog).getByText('Slate Kanban')).toBeInTheDocument()
+    expect(del).toBeDisabled()
+
+    for (const wrong of ['SLATE', 'Slate', 'slate kanban', 'Slate Kanban!']) {
+      await userEvent.clear(input)
+      await userEvent.type(input, wrong)
+      expect(del, wrong).toBeDisabled()
+    }
+    await userEvent.clear(input)
+    await userEvent.type(input, '  Slate Kanban ')
+    expect(del).toBeEnabled()
+    await userEvent.click(del)
+    await waitFor(() => expect(api.count('DELETE /api/v1/boards/:id')).toBe(1))
+    expect(await screen.findByTestId('home')).toBeInTheDocument()
+  })
+
+  it('在输入框里回车：名称不对不删、对了才删；取消后重新打开输入框是空的', async () => {
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot(),
       'DELETE /api/v1/boards/:id': {},
     })
     renderSettings()
     await screen.findByRole('heading', { name: '示例看板' })
-    await userEvent.click(screen.getByRole('button', { name: en.settings.general.deleteBoard }))
-    const dialog = await screen.findByRole('alertdialog')
-    const del = within(dialog).getByRole('button', { name: en.common.delete })
-    expect(del).toBeDisabled()
-    await userEvent.type(within(dialog).getByLabelText(/SLATE/), 'SLATE')
-    await userEvent.click(del)
+    const openDialog = () => userEvent.click(screen.getByRole('button', { name: en.settings.general.deleteBoard }))
+
+    await openDialog()
+    let dialog = await screen.findByRole('alertdialog')
+    await userEvent.type(within(dialog).getByLabelText(en.settings.general.confirmName), '示例{Enter}')
+    expect(api.count('DELETE /api/v1/boards/:id')).toBe(0)
+    await userEvent.click(within(dialog).getByRole('button', { name: en.common.cancel }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+
+    await openDialog()
+    dialog = await screen.findByRole('alertdialog')
+    const input = within(dialog).getByLabelText(en.settings.general.confirmName)
+    expect(input).toHaveValue('')
+    await userEvent.type(input, '示例看板{Enter}')
     await waitFor(() => expect(api.count('DELETE /api/v1/boards/:id')).toBe(1))
-    expect(await screen.findByTestId('home')).toBeInTheDocument()
   })
 
   it('删除列有卡片时必须选 move_to', async () => {
