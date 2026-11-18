@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { isAbsolutePath, validateBoardForm } from './validation'
 
-const ok = { name: 'Slate', slug: '', projectPath: '' }
+const ok = { name: 'Slate', slug: '' }
 
 describe('isAbsolutePath', () => {
   it.each(['/code/app', '/', '\\\\server\\share', 'C:\\code', 'c:/code', 'Z:\\'])('%s 是绝对路径', (p) => {
@@ -38,25 +38,10 @@ describe('validateBoardForm', () => {
     }
   })
 
-  it('项目路径：可以留空；必须是绝对路径，不能有控制字符，不能超过 512 个字符', () => {
-    expect(validateBoardForm({ ...ok, projectPath: '/code/app' })).toEqual({})
-    expect(validateBoardForm({ ...ok, projectPath: 'C:\\code\\app' })).toEqual({})
-    expect(validateBoardForm({ ...ok, projectPath: 'relative/path' }).projectPath).toBe('pathInvalid')
-    expect(validateBoardForm({ ...ok, projectPath: '/a\nb' }).projectPath).toBe('pathInvalid')
-    expect(validateBoardForm({ ...ok, projectPath: '/a\x00b' }).projectPath).toBe('pathInvalid')
-    expect(validateBoardForm({ ...ok, projectPath: '/a\x7fb' }).projectPath).toBe('pathInvalid')
-    expect(validateBoardForm({ ...ok, projectPath: '/a\x85b' }).projectPath).toBe('pathInvalid')
-    expect(validateBoardForm({ ...ok, projectPath: '/' + '路'.repeat(511) })).toEqual({})
-    expect(validateBoardForm({ ...ok, projectPath: '/' + '😀'.repeat(512) }).projectPath).toBe('pathInvalid')
-    expect(validateBoardForm({ ...ok, projectPath: '/' + 'a'.repeat(511) })).toEqual({})
-    expect(validateBoardForm({ ...ok, projectPath: '/' + 'a'.repeat(512) }).projectPath).toBe('pathInvalid')
-  })
-
   it('多个字段同时出错时全部返回', () => {
-    expect(validateBoardForm({ name: '', slug: '1', projectPath: 'x' })).toEqual({
+    expect(validateBoardForm({ name: '', slug: '1' })).toEqual({
       name: 'nameRequired',
       slug: 'slugInvalid',
-      projectPath: 'pathInvalid',
     })
   })
 })

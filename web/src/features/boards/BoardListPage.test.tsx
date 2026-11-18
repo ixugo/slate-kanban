@@ -25,7 +25,7 @@ const renderPage = () =>
   )
 
 describe('BoardListPage', () => {
-  it('先显示加载占位，再列出所有看板：编号前缀、名称、说明、项目路径，并链接到看板页', async () => {
+  it('先显示加载占位，再列出所有项目：编号前缀、名称、说明，有路径时显示路径，并链接到项目页', async () => {
     installFakeApi({
       'GET /api/v1/boards': [
         makeBoard({ id: 1, name: 'Slate', slug: 'SLATE', description: '看板本身', project_path: '/code/slate' }),
@@ -39,11 +39,12 @@ describe('BoardListPage', () => {
     expect(within(link).getByText('SLATE')).toBeInTheDocument()
     expect(within(link).getByText('看板本身')).toBeInTheDocument()
     expect(within(link).getByText('/code/slate')).toBeInTheDocument()
+    // 没有回填项目路径的项目不显示路径行，也不提示"未设置"
     const second = screen.getByText('官网').closest('a') as HTMLElement
-    expect(within(second).getByText(en.boards.noPath)).toBeInTheDocument()
+    expect(within(second).queryByText(/\//)).not.toBeInTheDocument()
   })
 
-  it('没有看板时显示引导，点按钮打开新建对话框', async () => {
+  it('没有项目时显示引导，点按钮打开新建对话框', async () => {
     installFakeApi({ 'GET /api/v1/boards': [] })
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: en.boards.empty.cta }))
@@ -61,7 +62,7 @@ describe('BoardListPage', () => {
   })
 })
 
-describe('新建看板', () => {
+describe('新建项目', () => {
   const open = async () => {
     const api = installFakeApi({ 'GET /api/v1/boards': [makeBoard({ id: 1, name: 'Existing' })] })
     renderPage()
@@ -76,33 +77,40 @@ describe('新建看板', () => {
     expect(api.count('POST /api/v1/boards')).toBe(0)
   })
 
-  it('编号前缀和项目路径不合法时分别提示', async () => {
+  it('编号前缀不合法时提示并且不发请求', async () => {
     const { api, dialog } = await open()
     await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'X')
     await userEvent.type(within(dialog).getByLabelText(new RegExp(en.boards.create.slug)), '1bad')
-    await userEvent.type(within(dialog).getByLabelText(new RegExp(en.boards.create.projectPath)), 'relative')
     await userEvent.click(within(dialog).getByRole('button', { name: en.boards.create.submit }))
     const alerts = await within(dialog).findAllByRole('alert')
-    expect(alerts.map((a) => a.textContent)).toEqual([
-      en.boards.create.errors.slugInvalid,
-      en.boards.create.errors.pathInvalid,
-    ])
+    expect(alerts.map((a) => a.textContent)).toEqual([en.boards.create.errors.slugInvalid])
     expect(api.count('POST /api/v1/boards')).toBe(0)
   })
 
-  it('提交：编号前缀自动大写，名称去掉首尾空白，带上模板和当前界面语言，成功后跳到新看板', async () => {
+  it('表单里没有项目路径输入框，模板只有一个开关，默认打开表示研发流程', async () => {
+    const { dialog } = await open()
+    expect(within(dialog).queryByLabelText(/path|路径/i)).not.toBeInTheDocument()
+    expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
+    const toggle = within(dialog).getByRole('switch', { name: en.boards.create.templateSwitch })
+    expect(toggle).toBeChecked()
+    expect(within(dialog).getByText(en.boards.create.templates.dev)).toBeInTheDocument()
+    await userEvent.click(toggle)
+    expect(toggle).not.toBeChecked()
+    expect(within(dialog).getByText(en.boards.create.templates.empty)).toBeInTheDocument()
+  })
+
+  it('提交：编号前缀自动大写，名称去掉首尾空白，关掉开关就用空白模板，带上当前界面语言，成功后跳到新项目', async () => {
     const { api, dialog } = await open()
     api.set('POST /api/v1/boards', makeSnapshot({ id: 7 }))
     await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), '  My App  ')
     await userEvent.type(within(dialog).getByLabelText(new RegExp(en.boards.create.slug)), 'myapp')
-    await userEvent.type(within(dialog).getByLabelText(new RegExp(en.boards.create.projectPath)), '/code/app')
-    await userEvent.click(within(dialog).getByLabelText(new RegExp(en.boards.create.templates.simple.name)))
+    await userEvent.click(within(dialog).getByRole('switch', { name: en.boards.create.templateSwitch }))
     await userEvent.click(within(dialog).getByRole('button', { name: en.boards.create.submit }))
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/b/7'))
-    // 创建成功后看板列表缓存失效，切换菜单里能看到新看板
+    // 创建成功后项目列表缓存失效，切换菜单里能看到新项目
     await waitFor(() => expect(api.count('GET /api/v1/boards')).toBe(2))
     const post = api.calls.find((c) => c.method === 'POST')
-    expect(post?.body).toEqual({ name: 'My App', slug: 'MYAPP', project_path: '/code/app', template: 'simple', locale: 'en' })
+    expect(post?.body).toEqual({ name: 'My App', slug: 'MYAPP', template: 'empty', locale: 'en' })
   })
 
   it('只填名称时，可选字段不会作为空串提交；默认模板是研发流程', async () => {

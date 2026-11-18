@@ -1,4 +1,4 @@
-// 看板列表页：一眼看到所有看板，进入某块看板，或者新建一块。
+// 项目列表页：一眼看到所有项目，进入某个项目，或者新建一个。
 
 import { FolderGit2Icon, PlusIcon } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
@@ -12,13 +12,13 @@ import { describeError } from '@/lib/errors'
 import { formatRelative } from '@/lib/format'
 import { useLanguage } from '@/i18n/useLanguage'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
-/** 新建看板弹窗体积大，点「新建」后再加载，减轻首屏 */
+/** 新建项目弹窗体积大，点「新建」后再加载，减轻首屏 */
 const CreateBoardDialog = lazy(() =>
   import('./CreateBoardDialog').then((m) => ({ default: m.CreateBoardDialog })),
 )
 import { useBoards } from './useBoards'
 
-/** 列表里的一张看板卡片：编号前缀、名称、说明、项目路径、最近更新时间 */
+/** 列表里的一张项目卡片：编号前缀、名称、说明、最近更新时间；agent 回填过项目路径时才显示路径 */
 function BoardCard({ board }: { board: Board }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
@@ -37,15 +37,17 @@ function BoardCard({ board }: { board: Board }) {
       </div>
       <h2 className="truncate text-sm font-semibold">{board.name}</h2>
       {board.description && <p className="line-clamp-2 text-muted-foreground">{board.description}</p>}
-      <p className="mt-auto flex items-center gap-1.5 truncate font-mono text-[11px] text-muted-foreground">
-        <FolderGit2Icon className="size-3.5 shrink-0" />
-        <span className="truncate">{board.project_path || t('boards.noPath')}</span>
-      </p>
+      {board.project_path && (
+        <p className="mt-auto flex items-center gap-1.5 truncate font-mono text-[11px] text-muted-foreground">
+          <FolderGit2Icon className="size-3.5 shrink-0" />
+          <span className="truncate">{board.project_path}</span>
+        </p>
+      )}
     </Link>
   )
 }
 
-/** 一个都没有时的引导：说明看板是做什么的，并给出创建入口 */
+/** 一个都没有时的引导：说明项目是做什么的，并给出创建入口 */
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   const { t } = useTranslation()
   return (
@@ -63,7 +65,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   )
 }
 
-/** 看板列表页组件 */
+/** 项目列表页组件 */
 export function BoardListPage() {
   const { t } = useTranslation()
   const { data: boards, error, isPending, refetch } = useBoards()
