@@ -63,7 +63,7 @@ export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionE
         )}
       </div>
       {editing ? (
-        <div onBlur={onEditBlur}>
+        <div data-escape-cancel onBlur={onEditBlur}>
           <LazyEditor
             value={draft}
             onChange={setDraft}

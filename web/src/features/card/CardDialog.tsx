@@ -26,6 +26,14 @@ interface CardDialogProps {
   boardId: number
 }
 
+/**
+ * 描述编辑区里按 Esc 是“放弃这次修改”，不该顺带关掉整个弹窗；
+ * Radix 在文档层先收到按键，所以要在这里拦住，编辑器自己的 Esc 处理照常执行。
+ */
+function keepDialogWhenEditorCancels(e: KeyboardEvent) {
+  if ((e.target as HTMLElement | null)?.closest?.('[data-escape-cancel]')) e.preventDefault()
+}
+
 /** 根据 URL 参数打开卡片弹窗 */
 export default function CardDialog({ boardId }: CardDialogProps) {
   const { t } = useTranslation()
@@ -95,7 +103,10 @@ export default function CardDialog({ boardId }: CardDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
-      <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden bg-popover! p-0 backdrop-blur-none! sm:w-full sm:max-w-4xl">
+      <DialogContent
+        onEscapeKeyDown={keepDialogWhenEditorCancels}
+        className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden bg-popover! p-0 backdrop-blur-none! sm:w-full sm:max-w-4xl"
+      >
         <CardHeaderBar card={card} columns={columns} onColumn={onColumn} onDelete={() => remove.mutate()} deleteBusy={remove.isPending} />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-hidden">
           {isPending && <Skeleton className="m-6 h-40 rounded-2xl" />}

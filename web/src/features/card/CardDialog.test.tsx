@@ -163,6 +163,19 @@ describe('CardDialog', () => {
     expect((patchBody(api.calls) as { due_at: string }).due_at).toBe(new Date('2026-12-01T09:30').toISOString())
   })
 
+  it('描述编辑时按 Esc 只放弃修改，不关掉整个弹窗', async () => {
+    openBoardWithCard({ ...baseDetail, description: '旧描述' })
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await user.click(await within(dialog).findByText('旧描述'))
+    const editor = await within(dialog).findByRole('textbox', { name: en.card.field.description })
+    fireEvent.keyDown(editor, { key: 'Escape', code: 'Escape' })
+    await waitFor(() => expect(within(dialog).queryByRole('textbox', { name: en.card.field.description })).toBeNull())
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
   it('仅人工按钮是开关：点一下提交取反的值', async () => {
     const api = openBoardWithCard({ ...baseDetail, human_only: false })
     const user = userEvent.setup()
