@@ -98,7 +98,7 @@ html:lang(ko) {
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* 浅色：苹果式的浅灰底配纯白卡片，系统蓝是唯一的强调色，橙色只用来提醒"需要注意" */
+/* 浅色：苹果式的浅灰底配纯白卡片；主按钮用近黑（深色下用近白）的中性色，蓝色只留给焦点环和拖放落点，橙色只用来提醒"需要注意" */
 :root {
   --background: oklch(0.972 0.002 264);
   --foreground: oklch(0.225 0.004 270);
@@ -106,8 +106,8 @@ html:lang(ko) {
   --card-foreground: oklch(0.225 0.004 270);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.225 0.004 270);
-  --primary: oklch(0.574 0.19 256);
-  --primary-foreground: oklch(1 0 0);
+  --primary: oklch(0.225 0.004 270);
+  --primary-foreground: oklch(0.985 0.002 90);
   --secondary: oklch(0.94 0.003 264);
   --secondary-foreground: oklch(0.225 0.004 270);
   --muted: oklch(0.955 0.002 264);
@@ -136,8 +136,8 @@ html:lang(ko) {
   --radius: 0.625rem;
   --sidebar: oklch(0.972 0.002 264);
   --sidebar-foreground: oklch(0.225 0.004 270);
-  --sidebar-primary: oklch(0.574 0.19 256);
-  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.225 0.004 270);
+  --sidebar-primary-foreground: oklch(0.985 0.002 90);
   --sidebar-accent: oklch(0.935 0.006 258);
   --sidebar-accent-foreground: oklch(0.225 0.004 270);
   --sidebar-border: oklch(0 0 0 / 0.09);
@@ -158,8 +158,8 @@ html:lang(ko) {
   --card-foreground: oklch(0.965 0.003 90);
   --popover: oklch(0.27 0.006 270);
   --popover-foreground: oklch(0.965 0.003 90);
-  --primary: oklch(0.64 0.19 256);
-  --primary-foreground: oklch(1 0 0);
+  --primary: oklch(0.965 0.003 90);
+  --primary-foreground: oklch(0.2 0.004 270);
   --secondary: oklch(0.3 0.006 270);
   --secondary-foreground: oklch(0.965 0.003 90);
   --muted: oklch(0.255 0.005 270);
@@ -187,8 +187,8 @@ html:lang(ko) {
   --chart-5: oklch(0.7 0.03 270);
   --sidebar: oklch(0.2 0.004 270);
   --sidebar-foreground: oklch(0.965 0.003 90);
-  --sidebar-primary: oklch(0.64 0.19 256);
-  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.965 0.003 90);
+  --sidebar-primary-foreground: oklch(0.2 0.004 270);
   --sidebar-accent: oklch(0.32 0.012 262);
   --sidebar-accent-foreground: oklch(0.965 0.003 90);
   --sidebar-border: oklch(1 0 0 / 0.1);
