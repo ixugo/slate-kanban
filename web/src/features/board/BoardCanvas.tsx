@@ -7,7 +7,6 @@ import {
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
-  closestCorners,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -18,6 +17,7 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useMemo, useRef, useState } from 'react'
 import type { CardView, Column } from '@/lib/api/types'
 import { buildItems, findColumnOf, moveToColumn, pickShownItems, type Items, type MovePlan, type Settling } from './dnd'
+import { boardCollision } from './collision'
 import { handleDragEnd } from './handleDragEnd'
 import { createDropAnimation, prefersReducedMotion } from './dropAnimation'
 import { ColumnView } from './ColumnView'
@@ -134,7 +134,7 @@ export function BoardCanvas({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={boardCollision}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragEnd={onDragEnd}

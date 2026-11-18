@@ -59,10 +59,11 @@ export function ColumnView({
   onCollapse,
 }: ColumnViewProps) {
   const { t } = useTranslation()
-  // 列的落点编号带前缀，不会和同号的卡片撞车（见 columnDropId）
+  // id 带前缀，不会和同号的卡片撞车（见 columnDropId）；
+  // data.collapsed 让碰撞检测知道这是收起的窄边，指针落在上面就选它（见 collision.ts）
   const { setNodeRef, isOver } = useDroppable({
     id: columnDropId(column.id),
-    data: { type: 'column', columnId: column.id },
+    data: { type: 'column', columnId: column.id, collapsed },
   })
   const towardStart = collapseTowardStart(columnIndex, columnCount)
   const CollapseIcon = towardStart ? ChevronLeftIcon : ChevronRightIcon
