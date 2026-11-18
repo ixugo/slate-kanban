@@ -80,8 +80,9 @@ func finished(err error) (any, error) {
 	return okOut{OK: true}, nil
 }
 
-// registerAdminTools 注册只有管理视图才有的工具：看板、列、规则的管理和删除。
+// registerAdminTools 注册只有管理视图才有的工具：看板（项目）、列、规则的管理，以及卡片和评论的删除。
 // 它们对应的 Core 方法都只允许人调用，agent 视图里没有这些工具，减少它的干扰。
+// 项目只能创建和修改，不提供删除：删除项目只能由人在网页上输入项目名称确认后完成，MCP 不开这个口子。
 func (a API) registerAdminTools(s *mcp.Server) {
 	a.registerBoardTools(s)
 	a.registerColumnTools(s)
@@ -96,7 +97,7 @@ func (a API) registerAdminTools(s *mcp.Server) {
 	}, a.deleteComment)
 }
 
-// registerBoardTools 注册看板的创建、修改和删除。
+// registerBoardTools 注册看板（项目）的创建和修改；有意不注册删除，见 registerAdminTools。
 func (a API) registerBoardTools(s *mcp.Server) {
 	register(s, spec{
 		name: "create_board", kind: kindWrite,
@@ -108,10 +109,6 @@ func (a API) registerBoardTools(s *mcp.Server) {
 		name: "update_board", kind: kindWrite,
 		desc: "修改看板的名称、说明或项目路径，只更新填写的字段；project_path 传空字符串表示清除。看板标识创建后不能改。",
 	}, a.updateBoard)
-	register(s, spec{
-		name: "delete_board", kind: kindDestroy,
-		desc: "删除看板和它的全部列、卡片、评论、规则和事件，不可恢复。看板已经不存在也返回成功。",
-	}, a.deleteBoard)
 }
 
 // registerColumnTools 注册列的新增、修改、重排和删除。
@@ -151,11 +148,6 @@ func (a API) updateBoard(ctx context.Context, actor kanban.Actor, in updateBoard
 	return a.core.UpdateBoard(ctx, actor, in.BoardID, kanban.UpdateBoardInput{
 		Name: in.Name, Description: in.Description, ProjectPath: in.ProjectPath,
 	})
-}
-
-// deleteBoard 删除看板和它的全部数据。
-func (a API) deleteBoard(ctx context.Context, actor kanban.Actor, in boardIn) (any, error) {
-	return finished(a.core.DeleteBoard(ctx, actor, in.BoardID))
 }
 
 // createColumn 在看板最右边新增一列。

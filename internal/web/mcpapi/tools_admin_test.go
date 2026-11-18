@@ -1,6 +1,7 @@
 package mcpapi_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -19,7 +20,7 @@ func idOf(t *testing.T, data map[string]any) int64 {
 	return int64(id)
 }
 
-// TestBoardTools 验证人管理看板：创建（起步模板和路径）、修改、删除；删除是幂等的，删完读不到。
+// TestBoardTools 验证人管理看板（项目）：创建（起步模板和路径）、修改；MCP 没有删除项目的能力，见 TestNoBoardDeletionTool。
 func TestBoardTools(t *testing.T) {
 	s := newStack(t)
 	human := s.human(t)
@@ -42,12 +43,44 @@ func TestBoardTools(t *testing.T) {
 	if cleared := ok(t, human, "update_board", map[string]any{"board_id": id, "project_path": ""}).Data; cleared["project_path"] != "" {
 		t.Errorf("传空字符串应该清除路径: %v", cleared)
 	}
+}
 
-	if got := ok(t, human, "delete_board", map[string]any{"board_id": id}).Data; got["ok"] != true {
-		t.Errorf("删除应该返回 ok: %v", got)
+// TestNoBoardDeletionTool 验证两个视图都没有删除项目的工具：删除项目只能由人在网页上完成，MCP 不提供这个能力。
+// 除了名称，还检查描述，防止以后换个名字又加回来；直接调用 delete_board 要被拒绝，项目原样保留。
+func TestNoBoardDeletionTool(t *testing.T) {
+	s := newStack(t)
+	human := s.human(t)
+	boardID := idOf(t, ok(t, human, "create_board", map[string]any{"name": "不能被删", "slug": "KEEP"}).Data)
+
+	// 工具名里出现「删除类动词 + board/project」，或描述里出现「删除/移除 + 看板/项目」，都算提供了删除项目的能力。
+	verbs := []string{"delete", "remove", "drop", "destroy", "purge"}
+	nouns := []string{"board", "project"}
+	phrases := []string{"删除看板", "删除项目", "移除看板", "移除项目"}
+	sessions := []struct {
+		name string
+		sess *mcp.ClientSession
+	}{{"agent", s.agent(t, "claude")}, {"人", human}}
+	for _, c := range sessions {
+		for tool, err := range c.sess.Tools(t.Context(), nil) {
+			if err != nil {
+				t.Fatalf("%s：列出工具失败: %v", c.name, err)
+			}
+			lower := strings.ToLower(tool.Name)
+			if slices.ContainsFunc(verbs, func(v string) bool { return strings.Contains(lower, v) }) &&
+				slices.ContainsFunc(nouns, func(n string) bool { return strings.Contains(lower, n) }) {
+				t.Errorf("%s：不应该有删除项目的工具: %s", c.name, tool.Name)
+			}
+			if slices.ContainsFunc(phrases, func(p string) bool { return strings.Contains(tool.Description, p) }) {
+				t.Errorf("%s：%s 的描述提到了删除项目: %s", c.name, tool.Name, tool.Description)
+			}
+		}
+		if _, err := c.sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "delete_board", Arguments: map[string]any{"board_id": boardID}}); err == nil {
+			t.Errorf("%s：调用 delete_board 应该被拒绝", c.name)
+		}
 	}
-	ok(t, human, "delete_board", map[string]any{"board_id": id})
-	fails(t, call(t, human, "get_board", map[string]any{"board_id": id}), "ErrBoardNotFound")
+	if got := ok(t, human, "get_board", map[string]any{"board_id": boardID}).Data; got["slug"] != "KEEP" {
+		t.Errorf("项目应该还在: %v", got)
+	}
 }
 
 // TestBoardToolInputs 验证看板工具的输入校验：标识不合法、模板不认识、名称为空、标识重复、看板不存在
@@ -187,7 +220,7 @@ func TestDeleteCardAndComment(t *testing.T) {
 func TestToolAnnotations(t *testing.T) {
 	s := newStack(t)
 	readOnly := setOf([]string{"whoami", "list_boards", "get_board", "list_cards", "get_card", "list_events"})
-	destroy := setOf([]string{"delete_board", "delete_column", "delete_rule", "delete_card", "delete_comment"})
+	destroy := setOf([]string{"delete_column", "delete_rule", "delete_card", "delete_comment"})
 
 	sessions := []struct {
 		name string
