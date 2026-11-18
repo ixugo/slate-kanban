@@ -27,7 +27,6 @@ function goConst(name: string): number {
 const MAPPING: [keyof typeof limits, string][] = [
   ['BOARD_NAME_MAX', 'maxBoardNameLen'],
   ['BOARD_DESC_MAX', 'maxBoardDescLen'],
-  ['PROJECT_PATH_MAX', 'maxProjectPathLen'],
   ['SLUG_MIN', 'minSlugLen'],
   ['SLUG_MAX', 'maxSlugLen'],
   ['COLUMN_NAME_MAX', 'maxColumnNameLen'],

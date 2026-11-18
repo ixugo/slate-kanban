@@ -5,8 +5,6 @@
 export const BOARD_NAME_MAX = 100
 /** 看板说明的最大长度 */
 export const BOARD_DESC_MAX = 2000
-/** 项目路径的最大长度 */
-export const PROJECT_PATH_MAX = 512
 /** 看板编号前缀的最小、最大长度 */
 export const SLUG_MIN = 2
 export const SLUG_MAX = 10

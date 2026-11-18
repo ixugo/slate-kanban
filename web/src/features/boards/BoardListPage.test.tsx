@@ -25,7 +25,7 @@ const renderPage = () =>
   )
 
 describe('BoardListPage', () => {
-  it('先显示加载占位，再列出所有项目：编号前缀、名称、说明，有路径时显示路径，并链接到项目页', async () => {
+  it('先显示加载占位，再列出所有项目：编号前缀、名称、说明（不显示项目路径），并链接到项目页', async () => {
     installFakeApi({
       'GET /api/v1/boards': [
         makeBoard({ id: 1, name: 'Slate', slug: 'SLATE', description: '看板本身', project_path: '/code/slate' }),
@@ -38,10 +38,8 @@ describe('BoardListPage', () => {
     expect(link).toHaveAttribute('href', '/b/1')
     expect(within(link).getByText('SLATE')).toBeInTheDocument()
     expect(within(link).getByText('看板本身')).toBeInTheDocument()
-    expect(within(link).getByText('/code/slate')).toBeInTheDocument()
-    // 没有回填项目路径的项目不显示路径行，也不提示"未设置"
-    const second = screen.getByText('官网').closest('a') as HTMLElement
-    expect(within(second).queryByText(/\//)).not.toBeInTheDocument()
+    // 项目路径由 agent 写入，网页上不展示
+    expect(within(link).queryByText('/code/slate')).not.toBeInTheDocument()
   })
 
   it('没有项目时显示引导，点按钮打开新建对话框', async () => {

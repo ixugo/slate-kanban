@@ -210,8 +210,6 @@ export const zhTW: Messages = {
     general: {
       name: '名稱',
       description: '說明',
-      projectPath: '專案路徑',
-      projectPathHint: 'Agent 所在電腦上的專案絕對路徑，建立 worktree 時會用到，可留空。',
       slug: '卡片編號前綴',
       slugHint: '建立專案時設定，之後無法變更。',
       dangerTitle: '危險區',
@@ -221,7 +219,7 @@ export const zhTW: Messages = {
       deleteBody: '此動作無法復原。',
       confirmSlug: '請輸入 {{slug}} 以確認',
       deletedToast: '專案已刪除',
-      errors: { nameRequired: '請輸入有效的名稱。', pathInvalid: '請輸入絕對路徑。' },
+      errors: { nameRequired: '請輸入有效的名稱。' },
     },
     columns: {
       subtitle: '欄決定卡片放在哪裡，以及 Agent 從哪一欄接手。',

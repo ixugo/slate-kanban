@@ -1,6 +1,6 @@
 // 项目列表页：一眼看到所有项目，进入某个项目，或者新建一个。
 
-import { FolderGit2Icon, PlusIcon } from 'lucide-react'
+import { PlusIcon } from 'lucide-react'
 import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { Link } from 'react-router-dom'
@@ -37,12 +37,6 @@ function BoardCard({ board }: { board: Board }) {
       </div>
       <h2 className="truncate text-[1.0625rem] leading-6 font-semibold tracking-tight">{board.name}</h2>
       {board.description && <p className="line-clamp-2 text-ui text-muted-foreground">{board.description}</p>}
-      {board.project_path && (
-        <p className="mt-auto flex items-center gap-1.5 truncate pt-1 font-mono text-[0.6875rem] text-muted-foreground">
-          <FolderGit2Icon className="size-3.5 shrink-0" />
-          <span className="truncate">{board.project_path}</span>
-        </p>
-      )}
     </Link>
   )
 }

@@ -6,20 +6,17 @@ import {
   COLUMN_INSTRUCTION_MAX,
   COLUMN_NAME_MAX,
   COLUMNS_PER_BOARD_MAX,
-  PROJECT_PATH_MAX,
 } from '@/lib/limits'
-import { isAbsolutePath } from '@/features/boards/validation'
 import type { Column } from '@/lib/api/types'
 
 /** 常规设置表单的字段 */
 export interface GeneralFormValues {
   name: string
   description: string
-  projectPath: string
 }
 
 /** 出错字段对应的文案键后缀（settings.general.errors.<后缀>） */
-export type GeneralFormErrors = Partial<Record<'name' | 'projectPath', 'nameRequired' | 'pathInvalid'>>
+export type GeneralFormErrors = Partial<Record<'name', 'nameRequired'>>
 
 /** 列表单的字段 */
 export interface ColumnFormValues {
@@ -40,10 +37,6 @@ export function validateGeneralForm(values: GeneralFormValues): GeneralFormError
   const errors: GeneralFormErrors = {}
   const name = values.name.trim()
   if (name === '' || Array.from(name).length > BOARD_NAME_MAX) errors.name = 'nameRequired'
-  const path = values.projectPath.trim()
-  if (path !== '' && (!isAbsolutePath(path) || Array.from(path).length > PROJECT_PATH_MAX)) {
-    errors.projectPath = 'pathInvalid'
-  }
   return errors
 }
 

@@ -1,17 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { isAbsolutePath, validateBoardForm } from './validation'
+import { validateBoardForm } from './validation'
 
 const ok = { name: 'Slate', slug: '' }
-
-describe('isAbsolutePath', () => {
-  it.each(['/code/app', '/', '\\\\server\\share', 'C:\\code', 'c:/code', 'Z:\\'])('%s 是绝对路径', (p) => {
-    expect(isAbsolutePath(p)).toBe(true)
-  })
-
-  it.each(['code/app', './app', '~/app', 'C:app', '1:/app', '', 'C:'])('%s 不是绝对路径', (p) => {
-    expect(isAbsolutePath(p)).toBe(false)
-  })
-})
 
 describe('validateBoardForm', () => {
   it('最小的合法表单：只有名称', () => {

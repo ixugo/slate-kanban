@@ -210,9 +210,6 @@ export const ja: Messages = {
     general: {
       name: '名前',
       description: '説明',
-      projectPath: 'プロジェクトパス',
-      projectPathHint:
-        'エージェントが動いているマシン上のプロジェクトの絶対パスです。タスクの際に worktree をここに作ります。任意。',
       slug: 'カード番号の接頭辞',
       slugHint: 'プロジェクト作成時に設定され、あとからは変更できません。',
       dangerTitle: '危険な操作',
@@ -222,7 +219,7 @@ export const ja: Messages = {
       deleteBody: '元に戻せません。',
       confirmSlug: '確認のため {{slug}} と入力',
       deletedToast: 'プロジェクトを削除しました',
-      errors: { nameRequired: '有効な名前を入力してください。', pathInvalid: '絶対パスを入力してください。' },
+      errors: { nameRequired: '有効な名前を入力してください。' },
     },
     columns: {
       subtitle: '列はカードの置き場と、エージェントが作業を受け取る場所を決めます。',

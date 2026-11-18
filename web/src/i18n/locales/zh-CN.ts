@@ -209,8 +209,6 @@ export const zhCN: Messages = {
     general: {
       name: '名称',
       description: '说明',
-      projectPath: '项目路径',
-      projectPathHint: 'agent 所在机器上的项目绝对路径，建 worktree 时会用到，可留空。',
       slug: '卡片编号前缀',
       slugHint: '创建项目时设定，之后不能改。',
       dangerTitle: '危险操作',
@@ -220,7 +218,7 @@ export const zhCN: Messages = {
       deleteBody: '此操作不可撤销。',
       confirmSlug: '输入 {{slug}} 以确认',
       deletedToast: '项目已删除',
-      errors: { nameRequired: '请填写合法的名称。', pathInvalid: '请填写绝对路径。' },
+      errors: { nameRequired: '请填写合法的名称。' },
     },
     columns: {
       subtitle: '列决定卡片放在哪里，以及 agent 从哪一列领卡。',

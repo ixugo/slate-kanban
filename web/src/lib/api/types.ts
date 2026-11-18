@@ -229,7 +229,6 @@ export interface CreateBoardInput {
   name: string
   slug?: string
   description?: string
-  project_path?: string
   template?: BoardTemplate
   locale?: string
 }
@@ -237,7 +236,6 @@ export interface CreateBoardInput {
 export interface UpdateBoardInput {
   name?: string
   description?: string
-  project_path?: string
 }
 
 export interface CreateColumnInput {

@@ -1,4 +1,4 @@
-// 设置页「常规」：名称、说明、项目路径、只读 slug、删除看板。
+// 设置页「常规」：名称、说明、只读 slug、删除项目。
 
 import { Loader2Icon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { Board } from '@/lib/api/types'
-import { BOARD_DESC_MAX, BOARD_NAME_MAX, PROJECT_PATH_MAX } from '@/lib/limits'
+import { BOARD_DESC_MAX, BOARD_NAME_MAX } from '@/lib/limits'
 import { useErrorToast } from '@/lib/useErrorToast'
 import { DeleteBoardDialog } from './DeleteBoardDialog'
 import { useSettingsMutations } from './useSettingsMutations'
@@ -25,20 +25,18 @@ export function GeneralSection({ board }: Props) {
   const { updateBoard } = useSettingsMutations(board.id)
   const [name, setName] = useState(board.name)
   const [description, setDescription] = useState(board.description)
-  const [projectPath, setProjectPath] = useState(board.project_path)
   const [errors, setErrors] = useState<GeneralFormErrors>({})
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    const found = validateGeneralForm({ name, description, projectPath })
+    const found = validateGeneralForm({ name, description })
     setErrors(found)
     if (Object.keys(found).length > 0) return
     updateBoard.mutate(
       {
         name: name.trim(),
         description: description.trim(),
-        project_path: projectPath.trim(),
       },
       { onError: toastError },
     )
@@ -75,21 +73,6 @@ export function GeneralSection({ board }: Props) {
             rows={3}
             onChange={(e) => setDescription(e.target.value)}
           />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="board-path">{t('settings.general.projectPath')}</Label>
-          <Input
-            id="board-path"
-            value={projectPath}
-            maxLength={PROJECT_PATH_MAX}
-            onChange={(e) => setProjectPath(e.target.value)}
-            aria-invalid={!!errors.projectPath}
-            aria-describedby="board-path-hint"
-          />
-          <p id="board-path-hint" className="text-xs text-muted-foreground">
-            {t('settings.general.projectPathHint')}
-          </p>
-          {fieldError('projectPath', 'board-path-error')}
         </div>
         <div className="space-y-1.5">
           <Label>{t('settings.general.slug')}</Label>

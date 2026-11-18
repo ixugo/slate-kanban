@@ -212,9 +212,6 @@ export const en = {
     general: {
       name: 'Name',
       description: 'Description',
-      projectPath: 'Project path',
-      projectPathHint:
-        'Absolute path on the machine where agents run. Agents create git worktrees here when you give them tasks. Optional.',
       slug: 'Card prefix',
       slugHint: 'Set when the project was created and cannot be changed.',
       dangerTitle: 'Danger zone',
@@ -224,7 +221,7 @@ export const en = {
       deleteBody: 'This cannot be undone.',
       confirmSlug: 'Type {{slug}} to confirm',
       deletedToast: 'Project deleted',
-      errors: { nameRequired: 'Enter a valid name.', pathInvalid: 'Use an absolute path.' },
+      errors: { nameRequired: 'Enter a valid name.' },
     },
     columns: {
       subtitle: 'Columns define where cards live and how agents pick up work.',

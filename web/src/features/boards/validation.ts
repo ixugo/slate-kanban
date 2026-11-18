@@ -15,14 +15,6 @@ export type BoardFormErrors = Partial<Record<'name' | 'slug', 'nameRequired' | '
 /** 编号前缀的写法：大写字母开头，后面是大写字母或数字，总长度 2 到 10 位 */
 const SLUG_PATTERN = new RegExp(`^[A-Z][A-Z0-9]{${SLUG_MIN - 1},${SLUG_MAX - 1}}$`)
 
-/** Windows 盘符路径，例如 C:\code 或 c:/code */
-const WINDOWS_DRIVE = /^[A-Za-z]:[\\/]/
-
-/** 是不是绝对路径：Unix 的 /、网络共享的 \\，或者 Windows 盘符，和后端 isAbsolutePath 一致；设置页的项目路径校验也用它 */
-export function isAbsolutePath(path: string): boolean {
-  return path.startsWith('/') || path.startsWith('\\\\') || WINDOWS_DRIVE.test(path)
-}
-
 /** 校验表单；返回空对象表示全部通过。名称按去掉首尾空白后判断，编号前缀可以留空 */
 export function validateBoardForm(values: BoardFormValues): BoardFormErrors {
   const errors: BoardFormErrors = {}

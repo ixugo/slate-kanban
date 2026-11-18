@@ -210,9 +210,6 @@ export const ko: Messages = {
     general: {
       name: '이름',
       description: '설명',
-      projectPath: '프로젝트 경로',
-      projectPathHint:
-        '에이전트가 돌아가는 컴퓨터의 프로젝트 절대 경로입니다. 작업 시 worktree를 여기 만듭니다. 선택.',
       slug: '카드 번호 접두사',
       slugHint: '프로젝트를 만들 때 정해지며 이후에는 바꿀 수 없습니다.',
       dangerTitle: '위험 구역',
@@ -222,7 +219,7 @@ export const ko: Messages = {
       deleteBody: '되돌릴 수 없습니다.',
       confirmSlug: '확인하려면 {{slug}} 입력',
       deletedToast: '프로젝트를 삭제했습니다',
-      errors: { nameRequired: '올바른 이름을 입력하세요.', pathInvalid: '절대 경로를 입력하세요.' },
+      errors: { nameRequired: '올바른 이름을 입력하세요.' },
     },
     columns: {
       subtitle: '열은 카드를 둘 위치와 에이전트가 작업을 가져가는 위치를 정합니다.',
