@@ -115,7 +115,7 @@ func checkOrigin(r *http.Request) error {
 	return nil
 }
 
-// canonicalHostPort 规范化主机比较串：无端口时按 http 默认 80、https 默认 443 补上，避免误判。
+// canonicalHostPort 规范化主机比较串：默认端口 80、443 当成「没写端口」，和 Host 头里省略默认端口时能对上。
 func canonicalHostPort(host string) string {
 	if host == "" {
 		return ""
@@ -124,7 +124,7 @@ func canonicalHostPort(host string) string {
 	if err != nil {
 		return strings.ToLower(host)
 	}
-	if port == "" {
+	if port == "80" || port == "443" {
 		return strings.ToLower(h)
 	}
 	return strings.ToLower(net.JoinHostPort(h, port))

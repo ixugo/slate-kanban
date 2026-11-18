@@ -67,6 +67,26 @@ func TestSecurityOriginBlock(t *testing.T) {
 	}
 }
 
+func TestSecurityOriginDefaultPort(t *testing.T) {
+	g := miniEngine(&conf.Bootstrap{})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/ping", strings.NewReader(`{}`))
+	req.Host = "localhost"
+	req.Header.Set("Origin", "http://localhost:80")
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	g.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Origin 带 :80 应与 Host 无端口视为同源: %d", rec.Code)
+	}
+	req.Host = "127.0.0.1"
+	req.Header.Set("Origin", "https://127.0.0.1:443")
+	rec2 := httptest.NewRecorder()
+	g.ServeHTTP(rec2, req)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("Origin 带 :443 应与 Host 无端口视为同源: %d", rec2.Code)
+	}
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	g := miniEngine(&conf.Bootstrap{})
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ping", nil)
