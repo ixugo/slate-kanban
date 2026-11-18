@@ -24,7 +24,12 @@ import { BoardGone } from './BoardGone'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useBoardViewMode } from './useBoardView'
 import { useOnlineStatus } from '@/pwa/useOnlineStatus'
+import { LabelsProvider } from '@/features/labels/LabelsContext'
+import type { Label } from '@/lib/api/types'
 import { LIST_PREFETCH_DELAY_MS, prefetchListView } from './prefetchListView'
+
+/** 快照里没有标签库时用的空库，保持引用不变，避免上下文每次渲染都变 */
+const NO_LABELS: Label[] = []
 
 const CardDialog = lazy(() => import('@/features/card/CardDialog'))
 const ActivityDrawer = lazy(() => import('@/features/activity/ActivityDrawer'))
@@ -55,6 +60,7 @@ export default function BoardPage() {
   const filterTerms = useMemo(() => buildFilterTerms(filters), [filters])
   const filterCount = countFilters(filters)
   const tagOptions = useMemo(() => collectTagOptions(snapshot?.cards ?? []), [snapshot])
+  const usedTags = useMemo(() => (snapshot?.cards ?? []).flatMap((c) => c.tags), [snapshot])
   const claimers = useMemo(() => collectClaimers(snapshot?.cards ?? []), [snapshot])
   const search = useBoardSearch(boardId, filterTerms)
   const move = useMoveCard(boardId ?? 0)
@@ -148,6 +154,7 @@ export default function BoardPage() {
 
   return (
     <TooltipProvider delayDuration={300}>
+      <LabelsProvider boardId={boardId} labels={snapshot.labels ?? NO_LABELS} usedTags={usedTags}>
       <div className="flex min-h-0 flex-1 flex-col">
         <BoardToolbar
           board={snapshot}
@@ -216,6 +223,7 @@ export default function BoardPage() {
           </Suspense>
         )}
       </div>
+      </LabelsProvider>
     </TooltipProvider>
   )
 }

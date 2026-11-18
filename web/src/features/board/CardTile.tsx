@@ -10,7 +10,7 @@ import type { CardView } from '@/lib/api/types'
 import { formatDate, isPast } from '@/lib/format'
 import { useLanguage } from '@/i18n/useLanguage'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
+import { TagBadge } from '@/features/labels/TagBadge'
 import { coverSrc } from '@/lib/md/cover'
 
 /** 优先级圆点的颜色：低、中、高；0 表示没设优先级，不显示 */
@@ -50,9 +50,7 @@ function TileBody({ card }: { card: CardView }) {
       {(card.tags.length > 0 || card.due_at || card.human_only || card.waiting || card.claim_active) && (
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           {card.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="secondary" className="max-w-[8rem] truncate">
-              {tag}
-            </Badge>
+            <TagBadge key={tag} name={tag} />
           ))}
           {card.tags.length > 3 && <span className="text-[0.6875rem] text-muted-foreground">+{card.tags.length - 3}</span>}
           {card.due_at && (

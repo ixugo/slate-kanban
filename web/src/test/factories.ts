@@ -63,6 +63,7 @@ export function makeBoard(overrides: Partial<Board> = {}): Board {
     name: '示例看板',
     slug: 'SLATE',
     description: '',
+    labels: [],
     project_path: '',
     created_at: T0,
     updated_at: T0,

@@ -14,7 +14,8 @@ import { CARD_BRANCH_MAX, CARD_URL_MAX } from '@/lib/limits'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { DependencyPicker } from './DependencyPicker'
-import { TagEditor } from './TagEditor'
+import { LabelPicker } from '@/features/labels/LabelPicker'
+import { TagBadge } from '@/features/labels/TagBadge'
 import { normalizeCardUrl } from './validateUrl'
 
 interface CardMetaProps {
@@ -91,23 +92,32 @@ function PriorityChip({ card, onPatch }: CardMetaProps) {
   )
 }
 
-/** 标签：按钮上直接列出前几枚，点开后增删 */
+/** 标签：按钮上直接列出前几枚带颜色的标签，点开后在标签库里勾选、编辑 */
 function TagsChip({ card, onPatch }: CardMetaProps) {
   const { t } = useTranslation()
   const tags = card.tags ?? []
-  const shown = tags.slice(0, CHIP_TAGS_SHOWN).join('、')
   const rest = tags.length - CHIP_TAGS_SHOWN
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="secondary" className={cn(CHIP_CLASS, tags.length > 0 && 'bg-accent')}>
+        <Button type="button" variant="secondary" aria-label={tags.length > 0 ? tags.join('、') : undefined} className={cn(CHIP_CLASS, tags.length > 0 && 'bg-accent')}>
           <ChipLabel icon={<TagIcon />}>
-            {tags.length > 0 ? `${shown}${rest > 0 ? ` +${rest}` : ''}` : t('card.field.tags')}
+            {tags.length > 0 ? (
+              <span className="flex items-center gap-1">
+                {tags.slice(0, CHIP_TAGS_SHOWN).map((tag) => (
+                  <TagBadge key={tag} name={tag} className="max-w-[6rem]" />
+                ))}
+                {rest > 0 && <span className="text-xs text-muted-foreground">+{rest}</span>}
+              </span>
+            ) : (
+              t('card.field.tags')
+            )}
           </ChipLabel>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72">
-        <TagEditor tags={tags} onChange={(next) => onPatch({ tags: next, version: card.version })} />
+      {/* 编辑页（30 色色板）比较高：高度不超过窗口剩余空间，放不下时弹层内部滚动，保存按钮始终够得着 */}
+      <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-72 overflow-y-auto">
+        <LabelPicker tags={tags} onChange={(next) => onPatch({ tags: next, version: card.version })} />
       </PopoverContent>
     </Popover>
   )

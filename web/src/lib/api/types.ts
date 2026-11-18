@@ -5,9 +5,19 @@
 /** 操作者类型：人、agent、系统（自动化规则） */
 export type ActorKind = 'human' | 'agent' | 'system'
 
+/** 看板标签库里的一项：卡片上存的是标签名，颜色靠名称到标签库里查 */
+export interface Label {
+  id: string
+  name: string
+  /** 色相-深浅（1 最深，3 最浅），例如 green-2；空串表示没有颜色 */
+  color: string
+}
+
 export interface Board {
   id: number
   name: string
+  /** 标签库：给标签起名字、配颜色；名称不在库里的标签照常使用，只是没有颜色 */
+  labels: Label[]
   /** 卡片编号的前缀，创建后不能改 */
   slug: string
   description: string
@@ -269,9 +279,17 @@ export interface CreateBoardInput {
   locale?: string
 }
 
+/** 修改标签库的一项：id 为空表示新增；整体替换，库里有而入参没有的算删除 */
+export interface LabelInput {
+  id?: string
+  name: string
+  color: string
+}
+
 export interface UpdateBoardInput {
   name?: string
   description?: string
+  labels?: LabelInput[]
 }
 
 export interface CreateColumnInput {

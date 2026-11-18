@@ -9,7 +9,7 @@ import type { CardView, Column } from '@/lib/api/types'
 import { formatDate, formatDateTime, isPast } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useOnlineStatus } from '@/pwa/useOnlineStatus'
-import { Badge } from '@/components/ui/badge'
+import { TagBadge } from '@/features/labels/TagBadge'
 import { Button } from '@/components/ui/button'
 import { useTemplateText } from '@/lib/useTemplateText'
 import { AddCard } from './AddCard'
@@ -183,9 +183,7 @@ export default function ListView({
                     <td className="px-3 py-2.5">
                       <div className="flex flex-wrap items-center gap-1">
                         {card.tags.slice(0, TAGS_VISIBLE).map((tag) => (
-                          <Badge key={tag} variant="secondary" className="max-w-[6rem] truncate text-[0.6875rem]">
-                            {tag}
-                          </Badge>
+                          <TagBadge key={tag} name={tag} className="max-w-[6rem]" />
                         ))}
                         {card.tags.length > TAGS_VISIBLE && (
                           <span className="text-[0.6875rem] text-muted-foreground">
