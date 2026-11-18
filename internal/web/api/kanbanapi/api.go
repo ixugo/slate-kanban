@@ -10,7 +10,7 @@ import (
 	"github.com/ixugo/goddd/pkg/web"
 
 	"slate-kanban/internal/core/kanban"
-	"slate-kanban/internal/web/api/accessapi"
+	"slate-kanban/internal/web/restactor"
 )
 
 // API 持有看板领域的业务入口，以及实时流的时间参数。
@@ -43,7 +43,7 @@ type empty struct{}
 func route[I, O any](fn func(context.Context, kanban.Actor, *I) (O, error)) gin.HandlerFunc {
 	return web.WrapH(func(c *gin.Context, in *I) (O, error) {
 		ctx := c.Request.Context()
-		actor, err := accessapi.ActorFrom(ctx)
+		actor, err := restactor.From(ctx)
 		if err != nil {
 			var zero O
 			return zero, err
