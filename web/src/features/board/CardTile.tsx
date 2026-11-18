@@ -11,13 +11,14 @@ import { formatDate, isPast } from '@/lib/format'
 import { useLanguage } from '@/i18n/useLanguage'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { coverSrc } from '@/lib/md/cover'
 
 /** 优先级圆点的颜色：低、中、高；0 表示没设优先级，不显示 */
 const PRIORITY_DOT = ['', 'bg-p-low', 'bg-p-mid', 'bg-p-high'] as const
 
 /** 磁贴的外观：链接版和拖拽时跟手的那一份共用；iOS 的长按链接预览会和长按拖拽冲突，所以关掉 */
 const TILE_CLASS =
-  'group relative flex flex-col gap-2 rounded-[0.875rem] bg-card p-3 text-left shadow-card outline-none transition-[box-shadow,opacity,translate] duration-300 ease-spring [-webkit-touch-callout:none]'
+  'group relative flex flex-col gap-2 overflow-hidden rounded-[0.875rem] bg-card p-3 text-left shadow-card outline-none transition-[box-shadow,opacity,translate] duration-300 ease-spring [-webkit-touch-callout:none]'
 
 interface CardTileProps {
   card: CardView
@@ -25,14 +26,20 @@ interface CardTileProps {
   dragDisabled?: boolean
 }
 
-/** 磁贴里的内容：编号、标题、标签、截止日期、状态图标和领取者 */
+/** 磁贴里的内容：封面、编号、标题、标签、截止日期、状态图标和领取者 */
 function TileBody({ card }: { card: CardView }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const overdue = card.due_at && !card.done && isPast(card.due_at)
 
+  const cover = coverSrc(card.description)
+
   return (
     <div className="space-y-1.5">
+      {cover && (
+        // 封面是描述里的第一张图：贴着磁贴上沿铺满，高度封顶，装饰用所以不要替代文字
+        <img src={cover} alt="" loading="lazy" draggable={false} className="-mx-3 -mt-3 mb-2.5 block max-h-40 w-[calc(100%+1.5rem)] object-cover" />
+      )}
       <div className="flex items-center gap-1.5">
         {card.priority > 0 && (
           <span className={cn('size-1.5 shrink-0 rounded-full', PRIORITY_DOT[card.priority])} aria-hidden />

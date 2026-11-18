@@ -150,3 +150,28 @@ describe('CardTile 是指向卡片的链接', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/b/1?card=1')
   })
 })
+
+describe('CardTile 封面', () => {
+  const COVER = '/api/v1/attachments/' + 'c'.repeat(32)
+
+  it('描述里的第一张图片附件显示在磁贴顶部，没有图片的卡片不显示', async () => {
+    installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({
+        cards: [
+          makeCard({ id: 1, title: 'Alpha', column_id: 1, description: `说明\n\n![图](${COVER})` }),
+          makeCard({ id: 2, title: 'Beta', column_id: 1, description: '没有图' }),
+        ],
+      }),
+    })
+    const { container } = renderApp(
+      <Routes>
+        <Route path="/b/:boardId" element={<BoardPage />} />
+      </Routes>,
+      { route: '/b/1' },
+    )
+    const tile = await screen.findByRole('link', { name: /Alpha/ })
+    expect(tile.querySelector('img')).toHaveAttribute('src', COVER)
+    expect(screen.getByRole('link', { name: /Beta/ }).querySelector('img')).toBeNull()
+    expect(container.querySelectorAll('a img')).toHaveLength(1)
+  })
+})
