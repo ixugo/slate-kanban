@@ -25,20 +25,20 @@ function BoardCard({ board }: { board: Board }) {
   return (
     <Link
       to={`/b/${board.id}`}
-      className="group flex min-h-32 flex-col gap-2 bg-card p-4 ring-1 ring-foreground/10 transition-colors outline-none hover:ring-signal focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex min-h-36 flex-col gap-2.5 rounded-[1.25rem] bg-card p-5 shadow-card transition-[box-shadow,translate] duration-300 ease-spring outline-none hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:ring-[3px] focus-visible:ring-ring/50 active:translate-y-0 active:duration-100"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wider text-muted-foreground">
+        <span className="rounded-full bg-secondary px-2 py-0.5 font-mono text-[0.6875rem] font-medium tracking-wider text-muted-foreground">
           {board.slug}
         </span>
-        <span className="text-[11px] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           {t('boards.updated', { time: formatRelative(board.updated_at, lang) })}
         </span>
       </div>
-      <h2 className="truncate text-sm font-semibold">{board.name}</h2>
-      {board.description && <p className="line-clamp-2 text-muted-foreground">{board.description}</p>}
+      <h2 className="truncate text-[1.0625rem] leading-6 font-semibold tracking-tight">{board.name}</h2>
+      {board.description && <p className="line-clamp-2 text-ui text-muted-foreground">{board.description}</p>}
       {board.project_path && (
-        <p className="mt-auto flex items-center gap-1.5 truncate font-mono text-[11px] text-muted-foreground">
+        <p className="mt-auto flex items-center gap-1.5 truncate pt-1 font-mono text-[0.6875rem] text-muted-foreground">
           <FolderGit2Icon className="size-3.5 shrink-0" />
           <span className="truncate">{board.project_path}</span>
         </p>
@@ -51,13 +51,13 @@ function BoardCard({ board }: { board: Board }) {
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   const { t } = useTranslation()
   return (
-    <div className="flex flex-col items-center gap-4 border border-dashed p-10 text-center">
-      <Logo className="size-12" />
-      <div className="space-y-1">
-        <h2 className="text-sm font-semibold">{t('boards.empty.title')}</h2>
-        <p className="max-w-md text-muted-foreground">{t('boards.empty.body')}</p>
+    <div className="flex flex-col items-center gap-5 rounded-[1.5rem] bg-card p-12 text-center shadow-card">
+      <Logo className="size-14" />
+      <div className="space-y-1.5">
+        <h2 className="text-title font-semibold tracking-tight">{t('boards.empty.title')}</h2>
+        <p className="max-w-md text-ui text-muted-foreground">{t('boards.empty.body')}</p>
       </div>
-      <Button onClick={onCreate}>
+      <Button size="lg" onClick={onCreate}>
         <PlusIcon />
         {t('boards.empty.cta')}
       </Button>
@@ -73,13 +73,13 @@ export function BoardListPage() {
   useDocumentTitle(t('boards.title'))
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6 px-5 py-8 sm:px-8 sm:py-10">
       <div className="flex items-end justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-lg font-semibold tracking-tight">{t('boards.title')}</h1>
-          <p className="text-muted-foreground">{t('boards.subtitle')}</p>
+        <div className="space-y-1.5">
+          <h1 className="text-display font-semibold tracking-tight">{t('boards.title')}</h1>
+          <p className="text-body text-muted-foreground">{t('boards.subtitle')}</p>
         </div>
-        <Button onClick={() => setCreating(true)}>
+        <Button size="lg" onClick={() => setCreating(true)}>
           <PlusIcon />
           {t('boards.new')}
         </Button>
@@ -88,13 +88,13 @@ export function BoardListPage() {
       {isPending && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-36 rounded-[1.25rem]" />
           ))}
         </div>
       )}
 
       {error && (
-        <div role="alert" className="flex items-center justify-between gap-3 border border-destructive/40 p-4">
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl bg-destructive/10 p-4">
           <div className="space-y-0.5">
             <p className="font-medium text-destructive">{t('boards.loadFailed')}</p>
             <p className="text-muted-foreground">{describeError(error, t).message}</p>
@@ -107,7 +107,7 @@ export function BoardListPage() {
 
       {boards && boards.length === 0 && <EmptyState onCreate={() => setCreating(true)} />}
       {boards && boards.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {boards.map((board) => (
             <BoardCard key={board.id} board={board} />
           ))}

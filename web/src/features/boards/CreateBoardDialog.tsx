@@ -118,10 +118,10 @@ function CreateBoardForm({ onDone }: FormProps) {
         />
       </div>
 
-      <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/60 px-3.5 py-3">
+      <div className="flex items-center justify-between gap-3 rounded-2xl bg-secondary px-4 py-3">
         <Label htmlFor="board-template">{t('boards.create.template')}</Label>
         <div className="flex items-center gap-2.5">
-          <span className="text-sm font-medium" aria-live="polite">
+          <span className="text-ui text-muted-foreground" aria-live="polite">
             {t(template === 'dev' ? 'boards.create.templates.dev' : 'boards.create.templates.empty')}
           </span>
           <Switch
