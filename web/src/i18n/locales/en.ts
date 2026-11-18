@@ -306,6 +306,11 @@ export const en = {
     meta: 'Created {{created}} by {{createdBy}} · Updated {{updated}} by {{updatedBy}}',
     deleteTitle: 'Delete this card?',
     deleteBody: 'This cannot be undone. Comments are deleted too.',
+    timeline: {
+      title: 'Comments and activity',
+      showDetails: 'Show details',
+      hideDetails: 'Hide details',
+    },
     comment: {
       title: 'Comments',
       placeholder: 'Write a comment (Ctrl/Cmd+Enter to send)',

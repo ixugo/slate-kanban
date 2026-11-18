@@ -219,6 +219,8 @@ export interface ActivityQuery {
   types?: readonly string[]
   actor_kind?: ActorKind
   actor?: string
+  /** 只看这张卡片的事件 */
+  card_id?: number
 }
 
 /** 接入说明里一段可以直接复制的命令或配置 */

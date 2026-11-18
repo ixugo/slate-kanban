@@ -303,6 +303,11 @@ export const ja: Messages = {
     meta: '作成 {{created}}（{{createdBy}}）· 更新 {{updated}}（{{updatedBy}}）',
     deleteTitle: 'このカードを削除しますか？',
     deleteBody: '元に戻せません。コメントも削除されます。',
+    timeline: {
+      title: 'コメントとアクティビティ',
+      showDetails: '詳細を表示',
+      hideDetails: '詳細を隠す',
+    },
     comment: {
       title: 'コメント',
       placeholder: 'コメント（Ctrl/Cmd+Enter で送信）',

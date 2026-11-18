@@ -303,6 +303,11 @@ export const zhCN: Messages = {
     meta: '创建于 {{created}}（{{createdBy}}）· 更新于 {{updated}}（{{updatedBy}}）',
     deleteTitle: '删除这张卡片？',
     deleteBody: '此操作不可撤销，评论也会一并删除。',
+    timeline: {
+      title: '评论和活动',
+      showDetails: '显示详情',
+      hideDetails: '隐藏详情',
+    },
     comment: {
       title: '评论',
       placeholder: '写评论（Ctrl/Cmd+Enter 发送）',

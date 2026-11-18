@@ -303,6 +303,11 @@ export const ko: Messages = {
     meta: '생성 {{created}}({{createdBy}}) · 수정 {{updated}}({{updatedBy}})',
     deleteTitle: '이 카드를 삭제할까요?',
     deleteBody: '되돌릴 수 없습니다. 댓글도 삭제됩니다.',
+    timeline: {
+      title: '댓글 및 활동',
+      showDetails: '세부 정보 표시',
+      hideDetails: '세부 정보 숨기기',
+    },
     comment: {
       title: '댓글',
       placeholder: '댓글 작성(Ctrl/Cmd+Enter로 전송)',

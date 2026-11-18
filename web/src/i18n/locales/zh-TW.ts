@@ -303,6 +303,11 @@ export const zhTW: Messages = {
     meta: '建立於 {{created}}（{{createdBy}}）· 更新於 {{updated}}（{{updatedBy}}）',
     deleteTitle: '刪除這張卡片？',
     deleteBody: '此操作無法復原，評論也會一併刪除。',
+    timeline: {
+      title: '留言和活動',
+      showDetails: '顯示詳情',
+      hideDetails: '隱藏詳情',
+    },
     comment: {
       title: '評論',
       placeholder: '撰寫評論（Ctrl/Cmd+Enter 送出）',
