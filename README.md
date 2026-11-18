@@ -113,9 +113,11 @@ tag:后端 priority:>=2                 # 带「后端」标签、优先级中�
 is:overdue -is:done                   # 已逾期且没完成
 claimed:claude-code                   # 被 claude-code 领着的卡片
 due:<2026-12-01 no:branch             # 12 月前到期、还没有分支名
+tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug 或 ui 标签，且在待办或进行中
 ```
 
 前缀有 `tag` `col` `key` `title` `desc` `priority` `claimed` `is` `has` `no` `due` `created` `updated`。完整说明见官网的「筛选语法」页。
+网页上除了搜索框，旁边的「筛选」按钮可以点选标签、列、优先级、领取者、状态和截止日期，选好的条件会自动拼成上面的语法。
 网页快捷键：`/` 搜索、`n` 新建卡片、`Esc` 关闭或清空。
 
 ## 导出

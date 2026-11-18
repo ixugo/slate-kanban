@@ -216,6 +216,7 @@ flowchart TD
 | is:overdue | 有到期时间，已过期，且不在完成列 |
 | is:started、is:finished | 开始、完成时间不为空 |
 | has:xxx 与 no:xxx | xxx 取 due、branch、url、tags、desc、deps 之一，表示有或没有 |
+| 多选一：tag:bug\|ui、col:待办\|进行中、priority:high\|medium、claimed:a\|b、is:free\|waiting 等 | 取值之间用竖线隔开，命中任意一个就算命中；前缀 tag、col、column、key、priority、claimed、is、has、no 支持，title、desc 和日期类不支持（竖线按原样处理）；竖线前后都要有内容；词前加减号表示一个都不能命中；标签或列名本身带竖线时，用 col:列 id 或普通文字搜索 |
 | due:、created:、updated: 加比较符加日期 | 比较符为 <、<=、>、>=、=，不写比较符就是等于；日期写 2026-11-17 或 today；按服务器所在时区的自然日比较，所以 due:today 命中今天任意时刻到期的卡片 |
 
 出错的情况：未知的前缀、值不合法、引号没有闭合，都返回 400 并写出出错的词，例如：筛选词 is:foo 无法识别，可选值为 done、open、human、claimed、free、waiting、overdue、started、finished。
