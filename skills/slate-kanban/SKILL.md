@@ -63,6 +63,8 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 | 工具调用的超时很短 | 把 `timeout_seconds` 调小（例如 10）；还是超时，就用下一行的办法 |
 | host 不能一直保持会话，但有定时或 loop 功能 | 让 host 每隔几分钟执行一轮：领卡片，没有就结束这一轮，有就派发 |
 
+Claude Code 和 Codex 都能正常等满 50 秒（Codex 的工具调用默认 60 秒超时，所以 `timeout_seconds` 不要超过 50）；Cursor 的工具超时没有官方说明，等不满就按表里第二行把它调小。
+
 ## 四、派发：一张卡片一个子 agent、一个 worktree
 
 1. 读卡片全文和全部评论（`next_card`、`claim_card` 已经返回了，不用重复读）。评论里人的补充和审查意见，比最初的描述优先；有不清楚的地方，用 `comment_card` 向人提问，不要猜。所在列的 `column_instruction` 必须遵守。

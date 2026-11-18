@@ -70,3 +70,35 @@ func assertFencesAlternate(t *testing.T, md string) {
 		t.Errorf("最后一个代码围栏没有关闭")
 	}
 }
+
+// TestRenderMarkdownVerifyAndFAQ 验证步骤 3 按 host 写明终端里怎么检查，常见问题写明各 host 在真实环境里的表现；
+// 口令相关的现象只在服务启用口令时才写。
+func TestRenderMarkdownVerifyAndFAQ(t *testing.T) {
+	g := buildGuide(guideBases[0], false)
+	plain := renderMarkdown(g, false)
+	verify, faq, ok := strings.Cut(plain[strings.Index(plain, "## 3. "):], "## 常见问题")
+	if !ok {
+		t.Fatalf("缺少常见问题一节")
+	}
+	for _, want := range []string{"新开一个会话", "claude mcp list", "✔ Connected", "codex mcp list", "Unsupported",
+		"agent mcp list", "ready", "agent mcp enable", "重启 Cursor"} {
+		if !strings.Contains(verify, want) {
+			t.Errorf("验证一节应该有 %q", want)
+		}
+	}
+	if !strings.Contains(faq, "?name=") {
+		t.Errorf("常见问题应该解释 Claude Code 打印的地址不带 ?name=")
+	}
+	for _, unwanted := range []string{"401", "AuthRequired"} {
+		if strings.Contains(faq, unwanted) {
+			t.Errorf("未启用口令时常见问题不该提 %q", unwanted)
+		}
+	}
+
+	guarded := renderMarkdown(buildGuide(guideBases[0], true), true)
+	for _, want := range []string{"401", "Failed to connect", "Error: Connection failed", "AuthRequired", "${env:SLATE_PASSCODE}"} {
+		if !strings.Contains(guarded[strings.Index(guarded, "## 常见问题"):], want) {
+			t.Errorf("启用口令时常见问题应该有 %q", want)
+		}
+	}
+}
