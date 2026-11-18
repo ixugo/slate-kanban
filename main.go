@@ -53,6 +53,10 @@ func main() {
 	if err := conf.SetupConfig(&bc, filePath); err != nil {
 		panic(err)
 	}
+	// 口令配置不合规时在连数据库之前就退出，避免服务起来后 MCP 客户端莫名其妙地 401
+	if err := conf.ValidatePasscode(&bc); err != nil {
+		panic(err)
+	}
 	bc.Runtime.Debug = !getBuildRelease()
 	bc.Runtime.BuildVersion = buildVersion
 	bc.Runtime.ConfigDir = fileDir

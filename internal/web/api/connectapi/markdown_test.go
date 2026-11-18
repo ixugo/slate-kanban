@@ -10,8 +10,8 @@ import (
 // 代码围栏一开一关交替出现（少一个关闭的，后面的文字就全被当成代码）；没有没替换掉的占位符或格式化残留。
 func TestRenderMarkdown(t *testing.T) {
 	for _, base := range guideBases {
-		g := buildGuide(base)
-		md := renderMarkdown(g)
+		g := buildGuide(base, false)
+		md := renderMarkdown(g, false)
 
 		if !strings.HasPrefix(md, "# ") || !strings.HasSuffix(md, "\n") {
 			t.Errorf("说明应该以一级标题开头、以换行结尾")

@@ -21,11 +21,13 @@ const (
 )
 
 // API 是接入说明接口。内容都是编译进服务的，所以没有依赖。
-type API struct{}
+type API struct {
+	passcodeRequired bool
+}
 
-// New 创建接入说明接口。
-func New() API {
-	return API{}
+// New 创建接入说明接口；passcodeRequired 为真时在 MCP 示例里附带 Bearer 头占位说明。
+func New(passcodeRequired bool) API {
+	return API{passcodeRequired: passcodeRequired}
 }
 
 // RegisterPublic 注册免认证的两个页面：安装说明和 skill 下载。它们挂在根路径上，不在 /api/v1 下。
@@ -49,7 +51,8 @@ func (a API) installDoc(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "no-store")
 	c.Header("X-Content-Type-Options", "nosniff")
-	c.Data(http.StatusOK, markdownType, []byte(renderMarkdown(buildGuide(base))))
+	guide := buildGuide(base, a.passcodeRequired)
+	c.Data(http.StatusOK, markdownType, []byte(renderMarkdown(guide, a.passcodeRequired)))
 }
 
 // skillDoc 返回 skill 全文，就是服务里编译进去的那一份。它随服务升级而变，
@@ -66,6 +69,6 @@ func (a API) connect(c *gin.Context, _ *struct{}) (*Guide, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := buildGuide(base)
+	g := buildGuide(base, a.passcodeRequired)
 	return &g, nil
 }

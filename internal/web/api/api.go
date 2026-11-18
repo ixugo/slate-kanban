@@ -23,8 +23,12 @@ const (
 
 // setupRouter 装配全部路由：安全兜底、日志、统计；健康检查、安装说明和 skill 免认证；REST 固定人身份。
 func setupRouter(r *gin.Engine, uc *Usecase) {
+	limiter := newAttemptLimiter(nil)
+	guard := newPasscodeGuard(uc.Conf, limiter)
+
 	r.Use(
 		securityMiddleware(uc.Conf),
+		passcodeMiddleware(guard),
 		web.Recover(),
 		web.Metrics(),
 		web.Logger(),
@@ -32,8 +36,12 @@ func setupRouter(r *gin.Engine, uc *Usecase) {
 			func(_ *gin.Context) bool {
 				return !uc.Conf.Runtime.Debug
 			},
+			web.IgnorePath(authPrefix+"/login"),
 		),
 	)
+
+	// 登录接口不要求口令，所以更要限制请求体大小和类型，免得被匿名用户用大请求体消耗内存
+	registerAuthRoutes(r.Group("", limitBody(maxRequestBody), requireJSON()), guard)
 
 	r.Any("/health", web.WrapH(uc.getHealth))
 	r.GET("/app/metrics/api", web.WrapH(uc.getMetricsAPI))

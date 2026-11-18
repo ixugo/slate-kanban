@@ -11,7 +11,7 @@ var guideBases = []string{"http://localhost:7070", "https://kanban.example.com",
 
 func TestBuildGuideShape(t *testing.T) {
 	for _, base := range guideBases {
-		g := buildGuide(base)
+		g := buildGuide(base, false)
 		if g.BaseURL != base || g.MCPURL != base+"/mcp" || g.InstallURL != base+"/install.md" ||
 			g.SkillURL != base+"/skills/slate-kanban/SKILL.md" {
 			t.Fatalf("地址不对: %+v", g)
@@ -47,7 +47,7 @@ func TestBuildGuideShape(t *testing.T) {
 
 func TestGuideQuotesURLs(t *testing.T) {
 	for _, base := range guideBases {
-		g := buildGuide(base)
+		g := buildGuide(base, false)
 		for _, h := range g.Hosts {
 			for _, sn := range slices.Concat(h.MCP, h.Skill) {
 				if sn.Lang != "sh" {
@@ -61,9 +61,85 @@ func TestGuideQuotesURLs(t *testing.T) {
 	}
 }
 
+// hostMCP 返回指定 host 的两个 MCP 片段（worker、manager）。
+func hostMCP(t *testing.T, g Guide, id string) []Snippet {
+	t.Helper()
+	for _, h := range g.Hosts {
+		if h.ID == id {
+			return h.MCP
+		}
+	}
+	t.Fatalf("没有找到 host %s", id)
+	return nil
+}
+
+// TestClaudeCodePasscodeHeaderAfterURL claude 的 --header 可以带多个值，写在地址前面会把地址当成请求头吞掉，
+// 所以启用口令时必须把它放在地址后面。
+func TestClaudeCodePasscodeHeaderAfterURL(t *testing.T) {
+	for _, base := range guideBases {
+		for _, sn := range hostMCP(t, buildGuide(base, true), "claude-code") {
+			url := strings.Index(sn.Code, "'"+base)
+			header := strings.Index(sn.Code, `--header "Authorization: Bearer `+passcodePlaceholder+`"`)
+			if url < 0 || header < 0 || header < url {
+				t.Errorf("--header 应出现在地址之后: %s", sn.Code)
+			}
+		}
+	}
+}
+
+// TestCodexPasscodeUsesEnvVar 启用口令时 Codex 步骤用环境变量传口令，配置文件里不留明文。
+func TestCodexPasscodeUsesEnvVar(t *testing.T) {
+	for _, sn := range hostMCP(t, buildGuide(guideBases[0], true), "codex") {
+		for _, want := range []string{
+			"export " + codexPasscodeEnv + "='" + passcodePlaceholder + "'",
+			"--bearer-token-env-var " + codexPasscodeEnv,
+			"codex mcp add",
+		} {
+			if !strings.Contains(sn.Code, want) {
+				t.Errorf("Codex 步骤缺少 %q: %s", want, sn.Code)
+			}
+		}
+	}
+}
+
+// TestCursorPasscodeHeaderJSON 启用口令时 Cursor 的 mcp.json 片段是合法 JSON，并带 Authorization 头占位。
+func TestCursorPasscodeHeaderJSON(t *testing.T) {
+	for _, sn := range hostMCP(t, buildGuide(guideBases[0], true), "cursor") {
+		var cfg struct {
+			MCPServers map[string]struct {
+				URL     string            `json:"url"`
+				Headers map[string]string `json:"headers"`
+			} `json:"mcpServers"`
+		}
+		if err := json.Unmarshal([]byte(sn.Code), &cfg); err != nil {
+			t.Fatalf("Cursor JSON 无效: %v\n%s", err, sn.Code)
+		}
+		if len(cfg.MCPServers) != 1 {
+			t.Fatalf("应只有一个服务: %s", sn.Code)
+		}
+		for name, srv := range cfg.MCPServers {
+			if srv.Headers["Authorization"] != "Bearer "+passcodePlaceholder {
+				t.Errorf("%s 缺少 Authorization 头占位: %+v", name, srv)
+			}
+		}
+	}
+}
+
+// TestGuideWithoutPasscodeHasNoAuthHeader 未启用口令时，任何步骤都不应提到 Authorization 或占位符。
+func TestGuideWithoutPasscodeHasNoAuthHeader(t *testing.T) {
+	for _, h := range buildGuide(guideBases[0], false).Hosts {
+		for _, sn := range h.MCP {
+			if strings.Contains(sn.Code, "Authorization") || strings.Contains(sn.Code, passcodePlaceholder) ||
+				strings.Contains(sn.Title, passcodePlaceholder) {
+				t.Errorf("%s 未启用口令不应出现口令相关内容: %+v", h.ID, sn)
+			}
+		}
+	}
+}
+
 func TestGuideCursorConfigIsJSON(t *testing.T) {
 	base := guideBases[0]
-	g := buildGuide(base)
+	g := buildGuide(base, false)
 	for _, h := range g.Hosts {
 		if h.ID != "cursor" {
 			continue

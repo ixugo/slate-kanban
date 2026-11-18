@@ -21,7 +21,7 @@ const markdownType = "text/markdown; charset=utf-8"
 func engine() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	a := connectapi.New()
+	a := connectapi.New(false)
 	connectapi.RegisterPublic(r, a)
 	connectapi.Register(r.Group("/api/v1"), a)
 	return r

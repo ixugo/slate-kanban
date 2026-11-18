@@ -30,7 +30,7 @@ var (
 		NewKanbanCore,
 		kanbanapi.New,
 		NewMCP,
-		connectapi.New,
+		ProvideConnectAPI,
 	)
 )
 
@@ -47,6 +47,7 @@ type Usecase struct {
 // NewHTTPHandler 生成 Gin 路由：全局安全中间件、REST/MCP/静态页，未匹配路径走 SPA 回退或 JSON 404。
 func NewHTTPHandler(uc *Usecase) http.Handler {
 	cfg := uc.Conf
+	conf.WarnShortPasscode(uc.Conf)
 	if !uc.Conf.Runtime.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -64,6 +65,11 @@ func NewHTTPHandler(uc *Usecase) http.Handler {
 func NewUniqueID(db *gorm.DB) uniqueid.Core {
 	store := uniqueiddb.NewDB(db).AutoMigrate(orm.GetEnabledAutoMigrate())
 	return uniqueid.NewCore(store, 6)
+}
+
+// ProvideConnectAPI 按是否配置口令生成接入说明（只传布尔，不传口令本身），供 Wire 装配。
+func ProvideConnectAPI(bc *conf.Bootstrap) connectapi.API {
+	return connectapi.New(conf.PasscodeRequired(bc))
 }
 
 // NewKanbanCore 创建看板领域并迁移表；REST、SSE、MCP 共用同一个 Core。
