@@ -88,7 +88,7 @@ var templateTexts = map[string]localeTexts{
 	"zh-CN": {
 		Columns: [textKindCount]columnText{
 			textIdea: {
-				Name:        "想法池",
+				Name:        "收件箱",
 				Description: "还没想清楚的想法和需求，由人整理后再决定要不要做。",
 				Instruction: "这一列的卡片只是想法，不要领取，也不要动手实现。需要时可以在卡片下留言补充分析。",
 			},
@@ -119,7 +119,7 @@ var templateTexts = map[string]localeTexts{
 	"zh-TW": {
 		Columns: [textKindCount]columnText{
 			textIdea: {
-				Name:        "想法池",
+				Name:        "收件匣",
 				Description: "還沒想清楚的想法與需求，由人整理後再決定要不要做。",
 				Instruction: "這一列的卡片只是想法，不要領取，也不要動手實作。需要時可以在卡片下留言補充分析。",
 			},
@@ -150,7 +150,7 @@ var templateTexts = map[string]localeTexts{
 	"en": {
 		Columns: [textKindCount]columnText{
 			textIdea: {
-				Name:        "Ideas",
+				Name:        "Inbox",
 				Description: "Rough ideas and requests that are not ready yet. A person sorts them out and decides whether to do them.",
 				Instruction: "Cards in this column are only ideas. Do not claim them and do not start implementing. You may leave a comment with extra analysis if it helps.",
 			},
@@ -181,7 +181,7 @@ var templateTexts = map[string]localeTexts{
 	"ja": {
 		Columns: [textKindCount]columnText{
 			textIdea: {
-				Name:        "アイデア",
+				Name:        "受信トレイ",
 				Description: "まだ固まっていないアイデアや要望。人が整理して、やるかどうかを決めます。",
 				Instruction: "この列のカードはまだアイデアです。担当せず、実装も始めないでください。必要なら、カードにコメントで分析を補足できます。",
 			},
@@ -212,7 +212,7 @@ var templateTexts = map[string]localeTexts{
 	"ko": {
 		Columns: [textKindCount]columnText{
 			textIdea: {
-				Name:        "아이디어",
+				Name:        "받은 편지함",
 				Description: "아직 정리되지 않은 아이디어와 요청입니다. 사람이 정리한 뒤 진행할지 결정합니다.",
 				Instruction: "이 열의 카드는 아직 아이디어입니다. 맡지 말고 구현도 시작하지 마세요. 필요하면 카드에 댓글로 분석을 덧붙일 수 있습니다.",
 			},

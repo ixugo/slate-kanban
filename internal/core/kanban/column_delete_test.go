@@ -31,7 +31,7 @@ func TestDeleteEmptyColumn(t *testing.T) {
 	e := newCardEnv(t)
 	idea, todo := e.col(colIdea), e.col(colTodo)
 	if got := e.board.Columns[colIdea].NextColumnID; got != todo {
-		t.Fatalf("前提不成立：想法池的下一列应该是待办，实际 %d", got)
+		t.Fatalf("前提不成立：收件箱的下一列应该是待办，实际 %d", got)
 	}
 
 	if err := e.core.DeleteColumn(ctx, testActor, e.board.ID, todo, 0); err != nil {

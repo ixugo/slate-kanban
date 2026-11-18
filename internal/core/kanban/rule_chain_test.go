@@ -83,8 +83,8 @@ func TestRuleLoopProtection(t *testing.T) {
 	}
 }
 
-// TestRuleDepthLimit 验证连锁最多 3 层：待办→进行中→审查→完成→想法池一共四次规则移动，
-// 第四次移动已经发生，但它引发的"进入想法池"规则不再触发。
+// TestRuleDepthLimit 验证连锁最多 3 层：待办→进行中→审查→完成→收件箱一共四次规则移动，
+// 第四次移动已经发生，但它引发的"进入收件箱"规则不再触发。
 func TestRuleDepthLimit(t *testing.T) {
 	e := newClaimEnv(t)
 	c := e.card(t, colIdea, "A")

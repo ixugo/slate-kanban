@@ -26,7 +26,7 @@ const (
 
 // 起步模板的名称。
 const (
-	// TemplateDev 为开发工作准备的五列流程：想法池、待办、进行中、审查、完成。
+	// TemplateDev 为开发工作准备的五列流程：收件箱、待办、进行中、审查、完成。
 	TemplateDev = "dev"
 	// TemplateSimple 三列流程：待办、进行中、完成。
 	TemplateSimple = "simple"

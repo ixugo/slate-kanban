@@ -52,7 +52,7 @@ func TestCreateBoardDevTemplate(t *testing.T) {
 	if d.Slug != "MYPROJ" || d.Name != "My Project" || d.ProjectPath != "/code/app" || !d.CreatedAt.Equal(fixed) {
 		t.Fatalf("看板字段不对: %+v", d.Board)
 	}
-	want := []string{"想法池", "待办", "进行中", "审查", "完成"}
+	want := []string{"收件箱", "待办", "进行中", "审查", "完成"}
 	if got := columnNames(d.Columns); !slices.Equal(got, want) {
 		t.Fatalf("列名应该是 %v，实际 %v", want, got)
 	}

@@ -19,7 +19,7 @@ type createBoardIn struct {
 	Slug        string `json:"slug,omitempty" jsonschema:"看板标识，2 到 10 位，大写字母开头，只含大写字母和数字；会拼进每张卡片的编号（例如 SLATE-12），创建后不能改；不填按名称生成"`
 	Description string `json:"description,omitempty" jsonschema:"看板说明，最多 2000 字"`
 	ProjectPath string `json:"project_path,omitempty" jsonschema:"这个看板对应的项目在本机的绝对路径"`
-	Template    string `json:"template,omitempty" jsonschema:"起步模板：dev（想法池、待办、进行中、审查、完成，默认）、simple（待办、进行中、完成）、empty（没有列）"`
+	Template    string `json:"template,omitempty" jsonschema:"起步模板：dev（收件箱、待办、进行中、审查、完成，默认）、simple（待办、进行中、完成）、empty（没有列）"`
 	Locale      string `json:"locale,omitempty" jsonschema:"起步列名和说明的语言：zh-CN、zh-TW、en、ja、ko；不填按 en"`
 }
 
@@ -101,7 +101,7 @@ func (a API) registerAdminTools(s *mcp.Server) {
 func (a API) registerBoardTools(s *mcp.Server) {
 	register(s, spec{
 		name: "create_board", kind: kindWrite,
-		desc: "创建看板。template 决定起步的列：dev（想法池、待办、进行中、审查、完成，带开始和完成计时的自动化规则，默认）、" +
+		desc: "创建看板。template 决定起步的列：dev（收件箱、待办、进行中、审查、完成，带开始和完成计时的自动化规则，默认）、" +
 			"simple（待办、进行中、完成）、empty（没有列，再用 create_column 自己搭）；locale 决定起步列名的语言。" +
 			"返回看板、列和规则，列的编号用于后面的 create_card、update_column 等。",
 	}, a.createBoard)

@@ -192,7 +192,7 @@ func (a API) registerAgentWork(s *mcp.Server) {
 	register(s, spec{
 		name: "create_card", kind: kindWrite,
 		desc: "创建卡片，用来记录你在工作中发现的新任务、问题或后续事项。不能放进 agent 领取列：那里放什么、先做什么由人决定，" +
-			"你把卡片建在别的列（例如「想法池」或「待办」），人觉得合适会自己拖过去。优先级、依赖和时间是人的安排，agent 不能设置。",
+			"你把卡片建在别的列（例如「收件箱」或「待办」），人觉得合适会自己拖过去。优先级、依赖和时间是人的安排，agent 不能设置。",
 	}, a.createCard)
 	register(s, spec{
 		name: "update_card", kind: kindWrite,

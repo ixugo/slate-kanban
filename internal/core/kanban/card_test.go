@@ -13,7 +13,7 @@ import (
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 )
 
-// dev 模板里各列的下标：想法池、待办、进行中（agent 领活）、审查、完成。
+// dev 模板里各列的下标：收件箱、待办、进行中（agent 领活）、审查、完成。
 const (
 	colIdea = iota
 	colTodo
@@ -109,7 +109,7 @@ func TestCreateCardDefaults(t *testing.T) {
 	}
 
 	last := e.lastEvent(t)
-	want := fmt.Sprintf(`{"column":"想法池","column_id":%d,"key":"TST-2","title":"第二张"}`, e.col(colIdea))
+	want := fmt.Sprintf(`{"column":"收件箱","column_id":%d,"key":"TST-2","title":"第二张"}`, e.col(colIdea))
 	if last.Type != kanban.EventCardCreated || last.CardID != b.ID || last.Payload != want {
 		t.Fatalf("事件不对: %+v，期望内容 %s", last, want)
 	}

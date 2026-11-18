@@ -9,7 +9,7 @@ import (
 // humanActor 是测试里直接调用 Core 时使用的人的身份。
 var humanActor = kanban.Actor{Kind: kanban.ActorHuman, Name: "admin"}
 
-// board 是测试里的一个看板和它的五个起步列（想法池、待办、进行中、审查、完成）的编号。
+// board 是测试里的一个看板和它的五个起步列（收件箱、待办、进行中、审查、完成）的编号。
 type board struct {
 	*kanban.BoardDetail
 	idea, todo, doing, review, done int64

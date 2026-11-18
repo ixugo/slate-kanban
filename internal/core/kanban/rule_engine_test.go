@@ -239,9 +239,9 @@ func TestRuleCreateCardTriggers(t *testing.T) {
 	if got := e.eventTypes(t, events); !slices.Equal(got, want) {
 		t.Fatalf("事件顺序应该是 %v，实际 %v", want, got)
 	}
-	idea := e.card(t, colIdea, "在想法池创建")
+	idea := e.card(t, colIdea, "在收件箱创建")
 	if len(idea.Tags) != 0 || idea.Priority != 2 {
-		t.Fatalf("创建在想法池只应该触发进入任意列的规则: %+v", idea)
+		t.Fatalf("创建在收件箱只应该触发进入任意列的规则: %+v", idea)
 	}
 
 	agentCard, err := e.core.CreateCard(ctx, testAgent, e.board.ID, kanban.CreateCardInput{Title: "agent 创建", ColumnID: e.col(colTodo)})
