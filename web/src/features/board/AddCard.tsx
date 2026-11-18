@@ -62,7 +62,9 @@ export function AddCard({ open, onOpen, onClose, onSubmit, busy }: AddCardProps)
         placeholder={t('board.addCardPlaceholder')}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={onKeyDown}
-        disabled={busy}
+        // 点开就能直接打字；提交中用只读而不是 disabled，禁用会让输入框失去焦点，连续添加还得再点一次
+        autoFocus
+        readOnly={busy}
         aria-label={t('board.addCard')}
       />
       <div className="flex gap-2">
