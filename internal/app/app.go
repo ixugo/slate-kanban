@@ -39,11 +39,6 @@ func Run(bc *conf.Bootstrap) {
 	defer closeNow()
 	handler = lifecycle.Wrap(handler, closing)
 
-	// 启动配置文件热重载
-	watchCtx, watchCancel := context.WithCancel(context.Background())
-	defer watchCancel()
-	go conf.WatchConfig(watchCtx, bc, webhookWorkersReloader())
-
 	addr := net.JoinHostPort(bc.Server.HTTP.Host, strconv.Itoa(bc.Server.HTTP.Port))
 	svc := server.New(handler,
 		server.Port(addr),
@@ -86,13 +81,6 @@ func SetupLog(bc *conf.Bootstrap) (*slog.Logger, func()) {
 		Debug: bc.Runtime.Debug, // 服务级别Debug/Release
 		Level: bc.Log.Level,     // 日志级别
 	})
-}
-
-func webhookWorkersReloader() conf.ReloadCallback {
-	return func(old, new *conf.Bootstrap) error {
-		slog.Info("配置变更")
-		return nil
-	}
 }
 
 // displayURL 返回给用户看的访问地址；监听 0.0.0.0 或 :: 时展示 localhost，避免误导。
