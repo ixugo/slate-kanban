@@ -1,4 +1,4 @@
-# 看板页面：看板列表、看板、卡片、搜索、活动流
+# 看板页面：看板列表、看板、卡片、搜索
 
 ## 需求目标
 
@@ -19,7 +19,6 @@
 | 7 | 在卡片弹窗里改字段，别人同时也在改 | 静默覆盖别人的改动 | 每次修改都带上打开时读到的 `version`；服务端返回版本冲突时，提示"这张卡刚被别人改过"，并重新读取最新内容，用户的输入不丢失（保留在输入框里，由用户决定是否再提交） | 实施 |
 | 8 | 卡片描述很长，修改要有保存和放弃 | 失焦就自动保存，写到一半的描述被存进去 | 标题、优先级、所在列、标签、时间、依赖、分支、链接等短字段改完立即保存；描述用"编辑/保存/取消"，支持预览 Markdown；`Ctrl/Cmd + Enter` 保存评论和描述 | 实施 |
 | 9 | agent 的评论和描述里常带 Markdown | 原样显示难读 | 描述和评论用 Markdown 渲染，不解析原始 HTML，链接只放行 http、https、mailto（做法见 `web.app.md` 第 9 条） | 实施 |
-| 10 | 想知道谁在什么时候动了什么 | 出了问题没法追溯，也看不出 agent 在干什么 | 活动抽屉：按时间倒序列出事件，每条是"谁做了什么"加相对时间；新事件实时插到最前面；"加载更多"往更早翻。需要后端新增一个"最新事件"接口（见下文"活动流"） | 实施 |
 | 11 | 看板被别人删除时页面还开着 | 一直转圈或者报一堆错 | 实时流收到 404 就提示"看板已不存在"并回到看板列表 | 实施 |
 | 12 | 看板很宽、手机很窄 | 横向看不全，误触 | 列容器横向滚动，窄屏每列接近整屏宽并按列吸附；弹窗在窄屏占满宽度 | 实施 |
 | 13 | 卡片弹窗要能分享给同事 | 复制链接只能到看板，找不到卡片 | 卡片弹窗的状态放在地址的 `?card=编号` 里，刷新、分享、浏览器返回都正常；卡片不存在时去掉参数并提示 | 实施 |
@@ -30,7 +29,7 @@
 ```mermaid
 flowchart TB
     subgraph 看板页 /b/:id
-        T[工具栏: 看板名 编号 | 搜索框 | 活动 | 接入 agent | 设置 | 连接状态点]
+        T[工具栏: 看板名 编号 | 搜索框 | 导出 | 设置 | 连接状态点]
         subgraph 画布 可横向滚动
             C1[列: 名称 数量 AI标记 / 卡片 卡片 ... / 添加卡片]
             C2[列 ...]
@@ -38,8 +37,6 @@ flowchart TB
         end
     end
     D[卡片弹窗 ?card=编号]
-    A[活动抽屉]
-    T --> A
     C1 --> D
 ```
 
@@ -103,20 +100,10 @@ sequenceDiagram
 语法说明弹窗列出 `tag:`、`col:`、`priority:`、`is:`、`has:`、`due:` 等常用写法，每条带一个可点击的示例，点一下填进搜索框。
 说明文字是界面文案（五种语言），语法本身是服务端定义的，不翻译。
 
-## 活动流
+## v1 不做活动流
 
-后端现有的 `GET /boards/:id/events?after=` 只能从某个序号往后读。事件序号是所有看板共用的，
-所以"取这块看板最近 50 条"没法用序号推算，必须新增接口：
-
-`GET /api/v1/boards/:id/activity?before=<序号>&limit=<条数>`
-
-- `before` 为 0 或不填表示从最新开始；否则返回序号小于 `before` 的事件。
-- 按序号倒序返回，`limit` 默认 50、最大 200；`has_more` 表示更早还有事件。
-- 人和 agent 都能读（和现有事件接口一致）；看板不存在返回 404。
-
-网页第一次打开抽屉取最新一页；之后实时流收到的事件直接插到最前面（用事件序号去重）；点"加载更多"带上最后一条的序号继续往前翻。
-每条事件按类型拼成一句话：`activity.<事件类型>` 一个键对应一种事件，占位符取自事件载荷（字段见 `kanban.event.go.md`），
-没有对应键的未知类型显示事件类型名，保证以后服务端加了新事件网页也不会空白。
+看板级事件时间线（抽屉）留待后续版本；卡片弹窗只有评论，没有事件时间线。
+实时同步用 `useBoardLive`（EventSource，免登录），工具栏显示连接状态；看板被删时显示 `BoardGone` 页。
 
 ## 多语言文案分组
 
@@ -126,16 +113,14 @@ sequenceDiagram
 | `board` | 工具栏、列、卡片上的标记、添加卡片、空状态、拖拽的读屏提示 |
 | `search` | 搜索框、语法说明、结果统计 |
 | `card` | 卡片弹窗的所有标签、按钮、确认文字、版本冲突提示 |
-| `activity` | 抽屉标题、每种事件的句子、加载更多、空状态 |
-
 ## 目录规划
 
 | 路径 | 内容 |
 |------|------|
 | `web/src/features/boards/` | `BoardListPage.tsx`、`CreateBoardDialog.tsx` |
 | `web/src/features/board/` | `BoardPage.tsx`、`Toolbar.tsx`、`Column.tsx`、`CardTile.tsx`、`AddCard.tsx`、`SearchBox.tsx`、`dnd.ts`、`useBoard.ts`（快照查询与派生数据）、`useBoardLive.ts`（实时流）、`useMoveCard.ts`（乐观移动） |
-| `web/src/features/card/` | `CardDialog.tsx`、`CardFields.tsx`、`DescriptionEditor.tsx`、`Comments.tsx`、`DependencyPicker.tsx`、`Markdown.tsx` |
-| `web/src/features/activity/` | `ActivitySheet.tsx`、`eventText.ts` |
+| `web/src/features/card/` | `CardDialog.tsx`、`CardFields.tsx`、`DescriptionEditor.tsx`、`Comments.tsx`、`DependencyPicker.tsx` |
+| `web/src/lib/markdown.tsx` | 安全 Markdown 渲染（描述与评论共用） |
 
 ## 验证计划
 
