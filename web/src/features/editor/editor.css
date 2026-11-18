@@ -1,0 +1,230 @@
+/*
+ * 实时渲染编辑器的样式。结构约定见 render.ts：每行一个 .md-line，Markdown 记号是真实文字，
+ * 带 .md-hide 的一律不显示（光标没碰到的记号、列表行首的缩进和圆点）。
+ * 列表的圆点、编号、任务框都是 ::before 画的装饰，不在 DOM 文字里。
+ * 列表每层缩进 1.5em，必须和 render.ts 的 LIST_INDENT_EM 保持一致（点任务框要按它换算坐标）。
+ */
+
+.md-editor {
+  --md-indent: 1.5em;
+  position: relative;
+  outline: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  caret-color: var(--foreground);
+}
+
+/* 手机和平板上字号不能小于 16px，否则 iOS 一聚焦就自动放大页面 */
+@media (pointer: coarse) {
+  .md-editor {
+    font-size: 1rem;
+  }
+}
+
+.md-editor[data-empty]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  inset: 0 auto auto 0;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.md-line {
+  position: relative;
+}
+
+.md-hide,
+.md-off {
+  display: none;
+}
+
+/* 空行只留一道窄缝，段落之间不会隔得太开 */
+.md-blank {
+  line-height: 0.75;
+}
+
+/* 亮出来的 Markdown 记号：淡色、不带粗斜体 */
+.md-mk {
+  color: var(--muted-foreground);
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* —— 行内格式 —— */
+.md-b {
+  font-weight: 600;
+}
+.md-i {
+  font-style: italic;
+}
+.md-s {
+  text-decoration: line-through;
+}
+.md-u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md-s.md-u {
+  text-decoration: underline line-through;
+}
+.md-ic {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--secondary);
+  border-radius: 0.375em;
+  padding: 0.1em 0.35em;
+}
+.md-a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* —— 标题：字号和只读渲染器一致 —— */
+.md-h {
+  font-weight: 600;
+}
+.md-h1 {
+  font-size: 1.125rem;
+}
+.md-h2 {
+  font-size: 1rem;
+}
+.md-h3,
+.md-h4 {
+  font-size: 0.875rem;
+}
+.md-h4 {
+  font-weight: 500;
+}
+.md-h5 {
+  font-size: 0.75rem;
+}
+.md-h6 {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+/* —— 引用：每多一层，竖线后的缩进多 0.75em —— */
+.md-line[data-q="1"] {
+  --q: 1;
+}
+.md-line[data-q="2"] {
+  --q: 2;
+}
+.md-line[data-q="3"] {
+  --q: 3;
+}
+.md-quote {
+  color: var(--muted-foreground);
+  border-left: 2px solid color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+  padding-left: calc(var(--q) * 0.75em);
+}
+
+/* —— 分隔线：没碰到时画一条线，碰到时露出 --- 文字 —— */
+.md-hr:has(.md-hide) {
+  height: 1.6em;
+}
+.md-hr:has(.md-hide)::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
+  border-top: 1px solid var(--border);
+}
+
+/* —— 代码块：围栏行和代码行连成一块 —— */
+.md-fence,
+.md-code {
+  font-family: var(--font-mono);
+  font-size: 0.8125em;
+  background: color-mix(in oklch, var(--secondary) 70%, transparent);
+  padding-inline: 0.875em;
+}
+.md-fence {
+  color: var(--muted-foreground);
+}
+.md-fence:has(+ .md-code),
+.md-cf {
+  border-top-left-radius: 0.75em;
+  border-top-right-radius: 0.75em;
+  padding-top: 0.4em;
+}
+.md-code:has(+ .md-fence),
+.md-cl {
+  border-bottom-left-radius: 0.75em;
+  border-bottom-right-radius: 0.75em;
+  padding-bottom: 0.4em;
+}
+
+/* —— 列表：缩进靠层数算，圆点、编号和任务框画在左边的空位上 —— */
+.md-line[data-d="0"] {
+  --d: 0;
+}
+.md-line[data-d="1"] {
+  --d: 1;
+}
+.md-line[data-d="2"] {
+  --d: 2;
+}
+.md-line[data-d="3"] {
+  --d: 3;
+}
+.md-line[data-d="4"] {
+  --d: 4;
+}
+.md-line[data-d="5"] {
+  --d: 5;
+}
+.md-line[data-d="6"] {
+  --d: 6;
+}
+.md-line[data-d="7"] {
+  --d: 7;
+}
+.md-line[data-d="8"] {
+  --d: 8;
+}
+.md-item,
+.md-cont {
+  padding-left: calc((var(--d) + 1) * var(--md-indent));
+}
+.md-item::before {
+  position: absolute;
+  left: calc(var(--d) * var(--md-indent));
+  width: 1.3em;
+  text-align: right;
+  padding-right: 0.3em;
+  box-sizing: content-box;
+  white-space: nowrap;
+}
+.md-item[data-b]:not([data-task])::before {
+  content: attr(data-b);
+  color: var(--muted-foreground);
+}
+.md-item[data-task]::before {
+  content: "";
+  top: 0.32em;
+  width: 1.05em;
+  height: 1.05em;
+  padding: 0;
+  margin-left: 0.1em;
+  border: 1.5px solid var(--input);
+  border-radius: 0.3em;
+  background: var(--field);
+  color: var(--primary-foreground);
+  font-size: 0.8em;
+  line-height: 1.1;
+  text-align: center;
+  cursor: pointer;
+}
+.md-item[data-task="1"]::before {
+  content: "✓";
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.md-item[data-task="1"] {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}

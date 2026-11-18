@@ -27,7 +27,7 @@ Vite 8、React 19、TypeScript 7、Tailwind 4、shadcn/ui（vendored 在 `src/co
 - 输出目录：`../internal/web/spa/dist`（gitignore）。
 - Go 嵌入：`go build -tags embed_web`（见根目录 `Makefile`）。
 - 预算脚本：`scripts/check-size.mjs`（可传 dist 路径作为第 1 参数）。
-- 当前门禁：**首屏 JS gzip 不超过 130 kB**；**整个 dist gzip 不超过 300 kB**。实际用量以 `npm run build` 末尾的输出为准。
+- 当前门禁：**首屏 JS gzip 不超过 130 kB**；**整个 dist gzip 不超过 320 kB**（含懒加载的实时渲染编辑器）。实际用量以 `npm run build` 末尾的输出为准。
 
 首屏统计包含 `index.html` 里的入口脚本与 `modulepreload` 的 JS。
 

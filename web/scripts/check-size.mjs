@@ -1,5 +1,5 @@
 // 前端体积预算检查：构建之后运行，统计 gzip 后的大小，超出预算就以非零状态退出。
-// 预算见 .cursor/scopes/v1.scope.md：首屏 JS 不超过 130 kB，整个 dist 不超过 300 kB（都是 gzip 后）。
+// 预算见 .cursor/scopes/v1.scope.md：首屏 JS 不超过 130 kB，整个 dist 不超过 320 kB（都是 gzip 后；实时渲染编辑器是懒加载的独立块，约 12 kB，预算从 300 kB 提到 320 kB 来容纳它）。
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
@@ -14,7 +14,7 @@ const DIST = distArg
 /** 首屏 JS（index.html 里直接引用的脚本）gzip 后的上限，单位字节 */
 const ENTRY_JS_BUDGET = 130 * 1024
 /** 整个 dist 目录 gzip 后的上限，单位字节 */
-const TOTAL_BUDGET = 300 * 1024
+const TOTAL_BUDGET = 320 * 1024
 
 // 递归列出目录里的所有文件
 function walk(dir) {

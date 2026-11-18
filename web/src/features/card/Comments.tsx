@@ -1,12 +1,12 @@
 // 卡片评论列表与添加；Cmd/Ctrl+Enter 发送。
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState, type KeyboardEvent } from 'react'
+import { useState } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { addComment, deleteComment } from '@/lib/api/endpoints'
 import type { Comment } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { LazyEditor } from '@/features/editor/LazyEditor'
 import { Markdown } from '@/lib/markdown'
 import { COMMENT_MAX } from '@/lib/limits'
 import { queryKeys } from '@/lib/queryKeys'
@@ -47,13 +47,6 @@ export function Comments({ cardId, boardId, comments: rawComments }: CommentsPro
     onError: toastError,
   })
 
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault()
-      if (body.trim()) send.mutate()
-    }
-  }
-
   /** 作者类型的叫法：人写的叫"我"，系统消息叫"系统"，agent 叫 Agent */
   const kindLabel = (kind: Comment['author_kind']) => t(`card.comment.${kind}` as 'card.comment.human')
 
@@ -84,13 +77,14 @@ export function Comments({ cardId, boardId, comments: rawComments }: CommentsPro
           </li>
         ))}
       </ul>
-      <Textarea
+      <LazyEditor
+        compact
         value={body}
-        onChange={(e) => setBody(e.target.value.slice(0, COMMENT_MAX))}
-        onKeyDown={onKeyDown}
-        rows={3}
+        onChange={setBody}
+        max={COMMENT_MAX}
         placeholder={t('card.comment.placeholder')}
-        aria-label={t('card.comment.title')}
+        label={t('card.comment.title')}
+        onSubmit={() => body.trim() && send.mutate()}
       />
       <Button type="button" size="sm" disabled={!body.trim() || send.isPending} onClick={() => send.mutate()}>
         {t('card.comment.send')}
