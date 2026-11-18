@@ -22,8 +22,10 @@ import { buildFilterTerms, collectClaimers, collectTagOptions, countFilters } fr
 import { BoardCanvas } from './BoardCanvas'
 import { BoardGone } from './BoardGone'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { useBoardViewMode } from './useBoardView'
 
 const CardDialog = lazy(() => import('@/features/card/CardDialog'))
+const ListView = lazy(() => import('./ListView'))
 
 /** 看板主页面 */
 export default function BoardPage() {
@@ -33,6 +35,8 @@ export default function BoardPage() {
   const searchRef = useRef<HTMLInputElement>(null)
   const [gone, setGone] = useState(false)
   const [addColumnId, setAddColumnId] = useState<number | null>(null)
+  const [listAddOpen, setListAddOpen] = useState(false)
+  const { mode: viewMode, setMode: setViewMode } = useBoardViewMode(boardId ?? 0)
 
   const { data: snapshot, error, isPending, refetch } = useBoardSnapshot(boardId)
   const { columns, cardsById } = useBoardView(snapshot)
@@ -66,9 +70,14 @@ export default function BoardPage() {
     setAddColumnId(null)
   }, [search, clearFilters])
 
+  const openNewCard = useCallback(() => {
+    if (viewMode === 'list') setListAddOpen(true)
+    else focusFirstAdd()
+  }, [viewMode, focusFirstAdd])
+
   useBoardKeyboard({
     searchRef,
-    onNewCard: focusFirstAdd,
+    onNewCard: openNewCard,
     onFocusSearch: () => searchRef.current?.focus(),
     onEscape: clearSearchAndAdd,
     disabled: boardId === null || gone,
@@ -140,24 +149,44 @@ export default function BoardPage() {
           filter={{ filters, onChange: setFilters, columns, tags: tagOptions, claimers }}
           liveState={live.state}
           onLiveRetry={live.retry}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
         <ActiveFilters filters={filters} columns={columns} onChange={setFilters} />
-        {dragDisabled && (
+        {viewMode === 'board' && dragDisabled && (
           <p className="border-b bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">{t('board.dragDisabledSearch')}</p>
         )}
-        <BoardCanvas
-          boardId={boardId}
-          columns={columns}
-          cardsById={cardsById}
-          visibleIds={search.visibleIds}
-          dragDisabled={dragDisabled}
-          onMove={(cardId, plan) => move.mutate({ cardId, plan })}
-          addColumnId={addColumnId}
-          onAddOpen={setAddColumnId}
-          onAddClose={() => setAddColumnId(null)}
-          onAddCard={(columnId, title) => create.mutate({ columnId, title })}
-          addBusy={create.isPending}
-        />
+        {viewMode === 'board' ? (
+          <BoardCanvas
+            boardId={boardId}
+            columns={columns}
+            cardsById={cardsById}
+            visibleIds={search.visibleIds}
+            dragDisabled={dragDisabled}
+            onMove={(cardId, plan) => move.mutate({ cardId, plan })}
+            addColumnId={addColumnId}
+            onAddOpen={setAddColumnId}
+            onAddClose={() => setAddColumnId(null)}
+            onAddCard={(columnId, title) => create.mutate({ columnId, title })}
+            addBusy={create.isPending}
+          />
+        ) : (
+          <Suspense fallback={null}>
+            <ListView
+              columns={columns}
+              cards={snapshot.cards}
+              visibleIds={search.visibleIds}
+              listAddOpen={listAddOpen}
+              onListAddOpen={() => setListAddOpen(true)}
+              onListAddClose={() => setListAddOpen(false)}
+              onAddCard={(title) => {
+                const first = columns[0]
+                if (first) create.mutate({ columnId: first.id, title })
+              }}
+              addBusy={create.isPending}
+            />
+          </Suspense>
+        )}
         <Suspense fallback={null}>
           <CardDialog boardId={boardId} />
         </Suspense>

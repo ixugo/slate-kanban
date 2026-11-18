@@ -2,7 +2,7 @@
 
 import type { RefObject } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDownIcon, SettingsIcon } from 'lucide-react'
+import { ChevronDownIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +17,8 @@ import { FilterPopover, type FilterPopoverProps } from './FilterPopover'
 import { SearchBox } from './SearchBox'
 import { LiveStatus } from './LiveStatus'
 import type { LiveState } from './useBoardLive'
+import type { BoardViewMode } from './useBoardView'
+import { cn } from '@/lib/utils'
 
 interface BoardToolbarProps {
   board: Board
@@ -34,6 +36,8 @@ interface BoardToolbarProps {
   liveState: LiveState
   onLiveRetry: () => void
   gone?: boolean
+  viewMode: BoardViewMode
+  onViewModeChange: (mode: BoardViewMode) => void
 }
 
 /** 看板画布上方的工具栏 */
@@ -52,6 +56,8 @@ export function BoardToolbar({
   liveState,
   onLiveRetry,
   gone,
+  viewMode,
+  onViewModeChange,
 }: BoardToolbarProps) {
   const { t } = useTranslation()
   const exportBase = `${API_PREFIX}/boards/${board.id}/export`
@@ -91,6 +97,38 @@ export function BoardToolbar({
             <span className="hidden sm:inline">{t('board.settings')}</span>
           </Link>
         </Button>
+        <div
+          className="flex shrink-0 rounded-lg border bg-muted/50 p-0.5"
+          role="group"
+          aria-label={t('board.viewToggle')}
+        >
+          <button
+            type="button"
+            aria-pressed={viewMode === 'board'}
+            title={t('board.viewBoard')}
+            className={cn(
+              'inline-flex size-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              viewMode === 'board' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+            onClick={() => onViewModeChange('board')}
+          >
+            <LayoutGridIcon className="size-4" aria-hidden />
+            <span className="sr-only">{t('board.viewBoard')}</span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={viewMode === 'list'}
+            title={t('board.viewList')}
+            className={cn(
+              'inline-flex size-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              viewMode === 'list' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+            onClick={() => onViewModeChange('list')}
+          >
+            <ListIcon className="size-4" aria-hidden />
+            <span className="sr-only">{t('board.viewList')}</span>
+          </button>
+        </div>
       </div>
       <div className="flex min-w-0 flex-1 items-start gap-3 sm:justify-end">
         <SearchBox
