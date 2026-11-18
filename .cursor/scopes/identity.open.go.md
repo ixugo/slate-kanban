@@ -3,7 +3,7 @@
 ## 需求目标
 
 v1 不要账号体系：网页打开即用；REST 所有写操作记在人名下（固定 `human`）；MCP 用网址参数自报身份与视图。
-删除令牌表、管理令牌配置和 `/agent-tokens`。用网络层兜底代替令牌：默认只监听本机、Host 白名单、跨站写拦截、安全响应头。
+运行路径上已去掉令牌表、管理令牌配置和 `/agent-tokens`（不再挂 `accessapi`）。安全靠默认只监听本机、Host 白名单、跨站写拦截、安全响应头——能连上端口的人等同管理员。
 
 ## MCP 身份规则
 
@@ -33,4 +33,5 @@ SDK 仍走 Bearer 占位 + `headerVerifier` 读 `X-Slate-Actor-*` 头，会话�
 | REST 固定人 | `internal/web/restactor` |
 | Host/Origin/头 | `internal/web/api/security.go` |
 | MCP 查询参数 | `internal/web/mcpapi/middleware.go` |
-| `/connect` 无令牌 | `internal/web/api/connectapi/guide.go` |
+| `/connect` 免认证 | `internal/web/api/connectapi/api.go` |
+| 全局 Host/Origin | `internal/web/api/security.go` |
