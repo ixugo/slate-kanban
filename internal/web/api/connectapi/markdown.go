@@ -26,7 +26,8 @@ const (
 		"- Claude Code：运行 `claude mcp list`，slate 那一行应该显示 `✔ Connected`。\n" +
 		"- Codex：运行 `codex mcp list`，能列出 slate 就说明配置写进去了。这个命令不会真的去连服务，" +
 		"所以 Auth 一栏显示 `Unsupported` 是正常的（Slate 不用 OAuth）；启用口令后会显示 `Bearer token`。\n" +
-		"- Cursor：按 Cursor 官方文档，改完 `mcp.json` 要重启 Cursor，再到它的 MCP 设置里启用 slate（每个 MCP 连接都要用户批准）。\n\n"
+		"- Cursor：命令行版运行 `agent mcp list`，slate 那一行显示 `ready` 就是连上了。写在项目里的 `.cursor/mcp.json` 要先批准：`agent mcp enable slate`；`~/.cursor/mcp.json` 里的服务不用。" +
+		"图形界面里，按 Cursor 官方文档，改完 `mcp.json` 要重启 Cursor，再到设置的 MCP 页面确认 slate 已启用。\n\n"
 	faqSection = "## 常见问题\n\n" +
 		"- 连接返回 400：检查 name 格式（小写字母数字开头，最长 64，不能用 human 或 system）。\n" +
 		"- Claude Code 添加成功时打印的地址里没有 `?name=…`，那只是提示文字省略了查询参数，配置里存的是完整地址；以 whoami 返回的名称为准。\n" +
@@ -47,7 +48,10 @@ func renderMarkdown(g Guide, passcodeRequired bool) string {
 	if passcodeRequired {
 		b.WriteString("- 服务启用了访问口令：网页需先登录；MCP 与 curl 要在请求头带 `Authorization: Bearer <口令>`（把 `<口令>` 换成你在配置里设置的值，不要写进仓库）。\n")
 		b.WriteString("- 漏带口令时服务返回 401，各 host 的表现不一样：Claude Code 的 `claude mcp list` 显示 `✘ Failed to connect`（后面的文字不固定）；" +
+			"Cursor 命令行的 `agent mcp list` 显示 `Error: Connection failed`；" +
 			"Codex 不报错，只是 slate 的工具不出现，启动日志里有 `AuthRequired`。补上口令后重新开一个会话。\n")
+		b.WriteString("- Cursor 的 `mcp.json` 不想写明文口令时，可以把请求头写成 `\"Authorization\": \"Bearer ${env:SLATE_PASSCODE}\"`，" +
+			"再设置环境变量 `SLATE_PASSCODE`（命令行版已实测可用，图形界面按 Cursor 官方文档也支持）。\n")
 	}
 	return b.String()
 }
