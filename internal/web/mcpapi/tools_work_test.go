@@ -210,6 +210,10 @@ func TestSetProjectPath(t *testing.T) {
 	empty := s.seed(t, "OTHER")
 	fails(t, call(t, sess, "set_project_path", arg(empty.ID, "")), "ErrInvalidInput")
 	fails(t, call(t, sess, "set_project_path", arg(empty.ID, "relative/dir")), "ErrInvalidInput")
+	fails(t, call(t, sess, "set_project_path", arg(empty.ID, "   ")), "ErrInvalidInput")
+	if got := ok(t, sess, "set_project_path", arg(empty.ID, "  /work/padded  ")).Data; got["project_path"] != "/work/padded" {
+		t.Errorf("路径两端的空白应该被去掉: %v", got)
+	}
 }
 
 // TestHumanCardTools 验证人的卡片工具带有规划类字段：优先级、仅人处理、依赖、时间都能写，
