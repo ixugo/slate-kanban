@@ -16,7 +16,11 @@ export function LiveStatus({ state, onRetry, gone }: LiveStatusProps) {
   const { t } = useTranslation()
   const label = gone ? t('stream.notFound') : t(`stream.${state}`)
   const dotClass =
-    state === 'live' ? 'bg-signal' : state === 'connecting' ? 'bg-signal/60 animate-pulse' : 'bg-muted-foreground'
+    state === 'live'
+      ? 'bg-emerald-500'
+      : state === 'connecting'
+        ? 'bg-amber-500 animate-pulse'
+        : 'bg-muted-foreground'
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       <span className={cn('size-2 shrink-0 rounded-full', dotClass)} aria-hidden />
