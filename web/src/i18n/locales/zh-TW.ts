@@ -186,7 +186,7 @@ export const zhTW: Messages = {
       title: '評論',
       placeholder: '撰寫評論（Ctrl/Cmd+Enter 送出）',
       empty: '還沒有評論',
-      human: '人',
+      human: '我',
       agent: 'Agent',
       system: '系統',
       send: '送出',

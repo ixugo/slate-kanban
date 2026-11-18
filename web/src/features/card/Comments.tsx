@@ -54,6 +54,7 @@ export function Comments({ cardId, boardId, comments: rawComments }: CommentsPro
     }
   }
 
+  /** 作者类型的叫法：人写的叫"我"，系统消息叫"系统"，agent 叫 Agent */
   const kindLabel = (kind: Comment['author_kind']) => t(`card.comment.${kind}` as 'card.comment.human')
 
   return (
@@ -64,8 +65,10 @@ export function Comments({ cardId, boardId, comments: rawComments }: CommentsPro
         {comments.map((c) => (
           <li key={c.id} className="rounded-2xl bg-secondary/60 p-3.5">
             <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{c.author}</span>
-              <span>{kindLabel(c.author_kind)}</span>
+              <span className="font-medium text-foreground">
+                {c.author_kind === 'agent' ? c.author : kindLabel(c.author_kind)}
+              </span>
+              {c.author_kind === 'agent' && <span>{kindLabel(c.author_kind)}</span>}
               <span>{formatRelative(c.created_at, lang)}</span>
               <Button
                 type="button"

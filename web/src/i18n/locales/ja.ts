@@ -186,7 +186,7 @@ export const ja: Messages = {
       title: 'コメント',
       placeholder: 'コメント（Ctrl/Cmd+Enter で送信）',
       empty: 'コメントはまだありません',
-      human: '人',
+      human: '自分',
       agent: 'Agent',
       system: 'システム',
       send: '送信',

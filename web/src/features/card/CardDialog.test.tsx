@@ -137,6 +137,27 @@ describe('CardDialog', () => {
     await waitFor(() => expect(api.count('POST /api/v1/cards/:id/release')).toBe(1))
   })
 
+  it('评论里人写的显示为「我」，不出现原始的 human；agent 显示自己的名字加 Agent', async () => {
+    const at = '2026-11-18T10:00:00Z'
+    const comment = { board_id: 1, card_id: 1, created_at: at, updated_at: at }
+    openBoardWithCard({
+      ...baseDetail,
+      comments: [
+        { ...comment, id: 1, author_kind: 'human', author: 'human', body: '人写的评论' },
+        { ...comment, id: 2, author_kind: 'agent', author: 'codex', body: 'agent 写的评论' },
+        { ...comment, id: 3, author_kind: 'system', author: 'system', body: '系统写的评论' },
+      ],
+    } as typeof baseDetail)
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText('人写的评论')
+    expect(within(dialog).getByText(en.card.comment.human)).toBeInTheDocument()
+    expect(within(dialog).queryByText('human')).toBeNull()
+    expect(within(dialog).getByText('codex')).toBeInTheDocument()
+    expect(within(dialog).getByText(en.card.comment.agent)).toBeInTheDocument()
+    expect(within(dialog).getByText(en.card.comment.system)).toBeInTheDocument()
+    expect(within(dialog).queryByText('system')).toBeNull()
+  })
+
   it('弹窗内同时有属性区、描述与评论', async () => {
     openBoardWithCard(baseDetail)
     const dialog = await screen.findByRole('dialog')

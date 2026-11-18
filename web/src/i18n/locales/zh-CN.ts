@@ -186,7 +186,7 @@ export const zhCN: Messages = {
       title: '评论',
       placeholder: '写评论（Ctrl/Cmd+Enter 发送）',
       empty: '还没有评论',
-      human: '人',
+      human: '我',
       agent: 'Agent',
       system: '系统',
       send: '发送',
