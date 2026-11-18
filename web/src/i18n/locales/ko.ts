@@ -168,6 +168,7 @@ export const ko: Messages = {
       columnReordered: '열 순서를 바꿨습니다',
       cardCreated: '「{{column}}」에 카드를 만들었습니다',
       cardUpdated: '카드를 변경했습니다',
+      cardUpdatedFields: '카드를 변경했습니다 ({{fields}})',
       cardMoved: '카드를 「{{from}}」에서 「{{to}}」(으)로 옮겼습니다',
       cardReordered: '열 안에서 카드 순서를 바꿨습니다',
       cardDeleted: '카드를 삭제했습니다',

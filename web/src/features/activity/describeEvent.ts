@@ -42,6 +42,45 @@ function fields(payload: Record<string, unknown>, key: string): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 }
 
+// 卡片事件载荷里的字段名对应的界面文字（复用卡片详情里各属性的名称）。
+const CARD_FIELD_LABELS: Record<string, TranslationKey> = {
+  title: 'card.field.title',
+  description: 'card.field.description',
+  priority: 'card.field.priority',
+  human_only: 'card.field.humanOnly',
+  waits_on: 'card.field.deps',
+  due_at: 'card.field.due',
+  started_at: 'card.field.started',
+  finished_at: 'card.field.finished',
+  branch: 'card.field.branch',
+  url: 'card.field.url',
+}
+
+// 设置标签（卡片上的标签、看板的标签库）很琐碎，不在活动里展示；事件本身仍然保留，实时刷新要靠它。
+const TAG_FIELDS: Record<string, string> = { 'card.updated': 'tags', 'board.updated': 'labels' }
+
+// 一条修改事件里除去“设置标签”之后剩下的字段名。
+function visibleFields(event: BoardEvent): string[] {
+  const noise = TAG_FIELDS[event.type]
+  return fields(payloadOf(event), 'fields').filter((name) => name !== noise)
+}
+
+/** 这条事件要不要在活动和卡片时间线里隐藏：只改了标签的修改事件不展示（旧事件没有字段清单，照常展示） */
+export function isHiddenEvent(event: BoardEvent): boolean {
+  if (!(event.type in TAG_FIELDS)) return false
+  return fields(payloadOf(event), 'fields').length > 0 && visibleFields(event).length === 0
+}
+
+// 卡片修改事件的句子：写明改了哪些字段；没有字段清单的旧事件退回成笼统的一句。
+function cardUpdatedText(event: BoardEvent, t: TFunction): string {
+  const labels = visibleFields(event).map((name) => {
+    const key = CARD_FIELD_LABELS[name]
+    return key ? t(key) : name
+  })
+  if (labels.length === 0) return t('activity.event.cardUpdated')
+  return t('activity.event.cardUpdatedFields', { fields: labels.join(t('settings.rules.autoName.join')) })
+}
+
 /** 操作者在界面上的名字：人叫「我」，规则触发显示成「自动化 · 规则名」，agent 用它自己报的名字 */
 export function actorLabel(actor: ActivityActor, t: TFunction): string {
   if (actor.kind === 'human') return t('activity.actor.human')
@@ -102,7 +141,7 @@ export function describeEvent(event: BoardEvent, t: TFunction): EventText {
     case 'card.created':
       return plain(t('activity.event.cardCreated', { column: field(p, 'column') }))
     case 'card.updated':
-      return plain(t('activity.event.cardUpdated'))
+      return plain(cardUpdatedText(event, t))
     case 'card.moved':
       return plain(t('activity.event.cardMoved', { from: field(p, 'from'), to: field(p, 'to') }))
     case 'card.reordered':

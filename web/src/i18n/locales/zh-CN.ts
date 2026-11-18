@@ -168,6 +168,7 @@ export const zhCN: Messages = {
       columnReordered: '调整了列的顺序',
       cardCreated: '在「{{column}}」创建了卡片',
       cardUpdated: '修改了卡片',
+      cardUpdatedFields: '修改了卡片（{{fields}}）',
       cardMoved: '把卡片从「{{from}}」移到「{{to}}」',
       cardReordered: '调整了卡片在列里的顺序',
       cardDeleted: '删除了卡片',

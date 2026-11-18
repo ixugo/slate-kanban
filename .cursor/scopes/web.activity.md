@@ -47,6 +47,8 @@ flowchart TD
 | 规则触发 | automation.fired |
 | 项目设置 | board.created, board.updated, column.*, rule.* |
 
+**修改事件的文字**：`card.updated` 按载荷里的 `fields` 写明改了什么，例如“修改了卡片（标题、优先级）”，字段名复用卡片详情里各属性的名称；旧事件没有字段清单时退回成笼统的“修改了卡片”。设置标签太琐碎，不展示：只改了标签的 `card.updated`（`fields` 只有 `tags`）和只改了标签库的 `board.updated`（`fields` 只有 `labels`）在活动抽屉和卡片的「评论和活动」里被隐藏（`isHiddenEvent`），句子里也不列标签；事件本身照常写入和广播，实时刷新不受影响。
+
 后端新增事件类型时，`filters.test.ts` 会读取 `internal/core/kanban/event.go` 核对：每个类型必须恰好属于一个分组，否则测试失败，提醒给新类型安排分组和句子。
 
 ## 请求与状态

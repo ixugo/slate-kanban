@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import i18n from '@/i18n'
 import { makeCard } from '@/test/factories'
 import type { BoardEvent } from '@/lib/api/types'
-import { actorLabel, describeEvent, eventCard } from './describeEvent'
+import { actorLabel, describeEvent, eventCard, isHiddenEvent } from './describeEvent'
 
 const tEn = i18n.getFixedT('en')
 const tZh = i18n.getFixedT('zh-CN')
@@ -37,7 +37,10 @@ describe('describeEvent', () => {
     ['column.deleted', { name: '待办' }, 'deleted column “待办”'],
     ['column.reordered', {}, 'reordered the columns'],
     ['card.created', { column: '待办' }, 'created the card in “待办”'],
-    ['card.updated', { fields: ['title'] }, 'edited the card'],
+    ['card.updated', { fields: ['title'] }, 'edited the card (Title)'],
+    ['card.updated', { fields: ['priority', 'due_at', 'tags'] }, 'edited the card (Priority, Due)'],
+    ['card.updated', { fields: ['human_only', 'waits_on', 'url'] }, 'edited the card (Human only, Dependencies, Link)'],
+    ['card.updated', {}, 'edited the card'],
     ['card.moved', { from: '待办', to: '进行中' }, 'moved the card from “待办” to “进行中”'],
     ['card.reordered', {}, 'reordered the card within its column'],
     ['card.deleted', {}, 'deleted the card'],
@@ -63,6 +66,16 @@ describe('describeEvent', () => {
       expect(text, type).not.toContain('did something')
       expect(text, type).not.toContain('{{')
     }
+  })
+
+  it('只设置了标签的修改不展示；同时改了别的字段就展示，并且句子里不提标签', () => {
+    expect(isHiddenEvent(ev('card.updated', { fields: ['tags'] }))).toBe(true)
+    expect(isHiddenEvent(ev('board.updated', { fields: ['labels'] }))).toBe(true)
+    expect(isHiddenEvent(ev('card.updated', { fields: ['tags', 'title'] }))).toBe(false)
+    expect(isHiddenEvent(ev('board.updated', { fields: ['name'] }))).toBe(false)
+    expect(isHiddenEvent(ev('card.updated', {}))).toBe(false)
+    expect(isHiddenEvent(ev('card.moved', { fields: ['tags'] }))).toBe(false)
+    expect(describeEvent(ev('card.updated', { fields: ['tags', 'title'] }), tEn).text).toBe('edited the card (Title)')
   })
 
   it('评论的摘要放在补充说明里', () => {

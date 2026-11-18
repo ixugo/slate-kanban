@@ -168,6 +168,7 @@ export const ja: Messages = {
       columnReordered: '列の順序を変更しました',
       cardCreated: '「{{column}}」にカードを作成しました',
       cardUpdated: 'カードを変更しました',
+      cardUpdatedFields: 'カードを変更しました（{{fields}}）',
       cardMoved: 'カードを「{{from}}」から「{{to}}」へ移動しました',
       cardReordered: '列内でカードの順序を変更しました',
       cardDeleted: 'カードを削除しました',

@@ -171,6 +171,7 @@ export const en = {
       columnReordered: 'reordered the columns',
       cardCreated: 'created the card in “{{column}}”',
       cardUpdated: 'edited the card',
+      cardUpdatedFields: 'edited the card ({{fields}})',
       cardMoved: 'moved the card from “{{from}}” to “{{to}}”',
       cardReordered: 'reordered the card within its column',
       cardDeleted: 'deleted the card',

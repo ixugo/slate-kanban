@@ -55,4 +55,10 @@ describe('buildTimeline', () => {
     buildTimeline(comments, [], true)
     expect(comments.map((c) => c.id)).toEqual([1, 2])
   })
+
+  it('只设置了标签的修改事件不进时间线，别的事件照常显示', () => {
+    const tagsOnly: BoardEvent = { ...event(1, '2026-11-18T08:00:00Z'), type: 'card.updated', payload: { fields: ['tags'] } }
+    const titleToo: BoardEvent = { ...event(2, '2026-11-18T09:00:00Z'), type: 'card.updated', payload: { fields: ['tags', 'title'] } }
+    expect(describeIds(buildTimeline([], [tagsOnly, titleToo, event(3, '2026-11-18T10:00:00Z')], true))).toEqual(['e3', 'e2'])
+  })
 })

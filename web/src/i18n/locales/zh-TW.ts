@@ -168,6 +168,7 @@ export const zhTW: Messages = {
       columnReordered: '調整了欄的順序',
       cardCreated: '在「{{column}}」建立了卡片',
       cardUpdated: '修改了卡片',
+      cardUpdatedFields: '修改了卡片（{{fields}}）',
       cardMoved: '把卡片從「{{from}}」移到「{{to}}」',
       cardReordered: '調整了卡片在欄裡的順序',
       cardDeleted: '刪除了卡片',
