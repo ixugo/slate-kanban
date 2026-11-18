@@ -7,6 +7,7 @@ import {
   insertDivider,
   insertLink,
   insertNewline,
+  insertText,
   nextGrapheme,
   pasteText,
   prevGrapheme,
@@ -340,6 +341,19 @@ describe('indentList', () => {
     ['非列表行退格返回 null', 'ab‸', true, null],
   ])('%s', (_name, input, outdent, want) => {
     expect(run((s) => indentList(s, outdent), input)).toBe(want)
+  })
+})
+
+describe('insertText', () => {
+  it.each([
+    ['插入', 'a‸c', 'b', 100, 'ab‸c'],
+    ['替换选区', 'a⟦b⟧c', 'X', 100, 'aX‸c'],
+    ['超长截断', 'ab‸', 'cdef', 4, 'abcd‸'],
+    ['文档已超上限时有选区也不删不插', 'abcd⟦e⟧', 'xyz', 3, 'abcd⟦e⟧'],
+    ['代理对不被劈开', '‸', 'a😀', 2, 'a‸'],
+    ['网址不会变成链接', '⟦字⟧', 'https://a.com', 100, 'https://a.com‸'],
+  ])('%s', (_name, input, text, max, want) => {
+    expect(show(insertText(st(input), text, max))).toBe(want)
   })
 })
 

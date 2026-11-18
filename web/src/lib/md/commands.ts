@@ -441,6 +441,18 @@ export function indentList(s: EditState, outdent: boolean): EditState | null {
   )
 }
 
+/** 输入文字：替换选区，按 max 截断（不劈开代理对）；已经没有余量就原样返回 */
+export function insertText(s: EditState, raw: string, max: number): EditState {
+  const text = raw.replace(/\r\n?/g, '\n')
+  const a = low(s)
+  const b = high(s)
+  const room = max - (s.value.length - (b - a))
+  if (room <= 0) return s
+  let insert = text.slice(0, room)
+  if (/[\uD800-\uDBFF]$/.test(insert)) insert = insert.slice(0, -1)
+  return splice(s, a, b, insert)
+}
+
 /** 粘贴纯文本：统一换行符、按 max 截断（不劈开代理对）；选中文字时粘贴网址会变成链接 */
 export function pasteText(s: EditState, raw: string, max: number): EditState {
   const text = raw.replace(/\r\n?/g, '\n')
@@ -449,11 +461,9 @@ export function pasteText(s: EditState, raw: string, max: number): EditState {
   const selected = s.value.slice(a, b)
   const url = text.trim()
   const linkable = a !== b && !/[\n[\]]/.test(selected) && URL_ONLY.test(url)
-  const room = max - (s.value.length - (b - a))
-  if (room <= 0) return s
-  let insert = linkable && `[${selected}](${url})`.length <= room ? `[${selected}](${url})` : text.slice(0, room)
-  if (/[\uD800-\uDBFF]$/.test(insert)) insert = insert.slice(0, -1)
-  return splice(s, a, b, insert)
+  const link = `[${selected}](${url})`
+  if (linkable && link.length <= max - (s.value.length - (b - a))) return splice(s, a, b, link)
+  return insertText(s, text, max)
 }
 
 /** 行内格式对应的记号，以及怎么认出这种格式的节点 */
