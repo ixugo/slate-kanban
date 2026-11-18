@@ -293,6 +293,7 @@ export const ja: Messages = {
       branch: 'ブランチ',
       url: 'リンク',
     },
+    dueClear: '期限をクリア',
     descEdit: '編集',
     descPlaceholder: 'Markdown 対応',
     columnInstruction: 'この列のエージェント向け指示',

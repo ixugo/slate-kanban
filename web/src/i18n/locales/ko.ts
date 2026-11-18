@@ -293,6 +293,7 @@ export const ko: Messages = {
       branch: '브랜치',
       url: '링크',
     },
+    dueClear: '마감일 지우기',
     descEdit: '편집',
     descPlaceholder: 'Markdown 지원',
     columnInstruction: '이 열의 에이전트 지시',

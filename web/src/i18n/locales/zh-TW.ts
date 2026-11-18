@@ -293,6 +293,7 @@ export const zhTW: Messages = {
       branch: '分支',
       url: '連結',
     },
+    dueClear: '清除截止時間',
     descEdit: '編輯',
     descPlaceholder: '支援 Markdown',
     columnInstruction: '本欄 Agent 指示',

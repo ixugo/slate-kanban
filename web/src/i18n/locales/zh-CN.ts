@@ -293,6 +293,7 @@ export const zhCN: Messages = {
       branch: '分支',
       url: '链接',
     },
+    dueClear: '清除截止时间',
     descEdit: '编辑',
     descPlaceholder: '支持 Markdown',
     columnInstruction: '本列 agent 指令',

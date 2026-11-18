@@ -1,6 +1,6 @@
 // 卡片弹窗正文（对齐 Trello 的两栏卡片）：
-// 宽屏左栏是标题、一排属性、描述、依赖与链接、时间信息，右栏是浅灰底的「评论和活动」，两栏各自滚动；
-// 窄屏单栏，DOM 顺序就是显示顺序：标题 → 属性 → 描述 → 依赖与链接 → 时间信息 → 评论和活动。
+// 宽屏左栏是封面（描述里的第一张图）、标题、一排属性按钮（含依赖、分支、链接）、描述、时间信息，右栏是浅灰底的「评论和活动」，两栏各自滚动；
+// 窄屏单栏，DOM 顺序就是显示顺序：标题 → 属性 → 描述 → 时间信息 → 评论和活动。
 
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, UpdateCardInput } from '@/lib/api/types'
@@ -8,7 +8,8 @@ import { formatDateTime } from '@/lib/format'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { CARD_TITLE_MAX } from '@/lib/limits'
-import { CardLinks, CardMeta } from './CardProperties'
+import { coverSrc } from '@/lib/md/cover'
+import { CardMeta } from './CardMeta'
 import { CardTimeMeta } from './CardTimeMeta'
 import { DescriptionEditor } from './DescriptionEditor'
 import { CardTimeline } from './CardTimeline'
@@ -54,9 +55,15 @@ export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDes
   const version = card.version
   const patch = (p: Record<string, unknown>) => onPatch(p as UpdateCardInput)
 
+  const cover = coverSrc(card.description)
+
   return (
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <div className="min-w-0 space-y-5 px-5 py-5 sm:px-6 md:flex-1 md:overflow-y-auto">
+        {cover && (
+          // 封面：描述里的第一张图，和看板磁贴上的一致；装饰用，不重复读给读屏
+          <img src={cover} alt="" className="-mx-5 -mt-5 block max-h-56 w-[calc(100%+2.5rem)] object-cover sm:-mx-6 sm:-mt-5 sm:w-[calc(100%+3rem)]" />
+        )}
         <ClaimBanner card={card} lang={lang} onRelease={onRelease} busy={releaseBusy} />
         <div>
           <Label htmlFor="card-title" className="sr-only">
@@ -84,12 +91,9 @@ export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDes
             }}
           />
         </div>
-        <CardMeta card={card} onPatch={patch} />
+        <CardMeta card={card} depOptions={depOptions} onPatch={patch} />
         <section>
           <DescriptionEditor key={card.version} value={card.description} onSave={onDesc} busy={patchBusy} boardId={boardId} />
-        </section>
-        <section className="border-t border-border/60 pt-5">
-          <CardLinks card={card} depOptions={depOptions} onPatch={patch} />
         </section>
         {card.column_instruction ? (
           <details className="rounded-xl bg-secondary/60 p-3 text-xs">

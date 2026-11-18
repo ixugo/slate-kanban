@@ -296,6 +296,7 @@ export const en = {
       branch: 'Branch',
       url: 'Link',
     },
+    dueClear: 'Clear due date',
     descEdit: 'Edit',
     descPlaceholder: 'Markdown supported',
     columnInstruction: 'Agent instructions for this column',

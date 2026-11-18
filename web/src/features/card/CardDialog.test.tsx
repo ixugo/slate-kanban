@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
@@ -28,6 +28,11 @@ beforeAll(async () => {
 }, 30000)
 
 afterEach(() => vi.unstubAllGlobals())
+
+/** 取第一次 PATCH 请求的请求体 */
+function patchBody(calls: FakeCall[]): unknown {
+  return calls.find((c) => c.method === 'PATCH')?.body
+}
 
 function openBoardWithCard(detail: typeof baseDetail, events: object[] = []) {
   installFakeEventSource()
@@ -77,7 +82,7 @@ describe('CardDialog', () => {
     installFakeEventSource()
     const api = installFakeApi({
       'GET /api/v1/boards/:id/snapshot': makeSnapshot({ cards: [makeCard({ id: 1 })] }),
-      'GET /api/v1/cards/:id': { body: baseDetail },
+      'GET /api/v1/cards/:id': baseDetail,
       'PATCH /api/v1/cards/:id': () => ({
         status: 409,
         body: { reason: 'ErrCardVersionConflict', msg: '冲突' },
@@ -104,7 +109,8 @@ describe('CardDialog', () => {
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByLabelText(en.card.field.title)
-    const input = await within(dialog).findByLabelText(en.card.field.tags)
+    await user.click(within(dialog).getByRole('button', { name: en.card.field.tags }))
+    const input = await screen.findByLabelText(en.card.field.tags)
     await user.type(input, 'alpha{Enter}')
     await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(1))
     await user.type(input, 'ALPHA{Enter}')
@@ -121,11 +127,52 @@ describe('CardDialog', () => {
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByLabelText(en.card.field.title)
-    const input = await within(dialog).findByLabelText(en.card.field.tags)
+    await user.click(within(dialog).getByRole('button', { name: /t0/ }))
+    const input = await screen.findByLabelText(en.card.field.tags)
     await user.type(input, 'overflow{Enter}')
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      en.card.tagLimit.replace('{{max}}', String(CARD_TAGS_MAX)),
-    )
+    expect(await screen.findByText(en.card.tagLimit.replace('{{max}}', String(CARD_TAGS_MAX)))).toBeInTheDocument()
+  })
+
+  it('优先级按钮：显示当前值，点开选另一档就提交，选同一档不提交', async () => {
+    const api = openBoardWithCard({ ...baseDetail, priority: 2 })
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByLabelText(en.card.field.title)
+    await user.click(within(dialog).getByRole('button', { name: `${en.card.field.priority}: ${en.board.priority.medium}` }))
+    await user.click(await screen.findByRole('radio', { name: en.board.priority.medium }))
+    expect(api.count('PATCH /api/v1/cards/:id')).toBe(0)
+    await user.click(within(dialog).getByRole('button', { name: `${en.card.field.priority}: ${en.board.priority.medium}` }))
+    await user.click(await screen.findByRole('radio', { name: en.board.priority.high }))
+    await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(1))
+    expect((patchBody(api.calls) as { priority: number }).priority).toBe(3)
+  })
+
+  it('截止按钮：设了时间才在关闭弹层时提交，清除按钮提交空串，没改不提交', async () => {
+    const api = openBoardWithCard({ ...baseDetail, due_at: null })
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByLabelText(en.card.field.title)
+    await user.click(within(dialog).getByRole('button', { name: en.card.field.due }))
+    await user.keyboard('{Escape}')
+    expect(api.count('PATCH /api/v1/cards/:id')).toBe(0)
+    await user.click(within(dialog).getByRole('button', { name: en.card.field.due }))
+    const input = await screen.findByLabelText(en.card.field.due)
+    fireEvent.change(input, { target: { value: '2026-12-01T09:30' } })
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(1))
+    expect((patchBody(api.calls) as { due_at: string }).due_at).toBe(new Date('2026-12-01T09:30').toISOString())
+  })
+
+  it('仅人工按钮是开关：点一下提交取反的值', async () => {
+    const api = openBoardWithCard({ ...baseDetail, human_only: false })
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByLabelText(en.card.field.title)
+    const chip = within(dialog).getByRole('button', { name: en.card.field.humanOnly })
+    expect(chip).toHaveAttribute('aria-pressed', 'false')
+    await user.click(chip)
+    await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(1))
+    expect((patchBody(api.calls) as { human_only: boolean }).human_only).toBe(true)
   })
 
   it('显示开始时间、无完成时间，领取可释放', async () => {
