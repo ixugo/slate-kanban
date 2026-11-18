@@ -27,6 +27,7 @@ import { useOnlineStatus } from '@/pwa/useOnlineStatus'
 import { LIST_PREFETCH_DELAY_MS, prefetchListView } from './prefetchListView'
 
 const CardDialog = lazy(() => import('@/features/card/CardDialog'))
+const ActivityDrawer = lazy(() => import('@/features/activity/ActivityDrawer'))
 const ListView = lazy(() => import('./ListView'))
 
 /** 看板主页面 */
@@ -38,6 +39,8 @@ export default function BoardPage() {
   const [gone, setGone] = useState(false)
   const [addColumnId, setAddColumnId] = useState<number | null>(null)
   const [listAddOpen, setListAddOpen] = useState(false)
+  // 活动抽屉：第一次打开时才加载代码（loaded），之后开关只改 open，关闭动画才播得完
+  const [activity, setActivity] = useState({ open: false, loaded: false })
   const { mode: viewMode, setMode: setViewMode } = useBoardViewMode(boardId ?? 0)
 
   // 看板视图下也在空闲时预取列表视图的代码，让 Service Worker 缓存它，离线切换到列表才不会失败
@@ -162,6 +165,7 @@ export default function BoardPage() {
           onLiveRetry={live.retry}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          onActivityOpen={() => setActivity({ open: true, loaded: true })}
         />
         <ActiveFilters filters={filters} columns={columns} onChange={setFilters} />
         {viewMode === 'board' && searching && (
@@ -201,6 +205,16 @@ export default function BoardPage() {
         <Suspense fallback={null}>
           <CardDialog boardId={boardId} />
         </Suspense>
+        {activity.loaded && (
+          <Suspense fallback={null}>
+            <ActivityDrawer
+              boardId={boardId}
+              open={activity.open}
+              onOpenChange={(open) => setActivity((prev) => ({ ...prev, open }))}
+              cardsById={cardsById}
+            />
+          </Suspense>
+        )}
       </div>
     </TooltipProvider>
   )

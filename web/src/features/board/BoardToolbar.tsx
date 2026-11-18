@@ -1,8 +1,8 @@
-// 看板页顶栏：名称、搜索与筛选、导出、设置、实时状态。
+// 看板页顶栏：名称、搜索与筛选、导出、活动、设置、实时状态。
 
 import type { RefObject } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDownIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
+import { ActivityIcon, ChevronDownIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import {
@@ -38,6 +38,8 @@ interface BoardToolbarProps {
   gone?: boolean
   viewMode: BoardViewMode
   onViewModeChange: (mode: BoardViewMode) => void
+  /** 点「活动」按钮：打开活动抽屉 */
+  onActivityOpen: () => void
 }
 
 /** 看板画布上方的工具栏 */
@@ -58,6 +60,7 @@ export function BoardToolbar({
   gone,
   viewMode,
   onViewModeChange,
+  onActivityOpen,
 }: BoardToolbarProps) {
   const { t } = useTranslation()
   const exportBase = `${API_PREFIX}/boards/${board.id}/export`
@@ -91,6 +94,10 @@ export function BoardToolbar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <Button type="button" variant="ghost" size="sm" aria-label={t('activity.open')} onClick={onActivityOpen}>
+          <ActivityIcon />
+          <span className="hidden sm:inline">{t('activity.open')}</span>
+        </Button>
         <Button type="button" variant="ghost" size="sm" asChild>
           <Link to={`/b/${board.id}/settings`}>
             <SettingsIcon />
