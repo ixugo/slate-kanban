@@ -44,6 +44,7 @@ export const en = {
     light: 'Light',
     dark: 'Dark',
     system: 'System',
+    cycleLabel: 'Theme: {{current}}, click to switch to {{next}}',
   },
   language: {
     label: 'Language',

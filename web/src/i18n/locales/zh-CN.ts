@@ -41,6 +41,7 @@ export const zhCN: Messages = {
     light: '浅色',
     dark: '深色',
     system: '跟随系统',
+    cycleLabel: '主题：当前{{current}}，点击切换到{{next}}',
   },
   language: {
     label: '语言',
