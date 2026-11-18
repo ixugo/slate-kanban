@@ -320,3 +320,9 @@ export interface ErrorBody {
   msg?: string
   trace_id?: string
 }
+
+/** 访问口令的状态：required 表示服务端启用了口令；authenticated 表示当前浏览器是否已通过 */
+export interface AuthStatus {
+  required: boolean
+  authenticated: boolean
+}

@@ -1,6 +1,8 @@
 // TanStack Query 的缓存键集中放在这里：失效、乐观更新、实时刷新都靠同一套键对得上。
 
 export const queryKeys = {
+  /** 访问口令的状态 */
+  auth: ['auth'] as const,
   /** 看板列表 */
   boards: ['boards'] as const,
   /** 一块看板的整板快照 */

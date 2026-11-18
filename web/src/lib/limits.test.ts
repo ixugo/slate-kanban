@@ -3,7 +3,7 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import * as limits from './limits'
 
-// 读出后端 internal/core 下所有非测试的 Go 源码，合成一个大字符串，方便按常量名查数值。
+// 读出后端 internal/core 和 internal/conf 下所有非测试的 Go 源码，合成一个大字符串，方便按常量名查数值。
 const coreDir = path.resolve(import.meta.dirname, '../../../internal/core')
 function readGo(dir: string): string {
   return readdirSync(dir, { withFileTypes: true })
@@ -14,7 +14,8 @@ function readGo(dir: string): string {
     })
     .join('\n')
 }
-const goSource = readGo(coreDir)
+const confDir = path.resolve(import.meta.dirname, '../../../internal/conf')
+const goSource = readGo(coreDir) + '\n' + readGo(confDir)
 
 // 取后端常量的数值：写法是 `name = 数字`，可能带 `24 * 60` 这样的乘法，这里只支持单个数字
 function goConst(name: string): number {
@@ -49,6 +50,7 @@ const MAPPING: [keyof typeof limits, string][] = [
   ['RULE_DUE_DAYS_MAX', 'maxRuleDueDays'],
   ['FILTER_MAX', 'maxFilterLen'],
   ['SEARCH_LIMIT', 'maxListLimit'],
+  ['PASSCODE_MAX', 'PasscodeMaxLen'],
 ]
 
 describe('输入上限和后端一致', () => {

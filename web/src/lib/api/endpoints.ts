@@ -3,6 +3,7 @@
 
 import { request } from './client'
 import type {
+  AuthStatus,
   Board,
   BoardDetail,
   CardDetail,
@@ -147,4 +148,19 @@ export function deleteRule(ruleId: number): Promise<Empty> {
 /** 接入说明：MCP 地址、skill 地址，以及各 agent 宿主的安装命令（工作视图和管理视图各一条） */
 export function getConnectGuide(signal?: Signal): Promise<ConnectGuide> {
   return request<ConnectGuide>('/connect', { signal })
+}
+
+/** 访问口令状态：服务端是否启用、当前浏览器是否已通过；这个接口本身不要求口令 */
+export function getAuthStatus(signal?: Signal): Promise<AuthStatus> {
+  return request<AuthStatus>('/auth/status', { signal })
+}
+
+/** 用访问口令登录，成功后服务端会写入会话 cookie */
+export function login(passcode: string): Promise<{ authenticated: boolean }> {
+  return request<{ authenticated: boolean }>('/auth/login', { method: 'POST', body: { passcode } })
+}
+
+/** 退出登录，清掉会话 cookie */
+export function logout(): Promise<Empty> {
+  return request<Empty>('/auth/logout', { method: 'POST' })
 }

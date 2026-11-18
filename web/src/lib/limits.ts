@@ -43,3 +43,6 @@ export const FILTER_MAX = 500
 
 /** 搜索一次最多取回的卡片数 */
 export const SEARCH_LIMIT = 500
+
+/** 访问口令的最大长度（只允许可打印 ASCII，不含空格） */
+export const PASSCODE_MAX = 128
