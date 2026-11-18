@@ -1,4 +1,4 @@
-// 卡片弹窗右栏：列、优先级、标签、截止等可编辑属性。
+// 卡片弹窗的属性区：列、优先级、标签、截止等可编辑属性；宽一点时分两列，窄屏单列。
 
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, Column } from '@/lib/api/types'
@@ -22,7 +22,7 @@ interface CardPropertiesProps {
   onColumn: (columnId: number) => void
 }
 
-/** 右栏属性表单（不含标题、描述、评论） */
+/** 属性表单（不含标题、描述、评论） */
 export function CardProperties({ card, columns, depOptions, version, onPatch, onColumn }: CardPropertiesProps) {
   const { t } = useTranslation()
   const priorities = ['none', 'low', 'medium', 'high'] as const
@@ -37,7 +37,7 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
   }
 
   return (
-    <div className="flex flex-col gap-3.5 rounded-2xl bg-secondary/50 p-4">
+    <div className="grid gap-3.5 rounded-2xl bg-secondary/50 p-4 sm:grid-cols-2">
       <div className="space-y-1.5">
         <Label className="text-muted-foreground">{t('card.field.column')}</Label>
         <Select value={String(card.column_id)} onValueChange={(v) => onColumn(Number(v))}>
@@ -68,7 +68,9 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
           </SelectContent>
         </Select>
       </div>
-      <TagEditor tags={card.tags} onChange={(tags) => onPatch({ tags, version })} />
+      <div className="sm:col-span-2">
+        <TagEditor tags={card.tags} onChange={(tags) => onPatch({ tags, version })} />
+      </div>
       <div className="space-y-1.5">
         <Label htmlFor="card-due" className="text-muted-foreground">{t('card.field.due')}</Label>
         <Input
@@ -78,11 +80,11 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
           onBlur={(e) => onPatch({ due_at: e.target.value === '' ? '' : e.target.value, version })}
         />
       </div>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 sm:self-end sm:pb-1.5">
         <Label htmlFor="card-human" className="text-muted-foreground">{t('card.field.humanOnly')}</Label>
         <Switch id="card-human" checked={card.human_only} onCheckedChange={(v) => onPatch({ human_only: v, version })} />
       </div>
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 sm:col-span-2">
         <Label className="text-muted-foreground">{t('card.field.deps')}</Label>
         <DependencyPicker
           cardId={card.id}
