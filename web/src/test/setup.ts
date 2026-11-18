@@ -2,8 +2,9 @@
 // 预加载五种语言包，并在每个测试后清理页面、本地存储和界面语言，保证测试互不影响。
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach, beforeAll } from 'vitest'
+import { afterEach, beforeAll, beforeEach } from 'vitest'
 import { preloadAllLanguages, setLanguage } from '@/i18n'
+import { installFakeEventSource } from './fakeEventSource'
 
 // jsdom 没有实现下面这些接口，Radix 的下拉菜单、选择框、弹窗在交互时会调用它们。
 Element.prototype.hasPointerCapture ??= () => false
@@ -32,6 +33,11 @@ globalThis.ResizeObserver ??= class {
 
 beforeAll(async () => {
   await preloadAllLanguages()
+})
+
+// jsdom 没有 EventSource：每个测试前装上假的，进入看板页的流程不会因为缺它而崩溃；需要手动推事件的测试自己再装一次拿到实例。
+beforeEach(() => {
+  installFakeEventSource()
 })
 
 afterEach(async () => {
