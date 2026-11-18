@@ -88,12 +88,14 @@ export default function CardDialog({ boardId }: CardDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
       <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full sm:max-w-4xl">
-        <DialogHeader className="shrink-0 border-b px-4 py-3">
-          <DialogTitle className="font-mono text-sm">{card?.key ?? t('card.title')}</DialogTitle>
+        <DialogHeader className="shrink-0 px-6 pt-5 pb-2 pr-16">
+          <DialogTitle className="font-mono text-ui font-medium tracking-normal text-muted-foreground">
+            {card?.key ?? t('card.title')}
+          </DialogTitle>
           <DialogDescription className="sr-only">{t('card.title')}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {isPending && <Skeleton className="h-40 w-full" />}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-1 pb-6">
+          {isPending && <Skeleton className="h-40 w-full rounded-2xl" />}
           {showNotFound && <p role="alert">{t('card.notFound')}</p>}
           {card && (
             <CardDialogBody

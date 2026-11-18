@@ -25,7 +25,7 @@ export function CardTimeMeta({ card, lang }: CardTimeMetaProps) {
   push(t('card.field.finished'), card.finished_at, true)
   if (rows.length === 0) return null
   return (
-    <div className="space-y-1 border-t pt-3 text-xs text-muted-foreground">
+    <div className="space-y-1 px-1 text-xs text-muted-foreground">
       {rows.map((row) => (
         <div key={row.key} className="flex justify-between gap-2">
           <span>{row.label}</span>

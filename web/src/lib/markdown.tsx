@@ -23,7 +23,7 @@ function parseInline(text: string, keyPrefix: string): ReactNode[] {
     if (code) {
       pushText('')
       out.push(
-        <code key={`${keyPrefix}-c${part++}`} className="rounded bg-muted px-1 py-0.5 font-mono text-[0.9em]">
+        <code key={`${keyPrefix}-c${part++}`} className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[0.9em]">
           {code[1]}
         </code>,
       )
@@ -41,7 +41,7 @@ function parseInline(text: string, keyPrefix: string): ReactNode[] {
             href={href}
             rel="noopener noreferrer"
             target="_blank"
-            className="text-signal underline underline-offset-2"
+            className="text-primary underline underline-offset-2"
           >
             {label}
           </a>,
@@ -169,12 +169,12 @@ function parseBlocks(source: string): Block[] {
 export function Markdown({ source, className }: { source: string; className?: string }) {
   const blocks = parseBlocks(source)
   return (
-    <div className={cn('markdown space-y-3 text-sm leading-relaxed break-words', className)}>
+    <div className={cn('markdown space-y-3 text-ui leading-relaxed break-words', className)}>
       {blocks.map((block, idx) => {
         const key = `md-${idx}`
         if (block.kind === 'code') {
           return (
-            <pre key={key} className="overflow-x-auto rounded-md border bg-muted/60 p-3 font-mono text-xs">
+            <pre key={key} className="overflow-x-auto rounded-xl bg-secondary/70 p-3.5 font-mono text-xs">
               <code>{block.lines.join('\n')}</code>
             </pre>
           )

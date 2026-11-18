@@ -37,9 +37,9 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="space-y-1">
-        <Label>{t('card.field.column')}</Label>
+    <div className="flex flex-col gap-3.5 rounded-2xl bg-secondary/50 p-4">
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">{t('card.field.column')}</Label>
         <Select value={String(card.column_id)} onValueChange={(v) => onColumn(Number(v))}>
           <SelectTrigger>
             <SelectValue />
@@ -53,8 +53,8 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1">
-        <Label>{t('card.field.priority')}</Label>
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">{t('card.field.priority')}</Label>
         <Select value={String(card.priority)} onValueChange={(v) => onPatch({ priority: Number(v), version })}>
           <SelectTrigger>
             <SelectValue />
@@ -69,8 +69,8 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
         </Select>
       </div>
       <TagEditor tags={card.tags} onChange={(tags) => onPatch({ tags, version })} />
-      <div className="space-y-1">
-        <Label htmlFor="card-due">{t('card.field.due')}</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="card-due" className="text-muted-foreground">{t('card.field.due')}</Label>
         <Input
           id="card-due"
           type="datetime-local"
@@ -78,12 +78,12 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
           onBlur={(e) => onPatch({ due_at: e.target.value === '' ? '' : e.target.value, version })}
         />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor="card-human" className="text-muted-foreground">{t('card.field.humanOnly')}</Label>
         <Switch id="card-human" checked={card.human_only} onCheckedChange={(v) => onPatch({ human_only: v, version })} />
-        <Label htmlFor="card-human">{t('card.field.humanOnly')}</Label>
       </div>
-      <div className="space-y-1">
-        <Label>{t('card.field.deps')}</Label>
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">{t('card.field.deps')}</Label>
         <DependencyPicker
           cardId={card.id}
           selected={card.waits_on}
@@ -91,8 +91,8 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
           onChange={(waits_on) => onPatch({ waits_on, version })}
         />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="card-branch">{t('card.field.branch')}</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="card-branch" className="text-muted-foreground">{t('card.field.branch')}</Label>
         <Input
           id="card-branch"
           defaultValue={card.branch}
@@ -102,8 +102,8 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
           }}
         />
       </div>
-      <div className="space-y-1">
-        <Label htmlFor="card-url">{t('card.field.url')}</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="card-url" className="text-muted-foreground">{t('card.field.url')}</Label>
         <Input
           id="card-url"
           defaultValue={card.url}

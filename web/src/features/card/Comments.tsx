@@ -58,11 +58,11 @@ export function Comments({ cardId, boardId, comments: rawComments }: CommentsPro
 
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold">{t('card.comment.title')}</h3>
+      <h3 className="text-body font-semibold tracking-tight">{t('card.comment.title')}</h3>
       {comments.length === 0 && <p className="text-sm text-muted-foreground">{t('card.comment.empty')}</p>}
       <ul className="space-y-3">
         {comments.map((c) => (
-          <li key={c.id} className="rounded-md border p-3">
+          <li key={c.id} className="rounded-2xl bg-secondary/60 p-3.5">
             <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{c.author}</span>
               <span>{kindLabel(c.author_kind)}</span>
@@ -71,7 +71,7 @@ export function Comments({ cardId, boardId, comments: rawComments }: CommentsPro
                 type="button"
                 variant="ghost"
                 size="xs"
-                className="ml-auto h-6"
+                className="ml-auto"
                 onClick={() => remove.mutate(c.id)}
               >
                 {t('common.delete')}

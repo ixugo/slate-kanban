@@ -49,7 +49,7 @@ export function TagEditor({ tags: rawTags, onChange }: TagEditorProps) {
 
   return (
     <div className="space-y-1.5">
-      <Label htmlFor="card-tags">{t('card.field.tags')}</Label>
+      <Label htmlFor="card-tags" className="text-muted-foreground">{t('card.field.tags')}</Label>
       <div className="flex flex-wrap gap-1">
         {tags.map((tag) => (
           <Badge key={tag} variant="secondary" className="gap-1 pr-1 font-normal">

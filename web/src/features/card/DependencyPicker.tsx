@@ -32,7 +32,7 @@ export function DependencyPicker({ cardId, selected, options, onChange }: Depend
 
   return (
     <div className="space-y-2">
-      {deps.length === 0 && <p className="text-sm text-muted-foreground">{t('card.depEmpty')}</p>}
+      {deps.length === 0 && <p className="text-ui text-muted-foreground">{t('card.depEmpty')}</p>}
       <ul className="space-y-1">
         {deps.map((id) => {
           const ref = labelOf(id)
@@ -50,7 +50,7 @@ export function DependencyPicker({ cardId, selected, options, onChange }: Depend
       </ul>
       {available.length > 0 && deps.length < CARD_DEPS_MAX && (
         <Select onValueChange={add}>
-          <SelectTrigger className="h-8 w-full max-w-xs">
+          <SelectTrigger className="w-full">
             <SelectValue placeholder={t('card.depAdd')} />
           </SelectTrigger>
           <SelectContent>

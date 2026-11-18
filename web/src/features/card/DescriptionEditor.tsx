@@ -49,7 +49,7 @@ export function DescriptionEditor({ value, onSave, busy }: DescriptionEditorProp
             {t('card.descEdit')}
           </Button>
         </div>
-        {value ? <Markdown source={value} /> : <p className="text-sm text-muted-foreground">{t('card.descPlaceholder')}</p>}
+        {value ? <Markdown source={value} /> : <p className="text-ui text-muted-foreground">{t('card.descPlaceholder')}</p>}
       </div>
     )
   }
@@ -76,7 +76,7 @@ export function DescriptionEditor({ value, onSave, busy }: DescriptionEditorProp
           {t('card.descPreview')}
         </Button>
       </div>
-      <Markdown source={draft} className="max-h-48 overflow-y-auto border p-2" />
+      <Markdown source={draft} className="max-h-48 overflow-y-auto rounded-xl bg-secondary/50 p-3" />
     </div>
   )
 }
