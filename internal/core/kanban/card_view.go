@@ -11,6 +11,9 @@ import (
 // 客户端不用重复实现，也不会因为本机时钟不准而判断错。
 type CardView struct {
 	*Card
+	// Tags 是卡片上带文字的标签的文字（按卡片上的顺序，没有文字的标签不在里面），给 agent 和脚本读，
+	// 要连颜色一起用请拿 TagIDs 去看板的标签库里查。
+	Tags []string `json:"tags"`
 	// Column 是卡片所在列的名称。
 	Column string `json:"column"`
 	// Done 表示卡片位于完成列。
@@ -32,17 +35,22 @@ type boardIndex struct {
 	all      []*Card       // 建索引时传入的卡片，调用方把所有权交给了索引，排序时会就地改动顺序
 	cards    map[int64]*Card
 	doneCols map[int64]bool
+	tagTexts map[int64]string // 标签主键到文字
 }
 
-// newBoardIndex 用看板的全部列（已按左到右排序）和全部卡片建立索引。
-// 复杂度是列数加卡片数的线性级。
-func newBoardIndex(now time.Time, loc *time.Location, cols []*Column, cards []*Card) *boardIndex {
+// newBoardIndex 用看板的全部列（已按左到右排序）、全部标签和全部卡片建立索引。
+// 复杂度是列数、标签数加卡片数的线性级。
+func newBoardIndex(now time.Time, loc *time.Location, cols []*Column, tags []*Tag, cards []*Card) *boardIndex {
 	ix := &boardIndex{
 		now: now, loc: loc, cols: cols, all: cards,
 		columns:  make(map[int64]*Column, len(cols)),
 		colOrder: make(map[int64]int, len(cols)),
 		cards:    make(map[int64]*Card, len(cards)),
 		doneCols: make(map[int64]bool),
+		tagTexts: make(map[int64]string, len(tags)),
+	}
+	for _, t := range tags {
+		ix.tagTexts[t.ID] = t.Text
 	}
 	for i, col := range cols {
 		ix.columns[col.ID] = col
@@ -63,13 +71,24 @@ func (ix *boardIndex) isWaiting(card *Card) bool {
 // view 生成一张卡片的完整视图。
 func (ix *boardIndex) view(card *Card) *CardView {
 	v := &CardView{
-		Card: card, Done: ix.doneCols[card.ColumnID],
+		Card: card, Tags: ix.tagNames(card), Done: ix.doneCols[card.ColumnID],
 		Waiting: ix.isWaiting(card), ClaimActive: claimActive(card, ix.now),
 	}
 	if col, ok := ix.columns[card.ColumnID]; ok {
 		v.Column = col.Name
 	}
 	return v
+}
+
+// tagNames 返回卡片上带文字的标签的文字，按卡片上的顺序；没有时返回空切片而不是 nil。
+func (ix *boardIndex) tagNames(card *Card) []string {
+	out := make([]string, 0, len(card.TagIDs))
+	for _, id := range card.TagIDs {
+		if text := ix.tagTexts[id]; text != "" {
+			out = append(out, text)
+		}
+	}
+	return out
 }
 
 // sortCards 把卡片按看板里的显示顺序排列：先按列从左到右，同一列里按位置从小到大，位置相同按主键。

@@ -41,7 +41,7 @@ func TestCardRoundTrip(t *testing.T) {
 		due := time.Date(2026, 5, 6, 7, 8, 9, 0, time.UTC)
 		c := &kanban.Card{
 			BoardID: 1, ColumnID: 2, Number: 7, Key: "T-7", Title: "标题", Description: "描述", Position: 1536.5,
-			Priority: 3, Tags: []string{"后端", "bug"}, HumanOnly: true, WaitsOn: []int64{4, 5}, DueAt: &due,
+			Priority: 3, TagIDs: []int64{3, 9}, HumanOnly: true, WaitsOn: []int64{4, 5}, DueAt: &due,
 			Branch: "feat/x", URL: "https://example.com/pr/1", Version: 1, CreatedBy: "admin",
 		}
 		if err := store.Create(ctx, c); err != nil {
@@ -56,7 +56,7 @@ func TestCardRoundTrip(t *testing.T) {
 				t.Fatalf("%s读取失败: %v", name, err)
 			}
 			if got.Title != "标题" || got.Position != 1536.5 || got.Priority != 3 || !got.HumanOnly ||
-				!slices.Equal(got.Tags, c.Tags) || !slices.Equal(got.WaitsOn, c.WaitsOn) ||
+				!slices.Equal(got.TagIDs, c.TagIDs) || !slices.Equal(got.WaitsOn, c.WaitsOn) ||
 				got.DueAt == nil || !got.DueAt.Equal(due) || got.StartedAt != nil || got.ClaimExpiresAt != nil {
 				t.Fatalf("%s读出的字段不对: %+v", name, got)
 			}
@@ -64,7 +64,7 @@ func TestCardRoundTrip(t *testing.T) {
 
 		bare := addCard(t, store, 1, 2, "T-8", 1)
 		got, _ := store.GetByID(ctx, bare.ID)
-		if got.Tags == nil || got.WaitsOn == nil || len(got.Tags) != 0 || len(got.WaitsOn) != 0 {
+		if got.TagIDs == nil || got.WaitsOn == nil || len(got.TagIDs) != 0 || len(got.WaitsOn) != 0 {
 			t.Fatalf("没填的标签和依赖应该读出空数组: %+v", got)
 		}
 		if _, err := store.GetByID(ctx, 9999); !orm.IsErrRecordNotFound(err) {
@@ -97,18 +97,18 @@ func TestCardSaveWritesZeroValues(t *testing.T) {
 		now := time.Now().UTC()
 		c := addCard(t, store, 1, 1, "T-1", 1)
 		c.HumanOnly, c.ClaimedBy, c.FinishedAt, c.ClaimExpiresAt, c.Priority = true, "claude", &now, &now, 2
-		c.Tags = []string{"a"}
+		c.TagIDs = []int64{1}
 		if err := store.Save(ctx, c); err != nil {
 			t.Fatalf("保存失败: %v", err)
 		}
 
-		c.HumanOnly, c.ClaimedBy, c.FinishedAt, c.ClaimExpiresAt, c.Priority, c.Tags = false, "", nil, nil, 0, nil
+		c.HumanOnly, c.ClaimedBy, c.FinishedAt, c.ClaimExpiresAt, c.Priority, c.TagIDs = false, "", nil, nil, 0, nil
 		if err := store.Save(ctx, c); err != nil {
 			t.Fatalf("保存失败: %v", err)
 		}
 		got, _ := store.GetByID(ctx, c.ID)
 		if got.HumanOnly || got.ClaimedBy != "" || got.FinishedAt != nil || got.ClaimExpiresAt != nil ||
-			got.Priority != 0 || got.Tags == nil || len(got.Tags) != 0 {
+			got.Priority != 0 || got.TagIDs == nil || len(got.TagIDs) != 0 {
 			t.Fatalf("零值应该都写进去了: %+v", got)
 		}
 

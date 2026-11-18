@@ -54,7 +54,8 @@ type createCardIn struct {
 	Title       string   `json:"title" jsonschema:"标题，1 到 200 字，单行"`
 	Description string   `json:"description,omitempty" jsonschema:"详细描述，最多 20000 字；写清要做什么和验收标准"`
 	ColumnID    int64    `json:"column_id,omitempty" jsonschema:"放进哪一列；不填放进第一列；新卡片放在该列最顶部"`
-	Tags        []string `json:"tags,omitempty" jsonschema:"标签，最多 10 个，每个 1 到 30 字"`
+	Tags        []string `json:"tags,omitempty" jsonschema:"标签文字，最多 10 个，每个 1 到 30 字；看板标签库里没有的文字会新建一个没有颜色的标签；和 tag_ids 只填一个"`
+	TagIDs      []int64  `json:"tag_ids,omitempty" jsonschema:"标签主键，来自 get_board 的 tags；可以选没有文字的标签；和 tags 只填一个"`
 	Branch      string   `json:"branch,omitempty" jsonschema:"关联的分支名"`
 	URL         string   `json:"url,omitempty" jsonschema:"关联的链接，必须以 http:// 或 https:// 开头"`
 }
@@ -76,7 +77,8 @@ type updateCardIn struct {
 	Version     *int64    `json:"version,omitempty" jsonschema:"你上次读到的 version；带上后，卡片已被别人改过就返回 ErrCardVersionConflict，而不是覆盖对方的修改"`
 	Title       *string   `json:"title,omitempty" jsonschema:"新标题；不填不改"`
 	Description *string   `json:"description,omitempty" jsonschema:"新描述，整体替换；不填不改"`
-	Tags        *[]string `json:"tags,omitempty" jsonschema:"新标签列表，整体替换；传空数组清空；不填不改"`
+	Tags        *[]string `json:"tags,omitempty" jsonschema:"新标签文字列表，整体替换（没有文字的标签会被去掉，要保留请用 tag_ids）；传空数组清空；不填不改；和 tag_ids 只填一个"`
+	TagIDs      *[]int64  `json:"tag_ids,omitempty" jsonschema:"新标签主键列表，来自 get_board 的 tags，整体替换；传空数组清空；不填不改；和 tags 只填一个"`
 	Branch      *string   `json:"branch,omitempty" jsonschema:"分支名；传空字符串清除；不填不改"`
 	URL         *string   `json:"url,omitempty" jsonschema:"链接，必须以 http:// 或 https:// 开头；传空字符串清除；不填不改"`
 }
@@ -110,7 +112,7 @@ type setProjectPathIn struct {
 func (in createCardIn) input() kanban.CreateCardInput {
 	return kanban.CreateCardInput{
 		Title: in.Title, Description: in.Description, ColumnID: in.ColumnID,
-		Tags: in.Tags, Branch: in.Branch, URL: in.URL,
+		Tags: in.Tags, TagIDs: in.TagIDs, Branch: in.Branch, URL: in.URL,
 	}
 }
 
@@ -125,7 +127,7 @@ func (in createCardAdminIn) input() kanban.CreateCardInput {
 // patch 把 agent 视图的修改入参换成 Core 的入参。规划类字段保持 nil，也就是"不修改"。
 func (in updateCardIn) patch() kanban.UpdateCardInput {
 	return kanban.UpdateCardInput{
-		Title: in.Title, Description: in.Description, Tags: in.Tags,
+		Title: in.Title, Description: in.Description, Tags: in.Tags, TagIDs: in.TagIDs,
 		Branch: in.Branch, URL: in.URL, Version: in.Version,
 	}
 }
@@ -275,7 +277,7 @@ func (a API) makeCard(ctx context.Context, actor kanban.Actor, boardID int64, in
 	if err != nil {
 		return nil, err
 	}
-	return briefOf(card), nil
+	return a.briefOf(ctx, card)
 }
 
 // updateCard 以 agent 的字段修改卡片。
@@ -294,7 +296,7 @@ func (a API) saveCard(ctx context.Context, actor kanban.Actor, cardID int64, pat
 	if err != nil {
 		return nil, err
 	}
-	return briefOf(card), nil
+	return a.briefOf(ctx, card)
 }
 
 // moveCard 移动卡片并返回简要字段。
@@ -305,7 +307,16 @@ func (a API) moveCard(ctx context.Context, actor kanban.Actor, in moveCardIn) (a
 	if err != nil {
 		return nil, err
 	}
-	return briefOf(card), nil
+	return a.briefOf(ctx, card)
+}
+
+// briefOf 取出写入类工具返回的简要字段，tags 的文字在这里从看板的标签库里查出来。
+func (a API) briefOf(ctx context.Context, card *kanban.Card) (any, error) {
+	names, err := a.core.CardTagNames(ctx, card)
+	if err != nil {
+		return nil, err
+	}
+	return briefOf(card, names), nil
 }
 
 // setProjectPath 为 agent 写看板的项目路径。路径不能为空：

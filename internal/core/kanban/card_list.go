@@ -51,11 +51,15 @@ func (c Core) ListCards(ctx context.Context, boardID int64, in ListCardsInput) (
 	if err != nil {
 		return nil, wrapDB("读取列", err)
 	}
+	tags, err := c.store.Tag().ListByBoard(ctx, boardID)
+	if err != nil {
+		return nil, wrapDB("读取标签库", err)
+	}
 	cards, err := c.store.Card().ListByBoard(ctx, boardID)
 	if err != nil {
 		return nil, wrapDB("读取卡片", err)
 	}
-	ix := newBoardIndex(c.now(), time.Local, cols, cards)
+	ix := newBoardIndex(c.now(), time.Local, cols, tags, cards)
 	return ix.list(f, limit), nil
 }
 

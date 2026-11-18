@@ -58,7 +58,7 @@ func TestRuleMoveChainsToOtherRules(t *testing.T) {
 	c := e.card(t, colTodo, "A")
 
 	moved := e.moveTo(t, testActor, c.ID, colDoing)
-	if moved.ColumnID != e.col(colReview) || !slices.Equal(moved.Tags, []string{"待审查"}) || moved.Priority != 2 || moved.Version != 2 {
+	if moved.ColumnID != e.col(colReview) || !slices.Equal(e.names(t, moved), []string{"待审查"}) || moved.Priority != 2 || moved.Version != 2 {
 		t.Fatalf("连锁的效果都应该生效，版本只加一次: %+v", moved)
 	}
 	if names := firedRuleNames(e.fired(t)); !slices.Equal(names, []string{"离开进行中提优先级", "审查加标签", "自动送审"}) {

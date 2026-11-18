@@ -26,7 +26,7 @@ func viewFixture() (*boardIndex, map[string]*Card) {
 	for _, c := range cards {
 		list = append(list, c)
 	}
-	return newBoardIndex(now, time.UTC, cols, list), cards
+	return newBoardIndex(now, time.UTC, cols, nil, list), cards
 }
 
 // TestBoardIndexView 验证视图里的派生字段：列名、是否完成、是否在等别的卡、领取是否有效。

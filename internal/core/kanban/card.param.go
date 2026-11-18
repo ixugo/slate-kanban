@@ -26,30 +26,34 @@ const (
 // CreateCardInput 是创建卡片的入参。ColumnID 为 0 表示放进看板的第一列。
 // 时间字段用 RFC3339 格式的字符串，空字符串表示没有。
 type CreateCardInput struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	ColumnID    int64    `json:"column_id"`
-	Priority    int      `json:"priority"`
-	Tags        []string `json:"tags"`
-	HumanOnly   bool     `json:"human_only"`
-	WaitsOn     []int64  `json:"waits_on"`
-	DueAt       string   `json:"due_at"`
-	StartedAt   string   `json:"started_at"`
-	FinishedAt  string   `json:"finished_at"`
-	Branch      string   `json:"branch"`
-	URL         string   `json:"url"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ColumnID    int64  `json:"column_id"`
+	Priority    int    `json:"priority"`
+	// Tags 按文字指定标签（agent 和脚本用）：库里没有的文字会新建一个没有颜色的标签；TagIDs 按主键指定。两者只填一个。
+	Tags       []string `json:"tags"`
+	TagIDs     []int64  `json:"tag_ids"`
+	HumanOnly  bool     `json:"human_only"`
+	WaitsOn    []int64  `json:"waits_on"`
+	DueAt      string   `json:"due_at"`
+	StartedAt  string   `json:"started_at"`
+	FinishedAt string   `json:"finished_at"`
+	Branch     string   `json:"branch"`
+	URL        string   `json:"url"`
 	// Top 为真表示新卡片放到所在列的最顶部，不填（默认）放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
 	Top bool `json:"-"`
 }
 
 // UpdateCardInput 是修改卡片的入参。指针字段为 nil 表示不修改，所以"清空"和"不改"是分得开的：
-// 标签和依赖传空数组表示清空，时间传空字符串表示清除。
+// 标签和依赖传空数组表示清空，时间传空字符串表示清除。标签用 TagIDs（主键）或 Tags（文字）指定，两者只填一个；
+// Tags 在入库前由 resolveCardTags 换成 TagIDs，apply 只认 TagIDs。
 // Version 是调用方上次读到的版本号，带了而且和当前不一致就说明有人先改过，返回 409。
 type UpdateCardInput struct {
 	Title       *string   `json:"title"`
 	Description *string   `json:"description"`
 	Priority    *int      `json:"priority"`
 	Tags        *[]string `json:"tags"`
+	TagIDs      *[]int64  `json:"tag_ids"`
 	HumanOnly   *bool     `json:"human_only"`
 	WaitsOn     *[]int64  `json:"waits_on"`
 	DueAt       *string   `json:"due_at"`
@@ -75,7 +79,13 @@ type MoveCardInput struct {
 // 调用方要先用 planningSet 拒绝 agent 填了它们的请求。
 func (in CreateCardInput) asPatch(agent bool) UpdateCardInput {
 	patch := UpdateCardInput{
-		Title: &in.Title, Description: &in.Description, Tags: &in.Tags, Branch: &in.Branch, URL: &in.URL,
+		Title: &in.Title, Description: &in.Description, Branch: &in.Branch, URL: &in.URL,
+	}
+	if len(in.Tags) > 0 {
+		patch.Tags = &in.Tags
+	}
+	if len(in.TagIDs) > 0 {
+		patch.TagIDs = &in.TagIDs
 	}
 	if !agent {
 		patch.Priority, patch.HumanOnly, patch.WaitsOn = &in.Priority, &in.HumanOnly, &in.WaitsOn
@@ -170,13 +180,16 @@ func (in UpdateCardInput) applyFlags(c *Card) ([]string, error) {
 func (in UpdateCardInput) applyLists(c *Card) ([]string, error) {
 	var changed []string
 	if in.Tags != nil {
-		tags, err := normalizeTags(*in.Tags)
+		return nil, invalidf("标签文字没有先换成主键，这是程序错误")
+	}
+	if in.TagIDs != nil {
+		ids, err := normalizeTagIDs(*in.TagIDs)
 		if err != nil {
 			return nil, err
 		}
-		if !slices.Equal(tags, c.Tags) {
-			c.Tags = tags
-			changed = append(changed, "tags")
+		if !slices.Equal(ids, c.TagIDs) {
+			c.TagIDs = ids
+			changed = append(changed, "tag_ids")
 		}
 	}
 	if in.WaitsOn != nil {
@@ -220,19 +233,15 @@ func (in UpdateCardInput) applyTimes(c *Card) ([]string, error) {
 	return changed, nil
 }
 
-// normalizeTags 整理标签：去掉首尾空白，每个 1 到 30 个字符的单行文本，
-// 不区分大小写去重并保留首次出现的写法，最多 10 个。返回的永远不是 nil。
-func normalizeTags(tags []string) ([]string, error) {
-	out := make([]string, 0, len(tags))
-	seen := make(map[string]bool, len(tags))
-	for _, tag := range tags {
-		tag = strings.TrimSpace(tag)
-		if err := checkLine("标签", tag, 1, maxCardTagLen); err != nil {
-			return nil, err
+// normalizeTagIDs 整理卡片的标签主键：必须是正数，去重并保持顺序，最多 10 个。返回的永远不是 nil。
+func normalizeTagIDs(ids []int64) ([]int64, error) {
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, invalidf("标签编号不合法")
 		}
-		if key := strings.ToLower(tag); !seen[key] {
-			seen[key] = true
-			out = append(out, tag)
+		if !slices.Contains(out, id) {
+			out = append(out, id)
 		}
 	}
 	if len(out) > maxCardTags {

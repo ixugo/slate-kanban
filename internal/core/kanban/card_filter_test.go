@@ -26,11 +26,11 @@ func filterFixture(loc *time.Location) (*boardIndex, []*Card) {
 	cards := []*Card{
 		{
 			ID: 1, Key: "K-1", Title: "修复登录 Bug", Description: "用户无法登录", ColumnID: 10, Priority: 3,
-			Tags: []string{"bug", "urgent"}, DueAt: ptr(day(11, 16, 9)), Branch: "fix/login", CreatedAt: day(11, 1, 9), UpdatedAt: day(11, 1, 9),
+			TagIDs: []int64{1, 2}, DueAt: ptr(day(11, 16, 9)), Branch: "fix/login", CreatedAt: day(11, 1, 9), UpdatedAt: day(11, 1, 9),
 		},
 		{
 			ID: 2, Key: "K-2", Title: "Add Dark Mode", Description: "support theme", ColumnID: 20, Priority: 2,
-			Tags: []string{"feature"}, DueAt: ptr(day(11, 17, 18)), StartedAt: ptr(day(11, 12, 9)),
+			TagIDs: []int64{3}, DueAt: ptr(day(11, 17, 18)), StartedAt: ptr(day(11, 12, 9)),
 			ClaimedBy: "claude", ClaimExpiresAt: ptr(day(11, 17, 13)), CreatedAt: day(11, 10, 9), UpdatedAt: day(11, 10, 9),
 		},
 		{
@@ -38,7 +38,7 @@ func filterFixture(loc *time.Location) (*boardIndex, []*Card) {
 			URL: "https://x/1", CreatedAt: day(10, 20, 9), UpdatedAt: day(11, 17, 9),
 		},
 		{
-			ID: 4, Key: "K-4", Title: "重构 API", ColumnID: 10, Priority: 1, Tags: []string{"Feature", "backend"},
+			ID: 4, Key: "K-4", Title: "重构 API", ColumnID: 10, Priority: 1, TagIDs: []int64{4, 5},
 			HumanOnly: true, WaitsOn: []int64{1}, CreatedAt: day(11, 15, 9), UpdatedAt: day(11, 15, 9),
 		},
 		{
@@ -46,7 +46,8 @@ func filterFixture(loc *time.Location) (*boardIndex, []*Card) {
 			ClaimedBy: "codex", ClaimExpiresAt: ptr(day(11, 17, 11)), CreatedAt: day(11, 17, 8), UpdatedAt: day(11, 17, 8),
 		},
 	}
-	return newBoardIndex(filterNow, loc, cols, cards), cards
+	tags := []*Tag{{ID: 1, Text: "bug"}, {ID: 2, Text: "urgent"}, {ID: 3, Text: "feature"}, {ID: 4, Text: "Feature"}, {ID: 5, Text: "backend"}, {ID: 6}}
+	return newBoardIndex(filterNow, loc, cols, tags, cards), cards
 }
 
 // runFilter 解析筛选并返回命中卡片的主键，按卡片主键升序。

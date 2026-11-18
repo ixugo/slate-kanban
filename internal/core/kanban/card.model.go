@@ -21,7 +21,7 @@ type Card struct {
 	Description    string     `gorm:"column:description;type:text;notNull;default:'';comment:描述" json:"description"`
 	Position       float64    `gorm:"column:position;notNull;default:0;index:idx_cards_board_column_pos,priority:3;comment:列内排序位置，越小越靠上" json:"position"`
 	Priority       int        `gorm:"column:priority;notNull;default:0;comment:优先级，0 未设置，1 低，2 中，3 高" json:"priority"`
-	Tags           []string   `gorm:"column:tags;type:text;serializer:json;comment:标签，JSON 数组" json:"tags"`
+	TagIDs         []int64    `gorm:"column:tag_ids;type:text;serializer:json;comment:标签主键，JSON 数组，指向 tags 表" json:"tag_ids"`
 	HumanOnly      bool       `gorm:"column:human_only;notNull;default:FALSE;comment:是否只能由人处理" json:"human_only"`
 	WaitsOn        []int64    `gorm:"column:waits_on;type:text;serializer:json;comment:依赖的卡片主键，JSON 数组" json:"waits_on"`
 	DueAt          *time.Time `gorm:"column:due_at;comment:到期时间" json:"due_at"`
@@ -46,8 +46,8 @@ func (*Card) TableName() string {
 // Normalize 把空的标签和依赖统一成空切片，这样 JSON 里永远是 [] 而不是 null，
 // 前端和 agent 不用到处判空。存储层每次读出卡片后都要调用它。
 func (c *Card) Normalize() {
-	if c.Tags == nil {
-		c.Tags = []string{}
+	if c.TagIDs == nil {
+		c.TagIDs = []int64{}
 	}
 	if c.WaitsOn == nil {
 		c.WaitsOn = []int64{}

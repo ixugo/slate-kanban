@@ -23,9 +23,10 @@ func TestRenderBoardMarkdownGolden(t *testing.T) {
 				CardView: &kanban.CardView{
 					Card: &kanban.Card{
 						ID: 10, ColumnID: 1, Key: "DEMO-1", Title: "第一张卡",
-						Description: "卡片正文", Priority: 2, Tags: []string{"api"},
+						Description: "卡片正文", Priority: 2, TagIDs: []int64{1},
 						DueAt: &due,
 					},
+					Tags:   []string{"api"},
 					Column: "待办",
 				},
 				Comments: []*kanban.Comment{

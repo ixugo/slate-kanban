@@ -91,7 +91,7 @@ func TestExportAttachmentNameDate(t *testing.T) {
 	s := newStack(t)
 	b := s.newBoard(t, "DT")
 	resp := s.human(t, http.MethodGet, "/boards/"+id(b.ID)+"/export?format=md", nil)
-	today := time.Now().Format("20060102")
+	today := time.Now().UTC().Format("20060102") // 服务端用 UTC 时间生成文件名
 	cd := resp.Headers.Get("Content-Disposition")
 	if !strings.Contains(cd, "dt-"+today+".md") {
 		t.Fatalf("文件名应含今天日期: %q", cd)

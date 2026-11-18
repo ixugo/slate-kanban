@@ -2,6 +2,8 @@ package kanban
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 )
@@ -180,10 +182,53 @@ func (r *ruleRun) apply(ctx context.Context, rule *Rule, a RuleAction, depth int
 		return err == nil, "", err
 	case ActionMoveToColumn:
 		return r.move(ctx, rule, a, depth)
+	case ActionAddTag:
+		return r.addTag(ctx, rule, a.Tag)
+	case ActionRemoveTag:
+		return r.removeTag(ctx, a.Tag)
 	}
 	changed, skip := applyFieldAction(r.card, a, r.u.now())
 	r.changed = r.changed || changed
 	return changed, skip, nil
+}
+
+// addTag 执行 add_tag：按文字在标签库里找标签（不区分大小写），没有就新建一个没有颜色的，再加到卡片上。
+// 卡片已经有这个标签什么都不做；卡片标签满了或者标签库满了时跳过并说明原因。
+func (r *ruleRun) addTag(ctx context.Context, rule *Rule, text string) (effect bool, skip string, err error) {
+	ids, added, err := r.u.resolveTagNames(ctx, r.card.BoardID, []string{text}, true)
+	if errors.Is(err, ErrInvalidInput) {
+		return false, fmt.Sprintf("标签库放不下新标签 %q", text), nil
+	}
+	if err != nil {
+		return false, "", err
+	}
+	if added {
+		if err := r.u.emitTagsUpdated(ctx, AutomationActor(rule.Name), r.card.BoardID); err != nil {
+			return false, "", err
+		}
+	}
+	switch {
+	case slices.Contains(r.card.TagIDs, ids[0]):
+		return false, "", nil
+	case len(r.card.TagIDs) >= maxCardTags:
+		return false, fmt.Sprintf("卡片的标签已经有 %d 个，没有加上 %q", maxCardTags, text), nil
+	}
+	r.card.TagIDs = append(r.card.TagIDs, ids[0])
+	r.changed = true
+	return true, "", nil
+}
+
+// removeTag 执行 remove_tag：按文字在标签库里找标签，从卡片上去掉，其他标签的顺序不变；库里没有这个文字就什么都不做。
+func (r *ruleRun) removeTag(ctx context.Context, text string) (effect bool, skip string, err error) {
+	ids, _, err := r.u.resolveTagNames(ctx, r.card.BoardID, []string{text}, false)
+	if err != nil || len(ids) == 0 {
+		return false, "", err
+	}
+	before := len(r.card.TagIDs)
+	r.card.TagIDs = slices.DeleteFunc(r.card.TagIDs, func(id int64) bool { return id == ids[0] })
+	changed := len(r.card.TagIDs) != before
+	r.changed = r.changed || changed
+	return changed, "", nil
 }
 
 // move 执行 move_to_column：把卡片移到目标列末尾，追加 card.moved 事件（操作者是 system），

@@ -38,7 +38,7 @@ func (c Core) ExportBoard(ctx context.Context, _ Actor, boardID int64) (*BoardEx
 		return nil, wrapDB("读取评论", err)
 	}
 	byCard := groupCommentsByCard(allComments)
-	ix := newBoardIndex(c.now(), time.Local, detail.Columns, cards)
+	ix := newBoardIndex(c.now(), time.Local, detail.Columns, detail.Tags, cards)
 	sorted := ix.sortCards(ix.all)
 	out := make([]*ExportCard, len(sorted))
 	for i, card := range sorted {

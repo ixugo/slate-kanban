@@ -31,6 +31,7 @@ type unit struct {
 	event      EventStorer
 	cursor     CursorStorer
 	attachment AttachmentStorer
+	tag        TagStorer
 	touched    map[int64]int64 // 本事务动过的看板 → 其中最大的事件序号，提交后据此广播
 }
 
@@ -54,6 +55,7 @@ func newUnit(c Core, tx orm.Tx) *unit {
 		event:      c.store.Event().WithTx(tx),
 		cursor:     c.store.Cursor().WithTx(tx),
 		attachment: c.store.Attachment().WithTx(tx),
+		tag:        c.store.Tag().WithTx(tx),
 		touched:    make(map[int64]int64),
 	}
 }

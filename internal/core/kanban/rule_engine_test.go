@@ -137,11 +137,11 @@ func TestRuleColumnBinding(t *testing.T) {
 	c := e.card(t, colTodo, "A")
 
 	doing := e.moveTo(t, testActor, c.ID, colDoing)
-	if len(doing.Tags) != 0 || doing.Priority != 2 {
+	if len(doing.TagIDs) != 0 || doing.Priority != 2 {
 		t.Fatalf("进入进行中只应该触发任意列的规则: %+v", doing)
 	}
 	review := e.moveTo(t, testActor, c.ID, colReview)
-	if !slices.Equal(review.Tags, []string{"审查中"}) {
+	if !slices.Equal(e.names(t, review), []string{"审查中"}) {
 		t.Fatalf("进入审查应该触发绑定审查的规则: %+v", review)
 	}
 }
@@ -211,7 +211,7 @@ func TestRuleOrderAndSingleSave(t *testing.T) {
 	c := e.card(t, colTodo, "A")
 
 	moved := e.moveTo(t, testActor, c.ID, colDoing)
-	if moved.Priority != 3 || !slices.Equal(moved.Tags, []string{"急"}) || moved.Version != 2 {
+	if moved.Priority != 3 || !slices.Equal(e.names(t, moved), []string{"急"}) || moved.Version != 2 {
 		t.Fatalf("后面的规则应该覆盖前面的，且版本只加一次: %+v", moved)
 	}
 	if names := firedRuleNames(e.fired(t)); !slices.Equal(names, []string{"先设低", "后设高"}) {
@@ -232,20 +232,21 @@ func TestRuleCreateCardTriggers(t *testing.T) {
 	events := len(e.events(t))
 
 	c := e.card(t, colTodo, "在待办创建")
-	if !slices.Equal(c.Tags, []string{"新建"}) || c.Priority != 2 || c.Version != 2 {
+	if !slices.Equal(e.names(t, c), []string{"新建"}) || c.Priority != 2 || c.Version != 2 {
 		t.Fatalf("两条规则都应该执行，卡片是第二版: %+v", c)
 	}
-	want := []string{kanban.EventCardCreated, kanban.EventAutomationFired, kanban.EventAutomationFired}
+	// 规则加的"新建"在标签库里还没有，会先新建标签并写一条标签库事件
+	want := []string{kanban.EventCardCreated, kanban.EventBoardLabelsUpdated, kanban.EventAutomationFired, kanban.EventAutomationFired}
 	if got := e.eventTypes(t, events); !slices.Equal(got, want) {
 		t.Fatalf("事件顺序应该是 %v，实际 %v", want, got)
 	}
 	idea := e.card(t, colIdea, "在收件箱创建")
-	if len(idea.Tags) != 0 || idea.Priority != 2 {
+	if len(idea.TagIDs) != 0 || idea.Priority != 2 {
 		t.Fatalf("创建在收件箱只应该触发进入任意列的规则: %+v", idea)
 	}
 
 	agentCard, err := e.core.CreateCard(ctx, testAgent, e.board.ID, kanban.CreateCardInput{Title: "agent 创建", ColumnID: e.col(colTodo)})
-	if err != nil || !slices.Equal(agentCard.Tags, []string{"新建"}) {
+	if err != nil || !slices.Equal(e.names(t, agentCard), []string{"新建"}) {
 		t.Fatalf("agent 创建的卡片同样触发规则: %+v %v", agentCard, err)
 	}
 }
@@ -303,7 +304,7 @@ func TestRuleSkippedActionsAreReported(t *testing.T) {
 	}
 
 	moved := e.moveTo(t, testActor, c.ID, colDoing)
-	if moved.ColumnID != e.col(colDoing) || moved.Priority != 2 || len(moved.Tags) != 10 {
+	if moved.ColumnID != e.col(colDoing) || moved.Priority != 2 || len(moved.TagIDs) != 10 {
 		t.Fatalf("移动和能执行的动作应该照常生效: %+v", moved)
 	}
 	fired := e.fired(t)
@@ -330,10 +331,10 @@ func TestRuleFiresOnFinishCard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("完成交接失败: %v", err)
 	}
-	if d.ColumnID != e.col(colReview) || !slices.Equal(d.Tags, []string{"待审查"}) || d.Version != before+1 {
+	if d.ColumnID != e.col(colReview) || !slices.Equal(e.names(t, d.Card), []string{"待审查"}) || d.Version != before+1 {
 		t.Fatalf("交接后应该在审查列、带标签，版本只加一次: %+v", d.Card)
 	}
-	want := []string{kanban.EventCommentAdded, kanban.EventCardMoved, kanban.EventAutomationFired}
+	want := []string{kanban.EventCommentAdded, kanban.EventCardMoved, kanban.EventBoardLabelsUpdated, kanban.EventAutomationFired}
 	if got := e.eventTypes(t, events); !slices.Equal(got, want) {
 		t.Fatalf("事件顺序应该是 %v，实际 %v", want, got)
 	}

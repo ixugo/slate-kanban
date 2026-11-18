@@ -91,8 +91,17 @@ func (u *unit) buildNewCard(ctx context.Context, actor Actor, boardID int64, in 
 		BoardID: boardID, ColumnID: target.ID, Version: 1,
 		CreatedBy: actor.Name, UpdatedBy: actor.Name, CreatedAt: now, UpdatedAt: now,
 	}
-	if _, err := in.asPatch(actor.IsAgent()).apply(card); err != nil {
+	patch, tagsAdded, err := u.resolveCardTags(ctx, boardID, in.asPatch(actor.IsAgent()))
+	if err != nil {
 		return nil, "", err
+	}
+	if _, err := patch.apply(card); err != nil {
+		return nil, "", err
+	}
+	if tagsAdded {
+		if err := u.emitTagsUpdated(ctx, actor, boardID); err != nil {
+			return nil, "", err
+		}
 	}
 	if len(card.WaitsOn) > 0 {
 		if err := u.checkWaitsOn(ctx, boardID, 0, card.WaitsOn); err != nil {
@@ -275,6 +284,15 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 	if in.Version != nil && *in.Version != card.Version {
 		return ErrCardVersionConflict
 	}
+	in, tagsAdded, err := u.resolveCardTags(ctx, card.BoardID, in)
+	if err != nil {
+		return err
+	}
+	if tagsAdded {
+		if err := u.emitTagsUpdated(ctx, actor, card.BoardID); err != nil {
+			return err
+		}
+	}
 	changed, err := in.apply(card)
 	if err != nil || len(changed) == 0 {
 		return err
@@ -295,7 +313,7 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 // 其余字段写 card.updated，同时改了两类就两条都写。
 // 标签变化很琐碎，拆成独立类型后，网页的活动流可以用 exclude_types 把它整条排除，而实时广播照常有。
 func (u *unit) emitCardUpdates(ctx context.Context, actor Actor, card *Card, changed []string) error {
-	rest := slices.DeleteFunc(slices.Clone(changed), func(f string) bool { return f == "tags" })
+	rest := slices.DeleteFunc(slices.Clone(changed), func(f string) bool { return f == "tag_ids" })
 	if len(rest) > 0 {
 		ev := newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardUpdated, Payload: cardPayload(card, map[string]any{"fields": rest})}
 		if err := u.emit(ctx, actor, ev); err != nil {
@@ -305,6 +323,6 @@ func (u *unit) emitCardUpdates(ctx context.Context, actor Actor, card *Card, cha
 	if len(rest) == len(changed) {
 		return nil
 	}
-	ev := newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardTagsUpdated, Payload: cardPayload(card, map[string]any{"fields": []string{"tags"}})}
+	ev := newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardTagsUpdated, Payload: cardPayload(card, map[string]any{"fields": []string{"tag_ids"}})}
 	return u.emit(ctx, actor, ev)
 }

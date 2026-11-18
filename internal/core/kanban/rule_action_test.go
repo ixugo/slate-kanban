@@ -1,7 +1,6 @@
 package kanban
 
 import (
-	"slices"
 	"testing"
 	"time"
 )
@@ -86,38 +85,6 @@ func TestApplyPriorityAndHumanOnly(t *testing.T) {
 	}
 	if changed, _ := applyFieldAction(card, RuleAction{Type: ActionSetHumanOnly, Flag: false}, actionNow); !changed || card.HumanOnly {
 		t.Fatalf("应该取消仅限人处理")
-	}
-}
-
-// TestApplyAddTag 验证加标签：新标签追加在最后；已有（不区分大小写）不重复也不算跳过；
-// 已经满 10 个时跳过并说明原因，卡片不变。
-func TestApplyAddTag(t *testing.T) {
-	card := &Card{Tags: []string{"后端"}}
-	if changed, skip := applyFieldAction(card, RuleAction{Type: ActionAddTag, Tag: "Urgent"}, actionNow); !changed || skip != "" || !slices.Equal(card.Tags, []string{"后端", "Urgent"}) {
-		t.Fatalf("新标签应该追加在最后: %v", card.Tags)
-	}
-	if changed, skip := applyFieldAction(card, RuleAction{Type: ActionAddTag, Tag: "urgent"}, actionNow); changed || skip != "" || len(card.Tags) != 2 {
-		t.Fatalf("已有的标签不应该重复添加，也不算跳过: %v %q", card.Tags, skip)
-	}
-
-	full := &Card{Tags: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}}
-	changed, skip := applyFieldAction(full, RuleAction{Type: ActionAddTag, Tag: "11"}, actionNow)
-	if changed || skip == "" || len(full.Tags) != 10 {
-		t.Fatalf("标签已满应该跳过并说明原因: changed=%v skip=%q tags=%v", changed, skip, full.Tags)
-	}
-	if changed, skip := applyFieldAction(full, RuleAction{Type: ActionAddTag, Tag: "3"}, actionNow); changed || skip != "" {
-		t.Fatalf("标签已满但要加的标签已有，应该什么都不做: changed=%v skip=%q", changed, skip)
-	}
-}
-
-// TestApplyRemoveTag 验证去标签：不区分大小写，其他标签顺序不变，没有这个标签不算变化。
-func TestApplyRemoveTag(t *testing.T) {
-	card := &Card{Tags: []string{"a", "Bug", "c"}}
-	if changed, _ := applyFieldAction(card, RuleAction{Type: ActionRemoveTag, Tag: "bug"}, actionNow); !changed || !slices.Equal(card.Tags, []string{"a", "c"}) {
-		t.Fatalf("应该去掉 Bug 并保持其他顺序: %v", card.Tags)
-	}
-	if changed, _ := applyFieldAction(card, RuleAction{Type: ActionRemoveTag, Tag: "bug"}, actionNow); changed {
-		t.Fatalf("没有这个标签不算变化")
 	}
 }
 
