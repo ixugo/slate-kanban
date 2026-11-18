@@ -18,6 +18,7 @@ import { useBoardKeyboard } from './useBoardKeyboard'
 import { BoardToolbar } from './BoardToolbar'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardGone } from './BoardGone'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 const CardDialog = lazy(() => import('@/features/card/CardDialog'))
 
@@ -114,6 +115,7 @@ export default function BoardPage() {
   }
 
   return (
+    <TooltipProvider>
     <div className="flex min-h-0 flex-1 flex-col">
       <BoardToolbar
         board={snapshot}
@@ -148,5 +150,6 @@ export default function BoardPage() {
         <CardDialog boardId={boardId} />
       </Suspense>
     </div>
+    </TooltipProvider>
   )
 }
