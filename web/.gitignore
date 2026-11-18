@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Playwright 端到端测试的失败截图和 trace
+e2e/.results
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,0 +1,25 @@
+{
+  // 端到端测试（Playwright）的类型检查：代码跑在 Node 里，但会读取 src 里的接口类型和文案，
+  // 所以模块按打包器的规则解析（和 src 一致）；page.evaluate 里的回调要用到 DOM 类型。
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "paths": { "@/*": ["./src/*"] },
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}
