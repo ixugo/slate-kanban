@@ -104,6 +104,26 @@ statsviz:
 # QUALITY CONTROL
 # ==================================================================================== #
 
+## test-postgres: 启动一次性 PostgreSQL 容器并跑看板存储层测试（需本机 docker）
+.PHONY: test-postgres
+test-postgres:
+	@set -euo pipefail; \
+	SUFFIX=$$(openssl rand -hex 4); \
+	NAME="slate-pg-test-$$SUFFIX"; \
+	PGPASS=$$(openssl rand -hex 12); \
+	PORT=$$(python3 -c 'import socket; s=socket.socket(); s.bind(("",0)); print(s.getsockname()[1]); s.close()'); \
+	cleanup() { docker rm -f "$$NAME" >/dev/null 2>&1 || true; }; \
+	trap cleanup EXIT; \
+	echo "启动 Postgres 容器 $$NAME 映射端口 $$PORT ..."; \
+	docker run -d --name "$$NAME" -e POSTGRES_PASSWORD="$$PGPASS" -p "127.0.0.1:$$PORT:5432" postgres:16-alpine >/dev/null; \
+	deadline=$$(($$(date +%s) + 60)); \
+	until docker exec "$$NAME" pg_isready -U postgres -q; do \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then echo "Postgres 启动超时"; docker logs "$$NAME"; exit 1; fi; \
+		sleep 0.3; \
+	done; \
+	export SLATE_TEST_POSTGRES_DSN="postgres://postgres:$$PGPASS@127.0.0.1:$$PORT/postgres?sslmode=disable"; \
+	go test -race -count=1 ./internal/core/kanban/stores/kanbandb/...
+
 ## audit: 检查代码依赖/格式化/测试
 .PHONY: audit
 audit:
