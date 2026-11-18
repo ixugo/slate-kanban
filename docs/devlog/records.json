@@ -336,10 +336,10 @@
     },
     {
       "column": "待办",
-      "title": "清理没有启用的配置热加载及其有数据竞争的测试",
+      "title": "清理不生效的配置热加载及其有数据竞争的测试",
       "priority": 1,
       "tags": ["后端", "缺陷"],
-      "description": "`internal/conf/watcher.go` 的 `WatchConfig` 是 goddd 模板带来的，Slate 没有调用它（修改配置需要重启），但它的测试在 `go test -race ./internal/conf/` 下报数据竞争。\n\n验收：要么删掉没用的热加载和它的测试，要么修好竞争；`go test -race ./internal/...` 全部通过。"
+      "description": "`app.Run` 启动了 goddd 模板带来的 `conf.WatchConfig` 轮询配置文件，但回调 `webhookWorkersReloader`（模板遗留的名字）只打一条「配置变更」日志，什么都不会改，所以修改配置仍然要重启。`internal/conf/watcher_test.go` 在 `go test -race ./internal/conf/` 下还会报数据竞争。\n\n验收：要么删掉这个没有实际作用的监听、回调和测试，要么真正实现热加载并修好竞争；`go test -race ./internal/...` 全部通过。"
     },
     {
       "column": "想法池",
