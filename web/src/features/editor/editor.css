@@ -24,8 +24,10 @@
 
 .md-editor[data-empty]::before {
   content: attr(data-placeholder);
-  position: absolute;
-  inset: 0 auto auto 0;
+  /* 高度为 0 的块：按正常流排版，所以自带编辑区的内边距，和输入的文字左右对齐 */
+  display: block;
+  height: 0;
+  overflow: visible;
   color: var(--muted-foreground);
   pointer-events: none;
 }
