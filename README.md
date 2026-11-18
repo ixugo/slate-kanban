@@ -33,6 +33,23 @@ docker compose up -d --build   # 然后打开 http://127.0.0.1:7070
 
 数据库和日志在命名卷 `slate-data` 里，重建容器不会丢。`docker-compose.yml` 默认只把端口映射到宿主机的 `127.0.0.1`。
 
+### 开机自启
+
+在项目目录里（要和手工 `./slate` 时同一目录，这样数据库和 `logs/` 路径一致）：
+
+```sh
+./slate service print                    # 预览当前系统的服务文件（也可 --platform launchd|systemd）
+./slate service install [-conf ./configs]   # 写到当前用户目录，不自动加载
+./slate service uninstall                # 只删除服务文件，不自动停服务
+```
+
+`install` 只会生成文件：macOS 写到 `~/Library/LaunchAgents/dev.slate.kanban.plist`，Linux 写到 `~/.config/systemd/user/slate.service`。**程序不会替你执行 `launchctl` 或 `systemctl`**，终端里会打印接下来要手工跑的命令，例如：
+
+- **macOS**：`launchctl bootstrap gui/<uid> <plist路径>`，再 `launchctl kickstart -k gui/<uid>/dev.slate.kanban`。用户级 LaunchAgent 在你**登录之后**才会拉起，不是未登录时的系统级开机自启。日志可在项目 `logs/slate-service.stdout.log` 查看。
+- **Linux**：`systemctl --user daemon-reload`，再 `systemctl --user enable --now slate.service`。若希望**没人登录也在开机后运行**，还需一次 `loginctl enable-linger <你的用户名>`。日志用 `journalctl --user -u slate.service -f`。
+
+卸载前先按提示 `launchctl bootout` 或 `systemctl --user disable --now`，再 `./slate service uninstall`。可用 `install --dry-run` / `uninstall --dry-run` 只看会写什么、删什么。
+
 ### 第一个项目
 
 1. 打开网页，点「新建项目」，填名称，再用开关选起步模板：
@@ -159,6 +176,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 │   │   └── connectapi/          接入说明（/install.md、/skills/…、/api/v1/connect）
 │   ├── web/mcpapi/              MCP 服务（/mcp）：两套工具视图、通知、内嵌 skill
 │   ├── web/spa/                 嵌入前端产物并提供 gzip 静态服务
+│   ├── svcinstall/              开机自启：生成并安装 launchd / systemd 服务文件（./slate service）
 │   └── conf/、app/、data/       配置、依赖装配（Wire）、数据库
 ├── web/                         前端：React 19 + Vite + Tailwind 4 + TanStack Query + shadcn/ui
 ├── skills/slate-kanban/         agent 用的 skill（编译进程序，也可从服务下载）
