@@ -48,6 +48,35 @@ wire:
 	go generate ./...
 	go mod tidy
 
+## run: 启动后端（开发模式，不带前端；前端用 make web/dev，或先 make web/build 再 go run -tags embed_web .）
+.PHONY: run
+run:
+	go run .
+
+# 前端依赖目录不存在，或比锁文件旧时才重新安装；下面的 web/ 目标都依赖它，所以不用手动先装依赖
+web/node_modules: web/package-lock.json
+	cd web && npm ci
+	@touch web/node_modules
+
+## web/install: 安装前端依赖（已是最新就跳过）
+.PHONY: web/install
+web/install: web/node_modules
+
+## web/dev: 启动前端开发服务器（5173），接口和 MCP 转发到本机 7070 的后端
+.PHONY: web/dev
+web/dev: web/node_modules
+	cd web && npm run dev
+
+## web/test: 前端类型检查、代码检查和单元测试
+.PHONY: web/test
+web/test: web/node_modules
+	cd web && npm run typecheck && npm run lint && npm run test
+
+## web/build: 构建前端，产物写进 internal/web/spa/dist，并检查体积预算
+.PHONY: web/build
+web/build: web/node_modules
+	cd web && npm run build
+
 
 ## expva/http: 监听网络请求指标
 expva/http:
@@ -148,31 +177,40 @@ BUILD_DIR_ROOT	:= ./build
 # 常量定义，如需修改，请修改命令内的变量
 GOOS		= $(shell go env GOOS)
 GOARCH		= $(shell go env GOARCH)
-# cgo 默认跟随环境变量，如果明确不用 cgo，可以设置为 0
-CGO_ENABLED	= $(shell go env CGO_ENABLED)
+# 本项目的依赖都是纯 Go（SQLite 用 glebarez/sqlite），关闭 cgo 才能在本机交叉编译出静态程序
+CGO_ENABLED	= 0
+# 编译进程序的版本信息，build 和 build/local 共用
+LDFLAGS		= -s -w \
+	-X main.buildVersion=$(VERSION) \
+	-X main.gitBranch=$(BRANCH) \
+	-X main.gitHash=$(HASH_AND_DATE) \
+	-X main.buildTime=$(shell date +%s) \
+	-X main.release=true
 
 IMAGE_NAME	:= $(MODULE_NAME):latest
+
+## build: 构建前端并编译出带前端的单文件程序 ./slate（本机直接运行用）
+.PHONY: build
+build: web/build
+	@echo 'Building $(VERSION) ./slate...'
+	@CGO_ENABLED=$(CGO_ENABLED) go build -tags embed_web -trimpath -ldflags="$(LDFLAGS)" -o slate .
+	@echo '>>> OK: ./slate'
 
 ## build/clean: 清理构建缓存目录
 .PHONY: build/clean
 build/clean:
 	@rm -rf $(BUILD_DIR_ROOT)/*
 
-## build/local: 构建本地应用
+## build/local: 构建指定系统和架构的应用（带前端），输出到 ./build/<系统>_<架构>/bin
 .PHONY: build/local
-build/local:
+build/local: web/build
 	$(eval dir := $(BUILD_DIR_ROOT)/$(GOOS)_$(GOARCH))
 	@echo 'Building $(VERSION) $(dir)...'
 	@rm -rf $(dir)
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
+		-tags embed_web \
 		-trimpath \
-		-ldflags="-s -w \
-			-X main.buildVersion=$(VERSION) \
-			-X main.gitBranch=$(BRANCH) \
-			-X main.gitHash=$(HASH_AND_DATE) \
-			-X main.buildTime=$(shell date +%s) \
-			-X main.release=true \
-			" -o=$(dir)/bin ./main.go
+		-ldflags="$(LDFLAGS)" -o=$(dir)/bin .
 	@echo '>>> OK'
 
 ## build/linux: 构建 linux 应用
@@ -191,8 +229,9 @@ build/windows:
 	$(eval GOOS := windows)
 	@make build/local GOOS=$(GOOS) GOARCH=$(GOARCH)
 
+## docker/build: 用多阶段 Dockerfile 构建镜像（前端和后端都在镜像里编译，本机不需要装 node 和 go）
 docker/build:
-	@docker build --force-rm=true --platform linux/amd64 -t $(IMAGE_NAME) .
+	@docker build --force-rm=true --build-arg VERSION=$(VERSION) -t $(IMAGE_NAME) .
 
 docker/save:
 	@docker save -o $(MODULE_NAME)_$(VERSION).tar $(IMAGE_NAME)
@@ -200,20 +239,9 @@ docker/save:
 docker/push:
 	@docker push $(IMAGE_NAME)
 
-docker/publish: build/clean
-	$(eval GOARCH := amd64)
-	$(eval GOOS := linux)
-	$(eval dir := $(BUILD_DIR_ROOT)/$(GOOS)_$(GOARCH))
-	@make build/local GOOS=$(GOOS) GOARCH=$(GOARCH)
-	@upx $(dir)/bin
-
-	$(eval GOARCH := arm64)
-	$(eval GOOS := linux)
-	$(eval dir := $(BUILD_DIR_ROOT)/$(GOOS)_$(GOARCH))
-	@make build/local GOOS=$(GOOS) GOARCH=$(GOARCH)
-	@upx $(dir)/bin
-
-	@docker build --force-rm=true --platform linux/amd64,linux/arm64 -t $(IMAGE_NAME) --push .
+## docker/publish: 构建 amd64 和 arm64 两个架构的镜像并推送（会上传镜像，只在确认发布时运行）
+docker/publish:
+	@docker buildx build --force-rm=true --build-arg VERSION=$(VERSION) --platform linux/amd64,linux/arm64 -t $(IMAGE_NAME) --push .
 
 
 # ==================================================================================== #
