@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"slate-kanban/internal/conf"
 )
 
 // Env 承载安装时可注入的路径和系统信息，测试里用临时目录代替真实主目录。
@@ -69,8 +71,12 @@ func resolveExecutable() (string, error) {
 	return exe, nil
 }
 
-// ServiceInput 把相对配置目录转成绝对路径，并与工作目录、可执行路径一起返回。
+// ServiceInput 把配置目录转成绝对路径，并与工作目录、可执行路径一起返回。
+// confFlag 为空时用用户主目录下的默认目录（conf.DefaultDirName），相对路径以工作目录为基准。
 func (e *Env) ServiceInput(confFlag string) ServiceInput {
+	if confFlag == "" {
+		confFlag = filepath.Join(e.HomeDir, conf.DefaultDirName)
+	}
 	confAbs := confFlag
 	if !filepath.IsAbs(confFlag) {
 		confAbs = filepath.Join(e.WorkDir, confFlag)
@@ -101,4 +107,10 @@ func (e *Env) ContentForPlatform(platform, confFlag string) string {
 	default:
 		return ""
 	}
+}
+
+// LogDir 返回配置目录下存放日志的目录；launchd 托管进程的标准输出和错误也写在这里，
+// 和程序自己的日志放在一起，换启动目录或改成服务方式都不会丢。
+func LogDir(confDir string) string {
+	return filepath.Join(confDir, "logs")
 }

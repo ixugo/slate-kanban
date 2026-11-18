@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-// ServiceInput 生成服务文件时需要的三个绝对路径：可执行文件、配置目录、工作目录。
+// ServiceInput 生成服务文件时需要的三个绝对路径：可执行文件、配置目录（配置、数据库、日志都在里面）、工作目录。
 type ServiceInput struct {
 	Executable string
 	ConfDir    string
@@ -14,8 +14,8 @@ type ServiceInput struct {
 // GenerateLaunchdPlist 生成 macOS LaunchAgent 的 plist XML；ProgramArguments 逐项列出，避免 shell 转义问题。
 // RunAtLoad 让加载（或下次登录）时立刻启动，KeepAlive 让进程退出后自动拉起。
 func GenerateLaunchdPlist(in ServiceInput) string {
-	stdout := in.WorkDir + "/logs/" + stdoutLogName
-	stderr := in.WorkDir + "/logs/" + stderrLogName
+	stdout := LogDir(in.ConfDir) + "/" + stdoutLogName
+	stderr := LogDir(in.ConfDir) + "/" + stderrLogName
 	lines := []string{
 		`<?xml version="1.0" encoding="UTF-8"?>`,
 		`<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">`,

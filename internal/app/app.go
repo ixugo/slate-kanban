@@ -67,7 +67,11 @@ func Run(bc *conf.Bootstrap) {
 
 // SetupLog 初始化日志
 func SetupLog(bc *conf.Bootstrap) (*slog.Logger, func()) {
-	logDir := filepath.Join(system.Getwd(), bc.Log.Dir)
+	// 配置里写绝对路径就直接用（默认配置就是配置目录下的 logs），相对路径以启动目录为基准
+	logDir := bc.Log.Dir
+	if !filepath.IsAbs(logDir) {
+		logDir = filepath.Join(system.Getwd(), logDir)
+	}
 
 	return logger.SetupSlog(logger.Config{
 		FileConfig: logger.FileConfig{

@@ -94,7 +94,7 @@ func cmdInstall(stdout, stderr io.Writer, env *Env, args []string) int {
 	if opts.dryRun {
 		content := env.ContentForPlatform(platform, opts.conf)
 		path := ServiceFilePath(env.HomeDir, platform)
-		fmt.Fprint(stdout, FormatDryRunInstall(env, platform, path, content))
+		fmt.Fprint(stdout, FormatDryRunInstall(env, platform, path, LogDir(env.ServiceInput(opts.conf).ConfDir), content))
 		return 0
 	}
 	path, _, wr, err := InstallService(env, platform, opts.conf, false)
@@ -102,7 +102,7 @@ func cmdInstall(stdout, stderr io.Writer, env *Env, args []string) int {
 		fmt.Fprintf(stderr, "安装失败: %v\n", err)
 		return 1
 	}
-	fmt.Fprint(stdout, FormatInstallFollowUp(env, platform, path, wr))
+	fmt.Fprint(stdout, FormatInstallFollowUp(env, platform, path, LogDir(env.ServiceInput(opts.conf).ConfDir), wr))
 	return 0
 }
 
@@ -154,7 +154,7 @@ type uninstallOpts struct {
 
 // parseCommonFlags 解析 -conf、--platform、--dry-run；allowPlatform 为 true 时接受 --platform。
 func parseCommonFlags(args []string, allowPlatform bool) (flagOpts, error) {
-	opts := flagOpts{conf: "./configs"}
+	opts := flagOpts{} // conf 为空表示用默认目录 ~/.slate-kanban，在 ServiceInput 里换成绝对路径
 	i := 0
 	for i < len(args) {
 		a := args[i]

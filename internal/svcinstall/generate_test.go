@@ -65,8 +65,8 @@ func TestLaunchdContentNormalPath(t *testing.T) {
 		"-conf",
 		"/home/user/proj/configs",
 		"/home/user/proj",
-		"/home/user/proj/logs/slate-service.stdout.log",
-		"/home/user/proj/logs/slate-service.stderr.log",
+		"/home/user/proj/configs/logs/slate-service.stdout.log",
+		"/home/user/proj/configs/logs/slate-service.stderr.log",
 	}
 	if gotStrings := plistStrings(t, got); strings.Join(gotStrings, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("plist 里的字符串不对\nwant: %q\ngot:  %q", want, gotStrings)
@@ -84,7 +84,7 @@ func TestLaunchdContentSpecialChars(t *testing.T) {
 	conf := `/home/user/my "proj"/configs`
 	work := "/home/user/my <proj>'s"
 	got := plistStrings(t, GenerateLaunchdPlist(testInput(exe, conf, work)))
-	want := []string{"dev.slate.kanban", exe, "-conf", conf, work, work + "/logs/slate-service.stdout.log", work + "/logs/slate-service.stderr.log"}
+	want := []string{"dev.slate.kanban", exe, "-conf", conf, work, conf + "/logs/slate-service.stdout.log", conf + "/logs/slate-service.stderr.log"}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("特殊字符没有原样还原\nwant: %q\ngot:  %q", want, got)
 	}
