@@ -22,6 +22,7 @@ func (d Board) WithTx(tx orm.Tx) kanban.BoardStorer {
 
 // Create 新增一个看板。
 func (d Board) Create(ctx context.Context, model *kanban.Board) error {
+	model.Normalize()
 	return d.db.WithContext(ctx).Create(model).Error
 }
 
@@ -30,6 +31,7 @@ func (d Board) Save(ctx context.Context, model *kanban.Board) error {
 	if model.ID == 0 {
 		panic("kanbandb.Board.Save: model.ID is zero, primary key is required")
 	}
+	model.Normalize()
 	return d.db.WithContext(ctx).Save(model).Error
 }
 
@@ -47,6 +49,7 @@ func (d Board) GetByID(ctx context.Context, id int64) (*kanban.Board, error) {
 	if err := d.db.WithContext(ctx).Where("id = ?", id).Take(&out).Error; err != nil {
 		return nil, err
 	}
+	out.Normalize()
 	return &out, nil
 }
 
@@ -56,6 +59,7 @@ func (d Board) GetBySlug(ctx context.Context, slug string) (*kanban.Board, error
 	if err := d.db.WithContext(ctx).Where("slug = ?", slug).Take(&out).Error; err != nil {
 		return nil, err
 	}
+	out.Normalize()
 	return &out, nil
 }
 
@@ -64,6 +68,9 @@ func (d Board) List(ctx context.Context) ([]*kanban.Board, error) {
 	items := make([]*kanban.Board, 0)
 	if err := d.db.WithContext(ctx).Order("id ASC").Find(&items).Error; err != nil {
 		return nil, err
+	}
+	for _, b := range items {
+		b.Normalize()
 	}
 	return items, nil
 }
@@ -75,6 +82,7 @@ func (d Board) Lock(ctx context.Context, id int64) (*kanban.Board, error) {
 	if err != nil {
 		return nil, err
 	}
+	out.Normalize()
 	return &out, nil
 }
 

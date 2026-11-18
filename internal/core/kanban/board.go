@@ -122,8 +122,8 @@ func (c Core) GetBoard(ctx context.Context, id int64) (*BoardDetail, error) {
 	return &BoardDetail{Board: b, Columns: cols, Rules: rules}, nil
 }
 
-// UpdateBoard 修改看板的名称、说明或项目路径，只更新入参里出现的字段。
-// 人可以改全部三项；agent 只能在项目路径为空时写入项目路径，其他一律拒绝。
+// UpdateBoard 修改看板的名称、说明、项目路径或标签库，只更新入参里出现的字段。
+// 人可以改全部字段；agent 只能在项目路径为空时写入项目路径，其他一律拒绝。
 // 没有字段真的变化时直接返回当前看板，不写事件。
 func (c Core) UpdateBoard(ctx context.Context, actor Actor, id int64, in UpdateBoardInput) (*Board, error) {
 	if err := actor.Validate(); err != nil {
@@ -148,6 +148,15 @@ func (c Core) UpdateBoard(ctx context.Context, actor Actor, id int64, in UpdateB
 		}
 		out = b
 		changed := in.apply(b)
+		if in.Labels != nil {
+			labelsChanged, err := u.applyLabels(ctx, b, *in.Labels)
+			if err != nil {
+				return err
+			}
+			if labelsChanged {
+				changed = append(changed, "labels")
+			}
+		}
 		if len(changed) == 0 {
 			return nil
 		}
@@ -172,7 +181,7 @@ func checkBoardPatchAllowed(actor Actor, in UpdateBoardInput) error {
 	switch {
 	case actor.IsHuman():
 		return nil
-	case actor.IsAgent() && in.Name == nil && in.Description == nil && in.ProjectPath != nil:
+	case actor.IsAgent() && in.Name == nil && in.Description == nil && in.Labels == nil && in.ProjectPath != nil:
 		return nil
 	}
 	return ErrHumanOnly.WithMsg("agent 只能在项目路径为空时写入项目路径，其他修改只允许人执行")

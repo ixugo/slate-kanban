@@ -42,3 +42,27 @@ func TestBoardProjectPath(t *testing.T) {
 		t.Fatalf("应该能写项目路径: %+v", set)
 	}
 }
+
+// TestBoardLabels 验证通过 REST 维护标签库：新建返回编号，改名同步到卡片，非法颜色返回 400，
+// 看板详情和快照里都带着标签库，没有标签库时是空数组。
+func TestBoardLabels(t *testing.T) {
+	s := newStack(t)
+	b := s.newBoard(t, "LAB")
+	path := "/boards/" + id(b.ID)
+	if got := decode[board](t, s.human(t, http.MethodGet, path, nil)); got.Labels == nil || len(got.Labels) != 0 {
+		t.Fatalf("没有标签库应该是空数组: %+v", got.Labels)
+	}
+
+	set := decode[board](t, s.human(t, http.MethodPatch, path, map[string]any{"labels": []map[string]string{{"name": "bug", "color": "red-2"}}}))
+	if len(set.Labels) != 1 || set.Labels[0]["name"] != "bug" || len(set.Labels[0]["id"].(string)) != 8 {
+		t.Fatalf("标签库不对: %+v", set.Labels)
+	}
+	labelID := set.Labels[0]["id"].(string)
+	wantFail(t, "非法颜色", s.human(t, http.MethodPatch, path, map[string]any{"labels": []map[string]string{{"name": "x", "color": "teal-9"}}}),
+		http.StatusBadRequest, "ErrInvalidInput")
+
+	snap := s.human(t, http.MethodGet, path+"/snapshot", nil)
+	if !strings.Contains(string(snap.Body), `"labels":[{"id":"`+labelID+`"`) {
+		t.Fatalf("快照里应该带标签库: %s", snap.Body)
+	}
+}

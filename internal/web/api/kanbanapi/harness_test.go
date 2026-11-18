@@ -117,6 +117,7 @@ type (
 		Slug        string           `json:"slug"`
 		Description string           `json:"description"`
 		ProjectPath string           `json:"project_path"`
+		Labels      []map[string]any `json:"labels"`
 		Columns     []column         `json:"columns"`
 		Rules       []map[string]any `json:"rules"`
 	}

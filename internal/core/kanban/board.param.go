@@ -50,6 +50,9 @@ type UpdateBoardInput struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	ProjectPath *string `json:"project_path"`
+	// Labels 整体替换标签库：库里原有、入参里没有的算删除，编号相同名称不同的算改名，
+	// 改名和删除会同步到所有卡片。只允许人修改。
+	Labels *[]LabelInput `json:"labels"`
 }
 
 // normalize 整理并校验创建入参：去掉首尾空白，slug 转大写，模板缺省为 dev。
@@ -96,6 +99,13 @@ func (in *UpdateBoardInput) normalize() error {
 		if err := checkText("看板说明", *in.Description, 0, maxBoardDescLen); err != nil {
 			return err
 		}
+	}
+	if in.Labels != nil {
+		labels, err := normalizeLabelInputs(*in.Labels)
+		if err != nil {
+			return err
+		}
+		in.Labels = &labels
 	}
 	if in.ProjectPath != nil {
 		return validateProjectPath(*in.ProjectPath)
