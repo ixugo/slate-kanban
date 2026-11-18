@@ -1,239 +1,147 @@
 // 安全的 Markdown 渲染：不解析原始 HTML，链接只放行 http、https、mailto。
-// 不接 react-markdown，避免把解析库打进首屏；输出全是 React 节点，不用 dangerouslySetInnerHTML。
+// 输出全是 React 节点，不用 dangerouslySetInnerHTML；也不接 react-markdown，避免把解析库打进首屏。
+// 解析交给 lib/md（和编辑器共用一份），这里只负责把块树和行内节点画成界面。
 
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
+import { parseBlocks, type Block, type ListItem } from '@/lib/md/blocks'
+import { parseInline, type Inline } from '@/lib/md/inline'
 import { cn } from '@/lib/utils'
 
-/** 判断链接协议是否允许在新标签页打开 */
-function isSafeHref(href: string): boolean {
-  const trimmed = href.trim()
-  return /^(https?:\/\/|mailto:)/i.test(trimmed)
+/** 各级标题的字号字重（下标就是级别，0 不用） */
+const HEADING_CLASS = [
+  '',
+  'text-lg font-semibold',
+  'text-base font-semibold',
+  'text-sm font-semibold',
+  'text-sm font-medium',
+  'text-xs font-semibold',
+  'text-xs font-medium text-muted-foreground',
+] as const
+
+const CODE_CLASS = 'rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[0.9em]'
+
+/** 渲染时要用到的上下文：id 前缀用来给任务项的文字起不重复的 id，onToggleTask 不为空时勾选框可点 */
+interface Ctx {
+  prefix: string
+  onToggleTask?: (line: number) => void
 }
 
-/** 把行内 Markdown（粗体、斜体、代码、链接）拆成 React 片段 */
-function parseInline(text: string, keyPrefix: string): ReactNode[] {
-  const out: ReactNode[] = []
-  let rest = text
-  let part = 0
-  const pushText = (s: string) => {
-    if (s) out.push(s)
-  }
-  while (rest.length > 0) {
-    const code = rest.match(/^`([^`]+)`/)
-    if (code) {
-      pushText('')
-      out.push(
-        <code key={`${keyPrefix}-c${part++}`} className="rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[0.9em]">
-          {code[1]}
-        </code>,
-      )
-      rest = rest.slice(code[0].length)
-      continue
-    }
-    const link = rest.match(/^\[([^\]]+)\]\(([^)]+)\)/)
-    if (link) {
-      const label = link[1]
-      const href = link[2]
-      if (isSafeHref(href)) {
-        out.push(
-          <a
-            key={`${keyPrefix}-a${part++}`}
-            href={href}
-            rel="noopener noreferrer"
-            target="_blank"
-            className="text-primary underline underline-offset-2"
-          >
-            {label}
-          </a>,
+/** 把行内节点画成 React 片段；链接的协议已经在解析时筛过，这里只管画 */
+function renderInline(nodes: readonly Inline[], key: string): ReactNode[] {
+  return nodes.map((node, i) => {
+    const k = `${key}.${i}`
+    switch (node.kind) {
+      case 'text':
+        return node.text
+      case 'esc':
+        return node.char
+      case 'code':
+        return (
+          <code key={k} className={CODE_CLASS}>
+            {node.text}
+          </code>
         )
-      } else {
-        pushText(`[${label}](${href})`)
+      case 'link':
+        return (
+          <a key={k} href={node.href} rel="noopener noreferrer" target="_blank" className="text-primary underline underline-offset-2">
+            {renderInline(node.children, k)}
+          </a>
+        )
+      case 'span': {
+        const Tag = node.tag
+        return <Tag key={k}>{renderInline(node.children, k)}</Tag>
       }
-      rest = rest.slice(link[0].length)
-      continue
     }
-    const bold = rest.match(/^\*\*([^*]+)\*\*/)
-    if (bold) {
-      out.push(<strong key={`${keyPrefix}-b${part++}`}>{bold[1]}</strong>)
-      rest = rest.slice(bold[0].length)
-      continue
-    }
-    const italic = rest.match(/^\*([^*]+)\*/)
-    if (italic) {
-      out.push(<em key={`${keyPrefix}-i${part++}`}>{italic[1]}</em>)
-      rest = rest.slice(italic[0].length)
-      continue
-    }
-    const next = rest.search(/[`[*]/)
-    if (next === -1) {
-      pushText(rest)
-      break
-    }
-    pushText(rest.slice(0, next))
-    rest = rest.slice(next)
-  }
-  return out.length > 0 ? out : [text]
+  })
 }
 
-type Block =
-  | { kind: 'code'; lines: string[] }
-  | { kind: 'heading'; level: number; text: string }
-  | { kind: 'hr' }
-  | { kind: 'quote'; lines: string[] }
-  | { kind: 'ul'; items: { checked?: boolean; text: string }[] }
-  | { kind: 'ol'; items: string[] }
-  | { kind: 'p'; text: string }
-
-/** 把全文切成块级结构，再交给 React 渲染 */
-function parseBlocks(source: string): Block[] {
-  const lines = source.replace(/\r\n/g, '\n').split('\n')
-  const blocks: Block[] = []
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i]
-    if (line.trim() === '') {
-      i += 1
-      continue
-    }
-    if (line.startsWith('```')) {
-      const buf: string[] = []
-      i += 1
-      while (i < lines.length && !lines[i].startsWith('```')) {
-        buf.push(lines[i])
-        i += 1
-      }
-      if (i < lines.length) i += 1
-      blocks.push({ kind: 'code', lines: buf })
-      continue
-    }
-    const heading = line.match(/^(#{1,3})\s+(.+)$/)
-    if (heading) {
-      blocks.push({ kind: 'heading', level: heading[1].length, text: heading[2] })
-      i += 1
-      continue
-    }
-    if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line.trim())) {
-      blocks.push({ kind: 'hr' })
-      i += 1
-      continue
-    }
-    if (line.startsWith('>')) {
-      const buf: string[] = []
-      while (i < lines.length && (lines[i].startsWith('>') || lines[i].trim() === '')) {
-        if (lines[i].startsWith('>')) buf.push(lines[i].replace(/^>\s?/, ''))
-        else if (buf.length > 0) break
-        i += 1
-      }
-      blocks.push({ kind: 'quote', lines: buf })
-      continue
-    }
-    const task = line.match(/^[-*]\s+\[([ xX])\]\s+(.+)$/)
-    const bullet = line.match(/^[-*]\s+(.+)$/)
-    const ordered = line.match(/^\d+\.\s+(.+)$/)
-    if (task || bullet) {
-      const items: { checked?: boolean; text: string }[] = []
-      while (i < lines.length) {
-        const t = lines[i].match(/^[-*]\s+\[([ xX])\]\s+(.+)$/)
-        const b = lines[i].match(/^[-*]\s+(.+)$/)
-        if (t) items.push({ checked: t[1].toLowerCase() === 'x', text: t[2] })
-        else if (b && !lines[i].match(/^[-*]\s+\[/)) items.push({ text: b[1] })
-        else break
-        i += 1
-      }
-      blocks.push({ kind: 'ul', items })
-      continue
-    }
-    if (ordered) {
-      const items: string[] = []
-      while (i < lines.length) {
-        const m = lines[i].match(/^\d+\.\s+(.+)$/)
-        if (!m) break
-        items.push(m[1])
-        i += 1
-      }
-      blocks.push({ kind: 'ol', items })
-      continue
-    }
-    const para: string[] = [line]
-    i += 1
-    while (i < lines.length && lines[i].trim() !== '' && !/^#{1,3}\s/.test(lines[i]) && !lines[i].startsWith('```')) {
-      para.push(lines[i])
-      i += 1
-    }
-    blocks.push({ kind: 'p', text: para.join('\n') })
-  }
-  return blocks
+/** 画一个列表项：任务项带勾选框（只读时禁用），后面跟文字和嵌套的子列表 */
+function renderItem(item: ListItem, key: string, ctx: Ctx): ReactNode {
+  const body = (
+    <>
+      {renderInline(parseInline(item.text), key)}
+      {item.children.length > 0 && <div className="mt-1 space-y-1">{renderBlocks(item.children, `${key}c`, ctx)}</div>}
+    </>
+  )
+  if (item.checked === undefined) return <li key={key}>{body}</li>
+  const textId = `${ctx.prefix}${key}`
+  return (
+    <li key={key} className="-ml-5 flex list-none items-start gap-2">
+      <input
+        type="checkbox"
+        className="mt-[0.35em] size-3.5 shrink-0 accent-primary"
+        checked={item.checked}
+        disabled={!ctx.onToggleTask}
+        aria-labelledby={textId}
+        onChange={() => ctx.onToggleTask?.(item.line)}
+      />
+      <div id={textId} className={cn('min-w-0 flex-1', item.checked && 'text-muted-foreground line-through')}>
+        {body}
+      </div>
+    </li>
+  )
 }
 
-/** 渲染一整段 Markdown 文本 */
-export function Markdown({ source, className }: { source: string; className?: string }) {
-  const blocks = parseBlocks(source)
+/** 画一个块 */
+function renderBlock(block: Block, key: string, ctx: Ctx): ReactNode {
+  switch (block.kind) {
+    case 'code':
+      return (
+        <pre key={key} className="overflow-x-auto rounded-xl bg-secondary/70 p-3.5 font-mono text-xs">
+          <code>{block.text}</code>
+        </pre>
+      )
+    case 'heading': {
+      const Tag = `h${block.level}` as 'h1'
+      return (
+        <Tag key={key} className={HEADING_CLASS[block.level]}>
+          {renderInline(parseInline(block.text), key)}
+        </Tag>
+      )
+    }
+    case 'hr':
+      return <hr key={key} className="border-border" />
+    case 'quote':
+      return (
+        <blockquote key={key} className="space-y-2 border-l-2 border-muted-foreground/40 pl-3 text-muted-foreground">
+          {renderBlocks(block.children, key, ctx)}
+        </blockquote>
+      )
+    case 'list': {
+      const Tag = block.ordered ? 'ol' : 'ul'
+      return (
+        <Tag
+          key={key}
+          start={block.ordered && block.start !== 1 ? block.start : undefined}
+          className={cn('space-y-1 pl-5', block.ordered ? 'list-decimal' : 'list-disc')}
+        >
+          {block.items.map((item, i) => renderItem(item, `${key}.${i}`, ctx))}
+        </Tag>
+      )
+    }
+    case 'p':
+      return (
+        <p key={key} className="whitespace-pre-wrap">
+          {renderInline(parseInline(block.text), key)}
+        </p>
+      )
+  }
+}
+
+/** 画一串块 */
+function renderBlocks(blocks: readonly Block[], key: string, ctx: Ctx): ReactNode[] {
+  return blocks.map((block, i) => renderBlock(block, `${key}${i}`, ctx))
+}
+
+/**
+ * 渲染一整段 Markdown。
+ * 传入 onToggleTask 时任务项的勾选框可以点，参数是它在原文里的行号（从 0 数），配合 toggleTaskAt 改写原文。
+ */
+export function Markdown({ source, className, onToggleTask }: { source: string; className?: string; onToggleTask?: (line: number) => void }) {
+  const prefix = useId()
   return (
     <div className={cn('markdown space-y-3 text-ui leading-relaxed break-words', className)}>
-      {blocks.map((block, idx) => {
-        const key = `md-${idx}`
-        if (block.kind === 'code') {
-          return (
-            <pre key={key} className="overflow-x-auto rounded-xl bg-secondary/70 p-3.5 font-mono text-xs">
-              <code>{block.lines.join('\n')}</code>
-            </pre>
-          )
-        }
-        if (block.kind === 'heading') {
-          const Tag = block.level === 1 ? 'h1' : block.level === 2 ? 'h2' : 'h3'
-          const cls =
-            block.level === 1 ? 'text-lg font-semibold' : block.level === 2 ? 'text-base font-semibold' : 'text-sm font-semibold'
-          return (
-            <Tag key={key} className={cls}>
-              {parseInline(block.text, key)}
-            </Tag>
-          )
-        }
-        if (block.kind === 'hr') return <hr key={key} className="border-border" />
-        if (block.kind === 'quote') {
-          return (
-            <blockquote key={key} className="border-l-2 border-muted-foreground/40 pl-3 text-muted-foreground">
-              {block.lines.map((ln, j) => (
-                <p key={j}>{parseInline(ln, `${key}-q${j}`)}</p>
-              ))}
-            </blockquote>
-          )
-        }
-        if (block.kind === 'ul') {
-          return (
-            <ul key={key} className="list-none space-y-1 pl-0">
-              {block.items.map((item, j) => (
-                <li key={j} className="flex gap-2">
-                  {item.checked !== undefined ? (
-                    <span aria-hidden className="mt-0.5 font-mono text-muted-foreground">
-                      {item.checked ? '☑' : '☐'}
-                    </span>
-                  ) : (
-                    <span aria-hidden className="text-muted-foreground">
-                      •
-                    </span>
-                  )}
-                  <span>{parseInline(item.text, `${key}-u${j}`)}</span>
-                </li>
-              ))}
-            </ul>
-          )
-        }
-        if (block.kind === 'ol') {
-          return (
-            <ol key={key} className="list-decimal space-y-1 pl-5">
-              {block.items.map((item, j) => (
-                <li key={j}>{parseInline(item, `${key}-o${j}`)}</li>
-              ))}
-            </ol>
-          )
-        }
-        return (
-          <p key={key} className="whitespace-pre-wrap">
-            {parseInline(block.text, key)}
-          </p>
-        )
-      })}
+      {renderBlocks(parseBlocks(source), 'md', { prefix, onToggleTask })}
     </div>
   )
 }
