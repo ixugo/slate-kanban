@@ -1,3 +1,203 @@
-# GODDD Template
+# Slate
 
-https://goddd.golang.space/
+Slate 是一个**人和 AI agent 共用的看板**：人在网页上拖卡片、写需求，agent 通过 MCP 读看板、领任务、干活，做完把卡片交到「审查」列等人检查。
+
+- **单文件、免登录、本机优先**：一个可执行文件（前端已嵌进去，gzip 传输）加一个 SQLite 文件，没有账号系统。
+- **人和 agent 看同一份数据**：网页和 MCP 读写的是同一个看板，任何一边改了，另一边立刻收到更新；agent 离线时错过的变更，上线后可以一次补读。
+- **只处理「进行中」**：人把卡片拖进 agent 的领取列（默认是「进行中」），agent 才会去领；做完自动交到下一列（默认是「审查」）。
+- **Trello 式自动化**：卡片创建、进入某列、离开某列时触发规则，自动写开始/完成时间、改优先级、加标签、留言、移动到别的列……
+- **五种界面语言**：简体中文、繁体中文、English、日本語、한국어，深浅主题。
+
+> 设计取向是「先用起来，再用它自己管理自己的开发」：Slate 的开发任务和开发记录就放在它自己的看板里。
+
+## 快速开始
+
+### 方式一：本机编译运行
+
+需要 Go 1.27+、Node 22+ 和 make。
+
+```sh
+make build   # 安装前端依赖（第一次）、构建前端、编译成带前端的单文件程序 ./slate
+./slate      # 启动，浏览器打开 http://127.0.0.1:7070
+```
+
+首次启动会在当前目录生成 `configs/config.toml`（默认配置）和 `configs/data.db`（数据库），日志写在 `logs/`。
+相对路径都以**启动时所在的目录**为基准。想换配置目录：`./slate -conf /path/to/configs`。
+
+### 方式二：Docker
+
+```sh
+docker compose up -d --build   # 然后打开 http://127.0.0.1:7070
+```
+
+数据库和日志在命名卷 `slate-data` 里，重建容器不会丢。`docker-compose.yml` 默认只把端口映射到宿主机的 `127.0.0.1`。
+
+### 第一块看板
+
+1. 打开网页，点「新建看板」，选择模板：
+   - **开发**：想法池 → 待办 → 进行中 → 审查 → 完成（带三条默认规则：进入「进行中」时写开始时间、进入「完成」时写完成时间，已有的时间不覆盖；离开「完成」时清除完成时间）。
+   - **简单**：待办 → 进行中 → 完成。
+   - **空白**：自己建列。
+2. 在「设置」里填上**项目路径**（这个看板对应的项目在本机的绝对路径），agent 会据此创建 worktree 干活。
+3. 在「Agent」页复制安装命令，把 MCP 和 skill 装进你的 agent（见下一节）。
+
+## 让 agent 接入
+
+Slate 对 agent 提供三样东西：**MCP 服务**（读写看板）、**skill**（教 agent 怎么按看板的规矩干活）、**安装说明**（让 agent 自己把前两样装好）。
+
+最省事的做法：把下面这句话发给你的 agent（地址换成你的实际地址）：
+
+```text
+读 http://127.0.0.1:7070/install.md ，按说明完成 Slate 的接入。
+```
+
+也可以在网页的「Agent」页按 host 选择 Claude Code、Cursor 或 Codex，复制现成的命令或配置。以 Claude Code 为例：
+
+```sh
+# 工作视图：agent 日常领任务、干活（16 个工具）
+claude mcp add --transport http --scope user slate 'http://127.0.0.1:7070/mcp?name=claude-code'
+
+# 管理视图：建看板、改列、写规则、录入任务（24 个工具），只有需要时再装
+claude mcp add --transport http --scope user slate-manager 'http://127.0.0.1:7070/mcp?name=claude-code-manager&role=manager'
+```
+
+### 身份怎么确定
+
+Slate 没有登录，身份由 MCP 地址里的参数决定：
+
+| 地址 | 身份 | 能做什么 |
+| --- | --- | --- |
+| `/mcp?name=<名字>` | agent（工作视图） | 读看板；领取、释放、交接自己领的卡片；评论；建卡；写项目路径 |
+| `/mcp?name=<名字>&role=manager` | 人（管理视图） | 以上之外，还能建/改/删看板、列、规则，删卡片和评论，修改优先级、依赖、截止时间等规划字段 |
+
+`name` 只能用小写字母、数字、`.`、`_`、`-`，以 字母或数字开头，最长 64 位；`human`、`system` 是保留名。不同 agent 请用不同的名字，评论、领取、更新游标都按名字区分。
+
+### agent 怎么干活
+
+skill 里写明的流程：
+
+1. 第一次接触某个看板时，确认它的**项目路径**；没填就问你，填了就不再问（`set_project_path`）。
+2. 用 `wait_for_updates` 阻塞等待（或按固定间隔 `pull_updates`），有新变更再醒来；离线期间的变更靠游标补读，不会丢。
+3. 只处理**领取列**（默认「进行中」）里的卡片：`next_card` 取下一张，`claim_card` 领取（租约默认 30 分钟，最长 24 小时，干活时自动顺延，超时自动归还）。
+4. 读完卡片的描述、评论、依赖，以及**这一列的 agent 指令**（列上写的做事规则）；在独立分支或 worktree 里开发，复杂任务派 subagent。
+5. 做完调用 `finish_card`：写一段总结、填分支名和链接，卡片自动进入下一列（默认「审查」）；需要人拍板就留言并 `release_card`。
+6. 审查没通过时，人在卡片下留言并把卡片拖回「进行中」，agent 再来领，按留言继续改。
+
+## 自动化规则（Trello 式）
+
+在「设置 → 自动化」里给每个看板配置规则：
+
+| 部分 | 可选项 |
+| --- | --- |
+| 触发器 | 卡片创建时 `card_created`、进入某列时 `card_entered`、离开某列时 `card_left` |
+| 条件 | 可选，用下面的搜索语法描述（例如 `tag:紧急 -is:human`） |
+| 动作 | 写/清开始时间、写/清完成时间、设/清截止时间、设优先级、加/去标签、设「仅人工」、加评论、移动到某列（共 12 种） |
+
+规则可以连锁（一条规则把卡片移到别的列会继续触发那里的规则，最多 3 层，同一条规则一次操作只执行一次）。每条规则最多 20 个动作，每个看板最多 50 条规则。
+列还有两个「驱动 AI」的开关：**agent 领取列**（agent 在这里领卡片）和**完成列**（进入这里的卡片算已完成），以及一段**给 agent 的指令**——agent 领到这一列的卡片时必须遵守。
+
+## 搜索语法
+
+网页搜索框和 MCP 的 `list_cards` 共用同一套语法，空格分隔、全部满足才命中，词前加 `-` 表示取反：
+
+```text
+col:进行中 is:free -is:waiting        # 进行中、没人领、没在等依赖的卡片
+tag:后端 priority:>=2                 # 带「后端」标签、优先级中及以上
+is:overdue -is:done                   # 已逾期且没完成
+claimed:claude-code                   # 被 claude-code 领着的卡片
+due:<2026-12-01 no:branch             # 12 月前到期、还没有分支名
+```
+
+前缀有 `tag` `col` `key` `title` `desc` `priority` `claimed` `is` `has` `no` `due` `created` `updated`。完整说明见官网的「筛选语法」页。
+网页快捷键：`/` 搜索、`n` 新建卡片、`Esc` 关闭或清空。
+
+## 导出
+
+- 网页：看板工具栏的「导出」菜单。
+- 接口：`GET /api/v1/boards/:id/export?format=json|md`，JSON 含看板、列、规则、全部卡片和评论；Markdown 是方便阅读和归档的文档。
+
+## 配置
+
+`configs/config.example.toml` 是带注释的完整样例，常用项：
+
+| 配置 | 默认值 | 说明 |
+| --- | --- | --- |
+| `Server.HTTP.Host` | `127.0.0.1` | 监听地址。**默认只允许本机访问**，要给别的机器用请先读下面的「安全说明」 |
+| `Server.HTTP.Port` | `7070` | 端口 |
+| `Server.HTTP.AllowedHosts` | `[]` | 额外允许的 Host（不含端口）；IP、`localhost`、`*.localhost` 始终允许。通过域名访问时必须写进来 |
+| `Data.Database.Dsn` | `./configs/data.db` | SQLite 文件路径；以 `postgres` 开头则按 PostgreSQL 连接（框架支持，Slate 只在 SQLite 上充分测试过） |
+| `Log.*` | `./logs`、`info` | 日志目录、级别、保留天数、分割大小 |
+
+## 安全说明
+
+**Slate 没有账号和登录，任何能访问到它的人都可以读写全部看板。** 所以：
+
+- 默认只监听 `127.0.0.1`，只有本机能访问。
+- 服务端有三道兜底：Host 白名单（防 DNS 重绑定，通过域名访问需配置 `AllowedHosts`）、写请求的 Origin 必须和 Host 一致（防跨站请求）、固定的安全响应头（禁止被嵌入 iframe 等）。
+- 要让局域网或公网使用，请放在**带认证的反向代理**后面（例如 nginx 的 basic auth 或你的 SSO），并把对外域名写进 `AllowedHosts`；不要直接把 Slate 的端口暴露出去。
+- MCP 的身份（`name`）是自报的，只用来区分 agent 和记录谁做了什么，不是安全边界。
+
+## 开发
+
+```text
+.
+├── main.go                      入口：读配置、启动服务
+├── internal/
+│   ├── core/kanban/             看板领域：看板、列、卡片、评论、领取与租约、事件、规则引擎、导出
+│   │   └── stores/kanbandb/     数据库存储（GORM + SQLite）
+│   ├── web/api/                 REST（/api/v1）与路由装配、安全中间件
+│   │   ├── kanbanapi/           看板、卡片、规则、事件流、导出
+│   │   └── connectapi/          接入说明（/install.md、/skills/…、/api/v1/connect）
+│   ├── web/mcpapi/              MCP 服务（/mcp）：两套工具视图、通知、内嵌 skill
+│   ├── web/spa/                 嵌入前端产物并提供 gzip 静态服务
+│   └── conf/、app/、data/       配置、依赖装配（Wire）、数据库
+├── web/                         前端：React 19 + Vite + Tailwind 4 + TanStack Query + shadcn/ui
+├── skills/slate-kanban/         agent 用的 skill（编译进程序，也可从服务下载）
+├── configs/                     配置样例
+└── .cursor/scopes/              每个功能的设计文档和需求质量清单
+```
+
+后端基于 [goddd](https://github.com/ixugo/goddd) 的分层（API → Core ← Store，Wire 装配）。常用命令：
+
+| 命令 | 作用 |
+| --- | --- |
+| `make run` | 启动后端（开发模式，不带前端） |
+| `make web/dev` | 启动前端开发服务器 `http://127.0.0.1:5173`，接口和 MCP 转发到本机 7070 |
+| `make web/test` | 前端类型检查、oxlint、单元测试 |
+| `make web/build` | 构建前端（产物进 `internal/web/spa/dist`），并检查体积预算 |
+| `make build` | 前端 + 后端，得到带前端的 `./slate` |
+| `go test ./internal/...` | 后端测试 |
+| `go vet ./internal/... ./pkg/... .` | 后端静态检查 |
+| `make docker/build` | 用多阶段 Dockerfile 构建镜像 |
+
+前端体积有预算：首屏 JS gzip 后不超过 130 kB，整个 `dist` gzip 后不超过 300 kB，`npm run build` 会检查。
+前端产物不进仓库：`go build` 默认不嵌入前端（访问网页会看到提示），加 `-tags embed_web` 才嵌入，`make build` 已经带上。
+
+## 文档
+
+- 设计文档与需求质量清单：`.cursor/scopes/`（每个功能一份，含流程图、决策表、测试说明和代码对照）。
+- 官网（使用指南、设计取舍、MCP 工具、REST 接口、部署）：同级目录 `../slate_web`（Docusaurus），`npm install && npm start` 本地预览。
+- 开发记录：`docs/devlog/`，已经用 MCP 录入 Slate 自己的看板。
+
+## 进度与路线
+
+已完成（v1）：
+
+- [x] 看板、列、卡片、评论、依赖、标签、优先级、截止时间、仅人工
+- [x] 搜索语法、拖拽排序（乐观更新）、键盘操作、实时同步（SSE）、导出 JSON / Markdown
+- [x] 领取与租约、完成交接、事件日志与游标、离线补读、阻塞等待
+- [x] Trello 式自动化规则（3 种触发器、12 种动作、连锁、条件）
+- [x] MCP 两套视图、通知、内嵌 skill、一句话接入
+- [x] 免登录与安全兜底、gzip 静态服务、单文件部署、Docker
+- [x] 五种语言、深浅主题、官网
+
+以后再做（都已记入 Slate 自己的看板）：
+
+- [ ] 多选拖动、列表视图、PWA
+- [ ] 局域网共享与可选的访问口令、可选的用户名（多人区分评论作者）
+- [ ] 活动流（看板级事件时间线）
+- [ ] git 同步、系统服务安装、自动更新、英文官网
+
+## 许可
+
+见 [LICENSE](LICENSE)。
