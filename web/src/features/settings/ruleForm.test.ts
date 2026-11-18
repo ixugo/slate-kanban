@@ -58,9 +58,19 @@ describe('ruleForm 转换', () => {
     expect(input?.actions[0].type).toBe(type)
   })
 
-  it('缺名称时拒绝', () => {
-    const { errors } = formToCreateInput({ ...stateWith([{ type: 'clear_due' }]), name: '' }, columns)
-    expect(errors.name).toBe('nameRequired')
+  it('缺名称时可用自动名创建', () => {
+    const { input, errors } = formToCreateInput(
+      { ...stateWith([{ type: 'clear_due' }]), name: '' },
+      columns,
+      () => '自动生成',
+    )
+    expect(errors).toEqual({})
+    expect(input?.name).toBe('自动生成')
+  })
+
+  it('名称过长时拒绝', () => {
+    const { errors } = formToCreateInput({ ...stateWith([{ type: 'clear_due' }]), name: 'x'.repeat(101) }, columns)
+    expect(errors.name).toBe('nameTooLong')
   })
 
   it('动作过多时拒绝', () => {
