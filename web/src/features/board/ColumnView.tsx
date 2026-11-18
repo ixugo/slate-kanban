@@ -2,7 +2,7 @@
 
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { KeyboardEvent, MouseEvent } from 'react'
+import type { MouseEvent } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import type { CardView, Column } from '@/lib/api/types'
@@ -60,8 +60,8 @@ export function ColumnView({
   const CollapseIcon = towardStart ? ChevronLeftIcon : ChevronRightIcon
   const ExpandIcon = towardStart ? ChevronRightIcon : ChevronLeftIcon
 
-  /** 窄边整块当作展开按钮，阻止冒泡以免误触拖拽层 */
-  const narrowExpand = (e: MouseEvent | KeyboardEvent) => {
+  /** 窄边整块当作展开按钮；原生按钮的回车和空格都会触发点击，不需要另外处理按键 */
+  const narrowExpand = (e: MouseEvent) => {
     e.stopPropagation()
     onExpand()
   }
@@ -81,12 +81,6 @@ export function ColumnView({
           aria-label={t('board.expandColumn', { name: column.name, count: String(cards.length) })}
           className="flex min-h-[12rem] w-12 flex-1 flex-col items-center gap-2 px-1 py-3 text-center hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={narrowExpand}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              narrowExpand(e)
-            }
-          }}
         >
           <ExpandIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           <span className="text-xs tabular-nums text-muted-foreground">{cards.length}</span>

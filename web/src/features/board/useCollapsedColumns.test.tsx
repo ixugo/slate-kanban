@@ -52,6 +52,32 @@ describe('useCollapsedColumns', () => {
     expect(localStorage.getItem(columnCollapseKey(2, 1))).toBeNull()
   })
 
+  it('列清单变化后，新增的列按默认值显示，已有列保持原状态', () => {
+    const { result, rerender } = renderHook(({ list }) => useCollapsedColumns(1, list), {
+      initialProps: { list: [todoCol] },
+    })
+    act(() => result.current.collapseColumn(1))
+    rerender({ list: [todoCol, doneCol] })
+    expect(result.current.isCollapsed(1)).toBe(true)
+    expect(result.current.isCollapsed(3)).toBe(true)
+    expect(result.current.isCollapsed(99)).toBe(false)
+  })
+
+  it('localStorage 读取失败时，同一条警告只打印一次', async () => {
+    // 警告去重记在模块里，换一份全新的模块实例，避免受其他用例影响
+    vi.resetModules()
+    const fresh = await import('./useCollapsedColumns')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied')
+    })
+    const { result } = renderHook(() => fresh.useCollapsedColumns(7, cols))
+    result.current.isCollapsed(1)
+    result.current.isCollapsed(2)
+    result.current.isCollapsed(3)
+    expect(warn).toHaveBeenCalledTimes(1)
+  })
+
   it('localStorage 抛错时退回内存仍能切换', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
