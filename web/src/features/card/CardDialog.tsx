@@ -87,7 +87,7 @@ export default function CardDialog({ boardId }: CardDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
-      <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:w-full">
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full sm:max-w-4xl">
         <DialogHeader className="shrink-0 border-b px-4 py-3">
           <DialogTitle className="font-mono text-sm">{card?.key ?? t('card.title')}</DialogTitle>
           <DialogDescription className="sr-only">{t('card.title')}</DialogDescription>
