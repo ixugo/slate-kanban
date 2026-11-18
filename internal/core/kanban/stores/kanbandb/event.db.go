@@ -39,6 +39,40 @@ func (d Event) ListAfter(ctx context.Context, boardID, afterSeq int64, limit int
 	return items, nil
 }
 
+// ListBefore 返回序号小于 beforeSeq（0 表示不限）且满足筛选条件的事件，按序号降序。
+// 条件都是等值或 IN，在 SQLite 和 PostgreSQL 上写法一致；看板和序号走 (board_id, id) 索引。
+func (d Event) ListBefore(ctx context.Context, boardID, beforeSeq int64, f kanban.ActivityFilter, limit int) ([]*kanban.Event, error) {
+	q := d.db.WithContext(ctx).Where("board_id = ?", boardID)
+	if beforeSeq > 0 {
+		q = q.Where("id < ?", beforeSeq)
+	}
+	if len(f.Types) > 0 {
+		q = q.Where("type IN ?", f.Types)
+	}
+	if f.ActorKind != "" {
+		q = q.Where("actor_kind = ?", f.ActorKind)
+	}
+	if f.Actor != "" {
+		q = q.Where("actor = ?", f.Actor)
+	}
+	items := make([]*kanban.Event, 0)
+	if err := q.Order("id DESC").Limit(limit).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// Actors 返回看板事件里出现过的不同操作者。按别名排序，SELECT DISTINCT 在 PostgreSQL 上要求排序项出现在选择列表里。
+func (d Event) Actors(ctx context.Context, boardID int64) ([]kanban.ActivityActor, error) {
+	actors := make([]kanban.ActivityActor, 0)
+	err := d.db.WithContext(ctx).Model(&kanban.Event{}).Where("board_id = ?", boardID).
+		Select("DISTINCT actor_kind AS kind, actor AS name").Order("kind").Order("name").Scan(&actors).Error
+	if err != nil {
+		return nil, err
+	}
+	return actors, nil
+}
+
 // ListByCard 返回卡片的事件，最新的在前。
 func (d Event) ListByCard(ctx context.Context, cardID int64, limit int) ([]*kanban.Event, error) {
 	items := make([]*kanban.Event, 0)

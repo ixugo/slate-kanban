@@ -37,6 +37,10 @@ type EventStorer interface {
 	Create(context.Context, *Event) error
 	// ListAfter 返回看板里序号大于 afterSeq 的事件，按序号升序，最多 limit 条。
 	ListAfter(ctx context.Context, boardID, afterSeq int64, limit int) ([]*Event, error)
+	// ListBefore 返回看板里序号小于 beforeSeq（0 表示不限）且满足筛选条件的事件，按序号降序（最新的在前），最多 limit 条。
+	ListBefore(ctx context.Context, boardID, beforeSeq int64, filter ActivityFilter, limit int) ([]*Event, error)
+	// Actors 返回看板事件里出现过的不同操作者（类型加名称），按类型、名称排序。
+	Actors(ctx context.Context, boardID int64) ([]ActivityActor, error)
 	// ListByCard 返回某张卡片的事件，按序号降序（最新的在前），最多 limit 条。
 	ListByCard(ctx context.Context, cardID int64, limit int) ([]*Event, error)
 	// LatestSeq 返回看板里最大的事件序号，没有事件时返回 0。
