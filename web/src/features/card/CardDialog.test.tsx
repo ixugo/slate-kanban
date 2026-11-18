@@ -29,7 +29,7 @@ beforeAll(async () => {
 
 afterEach(() => vi.unstubAllGlobals())
 
-function openBoardWithCard(detail: typeof baseDetail) {
+function openBoardWithCard(detail: typeof baseDetail, events: object[] = []) {
   installFakeEventSource()
   let current = { ...detail }
   const api = installFakeApi({
@@ -48,6 +48,7 @@ function openBoardWithCard(detail: typeof baseDetail) {
       return { body: current }
     },
     'POST /api/v1/cards/:id/release': { body: {} },
+    'GET /api/v1/boards/:id/activity': { events, has_more: false, latest: 0, actors: [] },
   })
   renderApp(
     <Routes>
@@ -164,7 +165,30 @@ describe('CardDialog', () => {
     await within(dialog).findByLabelText(en.card.field.title)
     expect(within(dialog).getByText(en.card.field.priority)).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: en.card.descEdit })).toBeInTheDocument()
-    expect(within(dialog).getByText(en.card.comment.title)).toBeInTheDocument()
+    expect(within(dialog).getByText(en.card.timeline.title)).toBeInTheDocument()
+  })
+
+  it('「评论和活动」把评论和这张卡片的事件按时间排在一起，可收起详情', async () => {
+    const at = '2026-11-18T10:00:00Z'
+    const later = '2026-11-18T11:00:00Z'
+    const api = openBoardWithCard(
+      {
+        ...baseDetail,
+        comments: [{ id: 1, board_id: 1, card_id: 1, author_kind: 'human', author: 'human', body: '一条评论', created_at: at, updated_at: at }],
+      } as typeof baseDetail,
+      [{ id: 9, board_id: 1, card_id: 1, type: 'card.moved', actor_kind: 'agent', actor: 'codex', payload: { from: 'Alpha', to: 'Beta' }, created_at: later }],
+    )
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByText('一条评论')).toBeInTheDocument()
+    expect(await within(dialog).findByText(/Alpha/)).toBeInTheDocument()
+    const call = api.calls.find((c) => c.path.endsWith('/activity'))
+    expect(call?.query.get('card_id')).toBe('1')
+    expect(call?.query.get('types')).toContain('card.moved')
+
+    await userEvent.click(within(dialog).getByRole('button', { name: en.card.timeline.hideDetails }))
+    expect(within(dialog).queryByText(/Alpha/)).toBeNull()
+    expect(within(dialog).getByText('一条评论')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: en.card.timeline.showDetails })).toBeInTheDocument()
   })
 
   // 打开一个详情请求会失败的卡片，用来检查弹窗对不同失败原因的提示

@@ -1,4 +1,4 @@
-// 卡片弹窗正文：宽屏两栏，窄屏单栏。
+// 卡片弹窗正文：宽屏左栏是标题、描述、属性，右栏是「评论和活动」（滚动时固定在视野里）；窄屏单栏，顺序是标题、描述、属性、评论和活动。
 
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, Column, UpdateCardInput } from '@/lib/api/types'
@@ -20,7 +20,7 @@ import {
 import { CardProperties } from './CardProperties'
 import { CardTimeMeta } from './CardTimeMeta'
 import { DescriptionEditor } from './DescriptionEditor'
-import { Comments } from './Comments'
+import { CardTimeline } from './CardTimeline'
 
 /** 让标题输入框的高度跟着内容走，长标题换行后也能完整看到（不依赖浏览器的 field-sizing） */
 function fitTitleHeight(el: HTMLTextAreaElement | null) {
@@ -47,7 +47,7 @@ interface CardDialogBodyProps {
   deleteBusy: boolean
 }
 
-/** 两栏布局主体；DOM 顺序保证窄屏为标题→属性→描述→评论 */
+/** 两栏布局主体；DOM 顺序就是窄屏的显示顺序：标题 → 描述 → 属性 → 评论和活动 → 底部信息 */
 export function CardDialogBody({
   card,
   columns,
@@ -66,56 +66,17 @@ export function CardDialogBody({
   const { t } = useTranslation()
   const version = card.version
 
-  const aside = (
-    <aside className="flex flex-col gap-4 md:col-start-2 md:row-span-4 md:row-start-1 md:self-start">
-      {card.claim_active && card.claimed_by ? (
-        <div className="flex flex-col gap-2.5 rounded-2xl bg-agent/10 px-4 py-3 text-ui">
-          <span>{t('card.claim.banner', { name: card.claimed_by, time: formatDateTime(card.claim_expires_at, lang) })}</span>
-          <Button type="button" size="sm" variant="secondary" disabled={releaseBusy} onClick={onRelease}>
-            {t('card.claim.release')}
-          </Button>
-        </div>
-      ) : null}
-      <CardProperties
-        card={card}
-        columns={columns}
-        depOptions={depOptions}
-        version={version}
-        onPatch={(p) => onPatch(p as UpdateCardInput)}
-        onColumn={onColumn}
-      />
-      {card.column_instruction ? (
-        <details className="rounded-xl bg-secondary/60 p-3 text-xs">
-          <summary className="cursor-pointer font-medium">{t('card.columnInstruction')}</summary>
-          <p className="mt-2 text-muted-foreground">{card.column_instruction}</p>
-        </details>
-      ) : null}
-      <CardTimeMeta card={card} lang={lang} />
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button type="button" variant="destructive" size="sm" className="w-full">
-            {t('common.delete')}
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('card.deleteTitle')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('card.deleteBody')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction disabled={deleteBusy} onClick={onDelete}>
-              {t('common.delete')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </aside>
-  )
-
   return (
-    <div className="grid gap-6 md:grid-cols-[1fr_17.5rem] md:grid-rows-[auto_auto_auto_1fr] md:items-start">
-      <div className="space-y-1">
+    <div className="grid gap-x-8 gap-y-6 md:grid-cols-[minmax(0,1fr)_21rem] md:grid-rows-[auto_auto_auto_1fr] md:items-start">
+      <div className="min-w-0 space-y-3 md:col-start-1 md:row-start-1">
+        {card.claim_active && card.claimed_by ? (
+          <div className="flex flex-col gap-2.5 rounded-2xl bg-agent/10 px-4 py-3 text-ui sm:flex-row sm:items-center sm:justify-between">
+            <span>{t('card.claim.banner', { name: card.claimed_by, time: formatDateTime(card.claim_expires_at, lang) })}</span>
+            <Button type="button" size="sm" variant="secondary" disabled={releaseBusy} onClick={onRelease}>
+              {t('card.claim.release')}
+            </Button>
+          </div>
+        ) : null}
         <Label htmlFor="card-title" className="sr-only">
           {t('card.field.title')}
         </Label>
@@ -141,13 +102,50 @@ export function CardDialogBody({
           }}
         />
       </div>
-      {aside}
-      <section className="min-w-0 md:col-start-1">
+      <section className="min-w-0 md:col-start-1 md:row-start-2">
         <DescriptionEditor key={card.version} value={card.description} onSave={onDesc} busy={patchBusy} />
       </section>
-      <section className="min-w-0 md:col-start-1">
-        <Comments cardId={card.id} boardId={boardId} comments={card.comments} />
+      <section className="min-w-0 md:col-start-1 md:row-start-3">
+        <CardProperties
+          card={card}
+          columns={columns}
+          depOptions={depOptions}
+          version={version}
+          onPatch={(p) => onPatch(p as UpdateCardInput)}
+          onColumn={onColumn}
+        />
       </section>
+      <div className="min-w-0 md:col-start-2 md:row-span-4 md:row-start-1 md:max-h-[calc(90dvh-7rem)] md:self-start md:overflow-y-auto md:sticky md:top-0 md:pr-1">
+        <CardTimeline cardId={card.id} boardId={boardId} comments={card.comments} />
+      </div>
+      <footer className="min-w-0 space-y-3 md:col-start-1 md:row-start-4">
+        {card.column_instruction ? (
+          <details className="rounded-xl bg-secondary/60 p-3 text-xs">
+            <summary className="cursor-pointer font-medium">{t('card.columnInstruction')}</summary>
+            <p className="mt-2 text-muted-foreground">{card.column_instruction}</p>
+          </details>
+        ) : null}
+        <CardTimeMeta card={card} lang={lang} />
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button type="button" variant="destructive" size="sm" className="w-full sm:w-auto">
+              {t('common.delete')}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('card.deleteTitle')}</AlertDialogTitle>
+              <AlertDialogDescription>{t('card.deleteBody')}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+              <AlertDialogAction disabled={deleteBusy} onClick={onDelete}>
+                {t('common.delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </footer>
     </div>
   )
 }
