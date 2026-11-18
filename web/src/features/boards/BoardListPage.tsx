@@ -1,7 +1,7 @@
 // 看板列表页：一眼看到所有看板，进入某块看板，或者新建一块。
 
 import { FolderGit2Icon, PlusIcon } from 'lucide-react'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { Link } from 'react-router-dom'
 import { Logo } from '@/app/Logo'
@@ -12,7 +12,10 @@ import { describeError } from '@/lib/errors'
 import { formatRelative } from '@/lib/format'
 import { useLanguage } from '@/i18n/useLanguage'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
-import { CreateBoardDialog } from './CreateBoardDialog'
+/** 新建看板弹窗体积大，点「新建」后再加载，减轻首屏 */
+const CreateBoardDialog = lazy(() =>
+  import('./CreateBoardDialog').then((m) => ({ default: m.CreateBoardDialog })),
+)
 import { useBoards } from './useBoards'
 
 /** 列表里的一张看板卡片：编号前缀、名称、说明、项目路径、最近更新时间 */
@@ -109,7 +112,11 @@ export function BoardListPage() {
         </div>
       )}
 
-      <CreateBoardDialog open={creating} onOpenChange={setCreating} />
+      {creating ? (
+        <Suspense fallback={null}>
+          <CreateBoardDialog open={creating} onOpenChange={setCreating} />
+        </Suspense>
+      ) : null}
     </div>
   )
 }
