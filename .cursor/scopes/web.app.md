@@ -20,7 +20,7 @@
 | 6 | 主题 | `slate.theme`；`public/theme-init.js` 在首屏前给 `<html>` 加 `dark`；顶栏**循环按钮**（浅 → 深 → 跟随系统） | 实施 |
 | 7 | 顶栏控件 | 语言、看板切换用原生 **`<select>`**（不用 Radix dropdown，减首屏体积） | 实施 |
 | 8 | 提示 | 自研 `src/lib/toast.ts` + `src/components/ui/sonner.tsx`（仅导出名 `Toaster`，非 npm sonner） | 实施 |
-| 9 | Markdown | 自研 `src/lib/markdown.tsx`（不接 react-markdown）；链接仅 `http`/`https`/`mailto` | 实施 |
+| 9 | Markdown | 自研 `src/lib/markdown.tsx`（不接 react-markdown），和实时编辑器共用 `src/lib/md/` 的行内与块级解析（见 `web.editor.md`）；链接仅 `http`/`https`/`mailto` | 实施 |
 | 10 | 样式合并 | `cn` 来自 npm 包 **`cn`**（`src/lib/utils.ts` 再导出）；**不会**像 `tailwind-merge` 那样去掉冲突类名——覆盖宽度等同断点前缀（如 `sm:max-w-4xl` 盖过 `sm:max-w-sm`） | 实施 |
 | 11 | Tooltip | **`TooltipProvider` 不在 `App.tsx` 根部**；仅 **`BoardPage`** 内包裹需要提示的画布区域 | 实施 |
 | 12 | 请求取消 | `fetch` 把 TanStack Query 的 `signal` 传给接口；切换看板关 `EventSource` | 实施 |

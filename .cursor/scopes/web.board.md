@@ -21,10 +21,11 @@
 | 5c | 选了什么要看得见，也要能一键取消 | 过滤后看板变空，用户不知道是哪个条件造成的 | 工具栏下方一行小标签（`ActiveFilters`）：每个选中的取值一个，点叉取消，最右边是「清除全部」，什么都没选时不占位置；按 **Esc** 同时清空关键字和筛选（弹层打开时先关弹层）；筛选状态属于当前看板（`useBoardFilters`），换到另一块看板是什么都没选；标签或领取者名字里含双引号或竖线的，没法写进筛选语法，弹层里不列出，不会拼出和用户意图不同的条件；拼出的查询超过服务端的 500 个字符时不发请求，直接提示 `filter.tooLong` | 实施 |
 | 6 | 一眼看出卡片的状态 | 要点开才知道谁在处理、被什么卡住 | 卡片上显示：编号（等宽字体）、标题、优先级色条、前 3 个标签（多的折成 +n）、截止日期（逾期且未完成标红）、"仅人工"锁图标、"等待依赖"图标、被 agent 领取时显示 agent 名加呼吸圆点；完成列里的卡片整体变淡；列头只有列名和卡片数，列说明显示成一行小字，悬停看全文 | 实施 |
 | 7 | 在卡片弹窗里改字段，别人同时也在改 | 静默覆盖别人的改动 | 每次修改都带上打开时读到的 `version`；服务端返回版本冲突时 toast 提示并重新读取最新内容，用户的输入保留在控件里 | 实施 |
-| 8 | 卡片描述很长，修改要有保存和放弃 | 失焦就自动保存，写到一半的描述被存进去 | 标题、优先级、所在列、标签、截止、依赖、分支、链接等短字段改完立即保存；**标签**用 `TagEditor`（回车/逗号添加、× 删除、退格删最后一枚、大小写去重、上限内联提示）；描述用"编辑/保存/取消"，支持预览 Markdown；`Ctrl/Cmd + Enter` 保存评论和描述 | 实施 |
+| 8 | 卡片描述很长，修改要有保存和放弃 | 失焦就自动保存，写到一半的描述被存进去 | 标题、优先级、所在列、标签、截止、依赖、分支、链接等短字段改完立即保存；**标签**用 `TagEditor`（回车/逗号添加、× 删除、退格删最后一枚、大小写去重、上限内联提示）；描述用"编辑/保存/取消"，编辑时是输入即渲染的实时编辑器（见 `web.editor.md`），不再有预览按钮；`Ctrl/Cmd + Enter` 保存评论和描述 | 实施 |
 | 9 | agent 的评论和描述里常带 Markdown | 原样显示难读 | 描述和评论用 Markdown 渲染，不解析原始 HTML，链接只放行 http、https、mailto（做法见 `web.app.md` 第 9 条） | 实施 |
 | 11 | 看板被别人删除时页面还开着 | 一直转圈或者报一堆错 | 实时流或快照 404 时走 `BoardGone`（看板已不存在） | 实施 |
 | 12 | 看板很宽、手机很窄 | 横向看不全，误触 | 列容器横向滚动，窄屏每列接近整屏宽并按列吸附；卡片弹窗窄屏接近全宽，桌面用 `sm:max-w-4xl` 放宽（与 `DialogContent` 默认同断点前缀，避免 `cn` 合并 Tailwind 类时小屏类盖不掉基础 `max-w-sm`） | 实施 |
+| 16 | 卡片弹窗要像 Trello 那样左边内容、右边「评论和活动」 | 评论和卡片事件散在各处，看不出一张卡片的来龙去脉 | 桌面宽度（`md` 起）两栏：左栏标题、描述、属性、列指令与时间信息、删除；右栏是「评论和活动」，内容多时自己滚动并贴顶。手机宽度单栏，顺序是标题、描述、属性、评论和活动。右栏顶部是评论编辑器（同一个实时编辑器的紧凑版）加「发送」，下面把评论和这张卡片的事件（建卡、修改、换列、认领、释放、自动化）按时间从新到旧排在一起；「显示详情」开关可收起事件，只看评论。事件来自 `GET /boards/:id/activity?card_id=`（只取上述类型，最多 100 条），缓存键挂在看板键下面，所以实时刷新会让它自动更新 | 实施 |
 | 13 | 卡片弹窗要能分享给同事 | 复制链接只能到看板，找不到卡片 | 卡片弹窗的状态放在地址的 `?card=编号` 里，刷新、分享、浏览器返回都正常；卡片不存在时提示 | 实施 |
 | 14 | 新建项目的参数多 | 新手面对空项目不知道怎么开始 | 创建对话框叫「新建项目」：名称（必填）、编号前缀（选填，不填服务端按名称生成）、说明（选填）、一个**模板开关**（打开 = 研发流程，关闭 = 空白，开关旁显示当前模板名，不写模板描述）；**网页上不填也不展示项目路径**，由 agent 第一次接入时确认后写入（`set_project_path`）；语言取当前界面语言，起步的列和规则就是这种语言。网页只提供 `dev` 和 `empty` 两种，接口和 MCP 仍接受 `simple` | 实施 |
 | 15 | 导出备份 | 只能截图或调 API | 项目设置的「导出」页签：`GET /api/v1/boards/:id/export?format=json` 与 `?format=md`，浏览器下载附件（`ExportSection` 链到同源 `API_PREFIX`；看板工具栏不再放导出入口） | 实施 |
@@ -97,7 +98,7 @@ flowchart TD
 ## 卡片弹窗
 
 - **开关**：URL `?card=卡片数字 id`；`CardDialog` 由 `BoardPage` 懒加载。
-- **布局**：粘性顶栏显示卡片 `key`；内容区可滚动。`md` 及以上两栏（`CardDialogBody` 栅格）：**左栏**大号标题输入、描述（`DescriptionEditor`）、评论（`Comments`）；**右栏**属性（`CardProperties`）、领取横幅与「释放」、本列 agent 指令（`details` 折叠）、只读时间信息（`CardTimeMeta`：创建、更新、开始、完成，有值才显示，用 `formatDateTime`）、底部删除（二次确认）。窄屏 DOM 顺序：标题 → 属性 → 描述 → 评论。
+- **布局**：顶栏显示卡片 `key`，内容区整体可滚动。`md` 及以上是栅格 `minmax(0,1fr) / 21rem`：**左栏**依次是大号标题输入（含领取横幅与「释放」）、描述（`DescriptionEditor`）、属性（`CardProperties`，两列网格，标签与依赖占满整行）、本列 agent 指令（`details` 折叠）、只读时间信息（`CardTimeMeta`）、底部删除（二次确认）；**右栏**是「评论和活动」（`CardTimeline`），贴顶并在内容多时自己滚动。窄屏单栏，DOM 顺序：标题 → 描述 → 属性 → 评论和活动 → 列指令与时间信息 → 删除。详见问题场景第 16 条。
 - **宽度**：`DialogContent` 使用 `sm:max-w-4xl` 与 `max-h-[90dvh]`（须与组件库默认断点前缀一致才能覆盖默认 `max-w-sm`）。
 - **属性区**：列（走 `useMoveCard` 与拖拽同一套规则）、优先级、**标签**（`TagEditor` + `tagList` 纯函数）、截止（本地 `datetime-local`）、仅人工、依赖（`DependencyPicker`）、分支、链接；PATCH 成功后 `useCardUpdate` 会把响应合并进详情缓存。
 - **领取**：`claim_active` 且 `claimed_by` 非空时显示 agent 名与租约到期时间，人可点「释放」（`POST /cards/:id/release`）。
@@ -140,7 +141,8 @@ sequenceDiagram
 |------|------|
 | `web/src/features/boards/` | `BoardListPage.tsx`、`CreateBoardDialog.tsx`、`useBoards.ts`、`validation.ts` |
 | `web/src/features/board/` | `BoardPage.tsx`、`BoardToolbar.tsx`、`BoardCanvas.tsx`、`ColumnView.tsx`、`CardTile.tsx`、`AddCard.tsx`、`SearchBox.tsx`、`SearchHelp.tsx`、`FilterPopover.tsx`、`ActiveFilters.tsx`、`filters.ts`、`filterChips.ts`、`useBoardFilters.ts`、`LiveStatus.tsx`、`BoardGone.tsx`、`dnd.ts`、`handleDragEnd.ts`、`useBoard.ts`、`useBoardLive.ts`、`useMoveCard.ts`、`useBoardSearch.ts`、`useCreateCard.ts`、`useBoardKeyboard.ts`、`useCollapsedColumns.ts` |
-| `web/src/features/card/` | `CardDialog.tsx`、`CardDialogBody.tsx`、`CardProperties.tsx`、`TagEditor.tsx`、`tagList.ts`、`CardTimeMeta.tsx`、`DescriptionEditor.tsx`、`Comments.tsx`、`DependencyPicker.tsx`、`useCardDetail.ts`、`useCardUpdate.ts`、`validateUrl.ts` |
+| `web/src/features/card/` | `CardDialog.tsx`、`CardDialogBody.tsx`、`CardProperties.tsx`、`TagEditor.tsx`、`tagList.ts`、`CardTimeMeta.tsx`、`DescriptionEditor.tsx`、`CardTimeline.tsx`、`timeline.ts`、`useCardActivity.ts`、`DependencyPicker.tsx`、`useCardDetail.ts`、`useCardUpdate.ts`、`validateUrl.ts` |
+| `web/src/features/editor/`、`web/src/lib/md/` | 实时渲染编辑器与共享的 Markdown 解析，见 `web.editor.md` |
 | `web/src/lib/markdown.tsx` | 安全 Markdown 渲染（描述与评论共用） |
 
 ## 验证计划
@@ -159,7 +161,7 @@ sequenceDiagram
 | 筛选纯逻辑 | `filters.test.ts`：点选条件拼成筛选词（标签任一/全部、带空格加引号、没有标签、列用 id、状态、截止与跨月跨年的 7 天内）、含引号或竖线的取值被跳过、各组一起选、关键字合并、计数、切换与互斥状态、标签选项排序与领取者去重；`filterChips.test.ts`：小标签的文字、顺序和取消后的条件 |
 | 筛选界面 | `FilterPopover.test.tsx`：点选后发给服务端的查询与当前筛选小标签、任一/全部开关、各组一起选、点叉取消与清除全部、关键字和点选合成一条查询、未完成与已完成互斥、查询过长不发请求；`useBoardFilters.test.tsx`：设置与清空、换到另一块看板是什么都没选 |
 | 标签纯逻辑 | `tagList.test.ts`：去重、上限、截断、删除 |
-| 卡片弹窗 | `CardDialog.test.tsx`：`?card= 打开后修改标题带 version`、`版本冲突时不丢输入框内容（仍可编辑）`、`标签可添加，重复标签不重复提交`、`标签达到上限时内联提示`、`显示开始时间、无完成时间，领取可释放`、`弹窗内同时有属性区、描述与评论` |
+| 卡片弹窗 | `CardDialog.test.tsx`：`?card= 打开后修改标题带 version`、`版本冲突时不丢输入框内容（仍可编辑）`、`标签可添加，重复标签不重复提交`、`标签达到上限时内联提示`、`显示开始时间、无完成时间，领取可释放`、`弹窗内同时有属性区、描述与评论和活动`、`「评论和活动」把评论和这张卡片的事件按时间排在一起，可收起详情`；`timeline.test.ts`：合并排序、收起详情、同时刻评论在事件前；`e2e/card.e2e.ts`：桌面两栏、手机上下排且不横向滚动 |
 | Markdown | `markdown.test.tsx`：标题粗体、拒绝 `javascript:`、不渲染原始 HTML/图片标签 |
 | 看板列表（相关） | `BoardListPage.test.tsx`、`boards/validation.test.ts`（创建看板校验） |
 | 手工 | 浏览器拖卡片、搜索、开关弹窗、深浅主题、窄屏、五种语言 |
