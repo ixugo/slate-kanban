@@ -161,22 +161,24 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 | 真实进程：流程 | `tmp/smoke-mcp/smoke_skill_test.go` 用脚本照着 skill 走完整流程：确认并写入项目路径、守候、用 `list_cards` 加 `claim_card` 领两张、按 skill 的命令建 worktree 和分支、子 agent 提交、交接到审查、人返工后再交接、释放做不下去的卡片、人合并后清理；并触发错误对照表里的每个错误 | 通过：skill 里的 git 命令、查询写法和每个错误名，都和服务端真实行为一致 |
 | 真实 host：Claude Code 2.1.286 | 临时 HOME 里照 `/install.md` 的命令装用户级 MCP 和 skill，中间放一个记录请求的代理，再用 `claude -p` 开真实会话 | 通过：会话里看得到用户级 MCP 和 skill，`Skill` 工具能加载；`whoami`、`list_boards`、`get_board`、`next_card`、`finish_card` 走通，卡片进审查；`wait_for_updates` 阻塞和被事件唤醒都正常；带口令的 `--header` 写法有效 |
 | 真实 host：Codex 0.168.0 | 同上，用 `codex mcp add` 和 `codex exec` | 通过：skill 从 `~/.codex/skills` 被发现；`whoami`、读取 skill 资源、`list_cards`、`claim_card`、`finish_card` 走通，卡片进审查；`--bearer-token-env-var` 带口令有效（每个请求都带了头）；`wait_for_updates` 等满 50 秒正常返回，没有触发 Codex 默认的 60 秒工具超时 |
-| 没有验证的 | Cursor 3.30.14：本机没装 Cursor 命令行；在 IDE 里临时放一份项目级 `mcp.json`，约 55 秒内没有出现连接（官方文档说要重启 Cursor 并让用户批准），所以只对照了官方文档：`mcp.json` 的字段、skills 目录和 frontmatter、重启和批准要求；资源订阅、工具超时、401 的表现文档里没写。大模型会不会真的照着 skill 做，也只在 Claude Code 和 Codex 上看过 | 见"限制" |
+| 真实 host：Cursor 命令行客户端（Cursor 3.30.14 自带，版本 2026.11.13） | 隔离的 HOME 里放 `~/.cursor/mcp.json`（四个临时服务）和一份项目级 `.cursor/mcp.json`，中间放记录请求的代理，运行 `agent mcp list`、`agent mcp list-tools slate`、`agent mcp enable` | 通过，但只到 MCP 连接这一层：`~/.cursor/mcp.json` 里的服务直接显示 `ready`；`list-tools` 看到工作视图的 16 个工具；带口令的 `Authorization` 头有效，`${env:SLATE_PASSCODE}` 写法也有效；漏带口令显示 `Error: Connection failed`；项目级 `.cursor/mcp.json` 先显示 `not loaded (needs approval)`，`agent mcp enable` 之后才连上。每个连接只调用 `initialize`、`tools/list`、`resources/list` |
+| 没有验证的 | Cursor：命令行没有登录（`agent status` 显示 Not logged in），所以没有带大模型的会话：`~/.cursor/skills` 能不能被发现、模型会不会照着 skill 做、工具超时多久都没验证；图形界面里改 `mcp.json` 是否要重启、怎么启用，只对照了官方文档（在 IDE 里临时放过一份项目级 `mcp.json`，约 55 秒内没有出现连接）。大模型会不会真的照着 skill 做，也只在 Claude Code 和 Codex 上看过 | 见"限制" |
 
 ## 真实 host 里发现的差异
 
 | 差异 | 现象 | 处理 |
 |------|------|------|
-| 授权发现探测 | Claude Code 和 Codex 在收到 401 或执行 `mcp list` 时，会请求 `/.well-known/oauth-*`、`/.well-known/openid-configuration` 和 `/mcp/.well-known/*`。旧版本这些地址被网页回退成 `200 text/html`，Claude Code 因此报 `SyntaxError dialing …` | 这些地址改成 404（`internal/web/spa/reserved.go`，有测试） |
-| 漏带口令 | Claude Code 显示 `✘ Failed to connect`，后面的文字不固定（修复探测之后是 `HTTP 405 dialing …`：它接着去 `POST /register` 做动态注册，被网页的「方法不允许」挡回）；Codex 不报错，只是 slate 的工具不出现，日志里有 `AuthRequired` | 写进 `/install.md` 的常见问题；不为迎合某个 host 的 OAuth 流程去改服务端 |
-| 资源订阅 | 两个 host 都没有调用 `resources/subscribe`；Claude Code 连 `resources/read` 也没调，Codex 读过一次 skill 资源 | skill 本来就把通知当提示、以 `wait_for_updates` 为主，不改 |
+| 授权发现探测 | Claude Code 和 Codex 在收到 401 或执行 `mcp list` 时、Cursor 命令行在收到 401 时，会请求 `/.well-known/oauth-*`、`/.well-known/openid-configuration` 和 `/mcp/.well-known/*`。旧版本这些地址被网页回退成 `200 text/html`，Claude Code 因此报 `SyntaxError dialing …` | 这些地址改成 404（`internal/web/spa/reserved.go`，有测试） |
+| 漏带口令 | Claude Code 显示 `✘ Failed to connect`，后面的文字不固定（修复探测之后是 `HTTP 405 dialing …`：它接着去 `POST /register` 做动态注册，被网页的「方法不允许」挡回）；Cursor 命令行显示 `Error: Connection failed`，同样先探测 `/.well-known/*` 再 `POST /register`；Codex 不报错，只是 slate 的工具不出现，日志里有 `AuthRequired` | 写进 `/install.md` 的常见问题；不为迎合某个 host 的 OAuth 流程去改服务端 |
+| 资源订阅 | 三个 host 都没有调用 `resources/subscribe`；Claude Code 连 `resources/read` 也没调，Codex 读过一次 skill 资源，Cursor 命令行只在连接时调一次 `resources/list` | skill 本来就把通知当提示、以 `wait_for_updates` 为主，不改 |
 | 工具超时 | Codex 默认 60 秒；`timeout_seconds` 为 50 的 `wait_for_updates` 在 Claude Code 和 Codex 里都正常返回 | skill 写明 50 是上限，不要超过 |
+| 批准方式 | Cursor 命令行里，`~/.cursor/mcp.json` 的服务直接可用；项目级 `.cursor/mcp.json` 要先批准（`agent mcp enable <名字>`）。文档里写的“每个连接都要用户批准”在命令行里只适用于后者；图形界面没有验证 | 写进 `/install.md` 的验证步骤 |
 | 提示文字 | `claude mcp add` 成功时打印的地址省略了 `?name=…`（配置里是完整的）；`codex mcp list` 不连服务，Auth 一栏显示 `Unsupported` 是正常的 | 写进 `/install.md` 的验证步骤和常见问题 |
 | 工具列表大小 | Codex 里 `tools/list` 的响应：工作视图约 14.9 kB，管理视图约 24.9 kB | 只记录；日常用工作视图已经够小 |
 
 ## 限制与没做的事
 
-- 只覆盖 Claude Code、Cursor、Codex 三种 host，其他 host（以及它们的配置格式）不在内；Claude Code 和 Codex 已在真实会话里走通，Cursor 只对照了官方文档；host 改版后以其官方文档为准。
+- 只覆盖 Claude Code、Cursor、Codex 三种 host，其他 host（以及它们的配置格式）不在内；Claude Code 和 Codex 已在真实会话里走通，Cursor 只验证到 MCP 连接这一层（命令行客户端），带大模型的会话和 skill 目录没有验证；host 改版后以其官方文档为准。
 - 反向代理放在子路径下的部署暂不支持：地址里没有路径前缀。
 - skill 只有中文一份：它是写给 agent 读的操作手册，不是界面文案。网页界面的五种语言是另一件事。
 - skill 不会自动更新：服务升级后，用户重新执行安装说明里的下载命令即可。

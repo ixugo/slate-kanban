@@ -79,7 +79,7 @@ claude mcp add --transport http --scope user slate 'http://127.0.0.1:7070/mcp?na
 claude mcp add --transport http --scope user slate-manager 'http://127.0.0.1:7070/mcp?name=claude-code-manager&role=manager'
 ```
 
-装完后在 agent 里**新开一个会话**，让它调用 `whoami` 确认身份（已经打开的会话不会获得新装的 MCP 和 skill）。也可以先在终端检查：Claude Code 用 `claude mcp list`，Codex 用 `codex mcp list`（它只列出配置，不会真的连服务）。启用口令后漏带口令时各 host 的表现、Cursor 需要重启等细节，都写在服务的 `/install.md` 里。
+装完后在 agent 里**新开一个会话**，让它调用 `whoami` 确认身份（已经打开的会话不会获得新装的 MCP 和 skill）。也可以先在终端检查：Claude Code 用 `claude mcp list`，Cursor 命令行用 `agent mcp list`，Codex 用 `codex mcp list`（它只列出配置，不会真的连服务）。启用口令后漏带口令时各 host 的表现、Cursor 需要重启或批准等细节，都写在服务的 `/install.md` 里。
 
 ### 身份怎么确定
 
@@ -244,7 +244,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 - [x] PWA：可安装，离线时能查看上次缓存的看板快照
 - [x] 可选访问口令（`Server.HTTP.Passcode`）、开机自启（`./slate service`）、英文官网（入门、概念、接入已译，其余章节暂显示中文）
 - [x] PostgreSQL 存储层测试（`make test-postgres`）、浏览器端到端冒烟测试（`make web/e2e`）
-- [x] 接入已在 Claude Code 和 Codex 的真实会话里走通；Cursor 只对照了官方文档，还没有在真实 Cursor 里逐步验证
+- [x] 接入已在 Claude Code 和 Codex 的真实会话里走通；Cursor 只验证到 MCP 连接这一层（用它自带的命令行客户端），skill 目录和带大模型的会话还没有验证
 
 以后再做（都已记入 Slate 自己的看板）：
 
