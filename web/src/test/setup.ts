@@ -1,9 +1,9 @@
 // 所有测试共用的初始化：加载 jest-dom 的断言扩展，补上 jsdom 缺少的浏览器接口（Radix 组件会用到），
-// 并在每个测试后清理页面、本地存储和界面语言，保证测试互不影响。
+// 预加载五种语言包，并在每个测试后清理页面、本地存储和界面语言，保证测试互不影响。
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
-import i18n from '@/i18n'
+import { afterEach, beforeAll } from 'vitest'
+import { preloadAllLanguages, setLanguage } from '@/i18n'
 
 // jsdom 没有实现下面这些接口，Radix 的下拉菜单、选择框、弹窗在交互时会调用它们。
 Element.prototype.hasPointerCapture ??= () => false
@@ -30,9 +30,13 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 }
 
+beforeAll(async () => {
+  await preloadAllLanguages()
+})
+
 afterEach(async () => {
   cleanup()
   localStorage.clear()
   document.documentElement.removeAttribute('class')
-  await i18n.changeLanguage('en')
+  await setLanguage('en')
 })

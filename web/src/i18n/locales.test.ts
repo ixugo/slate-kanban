@@ -1,9 +1,16 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
+import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import i18n, { initialLanguage, resources, setLanguage } from './index'
+import i18n, { initialLanguage, loadLanguage, setLanguage } from './index'
 import { LANG_STORAGE_KEY, LANGUAGES } from './languages'
 import { en } from './locales/en'
+import { ja } from './locales/ja'
+import { ko } from './locales/ko'
+import { zhCN } from './locales/zh-CN'
+import { zhTW } from './locales/zh-TW'
+import { useTranslation } from './react'
+import { getByPath } from './lookup'
 
 type Tree = { [key: string]: string | Tree }
 
@@ -24,27 +31,34 @@ function placeholders(text: string): string[] {
 }
 
 const base = flatten(en)
-const locales = Object.entries(resources).map(([code, r]) => [code, flatten(r.translation as Tree)] as const)
+const locales = [
+  ['en', en],
+  ['zh-CN', zhCN],
+  ['zh-TW', zhTW],
+  ['ja', ja],
+  ['ko', ko],
+] as const
 
 describe('各语言的文案', () => {
   it.each(locales)('%s 的键和英文完全一致（运行期再核对一遍类型约束）', (_code, messages) => {
-    expect(Object.keys(messages).sort()).toEqual(Object.keys(base).sort())
+    expect(Object.keys(flatten(messages as Tree)).sort()).toEqual(Object.keys(base).sort())
   })
 
   it.each(locales)('%s 没有空文案', (_code, messages) => {
-    for (const [key, text] of Object.entries(messages)) {
+    for (const [key, text] of Object.entries(flatten(messages as Tree))) {
       expect(text.trim(), key).not.toBe('')
     }
   })
 
   it.each(locales)('%s 的占位符和英文一致，不会显示出没替换的 {{xxx}}', (_code, messages) => {
-    for (const [key, text] of Object.entries(messages)) {
+    const flat = flatten(messages as Tree)
+    for (const [key, text] of Object.entries(flat)) {
       expect(placeholders(text), key).toEqual(placeholders(base[key]))
     }
   })
 
   it('五种语言都登记了资源', () => {
-    expect(Object.keys(resources).sort()).toEqual(LANGUAGES.map((l) => l.code).sort())
+    expect(LANGUAGES.map((l) => l.code).sort()).toEqual(['en', 'ja', 'ko', 'zh-CN', 'zh-TW'])
   })
 })
 
@@ -121,5 +135,27 @@ describe('语言的选择和记忆', () => {
     expect(i18n.t('boards.updated', { time: '3분 전' })).toBe('3분 전 업데이트')
     await setLanguage('en')
     expect(i18n.t('boards.updated', { time: '3 min ago' })).toBe('Updated 3 min ago')
+  })
+
+  it('缺译键回退英文，英文也没有时返回 key', async () => {
+    await setLanguage('en')
+    expect(getByPath(en, 'common.save')).toBe('Save')
+    expect(i18n.t('nonexistent.key' as 'common.save')).toBe('nonexistent.key')
+  })
+
+  it('loadLanguage 之后可以正常取译文', async () => {
+    await loadLanguage('ja')
+    await setLanguage('ja')
+    expect(i18n.t('nav.boards')).toBe(ja.nav.boards)
+    await setLanguage('en')
+  })
+
+  it('语言切换触发订阅者重新渲染', async () => {
+    const { result } = renderHook(() => useTranslation())
+    expect(result.current.t('common.save')).toBe('Save')
+    await act(async () => {
+      await setLanguage('ja')
+    })
+    expect(result.current.t('common.save')).toBe('保存')
   })
 })
