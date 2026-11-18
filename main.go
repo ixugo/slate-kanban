@@ -13,6 +13,7 @@ import (
 	"github.com/ixugo/goddd/pkg/system"
 	"slate-kanban/internal/app"
 	"slate-kanban/internal/conf"
+	"slate-kanban/internal/svcinstall"
 )
 
 var (
@@ -32,6 +33,11 @@ func getBuildRelease() bool {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "service" {
+		svcinstall.RunFromMain(os.Args[2:])
+		return
+	}
+
 	flag.Parse()
 
 	// 初始化配置
