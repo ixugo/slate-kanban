@@ -108,3 +108,32 @@ func TestGuardRequestBodyReachesHandler(t *testing.T) {
 		t.Errorf("处理函数应该读到完整的 18 个字节: %d %s", resp.Code, resp.Body)
 	}
 }
+
+// TestUploadRouteGuards 验证图片上传路由：可以收 multipart 表单和超过 1 MiB 的请求体，
+// 但超过图片上限的仍然 413；别的路由不受影响，仍然只收 JSON 且不超过 1 MiB。
+func TestUploadRouteGuards(t *testing.T) {
+	engine := gin.New()
+	handler := func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{}) }
+	engine.POST(uploadRoute, limitBody(maxRequestBody), requireJSON(), handler)
+	engine.POST("/api/v1/boards/:board_id/cards", limitBody(maxRequestBody), requireJSON(), handler)
+	c := apitest.Client{Engine: engine}
+	post := func(path, contentType string, size int) apitest.Response {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(strings.Repeat("a", size)))
+		req.Header.Set("Content-Type", contentType)
+		return c.Serve(req)
+	}
+
+	form := "multipart/form-data; boundary=x"
+	if resp := post("/api/v1/boards/1/attachments", form, 3<<20); resp.Code != http.StatusOK {
+		t.Errorf("上传应该允许表单和 3 MiB 的请求体: %d %s", resp.Code, resp.Body)
+	}
+	if resp := post("/api/v1/boards/1/attachments", form, uploadBodyLimit+1); resp.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("超过图片上限应该 413: %d %s", resp.Code, resp.Body)
+	}
+	if resp := post("/api/v1/boards/1/cards", form, 10); resp.Code != http.StatusUnsupportedMediaType {
+		t.Errorf("别的路由不能收表单: %d %s", resp.Code, resp.Body)
+	}
+	if resp := post("/api/v1/boards/1/cards", "application/json", 2<<20); resp.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("别的路由仍然限制 1 MiB: %d %s", resp.Code, resp.Body)
+	}
+}
