@@ -30,6 +30,7 @@
 | 15 | 导出备份 | 只能截图或调 API | 工具栏「导出」下拉：`GET /api/v1/boards/:id/export?format=json` 与 `?format=md`，浏览器下载附件（`BoardToolbar` 链到同源 `API_PREFIX`） | 实施 |
 | 16 | 首屏尽量少拉大组件 | 用不到的页面也加载 Tooltip 栈 | 根组件 `App.tsx` 不再包全局 `TooltipProvider`；**看板页**根节点包一层 `TooltipProvider`（列说明的悬停提示）；卡片弹窗懒加载且内部不用 Tooltip | 实施 |
 | 17 | 完成列常驻占位太宽 | 横向空间浪费，和 kanzo 一样希望侧边收起 | 每一列列头有收起按钮；收成 **48px** 窄边（宽约 250ms 过渡，`motion-reduce` 无动画）：展开图标、匹配卡片数、竖排列名；窄边为 `button`（`aria-expanded=false`，`board.expandColumn`），点整块或 Enter/空格展开；展开列头按钮 `board.collapseColumn`。无偏好时 **`is_done` 列默认收起**，其余展开。偏好键 `slate.col.<boardId>.<columnId>`，值 `1` 收起 / `0` 展开（`useCollapsedColumns`）。收起列仍注册 `useDroppable`（`type: column`），可拖进；搜索时窄边数字=当前可见卡数，不自动展开 | 实施 |
+| 18 | 想知道看板上发生过什么 | 只能一张张点开卡片翻评论 | 工具栏「活动」按钮（`BoardToolbar` 的 `onActivityOpen`）打开右侧抽屉，按时间列出谁做了什么，可按事件类型和操作者筛选，抽屉开着时实时出现新事件；抽屉代码在 `BoardPage` 里懒加载，第一次点击才下载。详见 `web.activity.md` | 实施 |
 
 ## v1 明确不做
 
@@ -44,7 +45,7 @@
 ```mermaid
 flowchart TB
     subgraph 看板页 /b/:id
-        T[工具栏: 看板名 编号 | 看板/列表 | 导出 JSON/MD | 设置 | 搜索 筛选 | LiveStatus 仅连接中或离线时出现]
+        T[工具栏: 看板名 编号 | 看板/列表 | 导出 JSON/MD | 活动 | 设置 | 搜索 筛选 | LiveStatus 仅连接中或离线时出现]
         F[当前筛选一行小标签 ActiveFilters]
         S[搜索或筛选激活时: 禁用拖拽提示条]
         subgraph 画布 可横向滚动
