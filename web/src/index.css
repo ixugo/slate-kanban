@@ -1,0 +1,221 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* 字体：拉丁字母用 IBM Plex，汉字和假名、谚文用系统自带的字体，按语言挑各自正确的字形 */
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "PingFang SC",
+    "Microsoft YaHei", monospace;
+  --font-heading: var(--font-sans);
+}
+
+html:lang(zh-TW) {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang TC",
+    "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", sans-serif;
+}
+
+html:lang(ja) {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans CJK JP", sans-serif;
+}
+
+html:lang(ko) {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", sans-serif;
+}
+
+@theme inline {
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-agent: var(--agent);
+  --color-human: var(--human);
+  --color-p-high: var(--p-high);
+  --color-p-mid: var(--p-mid);
+  --color-p-low: var(--p-low);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* 浅色：暖白纸张加深蓝灰墨水，琥珀色是"信号色"，青绿色代表 agent */
+:root {
+  --background: oklch(0.968 0.006 90);
+  --foreground: oklch(0.21 0.02 255);
+  --card: oklch(0.992 0.003 90);
+  --card-foreground: oklch(0.21 0.02 255);
+  --popover: oklch(0.992 0.003 90);
+  --popover-foreground: oklch(0.21 0.02 255);
+  --primary: oklch(0.26 0.03 255);
+  --primary-foreground: oklch(0.975 0.006 90);
+  --secondary: oklch(0.94 0.008 90);
+  --secondary-foreground: oklch(0.26 0.03 255);
+  --muted: oklch(0.945 0.007 90);
+  --muted-foreground: oklch(0.48 0.02 255);
+  --accent: oklch(0.925 0.014 85);
+  --accent-foreground: oklch(0.26 0.03 255);
+  --destructive: oklch(0.56 0.21 27);
+  --border: oklch(0.885 0.008 90);
+  --input: oklch(0.86 0.009 90);
+  --ring: oklch(0.62 0.14 60);
+  --signal: oklch(0.76 0.16 70);
+  --signal-foreground: oklch(0.28 0.06 70);
+  --agent: oklch(0.52 0.11 185);
+  --human: oklch(0.5 0.13 265);
+  --p-high: oklch(0.57 0.2 27);
+  --p-mid: oklch(0.7 0.15 70);
+  --p-low: oklch(0.6 0.07 250);
+  --chart-1: oklch(0.76 0.16 70);
+  --chart-2: oklch(0.52 0.11 185);
+  --chart-3: oklch(0.5 0.13 265);
+  --chart-4: oklch(0.57 0.2 27);
+  --chart-5: oklch(0.6 0.07 250);
+  --radius: 0.3rem;
+  --sidebar: oklch(0.975 0.005 90);
+  --sidebar-foreground: oklch(0.21 0.02 255);
+  --sidebar-primary: oklch(0.26 0.03 255);
+  --sidebar-primary-foreground: oklch(0.975 0.006 90);
+  --sidebar-accent: oklch(0.925 0.014 85);
+  --sidebar-accent-foreground: oklch(0.26 0.03 255);
+  --sidebar-border: oklch(0.885 0.008 90);
+  --sidebar-ring: oklch(0.62 0.14 60);
+}
+
+/* 深色：偏蓝的夜色，不用纯黑，卡片比底色略亮 */
+.dark {
+  --background: oklch(0.185 0.012 255);
+  --foreground: oklch(0.94 0.006 90);
+  --card: oklch(0.225 0.014 255);
+  --card-foreground: oklch(0.94 0.006 90);
+  --popover: oklch(0.245 0.015 255);
+  --popover-foreground: oklch(0.94 0.006 90);
+  --primary: oklch(0.94 0.008 90);
+  --primary-foreground: oklch(0.22 0.02 255);
+  --secondary: oklch(0.27 0.015 255);
+  --secondary-foreground: oklch(0.94 0.006 90);
+  --muted: oklch(0.265 0.014 255);
+  --muted-foreground: oklch(0.72 0.015 255);
+  --accent: oklch(0.3 0.02 255);
+  --accent-foreground: oklch(0.94 0.006 90);
+  --destructive: oklch(0.7 0.19 22);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.75 0.14 70);
+  --signal: oklch(0.8 0.15 75);
+  --signal-foreground: oklch(0.25 0.05 70);
+  --agent: oklch(0.77 0.11 185);
+  --human: oklch(0.76 0.12 270);
+  --p-high: oklch(0.72 0.18 25);
+  --p-mid: oklch(0.8 0.14 78);
+  --p-low: oklch(0.72 0.07 250);
+  --chart-1: oklch(0.8 0.15 75);
+  --chart-2: oklch(0.77 0.11 185);
+  --chart-3: oklch(0.76 0.12 270);
+  --chart-4: oklch(0.72 0.18 25);
+  --chart-5: oklch(0.72 0.07 250);
+  --sidebar: oklch(0.21 0.013 255);
+  --sidebar-foreground: oklch(0.94 0.006 90);
+  --sidebar-primary: oklch(0.8 0.15 75);
+  --sidebar-primary-foreground: oklch(0.25 0.05 70);
+  --sidebar-accent: oklch(0.3 0.02 255);
+  --sidebar-accent-foreground: oklch(0.94 0.006 90);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.75 0.14 70);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 28%, transparent) transparent;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  body {
+    @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--signal) 45%, transparent);
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
+/* 看板画布：像方格纸上的点阵，让列和卡片有"放在板子上"的感觉 */
+.board-canvas {
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--foreground) 16%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 20px 20px;
+}
+
+/* agent 正在处理这张卡片时的呼吸圆点 */
+@keyframes signal-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--agent) 60%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.signal-dot {
+  animation: signal-pulse 2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-dot {
+    animation: none;
+  }
+}
