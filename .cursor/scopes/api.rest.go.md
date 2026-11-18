@@ -3,7 +3,7 @@
 ## 需求目标
 
 网页、各种脚本、不支持 MCP 的 agent 都要通过 HTTP 读写同一个看板；网页还要在别人改了看板时马上看到变化。
-REST 层是看板领域（kanban）和令牌（access）对外的第一个适配器，后面的 MCP 是第二个。
+REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP 是第二个；v1 免登录，操作者固定为人（`human`）。
 两个适配器必须表现一致，所以 REST 层只做四件事：解析请求、取出调用者身份、调用 Core、返回结果。
 权限判断、字段校验、业务规则一律留在 Core 里，REST 层不写任何业务判断。
 
@@ -30,7 +30,7 @@ REST 层是看板领域（kanban）和令牌（access）对外的第一个适配
 
 基础路径 `/api/v1`，请求和响应都是 JSON，字段名用下划线。成功时直接返回资源本身（goddd 的约定，状态码固定 200，创建也是 200），
 失败时返回 `{reason, msg, trace_id}` 和对应状态码。除了 `/health`（框架自带，不在 `/api/v1` 下，免认证），
-其余接口都要 `Authorization: Bearer 令牌`，没有或无效返回 401；`/app/metrics/api`（请求统计，也不在 `/api/v1` 下）同样要令牌。
+v1 全部免认证；全局 `securityMiddleware` 做 Host/Origin/安全头（见 identity.open.go.md）。已删除 `/me`、`/agent-tokens`。
 
 "谁能调用"一列只是说明，真正的判断在 Core 里。
 
