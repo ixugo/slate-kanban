@@ -80,7 +80,7 @@ describe('服务端错误的翻译', () => {
   it('能从 Go 源码里找到错误定义（防止路径变了测试悄悄失效）', () => {
     expect(declared.length).toBeGreaterThan(20)
     expect(declared).toContain('ErrBoardNotFound')
-    expect(declared).toContain('ErrTokenNameTaken')
+    expect(declared).toContain('ErrCardVersionConflict')
   })
 
   it.each(declared)('领域错误 %s 有翻译，新增错误时这里会提醒补文案', (name) => {

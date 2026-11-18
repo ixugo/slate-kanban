@@ -56,18 +56,4 @@ describe('输入上限和后端一致', () => {
   it.each(MAPPING)('%s 等于后端的 %s', (webName, goName) => {
     expect(limits[webName]).toBe(goConst(goName))
   })
-
-  it('令牌名称的写法和后端 internal/core/access/token.go 里的正则一模一样', () => {
-    expect(goSource).toContain('`' + limits.TOKEN_NAME_PATTERN.source + '`')
-  })
-
-  it('令牌名称的写法能接受合法名字、拒绝非法名字，长度上限和写法一致', () => {
-    const { TOKEN_NAME_PATTERN, TOKEN_NAME_MAX } = limits
-    for (const ok of ['codex', 'cursor-agent', 'a', 'bot.v2', 'x_1', 'a'.repeat(TOKEN_NAME_MAX)]) {
-      expect(TOKEN_NAME_PATTERN.test(ok), ok).toBe(true)
-    }
-    for (const bad of ['', 'Codex', '-bot', '.bot', 'a b', 'a'.repeat(TOKEN_NAME_MAX + 1), '机器人']) {
-      expect(TOKEN_NAME_PATTERN.test(bad), bad).toBe(false)
-    }
-  })
 })

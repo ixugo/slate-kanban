@@ -45,8 +45,3 @@ export const FILTER_MAX = 500
 
 /** 搜索一次最多取回的卡片数 */
 export const SEARCH_LIMIT = 500
-
-/** agent 令牌名称的写法：小写字母或数字开头，后面可以有点、下划线、连字符，一共最多 64 个字符 */
-export const TOKEN_NAME_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/
-/** 令牌名称的最大长度，和上面的写法一致 */
-export const TOKEN_NAME_MAX = 64
