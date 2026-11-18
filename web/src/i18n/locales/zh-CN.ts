@@ -266,9 +266,9 @@ export const zhCN: Messages = {
       moreOptions: '更多选项',
       editor: {
         when: '当',
-        then: '时',
         thenDo: '就',
         addAnotherAction: '再加一个动作',
+        andDo: '并且',
       },
       trigger: '触发器',
       triggerColumn: '列',

@@ -267,9 +267,9 @@ export const zhTW: Messages = {
       moreOptions: '更多選項',
       editor: {
         when: '當',
-        then: '時',
         thenDo: '就',
         addAnotherAction: '再加一個動作',
+        andDo: '並且',
       },
       trigger: '觸發條件',
       triggerColumn: '欄',

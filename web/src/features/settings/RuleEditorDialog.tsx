@@ -78,6 +78,7 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
   const [errors, setErrors] = useState<RuleFormErrors>({})
   const [moreOpen, setMoreOpen] = useState(() => shouldExpandMoreOptions(rule, rule ? ruleToForm(rule) : emptyRuleForm(), columns, t))
 
+  // 名称留空时用来生成"进入「进行中」时：记录开始时间"这样的一句话；列或语言变了才重新生成
   const resolveName = useMemo(
     () => (s: RuleFormState) =>
       autoNameFromFormState(s.trigger, s.columnId, s.actions, columns, t),
@@ -86,6 +87,7 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
 
   const busy = createRule.isPending || updateRule.isPending
 
+  /** 提交：编辑走 PATCH，新建走 POST；名称留空时由 resolveName 自动生成一句话 */
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (rule) {
@@ -104,15 +106,18 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
     createRule.mutate(input, { onSuccess: () => onOpenChange(false), onError: toastError })
   }
 
+  /** 替换第 index 个动作 */
   const setAction = (index: number, row: ActionFormRow) => {
     setState((s) => ({ ...s, actions: s.actions.map((a, i) => (i === index ? row : a)) }))
   }
 
+  /** 末尾追加一个空动作，最多 RULE_ACTIONS_MAX 个 */
   const addAction = () => {
     if (state.actions.length >= RULE_ACTIONS_MAX) return
     setState((s) => ({ ...s, actions: [...s.actions, emptyActionRow()] }))
   }
 
+  /** 删除第 index 个动作；至少保留一个 */
   const removeAction = (index: number) => {
     if (state.actions.length <= 1) return
     setState((s) => ({ ...s, actions: s.actions.filter((_, i) => i !== index) }))
@@ -173,7 +178,7 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
   )
 }
 
-/** 第一行：当 [触发] [列] 时 */
+/** 第一行：当 [触发] [列] */
 function WhenRow({
   state,
   columns,
@@ -212,7 +217,6 @@ function WhenRow({
           ))}
         </SelectContent>
       </Select>
-      <span>{t('settings.rules.editor.then')}</span>
       {errors.columnId && (
         <p role="alert" className="w-full text-xs text-destructive">
           {t(`settings.rules.errors.${errors.columnId}`)}
@@ -239,7 +243,7 @@ function ThenRow({
   onRemove: () => void
 }) {
   const { t } = useTranslation()
-  const label = index === 0 ? t('settings.rules.editor.thenDo') : t('settings.rules.editor.thenDo')
+  const label = index === 0 ? t('settings.rules.editor.thenDo') : t('settings.rules.editor.andDo')
   return (
     <div className="space-y-2 border border-border p-3">
       <div className="flex flex-wrap items-start gap-2">
@@ -342,7 +346,7 @@ function MoreOptionsSection({
               </p>
             )}
           </div>
-          <MotionModes state={state} timeRows={timeRows} onChange={onChange} />
+          <TimeModeFields state={state} timeRows={timeRows} onChange={onChange} />
           <ConditionField state={state} onChange={onChange} errors={errors} />
         </div>
       )}
@@ -350,8 +354,8 @@ function MoreOptionsSection({
   )
 }
 
-/** 在更多选项里为时间动作配置覆盖模式 */
-function MotionModes({
+/** 更多选项里：为「记录开始/完成时间」动作选择只在为空时写入，还是总是覆盖 */
+function TimeModeFields({
   state,
   timeRows,
   onChange,
@@ -378,6 +382,7 @@ function MotionModes({
   )
 }
 
+/** 更多选项里的筛选条件输入框：只有满足条件的卡片才会触发这条规则，留空表示所有卡片 */
 function ConditionField({
   state,
   onChange,

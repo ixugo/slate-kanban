@@ -270,9 +270,9 @@ export const en = {
       moreOptions: 'More options',
       editor: {
         when: 'When',
-        then: 'then',
-        thenDo: 'then',
+        thenDo: 'Then',
         addAnotherAction: 'Add another action',
+        andDo: 'And',
       },
       trigger: 'Trigger',
       triggerColumn: 'Column',
