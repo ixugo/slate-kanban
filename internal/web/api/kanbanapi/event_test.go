@@ -2,6 +2,7 @@ package kanbanapi_test
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -61,4 +62,123 @@ func TestPullWaitHumanOnly(t *testing.T) {
 	wait := "/boards/" + id(b.ID) + "/updates/wait"
 	wantFail(t, "人拉取", s.human(t, http.MethodPost, pull, nil), http.StatusForbidden, "ErrAgentOnly")
 	wantFail(t, "人等待", s.human(t, http.MethodPost, wait, nil), http.StatusForbidden, "ErrAgentOnly")
+}
+
+// activityPage 是活动流接口的返回结构。
+type activityPage struct {
+	Events []struct {
+		ID        int64  `json:"id"`
+		Type      string `json:"type"`
+		ActorKind string `json:"actor_kind"`
+		Actor     string `json:"actor"`
+	} `json:"events"`
+	HasMore bool  `json:"has_more"`
+	Latest  int64 `json:"latest"`
+	Actors  []struct {
+		Kind string `json:"kind"`
+		Name string `json:"name"`
+	} `json:"actors"`
+}
+
+// activityTypes 取出一页活动里每条事件的类型，顺序和接口返回一致。
+func activityTypes(p activityPage) []string {
+	out := make([]string, len(p.Events))
+	for i, e := range p.Events {
+		out[i] = e.Type
+	}
+	return out
+}
+
+// TestActivity 验证活动流接口：最新的在前，能按类型、操作者类型、操作者名称筛选，
+// 用 before 翻页，并带回最新序号和操作者列表。
+func TestActivity(t *testing.T) {
+	s := newStack(t)
+	b := s.newBoard(t, "ACT")
+	c := s.newCard(t, b, b.Columns[1].ID, "活动一")
+	s.human(t, http.MethodPost, "/cards/"+id(c.ID)+"/comments", map[string]string{"body": "留言"})
+	s.human(t, http.MethodPost, "/cards/"+id(c.ID)+"/move", map[string]any{"column_id": b.Columns[2].ID})
+	base := "/boards/" + id(b.ID) + "/activity"
+
+	all := decode[activityPage](t, s.human(t, http.MethodGet, base, nil))
+	if len(all.Events) < 4 || all.HasMore || all.Latest != all.Events[0].ID {
+		t.Fatalf("不带条件应该一次返回全部、最新的在前: %+v", all)
+	}
+	for i := 1; i < len(all.Events); i++ {
+		if all.Events[i].ID >= all.Events[i-1].ID {
+			t.Fatalf("事件必须从新到旧: %+v", all.Events)
+		}
+	}
+	if len(all.Actors) < 2 {
+		t.Fatalf("操作者列表应该包含人和自动化: %+v", all.Actors)
+	}
+
+	paged := decode[activityPage](t, s.human(t, http.MethodGet, base+"?limit=2", nil))
+	if len(paged.Events) != 2 || !paged.HasMore || paged.Events[0].ID != all.Events[0].ID {
+		t.Fatalf("limit=2 应该返回最新的两条并提示还有更多: %+v", paged)
+	}
+	older := decode[activityPage](t, s.human(t, http.MethodGet, base+"?limit=2&before="+id(paged.Events[1].ID), nil))
+	if len(older.Events) != 2 || older.Events[0].ID != all.Events[2].ID {
+		t.Fatalf("before 应该接着上一页往后翻: %+v", older)
+	}
+
+	moved := decode[activityPage](t, s.human(t, http.MethodGet, base+"?types=card.moved", nil))
+	if got := activityTypes(moved); len(got) != 1 || got[0] != "card.moved" {
+		t.Fatalf("按类型筛选不对: %v", got)
+	}
+	two := decode[activityPage](t, s.human(t, http.MethodGet, base+"?types=card.moved,comment.added", nil))
+	if got := activityTypes(two); len(got) != 2 {
+		t.Fatalf("多个类型应该取并集: %v", got)
+	}
+	system := decode[activityPage](t, s.human(t, http.MethodGet, base+"?actor_kind=system", nil))
+	if len(system.Events) == 0 {
+		t.Fatalf("移动进开始列应该触发了自动化: %+v", all.Events)
+	}
+	for _, e := range system.Events {
+		if e.ActorKind != "system" {
+			t.Fatalf("混进了别的操作者: %+v", e)
+		}
+	}
+	name := system.Events[0].Actor
+	byName := decode[activityPage](t, s.human(t, http.MethodGet, base+"?actor="+url.QueryEscape(name), nil))
+	if len(byName.Events) != len(system.Events) || byName.Latest != all.Latest || len(byName.Actors) != len(all.Actors) {
+		t.Fatalf("按名称筛选只该留下这个操作者的事件，最新序号和操作者列表不应该变: %+v", byName)
+	}
+	for _, e := range byName.Events {
+		if e.Actor != name {
+			t.Fatalf("混进了别的操作者: %+v", e)
+		}
+	}
+	if nobody := decode[activityPage](t, s.human(t, http.MethodGet, base+"?actor=nobody", nil)); len(nobody.Events) != 0 {
+		t.Fatalf("不存在的操作者应该返回空列表: %+v", nobody)
+	}
+	if none := decode[activityPage](t, s.human(t, http.MethodGet, base+"?types=card.deleted", nil)); len(none.Events) != 0 || none.HasMore {
+		t.Fatalf("没有匹配应该返回空列表: %+v", none)
+	}
+	if resp := s.human(t, http.MethodGet, base+"?types=card.deleted", nil); !strings.Contains(string(resp.Body), `"events":[]`) {
+		t.Fatalf("没有匹配应该返回 \"events\":[]: %s", resp.Body)
+	}
+}
+
+// TestActivityInvalid 验证活动流的参数错误都返回 400，看板不存在返回 404。
+func TestActivityInvalid(t *testing.T) {
+	s := newStack(t)
+	b := s.newBoard(t, "ACI")
+	base := "/boards/" + id(b.ID) + "/activity"
+	for name, query := range map[string]string{
+		"负数 before":    "?before=-1",
+		"负数 limit":     "?limit=-1",
+		"不认识的类型":       "?types=card.exploded",
+		"多写了逗号":        "?types=card.moved,",
+		"不认识的操作者类型":    "?actor_kind=robot",
+		"操作者名称过长":      "?actor=" + strings.Repeat("a", 65),
+		"before 不是数字":  "?before=abc",
+		"limit 不是数字":   "?limit=abc",
+		"类型里夹带 SQL":    "?types=" + url.QueryEscape("card.moved') OR 1=1 --"),
+		"操作者类型里夹带 SQL": "?actor_kind=" + url.QueryEscape("human' OR '1'='1"),
+	} {
+		if resp := s.human(t, http.MethodGet, base+query, nil); resp.Code != http.StatusBadRequest {
+			t.Errorf("%s 应该返回 400，实际 %d %s", name, resp.Code, resp.Body)
+		}
+	}
+	wantFail(t, "看板不存在", s.human(t, http.MethodGet, "/boards/9999/activity", nil), http.StatusNotFound, "ErrBoardNotFound")
 }

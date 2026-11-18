@@ -229,3 +229,104 @@ func TestCursorAdvanceConcurrent(t *testing.T) {
 		}
 	})
 }
+
+// addEventAs 给看板追加一条指定类型和操作者的事件，返回它的序号。
+func addEventAs(t *testing.T, store kanban.EventStorer, boardID int64, typ string, kind kanban.ActorKind, actor string) int64 {
+	t.Helper()
+	e := &kanban.Event{BoardID: boardID, Type: typ, ActorKind: string(kind), Actor: actor, Payload: "{}"}
+	if err := store.Create(context.Background(), e); err != nil {
+		t.Fatalf("追加事件失败: %v", err)
+	}
+	return e.ID
+}
+
+// eventIDs 取出一组事件的序号。
+func eventIDs(items []*kanban.Event) []int64 {
+	ids := make([]int64, len(items))
+	for i, e := range items {
+		ids[i] = e.ID
+	}
+	return ids
+}
+
+// TestEventListBefore 验证活动流的底层查询：只看本看板，序号严格小于 beforeSeq，从新到旧，
+// 遵守条数上限；类型、操作者类型、操作者名称三个条件可以单独用也可以叠加（都满足才算）。
+func TestEventListBefore(t *testing.T) {
+	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
+		ctx := context.Background()
+		store := db.Event()
+		a := addEventAs(t, store, 1, kanban.EventCardCreated, kanban.ActorHuman, "human")
+		b := addEventAs(t, store, 1, kanban.EventCardMoved, kanban.ActorHuman, "human")
+		addEventAs(t, store, 2, kanban.EventCardMoved, kanban.ActorHuman, "human") // 别的看板，不能出现
+		c := addEventAs(t, store, 1, kanban.EventCommentAdded, kanban.ActorAgent, "codex")
+		d := addEventAs(t, store, 1, kanban.EventCardMoved, kanban.ActorAgent, "claude")
+		e := addEventAs(t, store, 1, kanban.EventAutomationFired, kanban.ActorSystem, "automation:开始计时")
+
+		list := func(before int64, f kanban.ActivityFilter, limit int) []int64 {
+			t.Helper()
+			items, err := store.ListBefore(ctx, 1, before, f, limit)
+			if err != nil || items == nil {
+				t.Fatalf("查询失败或返回了 nil: %v", err)
+			}
+			return eventIDs(items)
+		}
+		equal := func(name string, got, want []int64) {
+			t.Helper()
+			if len(got) != len(want) {
+				t.Fatalf("%s: 期望 %v，实际 %v", name, want, got)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatalf("%s: 期望 %v，实际 %v", name, want, got)
+				}
+			}
+		}
+
+		equal("不限条件从最新开始", list(0, kanban.ActivityFilter{}, 10), []int64{e, d, c, b, a})
+		equal("条数上限", list(0, kanban.ActivityFilter{}, 2), []int64{e, d})
+		equal("序号严格小于 before", list(c, kanban.ActivityFilter{}, 10), []int64{b, a})
+		equal("按类型", list(0, kanban.ActivityFilter{Types: []string{kanban.EventCardMoved}}, 10), []int64{d, b})
+		equal("多个类型取并集", list(0, kanban.ActivityFilter{Types: []string{kanban.EventCardCreated, kanban.EventCommentAdded}}, 10), []int64{c, a})
+		equal("按操作者类型", list(0, kanban.ActivityFilter{ActorKind: kanban.ActorAgent}, 10), []int64{d, c})
+		equal("按操作者名称", list(0, kanban.ActivityFilter{Actor: "codex"}, 10), []int64{c})
+		equal("三个条件叠加", list(0, kanban.ActivityFilter{Types: []string{kanban.EventCardMoved}, ActorKind: kanban.ActorAgent, Actor: "claude"}, 10), []int64{d})
+		equal("类型和操作者没有交集", list(0, kanban.ActivityFilter{Types: []string{kanban.EventCardCreated}, ActorKind: kanban.ActorAgent}, 10), []int64{})
+		equal("筛选加翻页", list(d, kanban.ActivityFilter{Types: []string{kanban.EventCardMoved}}, 10), []int64{b})
+	})
+}
+
+// TestEventActors 验证操作者列表：同一个人只出现一次，按类型再按名称排序，只含本看板，没有事件时是空数组。
+func TestEventActors(t *testing.T) {
+	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
+		ctx := context.Background()
+		store := db.Event()
+		if got, err := store.Actors(ctx, 1); err != nil || got == nil || len(got) != 0 {
+			t.Fatalf("没有事件时应该是空数组: %v %v", got, err)
+		}
+		addEventAs(t, store, 1, kanban.EventCardCreated, kanban.ActorHuman, "human")
+		addEventAs(t, store, 1, kanban.EventCardMoved, kanban.ActorHuman, "human")
+		addEventAs(t, store, 1, kanban.EventCommentAdded, kanban.ActorAgent, "codex")
+		addEventAs(t, store, 1, kanban.EventCommentAdded, kanban.ActorAgent, "claude")
+		addEventAs(t, store, 1, kanban.EventAutomationFired, kanban.ActorSystem, "automation:开始计时")
+		addEventAs(t, store, 2, kanban.EventCommentAdded, kanban.ActorAgent, "别的看板的")
+
+		got, err := store.Actors(ctx, 1)
+		if err != nil {
+			t.Fatalf("查询失败: %v", err)
+		}
+		want := []kanban.ActivityActor{
+			{Kind: kanban.ActorAgent, Name: "claude"},
+			{Kind: kanban.ActorAgent, Name: "codex"},
+			{Kind: kanban.ActorHuman, Name: "human"},
+			{Kind: kanban.ActorSystem, Name: "automation:开始计时"},
+		}
+		if len(got) != len(want) {
+			t.Fatalf("期望 %v，实际 %v", want, got)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("期望 %v，实际 %v", want, got)
+			}
+		}
+	})
+}
