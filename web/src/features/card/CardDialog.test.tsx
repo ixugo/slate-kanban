@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
 import { en } from '@/i18n/locales/en'
 import { installFakeApi, type FakeCall } from '@/test/fakeApi'
@@ -21,6 +21,11 @@ const baseDetail = {
   claimed_by: 'codex',
   claim_expires_at: '2026-11-18T12:00:00Z',
 }
+
+// 看板页里的卡片弹窗是懒加载的：先把它的模块加载好，第一个测试就不用在 findBy 的限时里等模块首次编译。
+beforeAll(async () => {
+  await import('@/features/card/CardDialog')
+}, 30000)
 
 afterEach(() => vi.unstubAllGlobals())
 

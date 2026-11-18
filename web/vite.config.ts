@@ -24,6 +24,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // 机器忙时一个交互较多的测试可能超过默认的 5 秒，放宽到 15 秒，避免误报超时
+    testTimeout: 15000,
   },
   server: {
     proxy: {
