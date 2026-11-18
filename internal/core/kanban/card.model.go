@@ -21,9 +21,9 @@ type Card struct {
 	Description    string     `gorm:"column:description;type:text;notNull;default:'';comment:描述" json:"description"`
 	Position       float64    `gorm:"column:position;notNull;default:0;index:idx_cards_board_column_pos,priority:3;comment:列内排序位置，越小越靠上" json:"position"`
 	Priority       int        `gorm:"column:priority;notNull;default:0;comment:优先级，0 未设置，1 低，2 中，3 高" json:"priority"`
-	TagIDs         []int64    `gorm:"column:tag_ids;type:text;serializer:json;comment:标签主键，JSON 数组，指向 tags 表" json:"tag_ids"`
+	TagIDs         []int64    `gorm:"column:tag_ids;type:text;serializer:json;notNull;default:'[]';comment:标签主键，JSON 数组，指向 tags 表" json:"tag_ids"`
 	HumanOnly      bool       `gorm:"column:human_only;notNull;default:FALSE;comment:是否只能由人处理" json:"human_only"`
-	WaitsOn        []int64    `gorm:"column:waits_on;type:text;serializer:json;comment:依赖的卡片主键，JSON 数组" json:"waits_on"`
+	WaitsOn        []int64    `gorm:"column:waits_on;type:text;serializer:json;notNull;default:'[]';comment:依赖的卡片主键，JSON 数组" json:"waits_on"`
 	DueAt          *time.Time `gorm:"column:due_at;comment:到期时间" json:"due_at"`
 	StartedAt      *time.Time `gorm:"column:started_at;comment:开始时间" json:"started_at"`
 	FinishedAt     *time.Time `gorm:"column:finished_at;comment:完成时间" json:"finished_at"`

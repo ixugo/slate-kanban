@@ -71,8 +71,8 @@ func (d DB) Cursor() kanban.CursorStorer {
 	return Cursor(d)
 }
 
-// AutoMigrate 同步表结构，并把旧版存在看板和卡片列里的标签搬进 tags 表（见 migrateLegacyTags）。
-// 它在每次启动时都会执行，所以必须可以重复执行：已有的表只会补齐缺失的列和索引，不会删除数据，旧标签搬完就不再有可搬的内容。
+// AutoMigrate 同步表结构：已有的表只会补齐缺失的列和索引，不会删除数据，每次启动都可以重复执行。
+// 项目还在开发阶段，没有为旧版本数据写迁移逻辑：表结构变了就由开发者用独立程序处理本地数据库。
 func (d DB) AutoMigrate(ok bool) DB {
 	if !ok {
 		return d
@@ -81,9 +81,6 @@ func (d DB) AutoMigrate(ok bool) DB {
 		new(kanban.Board), new(kanban.Column), new(kanban.Card), new(kanban.Comment),
 		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor), new(kanban.Attachment), new(kanban.Tag),
 	); err != nil {
-		panic(err)
-	}
-	if err := d.migrateLegacyTags(); err != nil {
 		panic(err)
 	}
 	return d
