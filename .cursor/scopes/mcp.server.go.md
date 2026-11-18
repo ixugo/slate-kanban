@@ -132,7 +132,7 @@ sequenceDiagram
 - **离线补读**：agent 的读取进度（`agent_cursors`）在服务端数据库里，按（看板，agent）一行。agent 离线期间的事件留在事件表里，
   上线后调用 `pull_updates` 就能按顺序补读；`has_more` 为真就立刻再拉；`truncated` 为真说明离线太久、中间的事件已经被清理，
   这时用 `list_cards` 重新了解现状。第一次读某个看板（`first`）不补发历史，同样用 `list_cards` 了解现状。
-- **订阅校验**：订阅的地址必须是 `slate://boards/{整数}`，并且看板存在，否则订阅失败。任何已认证的身份都可以订阅（读看板本来就是公开给所有身份的）。
+- **订阅校验**：订阅的地址必须是 `slate://boards/{整数}`，并且看板存在，否则订阅失败。合法 `?name=` 连上的会话都可以订阅。
 
 ## 阻塞等待
 
@@ -183,12 +183,9 @@ branch, url, version, updated_at`。
 
 ## 接线
 
-- `mcpapi.New(access.Core, kanban.Core, version, ...Option) (API, func())` 创建两个 Server、通知器和 HTTP 处理器；返回的清理函数停止通知器协程并等它退出，可以重复调用。
-  `Core.Observe("mcp", …)` 在这里注册，必须发生在开始处理请求之前，同一个 Core 只能调用一次，Wire 装配阶段满足这两个条件。
-  可选项只给测试用：`WithNotifyDelay`（通知合并窗口，默认 200 毫秒）、`WithStreamRecheck`（通知流重新认证的间隔，默认 1 分钟）。
-- `internal/web/api/provider.go` 增加 `NewMCP(bc, access.Core, kanban.Core) (mcpapi.API, func())`（从 `conf.Bootstrap` 取构建版本号后调用 `mcpapi.New`，
-  因为 Wire 不能直接用带可变参数的构造函数，所以包一层，不传选项），`Usecase` 增加 `MCP` 字段，
-  再用 `wire` 重新生成 `internal/app/wire_gen.go`：生成的退出函数先停通知器，再关数据库。
+- `mcpapi.New(kanban.Core, buildVersion, ...Option) (API, func())` 创建两套 Server（工作 16 工具、管理 24 工具）、通知器和 HTTP 处理器；清理函数停通知器协程。
+  `Core.Observe("mcp", …)` 在此注册。测试可选项：`WithNotifyDelay`（通知合并窗口，默认 200 毫秒）。
+- `internal/web/api/provider.go` 的 `NewMCP` 从配置取构建版本后调用 `mcpapi.New`；`Usecase.MCP` 供 `setupRouter` 挂 `/mcp`。
 - `setupRouter` 增加 `r.Any(mcpPath, gin.WrapH(uc.MCP.Handler()))`（`mcpPath` 是 `/mcp`）。它在全局的恢复、统计、日志中间件之内，不在 `/api/v1` 组里，
   因为 MCP 有自己的认证和请求体检查，套上 REST 的 `requireJSON` 会误拦 MCP 协议里的 GET 和 DELETE。方法由 SDK 区分：POST 是初始化和工具调用，GET 是通知流，DELETE 是结束会话。
 - 依赖：`github.com/modelcontextprotocol/go-sdk v1.8.0`。官方维护，API 稳定到 v1；它的传递依赖是 JSON Schema 库、`oauth2` 和 URI 模板库。
@@ -200,27 +197,24 @@ branch, url, version, updated_at`。
 - 通知只通知"看板有更新"，不区分和哪个 agent 有关。区分的工作交给 `pull_updates`（它会过滤掉 agent 自己的操作和排序类事件）。
 - 没有 MCP Prompts，也没有进度通知：host 对它们的支持参差不齐，流程指引放在 skill 和 instructions 里。
 - 没有配置 SDK 的 EventStore（流断点续传）：通知本来就允许丢，不值得为它在内存里存消息。
-- 令牌过期时间：令牌不会过期，只会被删除。令牌被删除后，工具调用在下一个请求就失败；已经连着的通知流最多再存活 1 分钟（重新认证的间隔）。
-- 没有配置按时间强制断开通知流：原因见需求 9。
+- 没有按令牌或定时器强制断开通知流：GET 连接随服务关闭（`limitStream`）或客户端断开而结束。
 
 ## 验证
 
-- 单元与集成测试（`internal/web/mcpapi`、`internal/web/api`）：用官方 SDK 客户端连真实的 HTTP 服务，覆盖认证和会话绑定、两个视图的工具清单和入参、
-  干活闭环、权限和版本冲突、错误不泄露细节、拉取和阻塞等待（唤醒、超时、第一次、超大秒数、客户端取消、服务关闭）、资源与订阅、
-  通知的合并和不阻塞写入、通知流随关闭和令牌删除而结束、反向代理的 Host、请求体上限、新协议的明确答复；
-  路由层再验证 `/mcp` 要令牌、和 REST 共用令牌与看板、REST 改动能触发 MCP 通知、构建版本号被报给客户端。
-- 变异验证：逐个破坏关键语句（泄露错误细节、会话不绑定身份、视图拿到不该有的工具、观察者阻塞写入、等待不随取消或关闭结束、
-  通知流不重新认证、地址解析放宽、项目路径不校验等 44 处），每一处都要被测试发现。
-- 真实进程冒烟：编译出二进制运行，SDK 客户端走一遍创建看板和令牌、两个视图的工具数（24 和 16）、订阅通知、
-  人派活 → agent 领取、评论、交接 → 人移入完成并由规则写上完成时间、离线补读、阻塞等待被唤醒；
-  最后挂起一个阻塞等待再发 SIGTERM，服务立刻退出，等待得到"服务正在关闭"，日志里没有错误。
+- 单元与集成测试（`internal/web/mcpapi`、`internal/web/api`）：SDK 客户端连真实 HTTP，覆盖 `?name=` 身份与会话 UserID 绑定、两套工具数量（16/24）、干活闭环、错误不泄露细节、
+  `pull_updates` / `wait_for_updates`、资源与订阅、通知合并与不拖慢写入、通知流随服务关闭结束、反向代理 Host、`DisableLocalhostProtection`、请求体上限、新协议降级答复；
+  路由层验证 `/mcp` 身份参数与 `TestMCPInitializeWorker`、`TestMCPManagerTools`、`TestMCPNotifiedByREST` 等（`mcp_test.go`）。
+- 变异验证：关键路径（错误泄露、会话劫持、错误视图工具、观察者阻塞、等待取消与关闭、地址解析等）有专项变异脚本覆盖。
+- 真实进程冒烟：两视图工具数、订阅、领取与交接、离线补读、关闭时阻塞等待返回 503。
 
 ## 代码对照
 
 | 步骤 | 函数 | 文件 |
 |------|------|------|
-| 创建 Server、通知器、处理器 | New | internal/web/mcpapi/api.go |
-| 认证、身份进入 TokenInfo | newVerifier、actorOf | internal/web/mcpapi/identity.go |
+| 创建 Server、通知器、处理器 | New, newHandler, serverFor | internal/web/mcpapi/api.go |
+| 查询参数身份、写头 | identityMiddleware, parseQueryIdentity | internal/web/mcpapi/middleware.go |
+| 占位 Bearer、会话 TokenInfo | bearerGate, headerVerifier | internal/web/mcpapi/openauth.go |
+| 从 TokenInfo 取 Actor | actorOf, actorFromHeaders | internal/web/mcpapi/identity.go |
 | 工具注册的统一包装 | register | internal/web/mcpapi/register.go |
 | 错误转换 | toolError | internal/web/mcpapi/errors.go |
 | 只读工具 | whoami、listBoards、getBoard、listCards、getCard、listEvents | internal/web/mcpapi/tools_read.go |
@@ -232,5 +226,5 @@ branch, url, version, updated_at`。
 | 资源与订阅 | readBoard、subscribe、parseBoardURI、resourceError | internal/web/mcpapi/resource.go |
 | 通知器 | notifier.mark、notifier.run | internal/web/mcpapi/notify.go |
 | 使用说明 | instructionsFor（agentInstructions、adminInstructions） | internal/web/mcpapi/instructions.go |
-| 通知流随服务关闭、定期重新认证 | limitStream、endWhenRevoked | internal/web/mcpapi/api.go |
+| 通知流随服务关闭结束 | limitStream | internal/web/mcpapi/api.go |
 | 路由与装配 | NewMCP、setupRouter | internal/web/api/provider.go、internal/web/api/api.go |
