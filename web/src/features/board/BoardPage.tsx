@@ -123,7 +123,7 @@ export default function BoardPage() {
           query={search.query}
           onQueryChange={search.setQuery}
           matched={matched}
-          total={search.total || totalCards}
+          total={totalCards}
           truncated={search.truncated}
           syntaxError={search.syntaxError}
           searching={search.searching}

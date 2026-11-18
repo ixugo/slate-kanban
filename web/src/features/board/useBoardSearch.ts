@@ -10,13 +10,12 @@ import { useTranslation } from '@/i18n/react'
 
 const DEBOUNCE_MS = 300
 
-/** 搜索状态：输入值、命中 id、总数、是否被截断、语法错误文案 */
+/** 搜索状态：输入值、命中 id、是否被截断、语法错误文案 */
 export interface BoardSearchState {
   query: string
   setQuery: (q: string) => void
   /** 有搜索词时为命中 id，否则 null 表示不过滤 */
   visibleIds: ReadonlySet<number> | null
-  total: number
   truncated: boolean
   /** 服务端 400 时的具体原因（中文），空表示没有错误 */
   syntaxError: string
@@ -61,7 +60,6 @@ export function useBoardSearch(boardId: number | null): BoardSearchState {
     query,
     setQuery,
     visibleIds,
-    total: data?.total ?? 0,
     truncated: data?.truncated ?? false,
     syntaxError,
     searching: enabled && isFetching,
