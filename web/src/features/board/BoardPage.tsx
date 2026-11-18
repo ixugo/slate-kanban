@@ -23,6 +23,7 @@ import { BoardCanvas } from './BoardCanvas'
 import { BoardGone } from './BoardGone'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useBoardViewMode } from './useBoardView'
+import { useOnlineStatus } from '@/pwa/useOnlineStatus'
 
 const CardDialog = lazy(() => import('@/features/card/CardDialog'))
 const ListView = lazy(() => import('./ListView'))
@@ -55,7 +56,10 @@ export default function BoardPage() {
 
   useDocumentTitle(snapshot?.name)
 
-  const dragDisabled = search.visibleIds !== null
+  const online = useOnlineStatus()
+  const searching = search.visibleIds !== null
+  // 搜索或筛选时不能拖（可见集不完整）；离线时整个看板只读，也不能拖
+  const dragDisabled = searching || !online
   const totalCards = snapshot?.cards.length ?? 0
   const matched = search.visibleIds?.size ?? totalCards
 
@@ -153,7 +157,7 @@ export default function BoardPage() {
           onViewModeChange={setViewMode}
         />
         <ActiveFilters filters={filters} columns={columns} onChange={setFilters} />
-        {viewMode === 'board' && dragDisabled && (
+        {viewMode === 'board' && searching && (
           <p className="border-b bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">{t('board.dragDisabledSearch')}</p>
         )}
         {viewMode === 'board' ? (

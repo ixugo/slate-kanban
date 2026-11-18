@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { CARD_TITLE_MAX } from '@/lib/limits'
+import { useOnlineStatus } from '@/pwa/useOnlineStatus'
 import { PlusIcon } from 'lucide-react'
 
 interface AddCardProps {
@@ -15,9 +16,10 @@ interface AddCardProps {
   busy?: boolean
 }
 
-/** 列底部的新建卡片控件 */
+/** 列底部的新建卡片控件；离线时整个看板只读，不提供新建入口 */
 export function AddCard({ open, onOpen, onClose, onSubmit, busy }: AddCardProps) {
   const { t } = useTranslation()
+  const online = useOnlineStatus()
   const [title, setTitle] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -38,6 +40,8 @@ export function AddCard({ open, onOpen, onClose, onSubmit, busy }: AddCardProps)
       submit()
     }
   }
+
+  if (!online) return null
 
   if (!open) {
     return (
