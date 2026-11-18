@@ -52,7 +52,7 @@ export function TagEditor({ tags: rawTags, onChange }: TagEditorProps) {
       <Label htmlFor="card-tags" className="text-muted-foreground">{t('card.field.tags')}</Label>
       <div className="flex flex-wrap gap-1">
         {tags.map((tag) => (
-          <Badge key={tag} variant="secondary" className="gap-1 pr-1 font-normal">
+          <Badge key={tag} variant="secondary" className="gap-1 pr-1">
             <span className="max-w-[8rem] truncate">{tag}</span>
             <Button
               type="button"
