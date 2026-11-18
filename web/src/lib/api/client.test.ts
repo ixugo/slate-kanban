@@ -1,5 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearToken, getToken, setToken } from '@/lib/token'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, REASON_BAD_RESPONSE, REASON_NETWORK, request } from './client'
 
 type FetchMock = ReturnType<typeof vi.fn>
@@ -16,47 +15,18 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
 
-beforeEach(() => {
-  clearToken()
-})
-
 afterEach(() => {
   vi.unstubAllGlobals()
 })
 
 describe('request', () => {
-  it('把已保存的令牌放进 Authorization 头，GET 不带 Content-Type', async () => {
-    setToken('abc')
+  it('GET 请求：地址带前缀，只声明 Accept，不带 Content-Type，也不带任何认证头', async () => {
     const fetchMock = mockFetch(() => Promise.resolve(json({ ok: 1 })))
     await request('/boards')
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('/api/v1/boards')
-    const headers = init.headers as Record<string, string>
-    expect(headers.Authorization).toBe('Bearer abc')
-    expect(headers['Content-Type']).toBeUndefined()
+    expect(init.headers).toEqual({ Accept: 'application/json' })
     expect(init.method).toBe('GET')
-  })
-
-  it('令牌不会出现在地址里', async () => {
-    setToken('super-secret')
-    const fetchMock = mockFetch(() => Promise.resolve(json({})))
-    await request('/boards', { query: { a: 1 } })
-    expect((fetchMock.mock.calls[0] as [string])[0]).not.toContain('super-secret')
-  })
-
-  it('没有令牌时不发送 Authorization 头', async () => {
-    const fetchMock = mockFetch(() => Promise.resolve(json({})))
-    await request('/me')
-    const init = (fetchMock.mock.calls[0] as [string, RequestInit])[1]
-    expect((init.headers as Record<string, string>).Authorization).toBeUndefined()
-  })
-
-  it('显式传入的令牌优先于已保存的', async () => {
-    setToken('stored')
-    const fetchMock = mockFetch(() => Promise.resolve(json({})))
-    await request('/me', { token: 'candidate' })
-    const init = (fetchMock.mock.calls[0] as [string, RequestInit])[1]
-    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer candidate')
   })
 
   it('查询参数会编码，undefined 的被跳过，false 和 0 保留', async () => {
@@ -105,27 +75,6 @@ describe('request', () => {
     mockFetch(() => Promise.resolve(new Response(null, { status: 503, statusText: 'Service Unavailable' })))
     const err = (await request('/x').catch((e: unknown) => e)) as ApiError
     expect(err).toMatchObject({ status: 503, reason: 'Http503', message: 'Service Unavailable' })
-  })
-
-  it('用已保存的令牌得到 401 时清掉令牌', async () => {
-    setToken('stale')
-    mockFetch(() => Promise.resolve(json({ reason: 'ErrUnauthorized', msg: 'x' }, 401)))
-    await expect(request('/boards')).rejects.toMatchObject({ status: 401 })
-    expect(getToken()).toBe('')
-  })
-
-  it('用显式传入的令牌得到 401 时不动已保存的令牌', async () => {
-    setToken('keep')
-    mockFetch(() => Promise.resolve(json({ reason: 'ErrUnauthorized', msg: 'x' }, 401)))
-    await expect(request('/me', { token: 'wrong' })).rejects.toMatchObject({ status: 401 })
-    expect(getToken()).toBe('keep')
-  })
-
-  it('其他错误状态不会清令牌', async () => {
-    setToken('keep')
-    mockFetch(() => Promise.resolve(json({ reason: 'ErrHumanOnly', msg: 'x' }, 403)))
-    await expect(request('/boards')).rejects.toMatchObject({ status: 403 })
-    expect(getToken()).toBe('keep')
   })
 
   it('网络不通时抛出 reason 为 ErrNetwork、状态码为 0 的错误', async () => {

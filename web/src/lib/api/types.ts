@@ -1,15 +1,9 @@
 // 和后端 JSON 一一对应的类型，来源是 internal/core/kanban 下的 *.model.go、*.param.go，
-// 以及 internal/core/access、internal/web/api/connectapi。后端改字段时，这里要一起改。
+// 以及 internal/web/api/connectapi。后端改字段时，这里要一起改。
 // 时间一律是 RFC3339 字符串；可空的时间是 null。
 
 /** 操作者类型：人、agent、系统（自动化规则） */
 export type ActorKind = 'human' | 'agent' | 'system'
-
-/** 登录者身份，网页只允许 human 使用 */
-export interface Me {
-  name: string
-  kind: 'human' | 'agent'
-}
 
 export interface Board {
   id: number
@@ -201,20 +195,6 @@ export interface EventPage {
   truncated: boolean
 }
 
-export interface AgentToken {
-  id: number
-  name: string
-  /** 令牌的前几个字符，用来在列表里辨认 */
-  prefix: string
-  last_used_at: string | null
-  created_at: string
-}
-
-/** 创建令牌的结果，token 是明文，只返回这一次 */
-export interface NewAgentToken extends AgentToken {
-  token: string
-}
-
 /** 接入说明里一段可以直接复制的命令或配置 */
 export interface Snippet {
   title: string
@@ -229,13 +209,12 @@ export interface GuideHost {
   skill: Snippet[]
 }
 
-/** /api/v1/connect 返回的接入说明，令牌不在其中，命令里只引用环境变量 */
+/** /api/v1/connect 返回的接入说明；每个 host 的 mcp 里依次是工作视图和管理视图的命令 */
 export interface ConnectGuide {
   base_url: string
   mcp_url: string
   install_url: string
   skill_url: string
-  token_env: string
   hosts: GuideHost[]
 }
 

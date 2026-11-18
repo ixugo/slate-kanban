@@ -1,7 +1,6 @@
-// 调用服务端 REST 接口的底层封装：统一加令牌头、解析 JSON、把错误整理成 ApiError。
-// 令牌只通过 Authorization 请求头发送，不会出现在 URL 里。
+// 调用服务端 REST 接口的底层封装：解析 JSON、把错误整理成 ApiError。
+// 服务端不需要登录，所以请求里没有任何认证信息。
 
-import { clearToken, getToken } from '@/lib/token'
 import type { ErrorBody } from './types'
 
 /** 所有接口的公共前缀 */
@@ -39,8 +38,6 @@ export interface RequestOptions {
   query?: Record<string, QueryValue>
   /** 取消请求，页面卸载或切换看板时用 */
   signal?: AbortSignal
-  /** 显式指定令牌，登录时用来验证"还没保存"的令牌；指定后 401 不会清掉已保存的令牌 */
-  token?: string
 }
 
 // 把查询参数拼成 "?a=1&b=2"，没有参数时返回空串。
@@ -66,9 +63,8 @@ async function readErrorBody(res: Response): Promise<ErrorBody> {
   }
 }
 
-// 把失败的响应转成 ApiError；401 且用的是已保存的令牌时清掉令牌，页面会回到登录页。
-async function toApiError(res: Response, usedStoredToken: boolean): Promise<ApiError> {
-  if (res.status === 401 && usedStoredToken) clearToken()
+// 把失败的响应转成 ApiError。
+async function toApiError(res: Response): Promise<ApiError> {
   const body = await readErrorBody(res)
   const reason = body.reason || `Http${res.status}`
   return new ApiError(res.status, reason, body.msg || res.statusText, body.trace_id ?? '')
@@ -84,25 +80,19 @@ async function send(url: string, init: RequestInit): Promise<Response> {
   }
 }
 
-/** 构造带令牌的请求头，实时流和普通请求共用 */
-export function authHeaders(token: string): Record<string, string> {
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
-
 /**
  * 调用一个接口并返回解析后的 JSON。
  * 成功时服务端直接返回资源本身，删除之类没有内容的接口返回 `{}`。
  */
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const token = opts.token ?? getToken()
-  const headers: Record<string, string> = { Accept: 'application/json', ...authHeaders(token) }
+  const headers: Record<string, string> = { Accept: 'application/json' }
   const init: RequestInit = { method: opts.method ?? 'GET', headers, signal: opts.signal }
   if (opts.body !== undefined) {
     headers['Content-Type'] = 'application/json'
     init.body = JSON.stringify(opts.body)
   }
   const res = await send(`${API_PREFIX}${path}${buildQuery(opts.query)}`, init)
-  if (!res.ok) throw await toApiError(res, opts.token === undefined)
+  if (!res.ok) throw await toApiError(res)
   try {
     return (await res.json()) as T
   } catch {

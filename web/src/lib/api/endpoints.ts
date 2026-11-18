@@ -3,7 +3,6 @@
 
 import { request } from './client'
 import type {
-  AgentToken,
   Board,
   BoardDetail,
   CardDetail,
@@ -18,8 +17,6 @@ import type {
   CreateRuleInput,
   EventPage,
   MoveCardInput,
-  Me,
-  NewAgentToken,
   Rule,
   Snapshot,
   UpdateBoardInput,
@@ -33,11 +30,6 @@ type Signal = AbortSignal | undefined
 
 /** 没有内容的接口（删除、释放）的返回值 */
 export type Empty = Record<string, never>
-
-/** 当前令牌对应的身份；登录时传入还没保存的令牌来验证 */
-export function getMe(token?: string): Promise<Me> {
-  return request<Me>('/me', { token })
-}
 
 /** 全部看板 */
 export function listBoards(signal?: Signal): Promise<Board[]> {
@@ -152,22 +144,7 @@ export function deleteRule(ruleId: number): Promise<Empty> {
   return request<Empty>(`/rules/${ruleId}`, { method: 'DELETE' })
 }
 
-/** 全部 agent 令牌，不含哈希和明文 */
-export function listTokens(signal?: Signal): Promise<AgentToken[]> {
-  return request<AgentToken[]>('/agent-tokens', { signal })
-}
-
-/** 为一个 agent 创建令牌，返回的明文只有这一次 */
-export function createToken(name: string): Promise<NewAgentToken> {
-  return request<NewAgentToken>('/agent-tokens', { method: 'POST', body: { name } })
-}
-
-/** 删除令牌，持有它的 agent 下一次请求就得到 401 */
-export function deleteToken(tokenId: number): Promise<Empty> {
-  return request<Empty>(`/agent-tokens/${tokenId}`, { method: 'DELETE' })
-}
-
-/** 接入说明：MCP 地址、skill 地址，以及各 agent 宿主的安装命令 */
+/** 接入说明：MCP 地址、skill 地址，以及各 agent 宿主的安装命令（工作视图和管理视图各一条） */
 export function getConnectGuide(signal?: Signal): Promise<ConnectGuide> {
   return request<ConnectGuide>('/connect', { signal })
 }

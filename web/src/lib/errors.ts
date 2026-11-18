@@ -19,7 +19,7 @@ export interface ErrorText {
 }
 
 /** 这几类错误的服务端文案里写着具体哪个字段不对，值得原样补充显示 */
-const DETAIL_REASONS = new Set(['ErrInvalidInput', 'ErrInvalidName', 'ErrBadRequest'])
+const DETAIL_REASONS = new Set(['ErrInvalidInput', 'ErrBadRequest'])
 
 // 判断错误名是否有翻译；title 和 traceId 不是错误名，要排除。
 function isKnownReason(reason: string): reason is ErrorReason {
