@@ -21,7 +21,7 @@ import { buildItems, findColumnOf, moveToColumn, pickShownItems, type Items, typ
 import { handleDragEnd } from './handleDragEnd'
 import { createDropAnimation, prefersReducedMotion } from './dropAnimation'
 import { ColumnView } from './ColumnView'
-import { CardTile } from './CardTile'
+import { CardTileOverlay } from './CardTile'
 import { useCollapsedColumns } from './useCollapsedColumns'
 
 interface BoardCanvasProps {
@@ -163,7 +163,7 @@ export function BoardCanvas({
         })}
       </div>
       <DragOverlay dropAnimation={dropAnimation}>
-        {activeCard ? <CardTile card={activeCard} dragDisabled overlay /> : null}
+        {activeCard ? <CardTileOverlay card={activeCard} /> : null}
       </DragOverlay>
     </DndContext>
   )
