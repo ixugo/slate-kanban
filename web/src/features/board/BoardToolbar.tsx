@@ -1,0 +1,102 @@
+// 看板页顶栏：名称、搜索、导出、设置、实时状态。
+
+import type { RefObject } from 'react'
+import { Link } from 'react-router-dom'
+import { ChevronDownIcon, SettingsIcon } from 'lucide-react'
+import { useTranslation } from '@/i18n/react'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { API_PREFIX } from '@/lib/api/client'
+import type { Board } from '@/lib/api/types'
+import { SearchBox } from './SearchBox'
+import { LiveStatus } from './LiveStatus'
+import type { LiveState } from './useBoardLive'
+
+interface BoardToolbarProps {
+  board: Board
+  searchRef: RefObject<HTMLInputElement | null>
+  query: string
+  onQueryChange: (q: string) => void
+  matched: number
+  total: number
+  truncated: boolean
+  syntaxError: string
+  searching: boolean
+  searchActive: boolean
+  liveState: LiveState
+  onLiveRetry: () => void
+  gone?: boolean
+}
+
+/** 看板画布上方的工具栏 */
+export function BoardToolbar({
+  board,
+  searchRef,
+  query,
+  onQueryChange,
+  matched,
+  total,
+  truncated,
+  syntaxError,
+  searching,
+  searchActive,
+  liveState,
+  onLiveRetry,
+  gone,
+}: BoardToolbarProps) {
+  const { t } = useTranslation()
+  const exportBase = `${API_PREFIX}/boards/${board.id}/export`
+  return (
+    <form className="flex shrink-0 flex-col gap-2 border-b bg-background p-3 sm:flex-row sm:items-center" onSubmit={(e) => e.preventDefault()}>
+      <div className="flex min-w-0 items-center gap-2">
+        <h1 className="truncate text-base font-semibold">{board.name}</h1>
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{board.slug}</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="sm">
+              {t('board.export')}
+              <ChevronDownIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem asChild>
+              <a href={`${exportBase}?format=json`} download>
+                {t('board.exportJson')}
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href={`${exportBase}?format=md`} download>
+                {t('board.exportMd')}
+              </a>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button type="button" variant="ghost" size="sm" asChild>
+          <Link to={`/b/${board.id}/settings`}>
+            <SettingsIcon />
+            <span className="hidden sm:inline">{t('board.settings')}</span>
+          </Link>
+        </Button>
+      </div>
+      <div className="flex min-w-0 flex-1 items-center gap-3 sm:justify-end">
+        <SearchBox
+          ref={searchRef}
+          query={query}
+          onChange={onQueryChange}
+          matched={matched}
+          total={total}
+          truncated={truncated}
+          syntaxError={syntaxError}
+          searching={searching}
+          active={searchActive}
+        />
+        <LiveStatus state={liveState} onRetry={onLiveRetry} gone={gone} />
+      </div>
+    </form>
+  )
+}
