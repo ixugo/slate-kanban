@@ -151,7 +151,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `Server.HTTP.Host` | `127.0.0.1` | 监听地址。**默认只允许本机访问**，要给别的机器用请先读下面的「安全说明」 |
 | `Server.HTTP.Port` | `7070` | 端口 |
 | `Server.HTTP.AllowedHosts` | `[]` | 额外允许的 Host（不含端口）；IP、`localhost`、`*.localhost` 始终允许。通过域名访问时必须写进来 |
-| `Data.Database.Dsn` | `./configs/data.db` | SQLite 文件路径；以 `postgres` 开头则按 PostgreSQL 连接（框架支持，Slate 只在 SQLite 上充分测试过） |
+| `Data.Database.Dsn` | `./configs/data.db` | SQLite 文件路径；以 `postgres` 开头则按 PostgreSQL 连接 |
 | `Log.*` | `./logs`、`info` | 日志目录、级别、保留天数、分割大小 |
 
 ## 安全说明
@@ -170,7 +170,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 ├── main.go                      入口：读配置、启动服务
 ├── internal/
 │   ├── core/kanban/             看板领域：看板、列、卡片、评论、领取与租约、事件、规则引擎、导出
-│   │   └── stores/kanbandb/     数据库存储（GORM + SQLite）
+│   │   └── stores/kanbandb/     数据库存储（GORM + SQLite / PostgreSQL）
 │   ├── web/api/                 REST（/api/v1）与路由装配、安全中间件
 │   │   ├── kanbanapi/           看板、卡片、规则、事件流、导出
 │   │   └── connectapi/          接入说明（/install.md、/skills/…、/api/v1/connect）
@@ -193,7 +193,8 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `make web/test` | 前端类型检查、oxlint、单元测试 |
 | `make web/build` | 构建前端（产物进 `internal/web/spa/dist`），并检查体积预算 |
 | `make build` | 前端 + 后端，得到带前端的 `./slate` |
-| `go test ./internal/...` | 后端测试 |
+| `go test ./internal/...` | 后端测试（默认 SQLite，不依赖 docker） |
+| `make test-postgres` | 用一次性 docker PostgreSQL 跑看板存储层测试（`internal/core/kanban/stores/kanbandb`） |
 | `go vet ./internal/... ./pkg/... .` | 后端静态检查 |
 | `make docker/build` | 用多阶段 Dockerfile 构建镜像 |
 
