@@ -103,7 +103,8 @@ export function CardTimeline({ cardId, boardId, comments }: CardTimelineProps) {
         onSubmit={() => body.trim() && send.mutate()}
         boardId={boardId}
       />
-      <Button type="button" size="sm" disabled={!body.trim() || send.isPending} onClick={() => send.mutate()}>
+      {/* mousedown 时不让编辑区失焦：失焦会收起记号和图片旁的原文，按钮被顶得移位，这次点击就落空了 */}
+      <Button type="button" size="sm" disabled={!body.trim() || send.isPending} onMouseDown={(e) => e.preventDefault()} onClick={() => send.mutate()}>
         {t('card.comment.send')}
       </Button>
       {items.length === 0 && <p className="text-sm text-muted-foreground">{t('card.comment.empty')}</p>}

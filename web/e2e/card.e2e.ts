@@ -55,3 +55,51 @@ test('手机宽度：时间线排在内容下面，页面不横向滚动', async
   if (SHOT_DIR) await page.waitForTimeout(600)
   if (SHOT_DIR) await page.screenshot({ path: `${SHOT_DIR}/card-phone.png` })
 })
+
+/** 一张 1×1 的 PNG，用来模拟剪贴板里的图片 */
+const TINY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+test('在评论框里粘贴图片：自动上传，发出去后评论里显示这张图片', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  const board = await createBoard(request, 'Paste image')
+  await createCard(request, board, 'To do', 'With picture')
+  const dialog = await openCard(page, board.id, 'With picture')
+
+  const editor = dialog.getByRole('textbox', { name: 'Comment' })
+  await editor.click()
+  // 模拟"只有图片文件"的粘贴：没有文字，剪贴板里是一个 PNG 文件
+  await editor.evaluate((el, b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+    const data = new DataTransfer()
+    data.items.add(new File([bytes], 'image.png', { type: 'image/png' }))
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+  }, TINY_PNG)
+
+  // 上传完成后编辑区里有图片预览，原文是指向本服务附件的图片语法
+  const preview = editor.locator('img.md-img')
+  await expect(preview).toHaveAttribute('src', /^\/api\/v1\/attachments\/[0-9a-f]{32}$/)
+  await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1)
+
+  await dialog.getByRole('button', { name: 'Send' }).click()
+  const sent = dialog.locator('ul img[alt="image"]')
+  await expect(sent).toBeVisible()
+  await expect.poll(() => sent.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1)
+})
+
+test('评论框的占位提示按正常排版（带内边距），不是贴着编辑区左上角的绝对定位', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  const board = await createBoard(request, 'Placeholder align')
+  await createCard(request, board, 'To do', 'Hint card')
+  const dialog = await openCard(page, board.id, 'Hint card')
+
+  const editor = dialog.getByRole('textbox', { name: 'Comment' })
+  await expect(editor).toHaveAttribute('data-empty', '')
+  // 占位提示是 ::before 伪元素，量不到它的位置；绝对定位会无视内边距，所以确认它不是绝对定位且参与排版
+  const hint = await editor.evaluate((el) => {
+    const css = getComputedStyle(el, '::before')
+    return { content: css.content, position: css.position, display: css.display }
+  })
+  expect(hint.content).toContain('Write a comment')
+  expect(hint.position).toBe('static')
+  expect(hint.display).toBe('block')
+})

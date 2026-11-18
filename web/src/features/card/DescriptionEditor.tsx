@@ -68,7 +68,8 @@ export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionE
             autoFocus
             boardId={boardId}
           />
-          <div className="flex gap-2">
+          {/* mousedown 时不让编辑区失焦：失焦会收起记号和图片旁的原文，按钮被顶得移位，这次点击就落空了 */}
+          <div className="flex gap-2" onMouseDown={(e) => e.preventDefault()}>
             <Button type="button" size="sm" disabled={busy} onClick={save}>
               {t('common.save')}
             </Button>
