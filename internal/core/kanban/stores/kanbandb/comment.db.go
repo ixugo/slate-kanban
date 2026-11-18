@@ -50,6 +50,16 @@ func (d Comment) ListByCard(ctx context.Context, cardID int64) ([]*kanban.Commen
 	return items, nil
 }
 
+// ListByBoard 返回看板下全部评论，按卡片、评论主键升序，供整板导出一次加载。
+func (d Comment) ListByBoard(ctx context.Context, boardID int64) ([]*kanban.Comment, error) {
+	items := make([]*kanban.Comment, 0)
+	err := d.db.WithContext(ctx).Where("board_id = ?", boardID).Order("card_id ASC, id ASC").Find(&items).Error
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 // DeleteByCard 删除某张卡片的全部评论。
 func (d Comment) DeleteByCard(ctx context.Context, cardID int64) error {
 	return d.db.WithContext(ctx).Where("card_id = ?", cardID).Delete(&kanban.Comment{}).Error

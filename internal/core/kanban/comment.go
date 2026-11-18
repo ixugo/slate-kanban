@@ -26,6 +26,8 @@ type CommentStorer interface {
 	GetByID(context.Context, int64) (*Comment, error)
 	// ListByCard 返回卡片的评论，按时间从早到晚。
 	ListByCard(context.Context, int64) ([]*Comment, error)
+	// ListByBoard 返回看板下全部评论，按卡片主键、评论主键升序，导出时一次取回避免 N+1。
+	ListByBoard(context.Context, int64) ([]*Comment, error)
 	// DeleteByCard 删除某张卡片的全部评论，用于删除卡片。
 	DeleteByCard(context.Context, int64) error
 	// DeleteByBoard 删除看板的全部评论，用于删除看板。

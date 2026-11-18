@@ -44,6 +44,24 @@ func TestCommentCreateListGet(t *testing.T) {
 	}
 }
 
+// TestCommentListByBoard 验证按看板一次列出全部评论，顺序按卡片再按主键。
+func TestCommentListByBoard(t *testing.T) {
+	ctx := context.Background()
+	store := kanbantest.NewDB(t).Comment()
+	addComment(t, store, 1, 10, "卡10-1")
+	addComment(t, store, 1, 10, "卡10-2")
+	addComment(t, store, 1, 11, "卡11")
+	addComment(t, store, 2, 20, "别的看板")
+
+	items, err := store.ListByBoard(ctx, 1)
+	if err != nil || len(items) != 3 || items[0].Body != "卡10-1" || items[2].Body != "卡11" {
+		t.Fatalf("ListByBoard 顺序或范围不对: %+v %v", items, err)
+	}
+	if empty, err := store.ListByBoard(ctx, 999); err != nil || empty == nil || len(empty) != 0 {
+		t.Fatalf("没有评论应返回空数组: %+v %v", empty, err)
+	}
+}
+
 // TestCommentDelete 验证单条删除幂等，按卡片和按看板删除都只影响自己的范围。
 func TestCommentDelete(t *testing.T) {
 	ctx := context.Background()
