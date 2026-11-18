@@ -1,3 +1,37 @@
-// 轻提示的统一入口：页面里要弹提示一律从这里取 toast，不直接引用底层的提示库，
-// 这样以后换更轻的实现时，调用方一行都不用改。
-export { toast } from 'sonner'
+// 轻提示的统一入口：函数式 API 对齐原 sonner 常用写法，底层走自研 store。
+
+import { defaultDuration, dismissToast, pushToast, type ToastVariant } from './toast-store'
+
+export interface ToastOptions {
+  description?: string
+  duration?: number
+  id?: string | number
+}
+
+type ToastFn = (title: string, opts?: ToastOptions) => string | number
+
+/** 构造某一变体的快捷方法 */
+function variantToast(variant: ToastVariant): ToastFn {
+  return (title, opts) =>
+    pushToast({
+      title,
+      description: opts?.description,
+      duration: opts?.duration ?? defaultDuration(variant),
+      id: opts?.id,
+      variant,
+    })
+}
+
+/** 主入口：toast(title) 与 toast.success / error 等方法 */
+function toast(title: string, opts?: ToastOptions): string | number {
+  return pushToast({ title, description: opts?.description, duration: opts?.duration, id: opts?.id, variant: 'default' })
+}
+
+toast.success = variantToast('success')
+toast.error = variantToast('error')
+toast.info = variantToast('info')
+toast.warning = variantToast('warning')
+toast.message = toast
+toast.dismiss = dismissToast
+
+export { toast }
