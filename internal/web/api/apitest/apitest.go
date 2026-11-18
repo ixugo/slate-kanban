@@ -25,8 +25,9 @@ type Client struct {
 
 // Response 是一次请求的结果。
 type Response struct {
-	Code int
-	Body []byte
+	Code    int
+	Body    []byte
+	Headers http.Header
 }
 
 // Do 发一个请求。body 不是 nil 时序列化成 JSON 并带上 Content-Type。
@@ -81,7 +82,7 @@ func (c Client) Serve(req *http.Request) Response {
 	}
 	rec := httptest.NewRecorder()
 	c.Engine.ServeHTTP(rec, req)
-	return Response{Code: rec.Code, Body: rec.Body.Bytes()}
+	return Response{Code: rec.Code, Body: rec.Body.Bytes(), Headers: rec.Header()}
 }
 
 // JSON 把响应体解析到 v 里，解析不了就让测试终止。
