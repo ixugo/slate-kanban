@@ -92,10 +92,18 @@ describe('BoardPage 列表视图', () => {
 
   it('打开看板后延迟预取列表视图的代码，不阻塞首屏', async () => {
     installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
+    // 记下预取被调用的时刻，用“距离打开看板过了多久”判断是否延迟；
+    // 不靠“渲染完那一刻还没被调用”，因为机器繁忙时渲染可能比延迟还慢，会误判
+    let calledAt = 0
+    vi.mocked(prefetchListView).mockImplementation(() => {
+      calledAt = performance.now()
+    })
+    const openedAt = performance.now()
     renderBoard()
     await screen.findByText('可见卡')
     expect(LIST_PREFETCH_DELAY_MS).toBeGreaterThan(0)
-    expect(prefetchListView).not.toHaveBeenCalled()
     await waitFor(() => expect(prefetchListView).toHaveBeenCalledTimes(1))
+    // 计时器偶尔会比约定早触发 1 毫秒左右，留 5 毫秒余量
+    expect(calledAt - openedAt).toBeGreaterThanOrEqual(LIST_PREFETCH_DELAY_MS - 5)
   })
 })
