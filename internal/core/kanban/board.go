@@ -3,6 +3,7 @@ package kanban
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/ixugo/goddd/pkg/orm"
 )
@@ -155,9 +156,7 @@ func (c Core) UpdateBoard(ctx context.Context, actor Actor, id int64, in UpdateB
 		if err := u.board.Save(ctx, b); err != nil {
 			return wrapDB("保存看板", err)
 		}
-		return u.emit(ctx, actor, newEvent{
-			BoardID: id, Type: EventBoardUpdated, Payload: map[string]any{"fields": changed},
-		})
+		return u.emitBoardUpdates(ctx, actor, id, changed)
 	})
 	if err != nil {
 		return nil, err
@@ -222,4 +221,19 @@ func (u *unit) deleteBoard(ctx context.Context, id int64) error {
 	}
 	u.touch(id)
 	return nil
+}
+
+// emitBoardUpdates 按改了什么写事件：标签库的变化单独写 board.labels_updated，
+// 其余字段写 board.updated，同时改了两类就两条都写。原因同 emitCardUpdates。
+func (u *unit) emitBoardUpdates(ctx context.Context, actor Actor, boardID int64, changed []string) error {
+	rest := slices.DeleteFunc(slices.Clone(changed), func(f string) bool { return f == "labels" })
+	if len(rest) > 0 {
+		if err := u.emit(ctx, actor, newEvent{BoardID: boardID, Type: EventBoardUpdated, Payload: map[string]any{"fields": rest}}); err != nil {
+			return err
+		}
+	}
+	if len(rest) == len(changed) {
+		return nil
+	}
+	return u.emit(ctx, actor, newEvent{BoardID: boardID, Type: EventBoardLabelsUpdated, Payload: map[string]any{"fields": []string{"labels"}}})
 }

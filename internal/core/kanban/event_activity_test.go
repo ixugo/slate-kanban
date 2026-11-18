@@ -212,6 +212,48 @@ func TestListActivityDuplicateTypes(t *testing.T) {
 	}
 }
 
+// TestListActivityExcludeTypes 验证 ExcludeTypes：被排除的类型不返回，翻页仍然每页满额；
+// 同一个类型同时出现在 Types 和 ExcludeTypes 里，以排除为准。
+func TestListActivityExcludeTypes(t *testing.T) {
+	ctx := context.Background()
+	e, all := activityEnv(t)
+	tags := []string{"x"}
+	card := e.card(t, colTodo, "带标签")
+	if _, err := e.core.UpdateCard(ctx, testActor, card.ID, kanban.UpdateCardInput{Tags: &tags}); err != nil {
+		t.Fatalf("改标签失败: %v", err)
+	}
+	read := func(f kanban.ActivityFilter, limit int) *kanban.ActivityPage {
+		t.Helper()
+		page, err := e.core.ListActivity(ctx, e.board.ID, kanban.ActivityQuery{Limit: limit, ActivityFilter: f})
+		if err != nil {
+			t.Fatalf("读活动流失败: %v", err)
+		}
+		return page
+	}
+
+	withTags := read(kanban.ActivityFilter{}, 0)
+	if !slices.ContainsFunc(withTags.Events, func(ev *kanban.Event) bool { return ev.Type == kanban.EventCardTagsUpdated }) {
+		t.Fatalf("不排除时应该能看到标签事件: %v", activityIDs(withTags))
+	}
+	excluded := read(kanban.ActivityFilter{ExcludeTypes: []string{kanban.EventCardTagsUpdated, kanban.EventCardTagsUpdated}}, 0)
+	for _, ev := range excluded.Events {
+		if ev.Type == kanban.EventCardTagsUpdated {
+			t.Fatalf("标签事件应该被排除: %+v", ev)
+		}
+	}
+	if len(excluded.Events) != len(withTags.Events)-1 || len(excluded.Events) <= len(all) {
+		t.Fatalf("只应该少一条标签事件: 全部 %d，排除后 %d", len(withTags.Events), len(excluded.Events))
+	}
+	page := read(kanban.ActivityFilter{ExcludeTypes: []string{kanban.EventCardTagsUpdated}}, 2)
+	if len(page.Events) != 2 || !page.HasMore || page.Events[0].Type == kanban.EventCardTagsUpdated {
+		t.Fatalf("排除后翻页应该仍然满额: %+v", page)
+	}
+	both := read(kanban.ActivityFilter{Types: []string{kanban.EventCardTagsUpdated}, ExcludeTypes: []string{kanban.EventCardTagsUpdated}}, 0)
+	if len(both.Events) != 0 {
+		t.Fatalf("同时要求和排除同一类型，应该什么都不返回: %+v", both.Events)
+	}
+}
+
 // TestListActivityInvalid 验证参数错误一律返回 400，看板不存在返回 404；
 // 不认识的类型要报错，而不是悄悄返回一个永远为空的列表。
 func TestListActivityInvalid(t *testing.T) {
@@ -225,6 +267,8 @@ func TestListActivityInvalid(t *testing.T) {
 		"空字符串类型":      {ActivityFilter: kanban.ActivityFilter{Types: []string{""}}},
 		"不认识的操作者类型":   {ActivityFilter: kanban.ActivityFilter{ActorKind: "robot"}},
 		"操作者名称过长":     {ActivityFilter: kanban.ActivityFilter{Actor: strings.Repeat("长", 65)}},
+		"不认识的排除类型":    {ActivityFilter: kanban.ActivityFilter{ExcludeTypes: []string{"card.exploded"}}},
+		"排除类型里夹带 SQL": {ActivityFilter: kanban.ActivityFilter{ExcludeTypes: []string{"card.moved') OR 1=1 --"}}},
 		"类型里夹带 SQL":   {ActivityFilter: kanban.ActivityFilter{Types: []string{"card.moved') OR 1=1 --"}}},
 		"操作者类型夹带 SQL": {ActivityFilter: kanban.ActivityFilter{ActorKind: "human' OR '1'='1"}},
 	}

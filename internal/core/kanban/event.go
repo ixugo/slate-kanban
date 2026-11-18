@@ -8,14 +8,18 @@ import (
 
 // 事件类型。每种类型的 Payload 字段见设计文档 .cursor/scopes/kanban.event.go.md。
 const (
-	EventBoardCreated    = "board.created"
-	EventBoardUpdated    = "board.updated"
-	EventColumnCreated   = "column.created"
-	EventColumnUpdated   = "column.updated"
-	EventColumnDeleted   = "column.deleted"
-	EventColumnReordered = "column.reordered"
-	EventCardCreated     = "card.created"
-	EventCardUpdated     = "card.updated"
+	EventBoardCreated = "board.created"
+	EventBoardUpdated = "board.updated"
+	// EventBoardLabelsUpdated 看板标签库（名称、颜色）有变化；单独成类型，网页的活动流可以用 exclude_types 把它排除。
+	EventBoardLabelsUpdated = "board.labels_updated"
+	EventColumnCreated      = "column.created"
+	EventColumnUpdated      = "column.updated"
+	EventColumnDeleted      = "column.deleted"
+	EventColumnReordered    = "column.reordered"
+	EventCardCreated        = "card.created"
+	EventCardUpdated        = "card.updated"
+	// EventCardTagsUpdated 卡片上的标签有变化；单独成类型，原因同 EventBoardLabelsUpdated。
+	EventCardTagsUpdated = "card.tags_updated"
 	EventCardMoved       = "card.moved"
 	EventCardReordered   = "card.reordered"
 	EventCardDeleted     = "card.deleted"

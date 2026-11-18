@@ -3,6 +3,7 @@ package kanbanapi_test
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -196,4 +197,26 @@ func TestActivityInvalid(t *testing.T) {
 		}
 	}
 	wantFail(t, "看板不存在", s.human(t, http.MethodGet, "/boards/9999/activity", nil), http.StatusNotFound, "ErrBoardNotFound")
+}
+
+// TestActivityExcludeTypes 验证 exclude_types：改标签写的 card.tags_updated 默认能读到，
+// 带 exclude_types 就不返回；不认识的类型返回 400。
+func TestActivityExcludeTypes(t *testing.T) {
+	s := newStack(t)
+	b := s.newBoard(t, "EXC")
+	c := s.newCard(t, b, b.Columns[1].ID, "标签事件")
+	s.human(t, http.MethodPatch, "/cards/"+id(c.ID), map[string]any{"tags": []string{"x"}})
+	s.human(t, http.MethodPatch, "/cards/"+id(c.ID), map[string]any{"priority": 2})
+	base := "/boards/" + id(b.ID) + "/activity"
+
+	has := func(p activityPage, typ string) bool { return slices.Contains(activityTypes(p), typ) }
+	all := decode[activityPage](t, s.human(t, http.MethodGet, base, nil))
+	if !has(all, "card.tags_updated") || !has(all, "card.updated") {
+		t.Fatalf("不带参数应该同时有标签事件和修改事件: %v", activityTypes(all))
+	}
+	kept := decode[activityPage](t, s.human(t, http.MethodGet, base+"?exclude_types=card.tags_updated,board.labels_updated", nil))
+	if has(kept, "card.tags_updated") || !has(kept, "card.updated") || len(kept.Events) != len(all.Events)-1 {
+		t.Fatalf("exclude_types 只应该去掉标签事件: %v", activityTypes(kept))
+	}
+	wantFail(t, "不认识的排除类型", s.human(t, http.MethodGet, base+"?exclude_types=card.exploded", nil), http.StatusBadRequest, "ErrInvalidInput")
 }

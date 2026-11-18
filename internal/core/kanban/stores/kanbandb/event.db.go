@@ -49,6 +49,9 @@ func (d Event) ListBefore(ctx context.Context, boardID, beforeSeq int64, f kanba
 	if len(f.Types) > 0 {
 		q = q.Where("type IN ?", f.Types)
 	}
+	if len(f.ExcludeTypes) > 0 {
+		q = q.Where("type NOT IN ?", f.ExcludeTypes)
+	}
 	if f.ActorKind != "" {
 		q = q.Where("actor_kind = ?", f.ActorKind)
 	}
