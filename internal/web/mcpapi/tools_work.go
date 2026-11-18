@@ -14,9 +14,10 @@ type okOut struct {
 	OK bool `json:"ok"`
 }
 
-// nextCardOut 是 next_card 的输出。没有可做的卡片时 card 是 null，不是错误。
+// nextCardOut 是 next_card 的输出。没有可做的卡片时 card 是 null，不是错误，此时没有 agent_notice。
 type nextCardOut struct {
-	Card *kanban.CardDetail `json:"card"`
+	Card   *kanban.CardDetail `json:"card"`
+	Notice string             `json:"agent_notice,omitempty"`
 }
 
 // nextCardIn 是 next_card 的入参。
@@ -156,7 +157,7 @@ func (a API) registerWorkTools(s *mcp.Server, v view) {
 func (a API) registerSharedWork(s *mcp.Server) {
 	register(s, spec{
 		name: "release_card", kind: kindWrite,
-		desc: "释放卡片上的领取。你做不下去、想让别人接手时用它；释放后卡片留在原来的列。" +
+		desc: "释放卡片上的领取。你做不下去、想让别的 agent 接手时用它；释放后卡片留在原来的列，所以你自己的 next_card 也会再领到它。要等人回复的话，改用 move_card 把卡片移出领取列。" +
 			"agent 只能释放自己持有的卡片，人可以收回任何一张。已经没有领取时也返回成功。",
 	}, a.releaseCard)
 	register(s, spec{
@@ -184,14 +185,14 @@ func (a API) registerAgentWork(s *mcp.Server) {
 		desc: "领取下一张该你做的卡片。只从 agent_pickup 为 true 的列（通常叫「进行中」）里取，顺序和看板上一致（列从左到右、同一列从上到下），" +
 			"跳过只能由人处理的、还在等依赖的和别人正在做的；你自己已经持有的卡片优先，所以重启之后能接着做原来的活。" +
 			"领到后返回卡片全文、评论、依赖和所在列的指令（column_instruction，必须遵守）。" +
-			"没有可做的卡片时 card 为 null，不是错误：用 wait_for_updates 等人安排新工作。" +
+			"没有可做的卡片时 card 为 null，不是错误：用 wait_for_updates 等人安排新工作。领到卡片时结果带 agent_notice：任务不明确就先评论反馈，不要直接开始。" +
 			"领取有租约（lease_minutes，默认 30 分钟，最多 1440 分钟）：持有期间在卡片上评论或修改会把租约顺延到至少 30 分钟之后，" +
 			"租约到期后别的 agent 可以接手。",
 	}, a.nextCard)
 	register(s, spec{
 		name: "claim_card", kind: kindWrite,
 		desc: "领取指定的卡片，已经由你持有时只是续租。卡片必须在 agent_pickup 为 true 的列里，不是只能由人处理的，" +
-			"依赖已经完成，并且没有被别的 agent 持有。领到后返回卡片全文、评论、依赖和所在列的指令。一般用 next_card 就够了。",
+			"依赖已经完成，并且没有被别的 agent 持有。领到后返回卡片全文、评论、依赖和所在列的指令，以及 agent_notice 提醒（任务不明确就先评论反馈）。一般用 next_card 就够了。",
 	}, a.claimCard)
 	register(s, spec{
 		name: "create_card", kind: kindWrite,
@@ -229,12 +230,20 @@ func (a API) nextCard(ctx context.Context, actor kanban.Actor, in nextCardIn) (a
 	if err != nil {
 		return nil, err
 	}
-	return nextCardOut{Card: card}, nil
+	out := nextCardOut{Card: card}
+	if card != nil {
+		out.Notice = unclearTaskNotice
+	}
+	return out, nil
 }
 
-// claimCard 领取指定的卡片，返回卡片全文。
+// claimCard 领取指定的卡片，返回卡片全文和「任务不清楚先反馈」的提示。
 func (a API) claimCard(ctx context.Context, actor kanban.Actor, in claimCardIn) (any, error) {
-	return a.core.ClaimCard(ctx, actor, in.CardID, kanban.ClaimCardInput{LeaseMinutes: in.LeaseMinutes})
+	detail, err := a.core.ClaimCard(ctx, actor, in.CardID, kanban.ClaimCardInput{LeaseMinutes: in.LeaseMinutes})
+	if err != nil {
+		return nil, err
+	}
+	return withNotice(detail), nil
 }
 
 // releaseCard 释放领取。

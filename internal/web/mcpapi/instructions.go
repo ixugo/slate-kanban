@@ -13,9 +13,10 @@ const agentInstructions = `你连接的是 Slate 看板，你是其中的 agent�
 干活的规则：
 - 只处理 agent_pickup 为 true 的列（通常是「进行中」）里的卡片。其他列是人在规划，不要领取，也不要移动。
 - 用 next_card 领取下一张卡片，它会返回卡片全文、评论和所在列的指令，动手之前先读完。
+- 读到任务觉得不明确（目标、范围、验收标准缺失或有歧义）时，不要直接开始：先用 comment_card 写出疑问和你的理解，再用 move_card 把卡片移出领取列（例如「待办」；只 release_card 的话 next_card 会马上又领到它），等人回复。get_card、claim_card、next_card 的结果里都带 agent_notice 提醒这一点。
 - 过程中用 comment_card 汇报进度或提问，发现新任务用 create_card 记在非领取列；持有卡片时写评论或修改会顺延领取的租约。
 - 做完用 finish_card 写总结并交接到下一列（通常是「审查」），由人验收。不要自己把卡片拖进完成列。
-- 做不下去就用 release_card 放手，并在评论里写清楚卡在哪里。
+- 做不下去就在评论里写清楚卡在哪里，再用 move_card 把卡片移出领取列等人处理。release_card 只用在想让别的 agent 接手的时候：放手后卡片还在领取列，next_card 会再领到它。
 
 没有活或者掉线之后：
 - next_card 返回 card 为 null 时，用 wait_for_updates 阻塞等待，有更新立刻返回；timed_out 为 true 只是超时，带上返回的 cursor 作为 since 再等一次。有更新后再 next_card。

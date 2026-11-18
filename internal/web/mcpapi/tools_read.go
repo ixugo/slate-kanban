@@ -83,7 +83,7 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 	register(s, spec{
 		name: "get_card", kind: kindRead,
 		desc: "读取一张卡片的完整信息：全文描述、评论、依赖的卡片，以及所在列给 agent 的指令（column_instruction）。" +
-			"领到卡片后、动手之前先读它，评论里可能有人的补充要求或审查意见。",
+			"领到卡片后、动手之前先读它，评论里可能有人的补充要求或审查意见。结果里的 agent_notice 是提醒：任务不明确时先评论反馈并把卡片移出领取列，不要直接开始。",
 	}, a.getCard)
 	if v == viewAdmin {
 		register(s, spec{
@@ -130,9 +130,13 @@ func (a API) listCards(ctx context.Context, _ kanban.Actor, in listCardsIn) (any
 	return cardsOut{Cards: summarizeAll(list.Cards), Total: list.Total, Truncated: list.Truncated}, nil
 }
 
-// getCard 返回卡片的完整信息：全文、评论、依赖和所在列的指令。
+// getCard 返回卡片的完整信息：全文、评论、依赖和所在列的指令，并附上「任务不清楚先反馈」的提示。
 func (a API) getCard(ctx context.Context, _ kanban.Actor, in cardIn) (any, error) {
-	return a.core.GetCardDetail(ctx, in.CardID)
+	detail, err := a.core.GetCardDetail(ctx, in.CardID)
+	if err != nil {
+		return nil, err
+	}
+	return withNotice(detail), nil
 }
 
 // listEvents 返回起点之后的活动流水，不做过滤，只有管理视图提供。
