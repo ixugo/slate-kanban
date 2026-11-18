@@ -1,6 +1,8 @@
 package mcpapi_test
 
 import (
+	"context"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -143,6 +145,70 @@ func TestWaitForUpdatesBadTimeout(t *testing.T) {
 	got := call(t, s.agent(t, "claude"), "wait_for_updates", map[string]any{"board_id": b.ID, "timeout_seconds": -5})
 	if !got.IsError {
 		t.Errorf("负数的等待秒数应该是工具错误: %+v", got)
+	}
+}
+
+// TestWaitForUpdatesHugeTimeoutIsCapped 验证超大的等待秒数按上限处理，而不是换算成纳秒时溢出变成负数被拒绝。
+// 这里先让 agent 有事件可读，这样调用立刻返回，不用真的等。
+func TestWaitForUpdatesHugeTimeoutIsCapped(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	sess := s.agent(t, "claude")
+	ok(t, sess, "pull_updates", map[string]any{"board_id": b.ID})
+	s.card(t, b, b.todo, "写文档")
+
+	got := ok(t, sess, "wait_for_updates", map[string]any{"board_id": b.ID, "timeout_seconds": 10_000_000_000}).Data
+	if len(items(t, got, "events")) != 1 {
+		t.Errorf("超大的等待秒数应该按上限处理，并带回已有的事件: %v", got)
+	}
+}
+
+// TestWaitCancelledByClient 验证客户端取消一次阻塞等待之后，服务端真正结束了这次等待，
+// 而不是白白占着协程和订阅一直等到超时。
+func TestWaitCancelledByClient(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	sess := s.agent(t, "claude")
+	ok(t, sess, "pull_updates", map[string]any{"board_id": b.ID})
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "wait_for_updates", Arguments: map[string]any{"board_id": b.ID, "timeout_seconds": 30}})
+		done <- err
+	}()
+	eventually(t, "阻塞等待进入 Core", serverWaiting)
+
+	cancel()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("取消之后调用应该返回错误")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("客户端取消之后，调用没有返回")
+	}
+	eventually(t, "服务端结束被取消的等待", func() bool { return !serverWaiting() })
+}
+
+// serverWaiting 报告当前是否有协程阻塞在 Core 的"等待更新"上。要看协程栈而不是数请求：
+// 客户端断开后 HTTP 请求会先返回，处理函数是否还在等，只有协程栈看得出来。
+// 本包的测试都不并行，所以栈里出现它就一定是当前测试的。
+func serverWaiting() bool {
+	buf := make([]byte, 1<<20)
+	return strings.Contains(string(buf[:runtime.Stack(buf, true)]), "kanban.updateWaiter.wait")
+}
+
+// eventually 在最多 5 秒内反复检查条件，成立就返回，一直不成立让测试终止。
+func eventually(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("等了 5 秒，%s 仍然没有发生", what)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 
