@@ -93,7 +93,7 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 	}
 }
 
-// whoami 返回调用者的身份和当前视图。身份来自令牌，不来自入参，所以没有入参。
+// whoami 返回调用者的身份和当前视图。身份来自 URL 的 ?name= / ?role=，不来自入参，所以没有入参。
 func (a API) whoami(v view) func(context.Context, kanban.Actor, struct{}) (any, error) {
 	return func(_ context.Context, actor kanban.Actor, _ struct{}) (any, error) {
 		return whoamiOut{

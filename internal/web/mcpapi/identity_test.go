@@ -64,7 +64,7 @@ func TestHeaderVerifier(t *testing.T) {
 // TestActorOfMissing 验证没有身份的 TokenInfo 会被拒绝。
 func TestActorOfMissing(t *testing.T) {
 	for name, info := range map[string]*auth.TokenInfo{
-		"没有令牌信息":  nil,
+		"没有身份头":   nil,
 		"没有操作者":   {UserID: "agent:x"},
 		"操作者类型不对": {UserID: "agent:x", Extra: map[string]any{actorKey: "claude"}},
 	} {
