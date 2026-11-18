@@ -38,11 +38,11 @@ type BoardStorer interface {
 	IncrCardSeq(context.Context, int64) (int64, error)
 }
 
-// CreateBoard 创建看板，并按模板和界面语言生成起步的列。只有人能创建。
+// CreateBoard 创建看板，并按模板和界面语言生成起步的列。人和 agent 都能创建，自动化规则不行；删除看板仍然只有人能做。
 // 不填标识时按名称自动生成，被占用就换数字后缀重试；手填的标识被占用直接返回 409。
 // 每次尝试各自是一个事务：PostgreSQL 里唯一键冲突会让整个事务作废，所以不能在同一个事务里重试。
 func (c Core) CreateBoard(ctx context.Context, actor Actor, in CreateBoardInput) (*BoardDetail, error) {
-	if err := requireHuman(actor); err != nil {
+	if err := requireWriter(actor); err != nil {
 		return nil, err
 	}
 	if err := in.normalize(); err != nil {

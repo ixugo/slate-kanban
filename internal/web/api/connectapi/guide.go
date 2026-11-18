@@ -117,7 +117,7 @@ func claudeCodeHost(g Guide, passcodeRequired bool) Host {
 			},
 			{
 				Kind:  "manager",
-				Title: "添加管理视图 MCP（建看板、改列、录任务时再用）" + suffix,
+				Title: "添加管理视图 MCP（改列、改规则、批量录任务时再用）" + suffix,
 				Lang:  "sh",
 				Code:  managerCode,
 			},

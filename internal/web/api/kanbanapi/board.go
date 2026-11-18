@@ -28,7 +28,7 @@ func (a API) listBoards(ctx context.Context, _ kanban.Actor, _ *struct{}) ([]*ka
 	return a.core.ListBoards(ctx)
 }
 
-// createBoard 创建看板，只有人能做，由 Core 判断。
+// createBoard 创建看板，人和 agent 都能做，由 Core 判断。
 func (a API) createBoard(ctx context.Context, actor kanban.Actor, in *kanban.CreateBoardInput) (*kanban.BoardDetail, error) {
 	return a.core.CreateBoard(ctx, actor, *in)
 }

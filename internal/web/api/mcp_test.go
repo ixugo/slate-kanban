@@ -111,8 +111,13 @@ func TestMCPInitializeWorker(t *testing.T) {
 		}
 		names[tool.Name] = true
 	}
-	if names["create_board"] {
-		t.Error("工作视图不应有 create_board")
+	if !names["create_board"] {
+		t.Error("工作视图应有 create_board")
+	}
+	for _, name := range []string{"delete_board", "update_board"} {
+		if names[name] {
+			t.Errorf("工作视图不应有 %s", name)
+		}
 	}
 }
 
