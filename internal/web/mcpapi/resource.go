@@ -10,10 +10,17 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"slate-kanban/internal/core/kanban"
+	"slate-kanban/skills"
 )
 
-// boardURIPrefix 是看板资源地址的固定前缀，后面跟看板编号。
-const boardURIPrefix = "slate://boards/"
+const (
+	// boardURIPrefix 是看板资源地址的固定前缀，后面跟看板编号。
+	boardURIPrefix = "slate://boards/"
+	// skillURI 是 slate-kanban skill 资源的固定地址。
+	skillURI = "slate://skills/slate-kanban"
+	// markdownMIME 是 skill 资源的内容类型。
+	markdownMIME = "text/markdown"
+)
 
 // boardResource 是读取看板资源得到的内容：看板、列、规则，卡片只有摘要，加上读取数据之前的事件序号 seq。
 // 卡片数有上限，多了只给前面的，total 和 truncated 如实说明，要看别的卡片用 list_cards 的筛选。
@@ -46,7 +53,7 @@ func parseBoardURI(uri string) (int64, bool) {
 	return id, err == nil
 }
 
-// registerResources 注册看板资源模板：读取得到整板快照。
+// registerResources 注册两个资源：看板资源模板（读取得到整板快照）和 slate-kanban skill（读取得到流程说明全文）。
 func (a API) registerResources(s *mcp.Server) {
 	s.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:  "board",
@@ -56,6 +63,21 @@ func (a API) registerResources(s *mcp.Server) {
 		MIMEType:    "application/json",
 		URITemplate: boardURITemplate,
 	}, a.readBoard)
+	s.AddResource(&mcp.Resource{
+		Name:  "skill",
+		Title: "slate-kanban skill",
+		Description: "agent 使用这个看板的完整流程：确认项目路径、守候、领取、用子 agent 在 worktree 里开发、交接到审查。" +
+			"还没装这个 skill 时读取它，经用户同意后存成 skills 目录里的 slate-kanban/SKILL.md。",
+		MIMEType: markdownMIME,
+		URI:      skillURI,
+	}, a.readSkill)
+}
+
+// readSkill 返回编译进服务的 skill 全文。skill 和服务端是同一个版本，所以里面提到的工具一定存在。
+func (a API) readSkill(_ context.Context, _ *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{
+		{URI: skillURI, MIMEType: markdownMIME, Text: skills.SlateKanban()},
+	}}, nil
 }
 
 // readBoard 读取看板资源，返回整板快照。
