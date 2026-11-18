@@ -26,14 +26,17 @@ interface Props {
   row: ActionFormRow
   columns: Column[]
   onChange: (row: ActionFormRow) => void
+  /** 为 true 时不渲染时间写入模式（改在「更多选项」里配置） */
+  hideTimeMode?: boolean
 }
 
 /** 按动作类型渲染对应表单控件 */
-export function ActionFields({ row, columns, onChange }: Props) {
+export function ActionFields({ row, columns, onChange, hideTimeMode }: Props) {
   const { t } = useTranslation()
   switch (row.type) {
     case 'set_started_at':
     case 'set_finished_at':
+      if (hideTimeMode) return null
       return (
         <MotionField
           label={t('settings.rules.actions.mode')}

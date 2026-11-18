@@ -1,7 +1,7 @@
-// 自动化规则的创建/编辑对话框。
+// 自动化规则的创建/编辑对话框：两句话描述触发与动作，高级项收在「更多选项」。
 
 import { Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from '@/i18n/react'
 import type { TranslationKey } from '@/i18n/types'
 import { Button } from '@/components/ui/button'
@@ -18,16 +18,18 @@ import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import type { ActionType, Column, Rule } from '@/lib/api/types'
 import { FILTER_MAX, RULE_ACTIONS_MAX, RULE_NAME_MAX } from '@/lib/limits'
 import { useErrorToast } from '@/lib/useErrorToast'
 import { ActionFields } from './ActionFields'
+import { autoNameFromFormState } from './ruleAutoName'
 import {
   emptyActionRow,
   emptyRuleForm,
@@ -38,16 +40,19 @@ import {
   type RuleFormErrors,
   type RuleFormState,
 } from './ruleForm'
-import { RULE_PRESETS, buildRulePreset, type RulePresetId } from './rulePresets'
+import { shouldExpandMoreOptions } from './ruleEditorHelpers'
 import { useSettingsMutations } from './useSettingsMutations'
 
-const ACTION_TYPES: ActionType[] = [
+const TIME_ACTIONS: ActionType[] = [
   'set_started_at',
   'set_finished_at',
   'clear_started_at',
   'clear_finished_at',
   'set_due',
   'clear_due',
+]
+
+const CARD_ACTIONS: ActionType[] = [
   'set_priority',
   'add_tag',
   'remove_tag',
@@ -71,13 +76,20 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
   const { createRule, updateRule } = useSettingsMutations(boardId)
   const [state, setState] = useState<RuleFormState>(() => (rule ? ruleToForm(rule) : emptyRuleForm()))
   const [errors, setErrors] = useState<RuleFormErrors>({})
+  const [moreOpen, setMoreOpen] = useState(() => shouldExpandMoreOptions(rule, rule ? ruleToForm(rule) : emptyRuleForm(), columns, t))
+
+  const resolveName = useMemo(
+    () => (s: RuleFormState) =>
+      autoNameFromFormState(s.trigger, s.columnId, s.actions, columns, t),
+    [columns, t],
+  )
 
   const busy = createRule.isPending || updateRule.isPending
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (rule) {
-      const { patch, errors: found } = formToUpdateInput(state, columns)
+      const { patch, errors: found } = formToUpdateInput(state, columns, resolveName)
       setErrors(found)
       if (Object.keys(found).length > 0) return
       updateRule.mutate(
@@ -86,15 +98,10 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
       )
       return
     }
-    const { input, errors: found } = formToCreateInput(state, columns)
+    const { input, errors: found } = formToCreateInput({ ...state, enabled: true }, columns, resolveName)
     setErrors(found)
     if (!input || Object.keys(found).length > 0) return
     createRule.mutate(input, { onSuccess: () => onOpenChange(false), onError: toastError })
-  }
-
-  const applyPreset = (id: RulePresetId) => {
-    setState(buildRulePreset(id, columns))
-    setErrors({})
   }
 
   const setAction = (index: number, row: ActionFormRow) => {
@@ -107,6 +114,7 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
   }
 
   const removeAction = (index: number) => {
+    if (state.actions.length <= 1) return
     setState((s) => ({ ...s, actions: s.actions.filter((_, i) => i !== index) }))
   }
 
@@ -118,76 +126,38 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
           <DialogDescription>{t('settings.rules.editDesc')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="rule-name">{t('settings.rules.name')}</Label>
-            <Input
-              id="rule-name"
-              value={state.name}
-              maxLength={RULE_NAME_MAX}
-              onChange={(e) => setState({ ...state, name: e.target.value })}
-              aria-invalid={!!errors.name}
-            />
-            {errors.name && (
-              <p role="alert" className="text-xs text-destructive">
-                {t(`settings.rules.errors.${errors.name}`)}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <Label htmlFor="rule-enabled">{t('settings.rules.enabled')}</Label>
-            <Switch
-              id="rule-enabled"
-              checked={state.enabled}
-              onCheckedChange={(v) => setState({ ...state, enabled: v })}
-            />
-          </div>
-          <TriggerFields state={state} columns={columns} onChange={setState} errors={errors} />
-          <ConditionField state={state} onChange={setState} errors={errors} />
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">{t('settings.rules.actionsTitle')}</legend>
+          <WhenRow state={state} columns={columns} errors={errors} onChange={setState} />
+          <fieldset className="space-y-3">
+            <legend className="sr-only">{t('settings.rules.actionsTitle')}</legend>
             {errors.actions && (
               <p role="alert" className="text-xs text-destructive">
                 {t(`settings.rules.errors.${errors.actions}`)}
               </p>
             )}
             {state.actions.map((row, index) => (
-              <div key={row.id} className="space-y-2 border border-border p-3">
-                <div className="flex items-center gap-2">
-                  <Select
-                    value={row.type}
-                    onValueChange={(v) => setAction(index, { ...emptyActionRow(v as ActionType), id: row.id })}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ACTION_TYPES.map((type) => (
-                        <SelectItem key={type} value={type}>
-                          {t(`settings.rules.actionTypes.${type}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={state.actions.length <= 1}
-                    onClick={() => removeAction(index)}
-                    aria-label={t('settings.rules.removeAction')}
-                  >
-                    <Trash2Icon />
-                  </Button>
-                </div>
-                <ActionFields row={row} columns={columns} onChange={(next) => setAction(index, next)} />
-              </div>
+              <ThenRow
+                key={row.id}
+                row={row}
+                index={index}
+                columns={columns}
+                canRemove={state.actions.length > 1}
+                onChange={(next) => setAction(index, next)}
+                onRemove={() => removeAction(index)}
+              />
             ))}
-            <Button type="button" variant="outline" size="sm" onClick={addAction} disabled={state.actions.length >= RULE_ACTIONS_MAX}>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0"
+              onClick={addAction}
+              disabled={state.actions.length >= RULE_ACTIONS_MAX}
+            >
               <PlusIcon />
-              {t('settings.rules.addAction')}
+              {t('settings.rules.editor.addAnotherAction')}
             </Button>
           </fieldset>
-          <PresetsRow onPick={applyPreset} />
+          <MoreOptionsSection open={moreOpen} onOpenChange={setMoreOpen} state={state} errors={errors} onChange={setState} />
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               {t('common.cancel')}
@@ -203,52 +173,207 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
   )
 }
 
-function TriggerFields({
+/** 第一行：当 [触发] [列] 时 */
+function WhenRow({
   state,
   columns,
-  onChange,
   errors,
+  onChange,
 }: {
   state: RuleFormState
   columns: Column[]
-  onChange: (s: RuleFormState) => void
   errors: RuleFormErrors
+  onChange: (s: RuleFormState) => void
 }) {
   const { t } = useTranslation()
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="space-y-1.5">
-        <Label>{t('settings.rules.trigger')}</Label>
-        <Select value={state.trigger} onValueChange={(v) => onChange({ ...state, trigger: v as RuleFormState['trigger'] })}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="card_created">{t('settings.rules.triggers.card_created')}</SelectItem>
-            <SelectItem value="card_entered">{t('settings.rules.triggers.card_entered')}</SelectItem>
-            <SelectItem value="card_left">{t('settings.rules.triggers.card_left')}</SelectItem>
-          </SelectContent>
-        </Select>
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span>{t('settings.rules.editor.when')}</span>
+      <Select value={state.trigger} onValueChange={(v) => onChange({ ...state, trigger: v as RuleFormState['trigger'] })}>
+        <SelectTrigger className="w-auto min-w-[8rem]" aria-label={t('settings.rules.trigger')}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="card_created">{t('settings.rules.triggers.card_created')}</SelectItem>
+          <SelectItem value="card_entered">{t('settings.rules.triggers.card_entered')}</SelectItem>
+          <SelectItem value="card_left">{t('settings.rules.triggers.card_left')}</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={String(state.columnId)} onValueChange={(v) => onChange({ ...state, columnId: Number(v) })}>
+        <SelectTrigger className="w-auto min-w-[8rem]" aria-invalid={!!errors.columnId} aria-label={t('settings.rules.triggerColumn')}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="0">{t('settings.rules.anyColumn')}</SelectItem>
+          {columns.map((c) => (
+            <SelectItem key={c.id} value={String(c.id)}>
+              {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <span>{t('settings.rules.editor.then')}</span>
+      {errors.columnId && (
+        <p role="alert" className="w-full text-xs text-destructive">
+          {t(`settings.rules.errors.${errors.columnId}`)}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** 第二行：就 [动作] + 参数 */
+function ThenRow({
+  row,
+  index,
+  columns,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  row: ActionFormRow
+  index: number
+  columns: Column[]
+  canRemove: boolean
+  onChange: (row: ActionFormRow) => void
+  onRemove: () => void
+}) {
+  const { t } = useTranslation()
+  const label = index === 0 ? t('settings.rules.editor.thenDo') : t('settings.rules.editor.thenDo')
+  return (
+    <div className="space-y-2 border border-border p-3">
+      <div className="flex flex-wrap items-start gap-2">
+        <span className="pt-2 text-sm">{label}</span>
+        <ActionTypeSelect row={row} onChange={onChange} />
+        {canRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onRemove}
+            aria-label={t('settings.rules.removeAction')}
+          >
+            <Trash2Icon />
+          </Button>
+        )}
       </div>
-      <div className="space-y-1.5">
-        <Label>{t('settings.rules.triggerColumn')}</Label>
-        <Select
-          value={String(state.columnId)}
-          onValueChange={(v) => onChange({ ...state, columnId: Number(v) })}
-        >
-          <SelectTrigger aria-invalid={!!errors.columnId}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="0">{t('settings.rules.anyColumn')}</SelectItem>
-            {columns.map((c) => (
-              <SelectItem key={c.id} value={String(c.id)}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <ActionFields row={row} columns={columns} onChange={onChange} hideTimeMode />
+    </div>
+  )
+}
+
+/** 分组动作下拉 */
+function ActionTypeSelect({ row, onChange }: { row: ActionFormRow; onChange: (row: ActionFormRow) => void }) {
+  const { t } = useTranslation()
+  return (
+    <Select
+      value={row.type}
+      onValueChange={(v) => onChange({ ...emptyActionRow(v as ActionType), id: row.id })}
+    >
+      <SelectTrigger className="min-w-[10rem] flex-1">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectLabel>{t('settings.rules.actionGroups.time')}</SelectLabel>
+          {TIME_ACTIONS.map((type) => (
+            <SelectItem key={type} value={type}>
+              {t(`settings.rules.actionTypes.${type}` as TranslationKey)}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+        <SelectGroup>
+          <SelectLabel>{t('settings.rules.actionGroups.card')}</SelectLabel>
+          {CARD_ACTIONS.map((type) => (
+            <SelectItem key={type} value={type}>
+              {t(`settings.rules.actionTypes.${type}` as TranslationKey)}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  )
+}
+
+/** 折叠区：自定义名称、筛选、时间写入模式 */
+function MoreOptionsSection({
+  open,
+  onOpenChange,
+  state,
+  errors,
+  onChange,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  state: RuleFormState
+  errors: RuleFormErrors
+  onChange: (s: RuleFormState) => void
+}) {
+  const { t } = useTranslation()
+  const timeRows = state.actions
+    .map((row, index) => ({ row, index }))
+    .filter((x) => x.row.type === 'set_started_at' || x.row.type === 'set_finished_at')
+  return (
+    <div className="border-t border-border pt-3">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-auto p-0"
+        aria-expanded={open}
+        onClick={() => onOpenChange(!open)}
+      >
+        {t('settings.rules.moreOptions')}
+      </Button>
+      {open && (
+        <div className="mt-3 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="rule-name">{t('settings.rules.name')}</Label>
+            <Input
+              id="rule-name"
+              value={state.name}
+              maxLength={RULE_NAME_MAX}
+              onChange={(e) => onChange({ ...state, name: e.target.value })}
+              aria-invalid={!!errors.name}
+            />
+            {errors.name && (
+              <p role="alert" className="text-xs text-destructive">
+                {t(`settings.rules.errors.${errors.name}`)}
+              </p>
+            )}
+          </div>
+          <MotionModes state={state} timeRows={timeRows} onChange={onChange} />
+          <ConditionField state={state} onChange={onChange} errors={errors} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 在更多选项里为时间动作配置覆盖模式 */
+function MotionModes({
+  state,
+  timeRows,
+  onChange,
+}: {
+  state: RuleFormState
+  timeRows: { row: ActionFormRow; index: number }[]
+  onChange: (s: RuleFormState) => void
+}) {
+  if (timeRows.length === 0) return null
+  return (
+    <div className="space-y-2">
+      {timeRows.map(({ row, index }) => (
+        <ActionFields
+          key={row.id}
+          row={row}
+          columns={[]}
+          onChange={(next) => {
+            const actions = state.actions.map((a, i) => (i === index ? next : a))
+            onChange({ ...state, actions })
+          }}
+        />
+      ))}
     </div>
   )
 }
@@ -287,23 +412,6 @@ function ConditionField({
           {t(`settings.rules.errors.${errors.condition}`)}
         </p>
       )}
-    </div>
-  )
-}
-
-/** 预设按钮行 */
-function PresetsRow({ onPick }: { onPick: (id: RulePresetId) => void }) {
-  const { t } = useTranslation()
-  return (
-    <div className="space-y-2 border-t pt-3">
-      <p className="text-sm font-medium">{t('settings.rules.presetsTitle')}</p>
-      <div className="flex flex-wrap gap-2">
-        {RULE_PRESETS.map((p) => (
-          <Button key={p.id} type="button" variant="secondary" size="sm" onClick={() => onPick(p.id)}>
-            {t(p.labelKey as TranslationKey)}
-          </Button>
-        ))}
-      </div>
     </div>
   )
 }

@@ -38,7 +38,7 @@ export interface RuleFormState {
 export type RuleFormErrors = Partial<
   Record<
     'name' | 'condition' | 'actions' | 'columnId',
-    | 'nameRequired'
+    | 'nameTooLong'
     | 'conditionTooLong'
     | 'actionsRequired'
     | 'actionsLimit'
@@ -97,13 +97,19 @@ function actionToRow(a: RuleAction): ActionFormRow {
 }
 
 /** 表单转成创建/更新用的请求体；校验不通过抛不出错，只返回 errors */
-export function formToCreateInput(state: RuleFormState, columns: Column[]): { input?: CreateRuleInput; errors: RuleFormErrors } {
+export function formToCreateInput(
+  state: RuleFormState,
+  columns: Column[],
+  resolveName?: (state: RuleFormState) => string,
+): { input?: CreateRuleInput; errors: RuleFormErrors } {
   const errors = validateRuleForm(state, columns)
   if (Object.keys(errors).length > 0) return { errors }
+  const trimmed = state.name.trim()
+  const name = trimmed !== '' ? trimmed : (resolveName?.(state) ?? '')
   return {
     errors: {},
     input: {
-      name: state.name.trim(),
+      name,
       enabled: state.enabled,
       trigger: state.trigger,
       column_id: state.columnId,
@@ -117,8 +123,9 @@ export function formToCreateInput(state: RuleFormState, columns: Column[]): { in
 export function formToUpdateInput(
   state: RuleFormState,
   columns: Column[],
+  resolveName?: (state: RuleFormState) => string,
 ): { actions?: RuleAction[]; patch: Omit<CreateRuleInput, 'actions'> & { actions?: RuleAction[] }; errors: RuleFormErrors } {
-  const { input, errors } = formToCreateInput(state, columns)
+  const { input, errors } = formToCreateInput(state, columns, resolveName)
   if (!input || Object.keys(errors).length > 0) return { errors, patch: {} as CreateRuleInput }
   const { actions, ...rest } = input
   return { errors: {}, actions, patch: { ...rest, actions } }
@@ -156,7 +163,7 @@ function rowToAction(row: ActionFormRow): RuleAction {
 export function validateRuleForm(state: RuleFormState, columns: Column[]): RuleFormErrors {
   const errors: RuleFormErrors = {}
   const name = state.name.trim()
-  if (name === '' || Array.from(name).length > RULE_NAME_MAX) errors.name = 'nameRequired'
+  if (name !== '' && Array.from(name).length > RULE_NAME_MAX) errors.name = 'nameTooLong'
   if (Array.from(state.condition).length > FILTER_MAX) errors.condition = 'conditionTooLong'
   if (state.actions.length === 0) errors.actions = 'actionsRequired'
   if (state.actions.length > RULE_ACTIONS_MAX) errors.actions = 'actionsLimit'
