@@ -11,12 +11,12 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 | 1 | MCP 工具里自己再写一套权限判断 | 同一个操作在不同入口结果不同，漏洞藏在某个入口里 | 工具只做"取身份、调 Core、转结果"，权限和校验全在 Core；工具视图只是减少干扰，不是安全边界 | 实施 |
 | 2 | MCP 请求没有可靠的身份；令牌被删除后还能继续用 | 被撤销的 agent 仍然能读写看板 | 每个 HTTP 请求都用 `Authorization: Bearer` 认证（复用 `access.Core.Authenticate`），令牌删除后下一个请求就是 401；会话绑定创建它的身份，换一个令牌拿不到别人的会话 | 实施 |
 | 3 | agent 看到一堆自己用不了的管理工具 | 占掉上下文，还会反复尝试越权再被拒绝 | 两套工具视图：agent 令牌看到 16 个工作工具，管理令牌看到 24 个管理工具；同名工具的入参也按身份裁剪（例如 agent 的创建卡片没有优先级、依赖、时间字段） | 实施 |
-| 4 | 一个工具返回整板卡片，每张描述最长 20000 字 | 一次响应几百 KB，把 agent 的上下文撑爆 | `list_cards` 和资源快照里的卡片只给摘要（没有描述和评论），要看全文用 `get_card`；`list_cards` 默认 50 张、最多 200 张 | 实施 |
+| 4 | 一个工具返回整板卡片，每张描述最长 20000 字 | 一次响应几百 KB，把 agent 的上下文撑爆 | `list_cards` 和资源快照里的卡片只给摘要（没有描述和评论），要看全文用 `get_card`；`list_cards` 默认 50 张、最多 200 张；资源快照最多 200 张，并如实给出 `total` 和 `truncated`；创建、修改、移动卡片只返回精简字段，不把刚写进去的描述原样回传 | 实施 |
 | 5 | 服务端有更新，agent 不知道 | 只能盲目轮询 | agent 订阅资源 `slate://boards/{board_id}`，看板每次提交更新，服务端异步发 `notifications/resources/updated`（带最新事件序号）；200 毫秒内的多次更新合并成一次通知；通知不阻塞写请求 | 实施 |
 | 6 | agent 当时不在线，或者它的 host 不支持订阅通知 | 通知丢了就丢了更新 | 通知只是"有更新"的提示，不带数据也不保证送达；数据靠 `pull_updates`：进度按（看板，agent）存在服务端数据库里，离线多久都能补读；离线太久事件被清理时返回 `truncated`，agent 用 `list_cards` 重新了解现状 | 实施 |
 | 7 | agent 想一直挂着等活 | 定时轮询浪费请求，而且 host 的循环功能很笨重 | `wait_for_updates` 阻塞到有值得处理的更新为止，最长 50 秒（低于常见代理和客户端的一分钟超时）；超时返回 `timed_out`，不是错误，agent 带着返回的 `cursor` 立刻再等 | 实施 |
 | 8 | 关闭服务时，挂着的阻塞等待和通知流让 Shutdown 一直等到超时 | 每次重启卡 5 秒，还留下一条错误日志 | 和 REST 一样用 `lifecycle.Bind`：阻塞等待返回"服务正在关闭"，通知流直接结束；普通工具调用不受影响 | 实施 |
-| 9 | 通知流永远不断 | 令牌被删除后还能一直收到"看板有更新"的提示 | 通知流最长 10 分钟，到点由服务端结束，SDK 客户端会自动重连，重连时重新认证 | 实施 |
+| 9 | 通知流（客户端用 GET 一直挂着的连接）永远不断 | 令牌被删除后还能一直收到"看板有更新"的提示 | 服务端每分钟用这条流自己的令牌重新认证一次，令牌失效就结束这条流，客户端重连时认证失败得到 401。不按时间强制断开：无故断开会让一些客户端（例如 Go SDK，对"没有进展的重连"最多容忍 5 次）最终放弃整个会话 | 实施 |
 | 10 | 服务放在 nginx 后面，nginx 用 127.0.0.1 连过来，Host 头是域名 | SDK 默认的"本机服务只认本机 Host"校验会把它当成 DNS 重绑定攻击，全部返回 403 | 关闭这项校验。`/mcp` 一定要令牌，网页脚本跨站请求时没办法带上自定义的 Authorization 头，所以不会因此多出攻击面 | 实施 |
 | 11 | 内部错误的细节原样返回给 agent | 数据库错误文本进了模型的上下文，还可能被写进它的记录里 | 业务错误返回 `reason: msg`；不是业务错误的只记日志，返回通用文案；错误的 details 一律不返回 | 实施 |
 | 12 | agent 不知道这个看板怎么用 | 领不该领的卡、把卡片拖进完成列、一直轮询 | 连接时下发简短的使用说明（instructions），每个工具的描述写清前置条件和后果；worktree、子 agent、项目路径这类更完整的流程放在 skill 里 | 实施 |
@@ -25,7 +25,7 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 
 ## 两套工具视图
 
-`getServer` 在会话创建时按身份挑一个 MCP Server，之后整个会话都用它。视图是为了让 agent 只看到自己能用的工具，
+`serverFor` 在会话创建时按身份挑一个 MCP Server，之后整个会话都用它。视图是为了让 agent 只看到自己能用的工具，
 真正的权限仍由 Core 判断：agent 即使绕过视图直接调用别的 REST 接口，也会被 Core 拒绝。
 
 | 工具 | agent 视图 | 管理视图 | Core 方法 | 说明 |
@@ -69,10 +69,10 @@ flowchart TD
     B -->|失败| Z1[401]
     B -->|成功| C[TokenInfo 放进请求上下文: UserID 是 kind:name, Extra 里放 kanban.Actor]
     C --> D{GET 通知流}
-    D -->|是| E[最长 10 分钟, 并随服务关闭而结束]
+    D -->|是| E[随服务关闭而结束, 每分钟重新认证, 令牌失效就结束]
     D -->|否| F[SDK 按 Mcp-Session-Id 找会话]
     E --> F
-    F -->|没有会话ID| G[getServer 按身份挑 agent 视图或管理视图, 新建会话并记下 UserID]
+    F -->|没有会话ID| G[serverFor 按身份挑 agent 视图或管理视图, 新建会话并记下 UserID]
     F -->|会话的 UserID 和当前身份不同| Z2[403]
     F -->|会话已过期| Z3[404, 客户端重新初始化]
     G --> H[工具处理函数]
@@ -83,6 +83,7 @@ flowchart TD
 ```
 
 认证排在最前面，没有令牌的人看不到后面任何检查的结果。请求体上限 1 MiB 由 SDK 的 `MaxRequestBodyBytes` 在认证之后检查。
+单个请求的结果直接用 JSON 返回（`JSONResponse`），不占用 SSE 长连接；只有客户端用 GET 打开的通知流是长连接。
 
 ## 身份与会话
 
@@ -146,23 +147,26 @@ sequenceDiagram
 
 ## 资源
 
-只有一个资源模板 `slate://boards/{board_id}`：读取它返回整板快照（看板、列、规则、全部卡片摘要、`seq`），
+只有一个资源模板 `slate://boards/{board_id}`：读取它返回整板快照（看板、列、规则、最多 200 张卡片摘要、卡片总数 `total`、是否被截断 `truncated`、`seq`），
 订阅它得到"看板有更新"的通知。agent 平时用 `pull_updates` 取增量，快照主要给人手动查看或被截断后重新了解现状使用。
 
-地址解析很严格：必须是 `slate://boards/` 加上正整数，不允许多余的路径、查询参数或前导零；解析不了按资源不存在处理。
+地址解析很严格：必须是 `slate://boards/` 加上正整数，不允许多余的路径、查询参数、符号、空白或前导零；解析不了、看板不存在，读取和订阅都按协议规定的"资源不存在"处理。
 
 ## 工具的入参和输出
 
 - 入参结构体为每个工具单独定义，字段带中文说明，可选字段用 `omitempty`，这样 JSON Schema 里只有必填项被标成 required。
   不复用 Core 的入参类型，因为它们的字段没有 `omitempty`，会被全部标成必填，模型每次都得把所有字段填一遍。
   结构体里的指针字段（"没出现表示不改"）在 Schema 里是"类型或 null"，传 null 和不传一样，都表示不改。
-- Schema 不允许多余字段（SDK 默认 `additionalProperties: false`），字段名写错会直接返回参数错误，而不是被悄悄忽略。
+- Schema 不允许多余字段（SDK 默认 `additionalProperties: false`），字段名写错会返回工具错误（`isError` 为真，文本以 `validating "arguments":` 开头并指出是哪个字段），而不是被悄悄忽略。SDK 把入参校验失败当成工具错误而不是协议错误，agent 能直接读到原因。
 - 输出一律是 JSON 对象（列表外面包一层，例如 `{boards: [...]}`），同时放进 `structuredContent` 和文本内容，
   不声明输出 Schema（领域对象的 Schema 很大，会白白占用每次 `tools/list` 的上下文）。
 - 事件的 JSON 和 REST、实时流里是同一种格式（Payload 是对象），因为都来自 Core 的同一个类型。
+- 写入类工具的结果都很精简：创建、修改、移动卡片返回 `cardBrief`（没有描述和派生状态），`finish_card` 返回 `cardSummary`，领取类返回卡片全文，删除类返回 `{ok: true}`。
+- `set_project_path` 拒绝空路径（`ErrInvalidInput`）：空路径在人那里表示清除，agent 只能写入，所以"写了个空"不能被当成成功；两端的空白会被去掉。
 
-卡片摘要（`cardSummary`）的字段：`id, key, title, column, column_id, priority, tags, human_only, done, waiting, claim_active, claimed_by,
-waits_on, due_at, started_at, finished_at, branch, url, version, updated_at`。
+精简卡片（`cardBrief`）的字段：`id, key, title, column_id, priority, tags, human_only, claimed_by, waits_on, due_at, started_at, finished_at,
+branch, url, version, updated_at`。
+卡片摘要（`cardSummary`）在它的基础上多四个派生字段：`column`（列名）、`done`、`waiting`、`claim_active`。
 
 ## 错误
 
@@ -173,17 +177,19 @@ waits_on, due_at, started_at, finished_at, branch, url, version, updated_at`。
 | 服务关闭打断 | `ErrServiceUnavailable: 服务正在关闭，请稍后重试` |
 | 客户端取消 | 不再有人读结果，按普通取消处理，不记日志 |
 | 其他错误 | 记日志，返回 `ErrInternal: 服务器内部错误` |
-| 入参不符合 Schema | SDK 在进入处理函数之前直接返回参数错误 |
-| 读资源时地址不合法或看板不存在 | 协议级错误 `resource not found` |
+| 入参不符合 Schema | SDK 在进入处理函数之前拒绝，返回工具错误，文本以 `validating "arguments":` 开头 |
+| 读取或订阅资源时地址不合法或看板不存在 | 协议级错误 `Resource not found`（JSON-RPC 错误码 `mcp.CodeResourceNotFound`，go-sdk 1.8.0 里是 -32602），`data.uri` 是请求的地址 |
 
 ## 接线
 
-- `mcpapi.New(access.Core, kanban.Core, version) (API, func())` 创建两个 Server、通知器和 HTTP 处理器；返回的清理函数停止通知器协程并等它退出。
-  `Core.Observe("mcp", …)` 在这里注册，必须发生在开始处理请求之前，Wire 装配阶段满足这个条件。
-- `internal/web/api/provider.go` 增加 `NewMCP`（从 `conf.Bootstrap` 取构建版本号后调用 `mcpapi.New`），`Usecase` 增加 `MCP` 字段，
-  再用 `wire` 重新生成 `internal/app/wire_gen.go`。
-- `setupRouter` 增加 `r.Any("/mcp", gin.WrapH(uc.MCP.Handler()))`。它在全局的恢复、统计、日志中间件之内，不在 `/api/v1` 组里，
-  因为 MCP 有自己的认证和请求体检查。
+- `mcpapi.New(access.Core, kanban.Core, version, ...Option) (API, func())` 创建两个 Server、通知器和 HTTP 处理器；返回的清理函数停止通知器协程并等它退出，可以重复调用。
+  `Core.Observe("mcp", …)` 在这里注册，必须发生在开始处理请求之前，同一个 Core 只能调用一次，Wire 装配阶段满足这两个条件。
+  可选项只给测试用：`WithNotifyDelay`（通知合并窗口，默认 200 毫秒）、`WithStreamRecheck`（通知流重新认证的间隔，默认 1 分钟）。
+- `internal/web/api/provider.go` 增加 `NewMCP(bc, access.Core, kanban.Core) (mcpapi.API, func())`（从 `conf.Bootstrap` 取构建版本号后调用 `mcpapi.New`，
+  因为 Wire 不能直接用带可变参数的构造函数，所以包一层，不传选项），`Usecase` 增加 `MCP` 字段，
+  再用 `wire` 重新生成 `internal/app/wire_gen.go`：生成的退出函数先停通知器，再关数据库。
+- `setupRouter` 增加 `r.Any(mcpPath, gin.WrapH(uc.MCP.Handler()))`（`mcpPath` 是 `/mcp`）。它在全局的恢复、统计、日志中间件之内，不在 `/api/v1` 组里，
+  因为 MCP 有自己的认证和请求体检查，套上 REST 的 `requireJSON` 会误拦 MCP 协议里的 GET 和 DELETE。方法由 SDK 区分：POST 是初始化和工具调用，GET 是通知流，DELETE 是结束会话。
 - 依赖：`github.com/modelcontextprotocol/go-sdk v1.8.0`。官方维护，API 稳定到 v1；它的传递依赖是 JSON Schema 库、`oauth2` 和 URI 模板库。
 - 配置：不新增配置项。路径固定为 `/mcp`，端口、监听地址沿用服务的配置。
 
@@ -193,23 +199,37 @@ waits_on, due_at, started_at, finished_at, branch, url, version, updated_at`。
 - 通知只通知"看板有更新"，不区分和哪个 agent 有关。区分的工作交给 `pull_updates`（它会过滤掉 agent 自己的操作和排序类事件）。
 - 没有 MCP Prompts，也没有进度通知：host 对它们的支持参差不齐，流程指引放在 skill 和 instructions 里。
 - 没有配置 SDK 的 EventStore（流断点续传）：通知本来就允许丢，不值得为它在内存里存消息。
-- 令牌过期时间：令牌不会过期，只会被删除。
+- 令牌过期时间：令牌不会过期，只会被删除。令牌被删除后，工具调用在下一个请求就失败；已经连着的通知流最多再存活 1 分钟（重新认证的间隔）。
+- 没有配置按时间强制断开通知流：原因见需求 9。
+
+## 验证
+
+- 单元与集成测试（`internal/web/mcpapi`、`internal/web/api`）：用官方 SDK 客户端连真实的 HTTP 服务，覆盖认证和会话绑定、两个视图的工具清单和入参、
+  干活闭环、权限和版本冲突、错误不泄露细节、拉取和阻塞等待（唤醒、超时、第一次、超大秒数、客户端取消、服务关闭）、资源与订阅、
+  通知的合并和不阻塞写入、通知流随关闭和令牌删除而结束、反向代理的 Host、请求体上限、新协议的明确答复；
+  路由层再验证 `/mcp` 要令牌、和 REST 共用令牌与看板、REST 改动能触发 MCP 通知、构建版本号被报给客户端。
+- 变异验证：逐个破坏关键语句（泄露错误细节、会话不绑定身份、视图拿到不该有的工具、观察者阻塞写入、等待不随取消或关闭结束、
+  通知流不重新认证、地址解析放宽、项目路径不校验等 44 处），每一处都要被测试发现。
+- 真实进程冒烟：编译出二进制运行，SDK 客户端走一遍创建看板和令牌、两个视图的工具数（24 和 16）、订阅通知、
+  人派活 → agent 领取、评论、交接 → 人移入完成并由规则写上完成时间、离线补读、阻塞等待被唤醒；
+  最后挂起一个阻塞等待再发 SIGTERM，服务立刻退出，等待得到"服务正在关闭"，日志里没有错误。
 
 ## 代码对照
 
 | 步骤 | 函数 | 文件 |
 |------|------|------|
 | 创建 Server、通知器、处理器 | New | internal/web/mcpapi/api.go |
-| 认证、身份进入 TokenInfo | verifyToken、actorOf | internal/web/mcpapi/identity.go |
+| 认证、身份进入 TokenInfo | newVerifier、actorOf | internal/web/mcpapi/identity.go |
 | 工具注册的统一包装 | register | internal/web/mcpapi/register.go |
 | 错误转换 | toolError | internal/web/mcpapi/errors.go |
 | 只读工具 | whoami、listBoards、getBoard、listCards、getCard、listEvents | internal/web/mcpapi/tools_read.go |
 | 同步工具 | pullUpdates、waitForUpdates | internal/web/mcpapi/tools_sync.go |
 | 工作工具 | nextCard、claimCard、releaseCard、finishCard、commentCard、createCard、updateCard、moveCard、setProjectPath | internal/web/mcpapi/tools_work.go |
-| 管理工具 | 看板、列、规则的增删改，deleteCard、deleteComment | internal/web/mcpapi/tools_admin.go |
-| 卡片摘要 | summarize | internal/web/mcpapi/summary.go |
-| 资源与订阅 | readBoard、subscribe、parseBoardURI | internal/web/mcpapi/resource.go |
+| 管理工具 | 看板、列的增删改，deleteCard、deleteComment | internal/web/mcpapi/tools_admin.go |
+| 自动化规则工具 | createRule、updateRule、deleteRule | internal/web/mcpapi/tools_rule.go |
+| 卡片摘要与精简字段 | summarize、briefOf、clampListLimit | internal/web/mcpapi/summary.go |
+| 资源与订阅 | readBoard、subscribe、parseBoardURI、resourceError | internal/web/mcpapi/resource.go |
 | 通知器 | notifier.mark、notifier.run | internal/web/mcpapi/notify.go |
-| 使用说明 | agentInstructions、adminInstructions | internal/web/mcpapi/instructions.go |
-| 通知流限时与随服务关闭 | API.Handler | internal/web/mcpapi/api.go |
+| 使用说明 | instructionsFor（agentInstructions、adminInstructions） | internal/web/mcpapi/instructions.go |
+| 通知流随服务关闭、定期重新认证 | limitStream、endWhenRevoked | internal/web/mcpapi/api.go |
 | 路由与装配 | NewMCP、setupRouter | internal/web/api/provider.go、internal/web/api/api.go |
