@@ -48,24 +48,3 @@ func TestRuleLifecycle(t *testing.T) {
 		wantEmptyObject(t, "删除", s.human(t, http.MethodDelete, path, nil))
 	}
 }
-
-// TestRuleHumanOnly 验证 agent 不能增改删规则，每一项都返回 403。
-func TestRuleHumanOnly(t *testing.T) {
-	s := newStack(t)
-	b := s.newBoard(t, "RUL")
-	made := decode[rule](t, s.human(t, http.MethodPost, "/boards/"+id(b.ID)+"/rules", map[string]any{
-		"name": "r", "trigger": "card_created", "actions": []map[string]any{{"type": "add_tag", "tag": "new"}},
-	}))
-	path := "/rules/" + id(made.ID)
-	checks := map[string]struct {
-		method, path string
-		body         any
-	}{
-		"新增": {http.MethodPost, "/boards/" + id(b.ID) + "/rules", map[string]any{"name": "x"}},
-		"修改": {http.MethodPatch, path, map[string]any{"enabled": false}},
-		"删除": {http.MethodDelete, path, nil},
-	}
-	for name, c := range checks {
-		wantFail(t, "agent "+name, s.agent(t, "claude", c.method, c.path, c.body), http.StatusForbidden, "ErrHumanOnly")
-	}
-}

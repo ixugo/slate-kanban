@@ -154,7 +154,7 @@ func TestStreamLive(t *testing.T) {
 	s := newStack(t)
 	srv := s.serve(t)
 	b := s.newBoard(t, "LIV")
-	conn := openStream(t, srv, adminToken, "/boards/"+id(b.ID)+"/stream", nil)
+	conn := openStream(t, srv, "", "/boards/"+id(b.ID)+"/stream", nil)
 	latest := conn.ready(t)
 
 	c := s.newCard(t, b, b.Columns[1].ID, "新卡片")
@@ -169,28 +169,20 @@ func TestStreamLive(t *testing.T) {
 	conn.wantQuiet(t, 100*time.Millisecond)
 }
 
-// TestStreamHeadersAndAccess 验证响应头和认证：流式响应头齐全；agent 也能读；
-// 没有令牌返回 401；把令牌放在 URL 里不会被认可。
+// TestStreamHeadersAndAccess 验证流式响应头齐全，免认证可读。
 func TestStreamHeadersAndAccess(t *testing.T) {
 	s := newStack(t)
 	srv := s.serve(t)
 	b := s.newBoard(t, "HDR")
 	path := "/boards/" + id(b.ID) + "/stream"
 
-	conn := openStream(t, srv, s.token(t, "claude"), path, nil)
+	conn := openStream(t, srv, "", path, nil)
 	h := conn.resp.Header
 	if conn.resp.StatusCode != http.StatusOK || !strings.HasPrefix(h.Get("Content-Type"), "text/event-stream") ||
 		h.Get("Cache-Control") != "no-cache" || h.Get("X-Accel-Buffering") != "no" {
 		t.Fatalf("响应头不对: %d %v", conn.resp.StatusCode, h)
 	}
 	conn.ready(t)
-
-	if resp := s.Do(t, http.MethodGet, "/api/v1"+path, "", nil); resp.Code != http.StatusUnauthorized {
-		t.Errorf("没有令牌应该返回 401: %d", resp.Code)
-	}
-	if resp := s.Do(t, http.MethodGet, "/api/v1"+path+"?token="+adminToken+"&access_token="+adminToken, "", nil); resp.Code != http.StatusUnauthorized {
-		t.Errorf("URL 里的令牌不应该被认可: %d", resp.Code)
-	}
 }
 
 // TestStreamResume 验证续传：after 之后的事件按顺序补发；Last-Event-ID 请求头同样有效；
@@ -211,7 +203,7 @@ func TestStreamResume(t *testing.T) {
 		t.Fatalf("准备工作应该产生三条事件: %+v", all)
 	}
 
-	byQuery := openStream(t, srv, adminToken, path+"?after="+id(all[0].ID), nil)
+	byQuery := openStream(t, srv, "", path+"?after="+id(all[0].ID), nil)
 	if latest := byQuery.ready(t); latest != all[2].ID {
 		t.Fatalf("ready 应该带最新序号 %d: %d", all[2].ID, latest)
 	}
@@ -222,13 +214,13 @@ func TestStreamResume(t *testing.T) {
 	}
 	byQuery.wantQuiet(t, 100*time.Millisecond)
 
-	byHeader := openStream(t, srv, adminToken, path, map[string]string{"Last-Event-ID": id(all[1].ID)})
+	byHeader := openStream(t, srv, "", path, map[string]string{"Last-Event-ID": id(all[1].ID)})
 	byHeader.ready(t)
 	if got, _ := byHeader.boardEvent(t); got != all[2].ID {
 		t.Fatalf("Last-Event-ID 之后应该只补发最后一条: %d", got)
 	}
 
-	both := openStream(t, srv, adminToken, path+"?after="+id(all[0].ID), map[string]string{"Last-Event-ID": id(all[2].ID)})
+	both := openStream(t, srv, "", path+"?after="+id(all[0].ID), map[string]string{"Last-Event-ID": id(all[2].ID)})
 	both.ready(t)
 	if got, _ := both.boardEvent(t); got != all[1].ID {
 		t.Fatalf("两个都给时应该以 after 为准: %d", got)
@@ -245,7 +237,7 @@ func TestStreamReset(t *testing.T) {
 	s.newCard(t, b, b.Columns[1].ID, "乙")
 	path := "/boards/" + id(b.ID) + "/stream"
 
-	ahead := openStream(t, srv, adminToken, path+"?after=999999", nil)
+	ahead := openStream(t, srv, "", path+"?after=999999", nil)
 	latest := ahead.ready(t)
 	msg := ahead.next(t)
 	if msg.event != "reset" || !strings.Contains(msg.data, `"latest":`+id(latest)) {
@@ -256,7 +248,7 @@ func TestStreamReset(t *testing.T) {
 	if err := s.db.Event().Prune(t.Context(), b.ID, 1); err != nil {
 		t.Fatalf("模拟清理旧事件失败: %v", err)
 	}
-	stale := openStream(t, srv, adminToken, path+"?after=0", nil)
+	stale := openStream(t, srv, "", path+"?after=0", nil)
 	stale.ready(t)
 	if msg := stale.next(t); msg.event != "reset" {
 		t.Fatalf("起点早于保留范围应该发 reset: %+v", msg)
@@ -282,7 +274,6 @@ func TestStreamErrors(t *testing.T) {
 	}
 	for _, tc := range cases {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1"+tc.path, http.NoBody)
-		req.Header.Set("Authorization", "Bearer "+adminToken)
 		for k, v := range tc.header {
 			req.Header.Set(k, v)
 		}
@@ -298,7 +289,7 @@ func TestStreamBoardDeleted(t *testing.T) {
 	s := newStack(t)
 	srv := s.serve(t)
 	b := s.newBoard(t, "DEL")
-	conn := openStream(t, srv, adminToken, "/boards/"+id(b.ID)+"/stream", nil)
+	conn := openStream(t, srv, "", "/boards/"+id(b.ID)+"/stream", nil)
 	conn.ready(t)
 
 	wantEmptyObject(t, "删除看板", s.human(t, http.MethodDelete, "/boards/"+id(b.ID), nil))
@@ -317,7 +308,7 @@ func TestStreamHeartbeatAndMaxAge(t *testing.T) {
 	})
 	srv := s.serve(t)
 	b := s.newBoard(t, "HBT")
-	conn := openStream(t, srv, adminToken, "/boards/"+id(b.ID)+"/stream", nil)
+	conn := openStream(t, srv, "", "/boards/"+id(b.ID)+"/stream", nil)
 	conn.ready(t)
 	if msg := conn.next(t); msg.comment != "ping" {
 		t.Fatalf("空闲时应该收到 ping: %+v", msg)
@@ -346,7 +337,7 @@ func TestStreamClientDisconnect(t *testing.T) {
 	for len(s.finished) > 0 {
 		<-s.finished // 清掉建看板那次请求留下的记录
 	}
-	conn := openStream(t, srv, adminToken, "/boards/"+id(b.ID)+"/stream", nil)
+	conn := openStream(t, srv, "", "/boards/"+id(b.ID)+"/stream", nil)
 	conn.ready(t)
 	conn.cancel()
 	select {
@@ -362,7 +353,7 @@ func TestStreamEndsOnShutdown(t *testing.T) {
 	s := newStack(t)
 	srv := s.serve(t)
 	b := s.newBoard(t, "SHD")
-	conn := openStream(t, srv, adminToken, "/boards/"+id(b.ID)+"/stream", nil)
+	conn := openStream(t, srv, "", "/boards/"+id(b.ID)+"/stream", nil)
 	conn.ready(t)
 	s.closeNow()
 	conn.wantEnd(t)

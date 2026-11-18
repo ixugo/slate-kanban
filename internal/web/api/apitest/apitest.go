@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +29,8 @@ type Response struct {
 	Body []byte
 }
 
-// Do 发一个请求。token 为空就不带 Authorization；body 不是 nil 时序列化成 JSON，并带上 JSON 的 Content-Type。
+// Do 发一个请求。body 不是 nil 时序列化成 JSON 并带上 Content-Type。
+// token 保留参数以兼容旧测试：非空时在 MCP 路径上加 ?name= 或 &role=manager，REST 不再使用令牌。
 func (c Client) Do(t *testing.T, method, path, token string, body any) Response {
 	t.Helper()
 	var reader io.Reader = http.NoBody
@@ -38,18 +41,44 @@ func (c Client) Do(t *testing.T, method, path, token string, body any) Response 
 		}
 		reader = bytes.NewReader(raw)
 	}
-	req := httptest.NewRequest(method, path, reader)
+	finalPath := path
+	if token != "" {
+		finalPath = withMCPIdentity(path, token)
+	}
+	req := httptest.NewRequest(method, finalPath, reader)
+	req.Host = "localhost"
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
-	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	return c.Serve(req)
 }
 
+// withMCPIdentity 给 /mcp 路径追加身份查询参数；管理占位串映射为 manager 视图。
+func withMCPIdentity(path, token string) string {
+	if !strings.HasPrefix(path, "/mcp") {
+		return path
+	}
+	u, err := url.Parse(path)
+	if err != nil {
+		return path
+	}
+	q := u.Query()
+	switch token {
+	case "manager", "router-test-admin-token-0123456789", "admin-secret":
+		q.Set("role", "manager")
+	default:
+		q.Set("name", token)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
 // Serve 处理一个已经构造好的请求，需要自定义请求头或请求体时用它。
 func (c Client) Serve(req *http.Request) Response {
+	// 测试请求默认带 localhost，避免 Host 白名单中间件误拦。
+	if req.Host == "" {
+		req.Host = "localhost"
+	}
 	rec := httptest.NewRecorder()
 	c.Engine.ServeHTTP(rec, req)
 	return Response{Code: rec.Code, Body: rec.Body.Bytes()}

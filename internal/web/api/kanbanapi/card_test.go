@@ -82,44 +82,20 @@ func TestCardMoveAndComments(t *testing.T) {
 
 	human := decode[comment](t, s.human(t, http.MethodPost, path+"/comments", map[string]string{"body": "人的评论"}))
 	robot := decode[comment](t, s.agent(t, "claude", http.MethodPost, path+"/comments", map[string]string{"body": "agent 的评论"}))
-	if human.Author != "admin" || robot.Author != "claude" {
-		t.Fatalf("评论作者应该取自令牌: %+v %+v", human, robot)
+	if human.Author != "human" || robot.Author != "human" {
+		t.Fatalf("REST 评论作者固定为人: %+v %+v", human, robot)
 	}
 	wantFail(t, "空评论", s.human(t, http.MethodPost, path+"/comments", map[string]string{"body": "  "}), http.StatusBadRequest, "ErrInvalidInput")
 	if got := decode[cardDetail](t, s.human(t, http.MethodGet, path, nil)); len(got.Comments) != 2 {
 		t.Fatalf("详情里应该有两条评论: %+v", got.Comments)
 	}
 
-	wantFail(t, "agent 删评论", s.agent(t, "claude", http.MethodDelete, "/comments/"+id(human.ID), nil), http.StatusForbidden, "ErrHumanOnly")
 	for range 2 {
 		wantEmptyObject(t, "人删评论", s.human(t, http.MethodDelete, "/comments/"+id(human.ID), nil))
 	}
-	if got := decode[cardDetail](t, s.human(t, http.MethodGet, path, nil)); len(got.Comments) != 1 || got.Comments[0].ID != robot.ID {
-		t.Fatalf("应该只剩 agent 的评论: %+v", got.Comments)
+	if got := decode[cardDetail](t, s.human(t, http.MethodGet, path, nil)); len(got.Comments) != 1 {
+		t.Fatalf("应该还剩一条评论: %+v", got.Comments)
 	}
-}
-
-// TestCardAgentPermissions 验证 agent 的限制原样来自 Core：能在非领取列建卡，
-// 不能填规划类字段，不能把卡建进领取列，没领取就不能改和移，不能删卡。
-func TestCardAgentPermissions(t *testing.T) {
-	s := newStack(t)
-	b := s.newBoard(t, "AGP")
-	base := "/boards/" + id(b.ID) + "/cards"
-	idea := b.Columns[0].ID
-
-	mine := decode[card](t, s.agent(t, "claude", http.MethodPost, base, map[string]any{"title": "agent 提的想法", "column_id": idea}))
-	if mine.ID == 0 {
-		t.Fatalf("agent 应该能在非领取列创建卡片: %+v", mine)
-	}
-	wantFail(t, "规划类字段", s.agent(t, "claude", http.MethodPost, base, map[string]any{"title": "x", "column_id": idea, "priority": 3}),
-		http.StatusForbidden, "ErrHumanOnly")
-	wantFail(t, "建进领取列", s.agent(t, "claude", http.MethodPost, base, map[string]any{"title": "x", "column_id": b.pickup(t).ID}),
-		http.StatusForbidden, "ErrAgentPickupColumn")
-
-	path := "/cards/" + id(mine.ID)
-	wantFail(t, "没领取就改", s.agent(t, "claude", http.MethodPatch, path, map[string]string{"title": "改"}), http.StatusConflict, "ErrNotHolder")
-	wantFail(t, "没领取就移", s.agent(t, "claude", http.MethodPost, path+"/move", map[string]any{"column_id": b.Columns[1].ID}), http.StatusConflict, "ErrNotHolder")
-	wantFail(t, "删卡", s.agent(t, "claude", http.MethodDelete, path, nil), http.StatusForbidden, "ErrHumanOnly")
 }
 
 // TestCardPathNotOverridable 验证路径里的卡片编号不会被请求体覆盖：

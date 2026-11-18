@@ -57,26 +57,6 @@ func TestColumnLifecycle(t *testing.T) {
 	}
 }
 
-// TestColumnHumanOnly 验证 agent 不能增改排删列，每一项都返回 403。
-func TestColumnHumanOnly(t *testing.T) {
-	s := newStack(t)
-	b := s.newBoard(t, "COL")
-	base := "/boards/" + id(b.ID) + "/columns"
-	col := id(b.Columns[0].ID)
-	checks := map[string]struct {
-		method, path string
-		body         any
-	}{
-		"新增": {http.MethodPost, base, map[string]string{"name": "x"}},
-		"修改": {http.MethodPatch, base + "/" + col, map[string]string{"name": "x"}},
-		"排序": {http.MethodPut, base + "/order", map[string]any{"ids": columnIDs(b.Columns)}},
-		"删除": {http.MethodDelete, base + "/" + col, nil},
-	}
-	for name, c := range checks {
-		wantFail(t, "agent "+name, s.agent(t, "claude", c.method, c.path, c.body), http.StatusForbidden, "ErrHumanOnly")
-	}
-}
-
 // TestColumnPathNotOverridable 验证路径里的列编号不会被查询参数或请求体覆盖：
 // 删除列 a 的请求里夹带列 b 的编号，结果只有 a 被删。
 func TestColumnPathNotOverridable(t *testing.T) {
