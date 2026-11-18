@@ -1,55 +1,48 @@
-// 主题选择菜单：浅色、深色、跟随系统；按钮上的图标是当前实际生效的主题。
+// 主题切换：单击在浅色 → 深色 → 跟随系统 之间循环，不用下拉菜单以减轻首屏体积。
 
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { useTheme, type ThemeChoice } from '@/lib/theme-context'
 
-/** 三个选项的值、文案键和图标 */
-const OPTIONS = [
-  { value: 'light', key: 'theme.light', Icon: SunIcon },
-  { value: 'dark', key: 'theme.dark', Icon: MoonIcon },
-  { value: 'system', key: 'theme.system', Icon: MonitorIcon },
-] as const
+/** 循环顺序：浅色 → 深色 → 跟随系统 */
+const THEME_CYCLE: ThemeChoice[] = ['light', 'dark', 'system']
 
-/** 顶栏上的主题菜单 */
+const THEME_LABEL_KEY = {
+  light: 'theme.light',
+  dark: 'theme.dark',
+  system: 'theme.system',
+} as const satisfies Record<ThemeChoice, 'theme.light' | 'theme.dark' | 'theme.system'>
+
+/** 取下一个主题选项 */
+function nextThemeChoice(current: ThemeChoice): ThemeChoice {
+  const index = THEME_CYCLE.indexOf(current)
+  return THEME_CYCLE[(index + 1) % THEME_CYCLE.length]
+}
+
+/** 顶栏主题按钮：图标随当前选择变化，跟随系统时用显示器图标 */
 export function ThemeMenu() {
   const { t } = useTranslation()
   const { theme, resolved, setTheme } = useTheme()
-  const CurrentIcon = resolved === 'dark' ? MoonIcon : SunIcon
+  const next = nextThemeChoice(theme)
+  const currentLabel = t(THEME_LABEL_KEY[theme])
+  const nextLabel = t(THEME_LABEL_KEY[next])
+  const statusText = t('theme.cycleLabel', { current: currentLabel, next: nextLabel })
 
-  // 菜单传回的是字符串，只接受三种主题之一
-  const choose = (value: string) => {
-    const next = OPTIONS.find((o) => o.value === value)
-    if (next) setTheme(next.value satisfies ThemeChoice)
-  }
+  const Icon = theme === 'system' ? MonitorIcon : resolved === 'dark' ? MoonIcon : SunIcon
+
+  const cycle = () => setTheme(next)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={t('theme.label')}>
-          <CurrentIcon />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{t('theme.label')}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={theme} onValueChange={choose}>
-          {OPTIONS.map(({ value, key, Icon }) => (
-            <DropdownMenuRadioItem key={value} value={value}>
-              <Icon />
-              {t(key)}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label={statusText}
+      title={statusText}
+      onClick={cycle}
+    >
+      <Icon />
+    </Button>
   )
 }
