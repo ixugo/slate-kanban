@@ -5,15 +5,8 @@ import "time"
 type Bootstrap struct {
 	Runtime Runtime // 运行时
 	Server  Server  // 服务器
-	Auth    Auth    // 访问鉴权
 	Data    Data    // 数据
 	Log     Log     // 日志
-}
-
-// Auth 访问鉴权配置。
-// 网页登录、REST 管理接口和 MCP 都用 Bearer 令牌访问，不再另设账号密码。
-type Auth struct {
-	AdminToken string `comment:"管理令牌，网页登录与全部管理类接口使用；首次启动自动生成，请妥善保管"` // 管理令牌
 }
 
 type Runtime struct {
@@ -28,11 +21,12 @@ type Server struct {
 }
 
 type ServerHTTP struct {
-	Host      string      `comment:"监听地址，默认只监听本机；对外开放请改为 0.0.0.0，并建议放在反向代理之后"` // 监听地址
-	Port      int         `comment:"http 端口"`                                  // 服务器端口号
-	Timeout   Duration    `comment:"请求超时时间"`                                   // 请求超时时间
-	JwtSecret string      `comment:"jwt 秘钥，空串时，每次启动程序将随机赋值"`                   // JWT密钥
-	PProf     ServerPPROF // Pprof配置
+	Host         string      `comment:"监听地址，默认只监听本机；对外开放请改为 0.0.0.0，并建议放在反向代理之后"`             // 监听地址
+	Port         int         `comment:"http 端口"`                                              // 服务器端口号
+	Timeout      Duration    `comment:"请求超时时间"`                                               // 请求超时时间
+	JwtSecret    string      `comment:"jwt 秘钥，空串时，每次启动程序将随机赋值"`                               // JWT密钥
+	AllowedHosts []string    `comment:"额外允许的 Host 白名单（不含端口）；IP、localhost 和 *.localhost 始终允许"` // Host 白名单
+	PProf        ServerPPROF // Pprof配置
 }
 
 // ServerPPROF 结构体，包含 Enabled 和 AccessIps 两个字段
@@ -45,8 +39,6 @@ type ServerPPROF struct {
 type Data struct {
 	// Database 数据库
 	Database Database `comment:"数据库支持 sqlite 和 postgres 两种，使用 sqlite 时 dsn 应当填写文件存储路径"`
-	// Redis Redis数据库
-	// Redis DataRedis
 }
 
 // Database 结构体，包含 Dsn、MaxIdleConns、MaxOpenConns、ConnMaxLifetime 和 SlowThreshold 五个字段

@@ -1,5 +1,5 @@
 # Slate 配置样例。
-# 首次启动时，如果 configs/config.toml 不存在，程序会按默认值生成它（含随机管理令牌）。
+# 首次启动时，如果 configs/config.toml 不存在，程序会按默认值生成它。
 # 想手动准备配置：复制本文件为 configs/config.toml 再按需修改。
 
 [Server]
@@ -12,17 +12,15 @@
     JwtSecret = ''
     # 请求超时时间
     Timeout = '30s'
+    # 额外允许的 Host 白名单（不含端口）；IP、localhost 和 *.localhost 始终允许
+    # 容器或反向代理后面要把对外主机名写进来，否则 DNS 重绑定防护会返回 403
+    AllowedHosts = []
 
     [Server.HTTP.PProf]
       # 是否启用 pprof, 建议设置为 true
       Enabled = true
       # pprof 访问 IP 白名单
       AccessIps = ['::1', '127.0.0.1']
-
-[Auth]
-  # 管理令牌，网页登录与全部管理类接口使用；首次启动自动生成，请妥善保管。
-  # 留空时，程序启动会生成一个并写回配置文件。
-  AdminToken = ''
 
 [Data]
   [Data.Database]

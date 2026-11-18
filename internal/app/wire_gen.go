@@ -7,13 +7,14 @@
 package app
 
 import (
-	"github.com/ixugo/goddd/domain/version/versionapi"
 	"log/slog"
 	"net/http"
+
+	"github.com/ixugo/goddd/domain/version/versionapi"
+
 	"slate-kanban/internal/conf"
 	"slate-kanban/internal/data"
 	"slate-kanban/internal/web/api"
-	"slate-kanban/internal/web/api/accessapi"
 	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
 )
@@ -27,17 +28,14 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 	}
 	core := versionapi.NewVersionCore(db)
 	versionapiAPI := versionapi.New(core)
-	accessCore := api.NewAccessCore(db, bc)
-	accessapiAPI := accessapi.New(accessCore)
 	kanbanCore := api.NewKanbanCore(db)
 	kanbanapiAPI := kanbanapi.New(kanbanCore)
-	mcpapiAPI, cleanup2 := api.NewMCP(bc, accessCore, kanbanCore)
+	mcpapiAPI, cleanup2 := api.NewMCP(bc, kanbanCore)
 	connectapiAPI := connectapi.New()
 	usecase := &api.Usecase{
 		Conf:    bc,
 		DB:      db,
 		Version: versionapiAPI,
-		Access:  accessapiAPI,
 		Kanban:  kanbanapiAPI,
 		MCP:     mcpapiAPI,
 		Connect: connectapiAPI,
