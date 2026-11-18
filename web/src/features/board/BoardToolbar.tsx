@@ -1,4 +1,4 @@
-// 看板页顶栏：名称、搜索、导出、设置、实时状态。
+// 看板页顶栏：名称、搜索与筛选、导出、设置、实时状态。
 
 import type { RefObject } from 'react'
 import { Link } from 'react-router-dom'
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { API_PREFIX } from '@/lib/api/client'
 import type { Board } from '@/lib/api/types'
+import { FilterPopover, type FilterPopoverProps } from './FilterPopover'
 import { SearchBox } from './SearchBox'
 import { LiveStatus } from './LiveStatus'
 import type { LiveState } from './useBoardLive'
@@ -28,6 +29,8 @@ interface BoardToolbarProps {
   syntaxError: string
   searching: boolean
   searchActive: boolean
+  /** 「筛选」按钮和弹层的数据 */
+  filter: FilterPopoverProps
   liveState: LiveState
   onLiveRetry: () => void
   gone?: boolean
@@ -45,6 +48,7 @@ export function BoardToolbar({
   syntaxError,
   searching,
   searchActive,
+  filter,
   liveState,
   onLiveRetry,
   gone,
@@ -99,6 +103,7 @@ export function BoardToolbar({
           syntaxError={syntaxError}
           searching={searching}
           active={searchActive}
+          actions={<FilterPopover {...filter} />}
         />
         <LiveStatus state={liveState} onRetry={onLiveRetry} gone={gone} />
       </div>

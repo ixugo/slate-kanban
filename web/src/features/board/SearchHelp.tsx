@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { HelpCircleIcon } from 'lucide-react'
 
-const TERM_KEYS = ['tag', 'col', 'priority', 'is', 'has', 'no', 'due', 'text'] as const
+const TERM_KEYS = ['tag', 'col', 'priority', 'is', 'has', 'no', 'due', 'anyOf', 'text'] as const
 const EXAMPLE_KEYS = ['openBugs', 'overdue', 'noDue'] as const
 
 interface SearchHelpProps {

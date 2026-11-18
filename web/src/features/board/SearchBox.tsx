@@ -1,7 +1,7 @@
-// 看板工具栏搜索框：防抖查询、结果统计、语法错误提示。
+// 看板工具栏搜索框：防抖查询、结果统计、语法错误提示；后面可以接上「筛选」按钮。
 
 import { SearchIcon } from 'lucide-react'
-import { forwardRef, useId } from 'react'
+import { forwardRef, useId, type ReactNode } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { FILTER_MAX, SEARCH_LIMIT } from '@/lib/limits'
 import { SearchHelp } from './SearchHelp'
@@ -15,11 +15,13 @@ interface SearchBoxProps {
   syntaxError: string
   searching: boolean
   active: boolean
+  /** 放在搜索框和帮助按钮后面的操作，比如「筛选」按钮 */
+  actions?: ReactNode
 }
 
 /** 筛选语法搜索输入框 */
 export const SearchBox = forwardRef<HTMLInputElement, SearchBoxProps>(function SearchBox(
-  { query, onChange, matched, total, truncated, syntaxError, searching, active },
+  { query, onChange, matched, total, truncated, syntaxError, searching, active, actions },
   ref,
 ) {
   const { t } = useTranslation()
@@ -43,6 +45,7 @@ export const SearchBox = forwardRef<HTMLInputElement, SearchBoxProps>(function S
           />
         </div>
         <SearchHelp onExample={onChange} />
+        {actions}
       </div>
       {active && !syntaxError && (
         <p className="text-[11px] text-muted-foreground">

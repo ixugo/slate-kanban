@@ -1,6 +1,6 @@
-// 看板页：工具栏、搜索、列画布、卡片弹窗与实时同步。
+// 看板页：工具栏、搜索与筛选、列画布、卡片弹窗与实时同步。
 
-import { lazy, Suspense, useCallback, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
 import { ApiError } from '@/lib/api/client'
@@ -13,9 +13,12 @@ import { useBoardSnapshot, useBoardView } from './useBoard'
 import { useBoardLive } from './useBoardLive'
 import { useMoveCard } from './useMoveCard'
 import { useBoardSearch } from './useBoardSearch'
+import { useBoardFilters } from './useBoardFilters'
 import { useCreateCard } from './useCreateCard'
 import { useBoardKeyboard } from './useBoardKeyboard'
 import { BoardToolbar } from './BoardToolbar'
+import { ActiveFilters } from './ActiveFilters'
+import { buildFilterTerms, collectClaimers, collectTagOptions, countFilters } from './filters'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardGone } from './BoardGone'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -33,7 +36,12 @@ export default function BoardPage() {
 
   const { data: snapshot, error, isPending, refetch } = useBoardSnapshot(boardId)
   const { columns, cardsById } = useBoardView(snapshot)
-  const search = useBoardSearch(boardId)
+  const { filters, setFilters, clear: clearFilters } = useBoardFilters(boardId)
+  const filterTerms = useMemo(() => buildFilterTerms(filters), [filters])
+  const filterCount = countFilters(filters)
+  const tagOptions = useMemo(() => collectTagOptions(snapshot?.cards ?? []), [snapshot])
+  const claimers = useMemo(() => collectClaimers(snapshot?.cards ?? []), [snapshot])
+  const search = useBoardSearch(boardId, filterTerms)
   const move = useMoveCard(boardId ?? 0)
   const create = useCreateCard(boardId ?? 0)
 
@@ -54,8 +62,9 @@ export default function BoardPage() {
 
   const clearSearchAndAdd = useCallback(() => {
     search.setQuery('')
+    clearFilters()
     setAddColumnId(null)
-  }, [search])
+  }, [search, clearFilters])
 
   useBoardKeyboard({
     searchRef,
@@ -127,10 +136,12 @@ export default function BoardPage() {
           truncated={search.truncated}
           syntaxError={search.syntaxError}
           searching={search.searching}
-          searchActive={search.query.trim().length > 0}
+          searchActive={search.query.trim().length > 0 || filterCount > 0}
+          filter={{ filters, onChange: setFilters, columns, tags: tagOptions, claimers }}
           liveState={live.state}
           onLiveRetry={live.retry}
         />
+        <ActiveFilters filters={filters} columns={columns} onChange={setFilters} />
         {dragDisabled && (
           <p className="border-b bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">{t('board.dragDisabledSearch')}</p>
         )}
