@@ -2,7 +2,7 @@
 
 ## 需求目标
 
-人通过浏览器管理看板，agent 通过 MCP 或 REST 操作同一块数据。**免登录**：打开就能用，没有登录页、没有令牌存储。
+人通过浏览器管理看板，agent 通过 MCP 或 REST 操作同一块数据。**默认免登录**：打开就能用；只有在配置里设置了访问口令时才会出现一个口令登录页（见 `security.passcode.go.md`），会话放在 HttpOnly cookie 里，网页自己不存任何令牌。
 网页是纯静态资源，由 Go 服务同源提供（构建后嵌入二进制），无跨域。
 
 本文件只讲**骨架**：路由与外框、接口调用、实时同步、多语言、主题、提示、Markdown、体积预算。
@@ -12,7 +12,7 @@
 
 | 编号 | 场景 | 做法 | 状态 |
 |------|------|------|------|
-| 1 | 身份与 REST | 前端不发任何认证头；服务端把所有 REST 写操作当作**人**（固定操作者名，见后端 identity scope） | 实施 |
+| 1 | 身份与 REST | 前端不发任何认证头（启用口令后浏览器自动带会话 cookie）；服务端把所有 REST 写操作当作**人**（固定操作者名，见后端 identity scope） | 实施 |
 | 2 | 实时更新 | 看板页用原生 **`EventSource`** 连 `GET /api/v1/boards/:id/stream`；事件 `ready` / `board` / `reset` / `error`；断线后浏览器带 **`Last-Event-ID`** 续传 | 实施 |
 | 3 | 收到 `board` 后如何刷新 | 150 ms 内合并多次事件，再 `invalidateQueries` 重取快照；不在前端按事件类型改本地快照 | 实施 |
 | 4 | 流异常 | `reset` 关连接、刷快照、重连；服务端 `error` 事件或连接关闭后查快照，404 视为看板已删；否则约 5 s 后手动 `epoch` 重连；顶栏圆点显示连接状态 | 实施 |
@@ -25,6 +25,7 @@
 | 11 | Tooltip | **`TooltipProvider` 不在 `App.tsx` 根部**；仅 **`BoardPage`** 内包裹需要提示的画布区域 | 实施 |
 | 12 | 请求取消 | `fetch` 把 TanStack Query 的 `signal` 传给接口；切换看板关 `EventSource` | 实施 |
 | 13 | 开发代理 | Vite 把 `/api`、`/mcp`、`/health`、`/install.md`、`/skills` 转到 `SLATE_BACKEND`（默认 `http://127.0.0.1:7070`） | 实施 |
+| 14 | 访问口令 | `App.tsx` 里 `AuthGate` 包住 `AppRoutes`：启用口令且未通过时只显示按需加载的登录页；顶栏 `LogoutButton` 仅在启用口令且已登录时出现；任何接口 401 会重新读口令状态 | 实施 |
 
 ## 页面与路由
 

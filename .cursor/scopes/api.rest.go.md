@@ -3,7 +3,7 @@
 ## 需求目标
 
 网页、各种脚本、不支持 MCP 的 agent 都要通过 HTTP 读写同一个看板；网页还要在别人改了看板时马上看到变化。
-REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP 是第二个；v1 免登录，操作者固定为人（`human`）。
+REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP 是第二个；默认免登录，操作者固定为人（`human`）。可选的访问口令只负责「进门」，不是账号体系，见 `security.passcode.go.md`。
 两个适配器必须表现一致，所以 REST 层只做四件事：解析请求、取出调用者身份、调用 Core、返回结果。
 权限判断、字段校验、业务规则一律留在 Core 里，REST 层不写任何业务判断。
 
@@ -11,7 +11,7 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 |------|----------|-------------|---------|------|
 | 1 | 网页、MCP、脚本各写一套业务判断 | 同一个操作在不同入口结果不同，权限漏洞藏在某个入口里 | 处理函数只做"解析、取身份、调 Core、返回"，权限和校验全在 Core；两个入口共用同一套 Core | 实施 |
 | 2 | 路径里的卡片编号被请求体或查询参数里的同名字段覆盖 | URL 指向卡片 1，实际改的是卡片 7，审计和权限都错位 | 路径参数字段统一标 `uri:"x" json:"-" form:"-"`，只能从 URL 取值；有测试专门验证覆盖不了 | 实施 |
-| 3 | 用 EventSource 连实时流 | 部分环境不好自定义请求头 | 网页用 fetch 读流，不使用 EventSource；REST 固定人身份，无需 Authorization | 实施 |
+| 3 | 用 EventSource 连实时流 | EventSource 不能自定义请求头，启用口令后带不了 Bearer | 网页用原生 EventSource；默认免登录、REST 固定人身份；启用口令后网页靠同源的会话 cookie 通过，EventSource 会自动带上它，不需要自定义请求头 | 实施 |
 | 5 | 超大的请求体 | 一次请求吃光内存 | `/api/v1` 下请求体上限 1 MiB，声明的长度超过就直接返回 413；没声明长度的用读取上限兜底 | 实施 |
 | 6 | curl 或脚本忘了写 Content-Type，请求体被当成表单悄悄忽略 | 创建出空卡片，或者收到莫名其妙的校验错误，排查很久 | 有请求体但不是 JSON，一律返回 415，说明要用 application/json | 实施 |
 | 7 | 网页断线重连 | 断线期间别人做的修改看不到 | 流支持从某个事件序号续传：网页先取快照拿到 seq，再用 `after=seq` 连流；服务端先订阅再读库，读库和等待之间的新事件不会漏 | 实施 |
@@ -29,13 +29,17 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 
 基础路径 `/api/v1`，请求和响应都是 JSON，字段名用下划线。成功时直接返回资源本身（goddd 的约定，状态码固定 200，创建也是 200），
 失败时返回 `{reason, msg, trace_id}` 和对应状态码。除了 `/health`（框架自带，不在 `/api/v1` 下，免认证），
-v1 全部免认证：REST 中间件固定操作者为 `human`；全局 `securityMiddleware` 做 Host/Origin/安全头。已删除 `/me`、`/agent-tokens` 与令牌认证。
+默认全部免认证：REST 中间件固定操作者为 `human`；全局 `securityMiddleware` 做 Host/Origin/安全头。已删除 `/me`、`/agent-tokens` 与令牌认证。
+配置了访问口令后，`/api/`（`/api/v1/auth/*` 除外）、`/mcp`、`/app/` 都要先通过口令：`Authorization: Bearer <口令>` 或网页登录后的会话 cookie，未通过返回 401。
 
 "谁能调用"一列只是说明，真正的判断在 Core 里。
 
 | 方法和路径 | Core 方法 | 谁能调用 | 请求 | 返回 |
 |-----------|-----------|----------|------|------|
 | GET /version | 框架自带 | 全部 | — | `{version, remark}` |
+| GET /auth/status | 见 `security.passcode.go.md` | 全部（本身不要求口令） | — | `{required, authenticated}` |
+| POST /auth/login | 同上 | 全部（本身不要求口令） | `{passcode}` | `{authenticated}`，成功时写会话 cookie；口令不对 401，猜得太频繁 429 |
+| POST /auth/logout | 同上 | 全部（本身不要求口令） | — | `{}`，并清掉会话 cookie |
 | GET /boards | ListBoards | 全部 | — | 看板数组 |
 | POST /boards | CreateBoard | 人 | CreateBoardInput | BoardDetail |
 | GET /boards/:board_id | GetBoard | 全部 | — | BoardDetail（含列和规则） |
