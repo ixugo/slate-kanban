@@ -47,8 +47,8 @@ export type Block =
 
 /** 引用和列表嵌套的最大层数；更深的按同层或普通文字处理，防止恶意输入撑爆调用栈 */
 const MAX_DEPTH = 8
-/** 子列表比上一层至少多缩进几列；故意比 CommonMark 宽松，"1. 下面缩进两格"也算子列表 */
-const CHILD_INDENT = 2
+/** 子列表比上一层至少多缩进几列；故意比 CommonMark 宽松，"1. 下面缩进两格"也算子列表。编辑器的缩进、退格也按这个值走 */
+export const CHILD_INDENT = 2
 
 const FENCE_OPEN = /^( {0,3})(`{3,}|~{3,})(.*)$/
 const HEADING = /^ {0,3}(#{1,6})[ \t]+/
