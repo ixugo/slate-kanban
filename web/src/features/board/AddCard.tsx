@@ -41,7 +41,7 @@ export function AddCard({ open, onOpen, onClose, onSubmit, busy }: AddCardProps)
 
   if (!open) {
     return (
-      <Button type="button" variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" onClick={onOpen}>
+      <Button type="button" variant="ghost" size="sm" className="w-full justify-start text-muted-foreground hover:bg-foreground/[0.06]" onClick={onOpen}>
         <PlusIcon />
         {t('board.addCard')}
       </Button>

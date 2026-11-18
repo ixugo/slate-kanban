@@ -22,7 +22,7 @@ export function SearchHelp({ onExample }: SearchHelpProps) {
           <HelpCircleIcon />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 space-y-3 text-xs" align="end">
+      <PopoverContent className="w-80 space-y-3 text-ui" align="end">
         <p className="font-medium">{t('search.syntaxTitle')}</p>
         <ul className="space-y-1 text-muted-foreground">
           {TERM_KEYS.map((key) => (
@@ -38,7 +38,7 @@ export function SearchHelp({ onExample }: SearchHelpProps) {
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="h-7 font-mono text-[11px]"
+                className="font-mono text-[11px]"
                 onClick={() => onExample(ex)}
               >
                 {ex}

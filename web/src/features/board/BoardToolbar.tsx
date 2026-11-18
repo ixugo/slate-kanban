@@ -52,10 +52,15 @@ export function BoardToolbar({
   const { t } = useTranslation()
   const exportBase = `${API_PREFIX}/boards/${board.id}/export`
   return (
-    <form className="flex shrink-0 flex-col gap-2 border-b bg-background p-3 sm:flex-row sm:items-center" onSubmit={(e) => e.preventDefault()}>
-      <div className="flex min-w-0 items-center gap-2">
-        <h1 className="truncate text-base font-semibold">{board.name}</h1>
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{board.slug}</span>
+    <form
+      className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-3 sm:flex-row sm:items-center sm:px-6"
+      onSubmit={(e) => e.preventDefault()}
+    >
+      <div className="flex min-w-0 items-center gap-2.5">
+        <h1 className="truncate text-title font-semibold tracking-tight">{board.name}</h1>
+        <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 font-mono text-[0.6875rem] text-muted-foreground">
+          {board.slug}
+        </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="outline" size="sm">

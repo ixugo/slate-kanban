@@ -10,8 +10,8 @@ export function BoardGone() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
       <div className="space-y-1">
-        <h1 className="text-lg font-semibold">{t('board.gone.title')}</h1>
-        <p className="text-muted-foreground">{t('board.gone.body')}</p>
+        <h1 className="text-title font-semibold tracking-tight">{t('board.gone.title')}</h1>
+        <p className="text-body text-muted-foreground">{t('board.gone.body')}</p>
       </div>
       <Button asChild>
         <Link to="/">{t('board.gone.home')}</Link>

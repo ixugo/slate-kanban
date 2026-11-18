@@ -32,6 +32,10 @@ interface ColumnViewProps {
   onCollapse: () => void
 }
 
+/** 列的外壳：展开和收起共用，宽度变化时有平滑的过渡；内圆角 14px 加 6px 内边距，外圆角正好是 20px */
+const COLUMN_SHELL =
+  'flex shrink-0 snap-center flex-col overflow-hidden rounded-[1.25rem] bg-column transition-[width,background-color,box-shadow] duration-[350ms] ease-sheet'
+
 /** 箭头朝哪一侧收起：靠左的列向左收，靠右的列向右收 */
 function collapseTowardStart(columnIndex: number, columnCount: number): boolean {
   return columnIndex < columnCount / 2
@@ -68,54 +72,45 @@ export function ColumnView({
 
   if (collapsed) {
     return (
-      <section
-        className={cn(
-          'flex w-12 shrink-0 snap-center flex-col overflow-hidden rounded-lg border bg-muted/30 transition-[width] duration-[250ms] motion-reduce:transition-none',
-          isOver && 'ring-2 ring-signal/40',
-        )}
-      >
+      <section className={cn(COLUMN_SHELL, 'w-12', isOver && 'bg-primary/15 ring-2 ring-primary/50')}>
         <button
           ref={setNodeRef}
           type="button"
           aria-expanded={false}
           aria-label={t('board.expandColumn', { name: column.name, count: String(cards.length) })}
-          className="flex min-h-[12rem] w-12 flex-1 flex-col items-center gap-2 px-1 py-3 text-center hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="group/rail flex min-h-[12rem] w-12 flex-1 flex-col items-center gap-3 px-1 py-3.5 text-center outline-none transition-colors duration-200 hover:bg-foreground/[0.04] focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset"
           onClick={narrowExpand}
         >
-          <ExpandIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="text-xs tabular-nums text-muted-foreground">{cards.length}</span>
-          <span className="max-h-40 truncate text-xs font-semibold [writing-mode:vertical-rl]">{column.name}</span>
+          <span className="flex size-7 items-center justify-center rounded-full bg-secondary text-muted-foreground transition-colors duration-200 group-hover/rail:bg-accent group-hover/rail:text-foreground">
+            <ExpandIcon className="size-4" aria-hidden />
+          </span>
+          <span className="rounded-full bg-secondary px-1.5 text-[0.6875rem] font-medium tabular-nums text-muted-foreground">
+            {cards.length}
+          </span>
+          <span className="max-h-44 truncate text-ui font-semibold tracking-wide [writing-mode:vertical-rl]">{column.name}</span>
         </button>
       </section>
     )
   }
 
   return (
-    <section
-      className={cn(
-        'flex w-[min(100%,20rem)] shrink-0 snap-center flex-col rounded-lg border bg-muted/30 transition-[width] duration-[250ms] motion-reduce:transition-none sm:w-72',
-      )}
-    >
-      <header className="flex items-start gap-2 border-b px-3 py-2">
+    <section className={cn(COLUMN_SHELL, 'w-[min(100%,17.5rem)] p-1.5 sm:w-[17.5rem]', isOver && 'bg-primary/10 ring-2 ring-primary/40')}>
+      <header className="flex items-start gap-2 px-2.5 pt-2 pb-2.5">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <h2 className="truncate text-sm font-semibold">{column.name}</h2>
-            <span className="text-xs text-muted-foreground">{cards.length}</span>
+            <h2 className="truncate text-body font-semibold tracking-tight">{column.name}</h2>
+            <span className="rounded-full bg-secondary px-1.5 text-[0.6875rem] font-medium tabular-nums text-muted-foreground">
+              {cards.length}
+            </span>
             {column.agent_pickup && (
-              <Badge variant="outline" className="text-[10px]">
-                {t('board.columnAi')}
-              </Badge>
+              <Badge className="bg-agent/15 text-agent">{t('board.columnAi')}</Badge>
             )}
-            {column.is_done && (
-              <Badge variant="secondary" className="text-[10px]">
-                {t('board.columnDone')}
-              </Badge>
-            )}
+            {column.is_done && <Badge className="bg-success/15 text-success">{t('board.columnDone')}</Badge>}
           </div>
           {column.description && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <p className="mt-0.5 line-clamp-1 cursor-help text-[11px] text-muted-foreground">{column.description}</p>
+                <p className="mt-1 line-clamp-1 cursor-help text-xs text-muted-foreground">{column.description}</p>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs text-xs">{column.description}</TooltipContent>
             </Tooltip>
@@ -125,7 +120,7 @@ export function ColumnView({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="shrink-0"
+          className="-mt-0.5 shrink-0 text-muted-foreground"
           aria-label={t('board.collapseColumn', { name: column.name })}
           onClick={(e) => {
             e.stopPropagation()
@@ -135,15 +130,17 @@ export function ColumnView({
           <CollapseIcon className="size-4" aria-hidden />
         </Button>
       </header>
-      <div ref={setNodeRef} className={cn('flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto p-2', isOver && 'ring-2 ring-signal/40 ring-inset')}>
+      <div ref={setNodeRef} className="-mx-1.5 flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-1.5 pt-0.5 pb-1.5">
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
             <CardTile key={card.id} card={card} dragDisabled={dragDisabled} />
           ))}
         </SortableContext>
-        {cards.length === 0 && <p className="py-6 text-center text-xs text-muted-foreground">{t('board.emptyColumn')}</p>}
+        {cards.length === 0 && (
+          <p className="py-8 text-center text-ui text-muted-foreground/80">{t('board.emptyColumn')}</p>
+        )}
       </div>
-      <footer className="border-t p-2">
+      <footer className="pt-0.5">
         <AddCard open={addOpen} onOpen={onAddOpen} onClose={onAddClose} onSubmit={onAddCard} busy={addBusy} />
       </footer>
     </section>

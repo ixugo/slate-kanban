@@ -134,7 +134,7 @@ export function BoardCanvas({
       onDragEnd={onDragEnd}
       onDragCancel={() => endDrag(true)}
     >
-      <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto p-3">
+      <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto px-4 pt-1 pb-4 sm:px-6">
         {columns.map((column, columnIndex) => {
           const ids = shownItems[column.id] ?? []
           const columnCards = ids.map((id) => cardsById.get(id)).filter((c): c is CardView => c !== undefined)
@@ -159,7 +159,9 @@ export function BoardCanvas({
           )
         })}
       </div>
-      <DragOverlay>{activeCard ? <CardTile card={activeCard} dragDisabled /> : null}</DragOverlay>
+      <DragOverlay dropAnimation={{ duration: 300, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' }}>
+        {activeCard ? <CardTile card={activeCard} dragDisabled overlay /> : null}
+      </DragOverlay>
     </DndContext>
   )
 }
