@@ -468,6 +468,9 @@ export const ko: Messages = {
     snippets: { worker: '워커용 MCP', manager: '관리자용 MCP', skill: 'skill 설치' },
     copyFailed: '복사하지 못했습니다. 텍스트를 선택해 수동으로 복사하세요.',
   },
+  pwa: {
+    offlineBanner: '오프라인입니다. 마지막으로 연 내용만 볼 수 있습니다.',
+  },
   errors: {
     title: '문제가 발생했습니다',
     traceId: '추적 ID: {{id}}',

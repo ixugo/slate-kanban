@@ -6,6 +6,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from '@/components/ui/sonner'
 import { createQueryClient } from '@/lib/queryClient'
 import { ThemeProvider } from '@/lib/theme'
+import { OfflineBanner } from '@/pwa/OfflineBanner'
 import { AppRoutes } from './AppRoutes'
 import { ErrorBoundary } from './ErrorBoundary'
 
@@ -19,6 +20,7 @@ export function App() {
       <ThemeProvider>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
+            <OfflineBanner />
             <AppRoutes />
           </BrowserRouter>
           <Toaster closeButton />

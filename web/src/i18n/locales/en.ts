@@ -467,6 +467,9 @@ export const en = {
     snippets: { worker: 'Worker MCP', manager: 'Manager MCP', skill: 'Skill install' },
     copyFailed: 'Could not copy. Select the text and copy manually.',
   },
+  pwa: {
+    offlineBanner: 'You are offline. Only the last opened content is available to view.',
+  },
   errors: {
     title: 'Something went wrong',
     traceId: 'Trace ID: {{id}}',

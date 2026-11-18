@@ -4,7 +4,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from '@/app/App'
 import { initialLanguage, loadLanguage } from '@/i18n'
+import { registerServiceWorker } from '@/pwa/register'
 import './index.css'
+
+registerServiceWorker()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('index.html 里缺少 #root 节点')

@@ -464,6 +464,9 @@ export const zhTW: Messages = {
     snippets: { worker: '工作檢視 MCP', manager: '管理檢視 MCP', skill: 'Skill 安裝' },
     copyFailed: '無法複製，請手動選取文字後複製。',
   },
+  pwa: {
+    offlineBanner: '目前離線，只能查看上次開啟的內容。',
+  },
   errors: {
     title: '發生錯誤',
     traceId: '追蹤編號：{{id}}',

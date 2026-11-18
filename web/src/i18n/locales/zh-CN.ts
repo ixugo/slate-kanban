@@ -463,6 +463,9 @@ export const zhCN: Messages = {
     snippets: { worker: '工作视图 MCP', manager: '管理视图 MCP', skill: 'Skill 安装' },
     copyFailed: '复制失败，请手动选中并复制。',
   },
+  pwa: {
+    offlineBanner: '当前离线，只能查看上次打开的内容。',
+  },
   errors: {
     title: '出错了',
     traceId: '追踪编号：{{id}}',

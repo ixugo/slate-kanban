@@ -468,6 +468,9 @@ export const ja: Messages = {
     snippets: { worker: 'ワーカー用 MCP', manager: 'マネージャー用 MCP', skill: 'skill のインストール' },
     copyFailed: 'コピーできませんでした。テキストを選択して手動でコピーしてください。',
   },
+  pwa: {
+    offlineBanner: 'オフラインです。最後に開いた内容のみ閲覧できます。',
+  },
 
   errors: {
     title: '問題が発生しました',
