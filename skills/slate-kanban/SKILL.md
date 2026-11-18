@@ -106,6 +106,12 @@ Claude Code 和 Codex 都能正常等满 50 秒（Codex 的工具调用默认 60
 | `ErrCardHumanOnly` | 这张卡片只能由人处理 | 跳过 |
 | `ErrServiceUnavailable` | 服务正在关闭或重启 | 过几秒再试 |
 
-## 六、收尾
+## 六、图片
+
+人会在描述和评论里贴截图，地址形如 `![](/api/v1/attachments/<32 位编号>)`：用 `get_image` 把图读出来看，编号可以直接填整个地址。
+
+自己要给卡片配图（例如界面改动的截图）：先用 `upload_image` 上传，`path` 填本机图片文件的绝对路径（Slate 和你在同一台机器上才能用），拿不到文件时用 `data_base64`（整个请求不能超过 1 MiB，只适合很小的图片）；再把返回的 `markdown` 原样写进 `create_card`、`update_card` 的描述或 `comment_card` 的评论。只上传不引用，图片不会留在看板里。只收 PNG、JPEG、GIF、WebP，最大 5 MB。
+
+## 七、收尾
 
 人把卡片放进完成列、分支也已经合并之后，worktree 就没用了：执行 `git -C <project_path> worktree remove <路径>`。分支先用 `git branch --merged` 确认已经合并再删，没合并的不要删。

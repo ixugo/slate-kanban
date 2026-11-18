@@ -219,7 +219,7 @@ func TestDeleteCardAndComment(t *testing.T) {
 // 所有工具都标"不和外部世界打交道"。host 靠它们判断哪些调用可以放心自动执行、哪些要先问人。
 func TestToolAnnotations(t *testing.T) {
 	s := newStack(t)
-	readOnly := setOf([]string{"whoami", "list_boards", "get_board", "list_cards", "get_card", "list_events"})
+	readOnly := setOf([]string{"whoami", "list_boards", "get_board", "list_cards", "get_card", "list_events", "get_image"})
 	destroy := setOf([]string{"delete_column", "delete_rule", "delete_card", "delete_comment"})
 
 	sessions := []struct {
