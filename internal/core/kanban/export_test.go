@@ -1,81 +1,45 @@
-package kanban_test
+package kanban
 
-import (
-	"context"
-	"errors"
-	"testing"
+import "context"
 
-	"slate-kanban/internal/core/kanban"
+// 本文件只在测试时编译，把包内的未导出能力暴露给外部测试包 kanban_test。
+
+// PublishForTest 直接向唤醒器广播，用来测试订阅和观察者。
+func PublishForTest(h *Hub, p Published) error {
+	return h.publish(context.Background(), p)
+}
+
+// Unit 和 NewEvent 是事务执行器内部类型的别名，供测试在 fn 里使用。
+type (
+	Unit     = unit
+	NewEvent = newEvent
 )
 
-// TestExportBoardComplete 验证导出含列、规则、卡片视图字段、评论和最新序号。
-func TestExportBoardComplete(t *testing.T) {
-	ctx := context.Background()
-	e := newCardEnv(t)
-	c := e.card(t, colTodo, "导出卡")
-	if _, err := e.core.AddComment(ctx, testActor, c.ID, "人的备注"); err != nil {
-		t.Fatalf("写评论失败: %v", err)
-	}
-	if _, err := e.core.AddComment(ctx, testAgent, c.ID, "agent 跟进"); err != nil {
-		t.Fatalf("写评论失败: %v", err)
-	}
-	exp, err := e.core.ExportBoard(ctx, testActor, e.board.ID)
-	if err != nil {
-		t.Fatalf("导出失败: %v", err)
-	}
-	if exp.Seq != e.lastEvent(t).ID || len(exp.Rules) == 0 || len(exp.Columns) != 5 {
-		t.Fatalf("序号、规则、列不对: seq=%d rules=%d", exp.Seq, len(exp.Rules))
-	}
-	if len(exp.Cards) != 1 {
-		t.Fatalf("应有 1 张卡: %d", len(exp.Cards))
-	}
-	got := exp.Cards[0]
-	if got.Column != e.board.Columns[colTodo].Name {
-		t.Fatalf("列名派生不对: %q", got.Column)
-	}
-	if len(got.Comments) != 2 || got.Comments[0].Body != "人的备注" {
-		t.Fatalf("评论未挂上: %+v", got.Comments)
+// RunForTest 直接调用事务执行器。
+func (c Core) RunForTest(ctx context.Context, boardID int64, fn func(*Unit) error) error {
+	return c.run(ctx, boardID, fn)
+}
+
+// EmitForTest 在事务里追加一条事件。
+func (u *unit) EmitForTest(ctx context.Context, actor Actor, ev NewEvent) error {
+	return u.emit(ctx, actor, ev)
+}
+
+// TouchForTest 标记看板有变化但不产生事件。
+func (u *unit) TouchForTest(boardID int64) {
+	u.touch(boardID)
+}
+
+// WithRetentionForTest 缩小事件保留条数和清理间隔，让测试不用写上万条事件就能覆盖清理逻辑。
+func WithRetentionForTest(keep int, every int64) Option {
+	return func(c *Core) {
+		c.keepEvents = keep
+		c.pruneEvery = every
 	}
 }
 
-// TestExportBoardEmpty 验证空看板导出：卡片是空切片，评论查询仍成功。
-func TestExportBoardEmpty(t *testing.T) {
-	e := newCardEnv(t)
-	exp, err := e.core.ExportBoard(context.Background(), testActor, e.board.ID)
-	if err != nil || exp.Cards == nil || len(exp.Cards) != 0 {
-		t.Fatalf("空看板: %+v %v", exp, err)
-	}
-}
-
-// TestExportBoardMissing 验证看板不存在返回 404。
-func TestExportBoardMissing(t *testing.T) {
-	e := newCardEnv(t)
-	if _, err := e.core.ExportBoard(context.Background(), testActor, 9999); !errors.Is(err, kanban.ErrBoardNotFound) {
-		t.Fatalf("应 404: %v", err)
-	}
-}
-
-// TestExportBoardCommentsBatch 验证多张卡的评论都能一次性带出。
-func TestExportBoardCommentsBatch(t *testing.T) {
-	ctx := context.Background()
-	e := newCardEnv(t)
-	a := e.card(t, colTodo, "甲")
-	b := e.card(t, colTodo, "乙")
-	if _, err := e.core.AddComment(ctx, testActor, a.ID, "A"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.core.AddComment(ctx, testActor, b.ID, "B"); err != nil {
-		t.Fatal(err)
-	}
-	exp, err := e.core.ExportBoard(ctx, testActor, e.board.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := map[int64]int{}
-	for _, c := range exp.Cards {
-		found[c.ID] = len(c.Comments)
-	}
-	if found[a.ID] != 1 || found[b.ID] != 1 {
-		t.Fatalf("每张卡应各有一条评论: %+v", found)
-	}
+// PlaceCardForTest 在事务里计算卡片放进某一列的位置，必要时整列重排。
+func (u *unit) PlaceCardForTest(ctx context.Context, cards []*Card, beforeID, afterID int64) (float64, error) {
+	pos, _, err := u.placeCard(ctx, cards, beforeID, afterID)
+	return pos, err
 }
