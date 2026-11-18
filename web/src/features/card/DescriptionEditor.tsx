@@ -1,7 +1,7 @@
 // 卡片描述：平时是渲染好的 Markdown（点一下进入编辑，任务框可直接勾选）；
-// 编辑时是实时渲染编辑器，Ctrl/Cmd+Enter 保存，Esc 取消。
+// 编辑时是实时渲染编辑器：没有保存按钮，焦点离开或 Ctrl/Cmd+Enter 就保存，Esc 放弃修改。
 
-import { useState, type MouseEvent } from 'react'
+import { useState, type FocusEvent, type MouseEvent } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { LazyEditor } from '@/features/editor/LazyEditor'
@@ -38,6 +38,13 @@ export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionE
     setEditing(false)
   }
 
+  /** 焦点离开编辑区就自动保存（没改动不请求）；焦点只是跑到帮助气泡等弹层里不算离开 */
+  const onEditBlur = (e: FocusEvent<HTMLDivElement>) => {
+    const next = e.relatedTarget as HTMLElement | null
+    if (next && (e.currentTarget.contains(next) || next.closest('[data-slot="popover-content"]'))) return
+    save()
+  }
+
   /** 点在链接或任务框上不进入编辑，其余地方点一下就开始编辑 */
   const onViewClick = (e: MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('a, input, button')) return
@@ -56,7 +63,7 @@ export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionE
         )}
       </div>
       {editing ? (
-        <>
+        <div onBlur={onEditBlur}>
           <LazyEditor
             value={draft}
             onChange={setDraft}
@@ -68,16 +75,7 @@ export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionE
             autoFocus
             boardId={boardId}
           />
-          {/* mousedown 时不让编辑区失焦：失焦会收起记号和图片旁的原文，按钮被顶得移位，这次点击就落空了 */}
-          <div className="flex gap-2" onMouseDown={(e) => e.preventDefault()}>
-            <Button type="button" size="sm" disabled={busy} onClick={save}>
-              {t('common.save')}
-            </Button>
-            <Button type="button" size="sm" variant="ghost" onClick={cancel}>
-              {t('common.cancel')}
-            </Button>
-          </div>
-        </>
+        </div>
       ) : value ? (
         <div className="-mx-2.5 cursor-text rounded-xl px-2.5 py-1.5 transition-colors hover:bg-secondary/50" onClick={onViewClick}>
           <Markdown source={value} onToggleTask={busy ? undefined : (line) => onSave(toggleTaskAt(value, line))} />

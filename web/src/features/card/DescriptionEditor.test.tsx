@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
@@ -11,30 +11,33 @@ describe('DescriptionEditor', () => {
     expect(await screen.findByRole('textbox', { name: en.card.field.description })).toBeInTheDocument()
   })
 
-  it('点渲染好的描述进入编辑，取消后不保存', async () => {
+  it('点渲染好的描述进入编辑，Esc 放弃修改', async () => {
     const onSave = vi.fn()
     render(<DescriptionEditor boardId={1} value="**粗**" onSave={onSave} />)
     await userEvent.click(screen.getByText('粗'))
     const editor = await screen.findByRole('textbox', { name: en.card.field.description })
     expect(editor).toHaveTextContent('**粗**')
-    await userEvent.click(screen.getByRole('button', { name: en.common.cancel }))
+    fireEvent.keyDown(editor, { key: 'Escape', code: 'Escape' })
     expect(onSave).not.toHaveBeenCalled()
     expect(screen.queryByRole('textbox', { name: en.card.field.description })).toBeNull()
   })
 
-  it('没改动就保存不会发请求；改了才保存原文', async () => {
+  it('没有保存按钮；焦点离开时，没改动不发请求，改了才保存原文', async () => {
     const onSave = vi.fn()
     render(<DescriptionEditor boardId={1} value="a" onSave={onSave} />)
     await userEvent.click(screen.getByRole('button', { name: en.card.descEdit }))
     const editor = await screen.findByRole('textbox', { name: en.card.field.description })
-    await userEvent.click(screen.getByRole('button', { name: en.common.save }))
+    expect(screen.queryByRole('button', { name: en.common.save })).toBeNull()
+    fireEvent.focusOut(editor)
     expect(onSave).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox', { name: en.card.field.description })).toBeNull()
 
     await userEvent.click(screen.getByRole('button', { name: en.card.descEdit }))
     const again = await screen.findByRole('textbox', { name: en.card.field.description })
     expect(again).not.toBe(editor)
     again.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: 'b', cancelable: true, bubbles: true }))
-    await userEvent.click(screen.getByRole('button', { name: en.common.save }))
+    await act(async () => {})
+    fireEvent.focusOut(again)
     expect(onSave).toHaveBeenCalledWith('ab')
   })
 

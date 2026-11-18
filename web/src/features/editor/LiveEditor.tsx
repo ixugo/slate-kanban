@@ -2,7 +2,7 @@
 // 内核在 LiveView.ts；这里只管创建它、把文字同步给父组件，以及工具栏。
 // 本文件作为懒加载块，卡片弹窗真正要编辑时才下载，不占首屏体积。
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type FocusEvent } from 'react'
 import {
   Bold,
   CircleHelp,
@@ -47,6 +47,8 @@ interface LiveEditorProps {
   compact?: boolean
   /** 图片上传到哪个看板；不提供时不处理粘贴图片 */
   boardId?: number
+  /** 只有编辑区获得焦点时才显示工具栏，没焦点时收成一行（评论框用，和描述的查看状态一样清爽） */
+  toolbarOnFocus?: boolean
 }
 
 /** 工具栏上的一个按钮：图标、名称（同时作为悬停提示和读屏名称）和对应命令 */
@@ -103,12 +105,13 @@ const SHORTCUTS = [
 const TOOL_BUTTON = 'size-8 pointer-coarse:size-10'
 
 /** 实时渲染编辑器 */
-export default function LiveEditor({ value, onChange, max, placeholder, label, onSubmit, onCancel, autoFocus, compact, boardId }: LiveEditorProps) {
+export default function LiveEditor({ value, onChange, max, placeholder, label, onSubmit, onCancel, autoFocus, compact, boardId, toolbarOnFocus }: LiveEditorProps) {
   const { t } = useTranslation()
   const rootRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<LiveView | null>(null)
   const [headingOpen, setHeadingOpen] = useState(false)
   const [uploading, setUploading] = useState(0)
+  const [focused, setFocused] = useState(false)
   const showError = useErrorToast()
   // 回调放进 ref：父组件每次渲染都会生成新函数，不能因此重建编辑器
   const latest = useRef({ onChange, onSubmit, onCancel, showError })
@@ -161,8 +164,21 @@ export default function LiveEditor({ value, onChange, max, placeholder, label, o
     viewRef.current?.focus()
   }
 
+  /** 焦点离开整个编辑器（含弹出的标题菜单和帮助气泡，它们渲染在编辑器外面）才算失焦 */
+  const onBlur = (e: FocusEvent<HTMLDivElement>) => {
+    const next = e.relatedTarget as HTMLElement | null
+    if (next && (e.currentTarget.contains(next) || next.closest('[data-slot="popover-content"]'))) return
+    setFocused(false)
+  }
+  const collapsed = Boolean(toolbarOnFocus) && !focused && !headingOpen
+
   return (
-    <div className="overflow-hidden rounded-xl border border-input bg-field transition-[border-color,box-shadow] duration-200 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/25">
+    <div
+      className="overflow-hidden rounded-xl border border-input bg-field transition-[border-color,box-shadow] duration-200 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/25"
+      onFocus={() => setFocused(true)}
+      onBlur={onBlur}
+    >
+      {!collapsed && (
       <div
         role="toolbar"
         aria-label={t('editor.toolbar')}
@@ -227,12 +243,13 @@ export default function LiveEditor({ value, onChange, max, placeholder, label, o
           </PopoverContent>
         </Popover>
       </div>
+      )}
       <div
         ref={rootRef}
         data-placeholder={placeholder}
         aria-label={label}
         aria-placeholder={placeholder}
-        className={cn('md-editor max-h-[50dvh] overflow-y-auto px-3 py-2.5 text-body', compact ? 'min-h-16' : 'min-h-32')}
+        className={cn('md-editor max-h-[50dvh] overflow-y-auto px-3 py-2.5 text-body', compact ? (collapsed ? 'min-h-10' : 'min-h-16') : 'min-h-32')}
       />
       {uploading > 0 && (
         <p role="status" className="border-t border-border px-3 py-1.5 text-xs text-muted-foreground">

@@ -56,7 +56,7 @@ flowchart LR
 - `LiveEditor` 收到 `boardId` 才处理粘贴图片（描述和评论都传）。图片按顺序上传（`uploadAttachment`），每传完一张在当时的光标处 `insert('![image](地址)')`；上传期间编辑区下方显示「正在上传图片…」，失败弹统一的错误提示（太大、类型不对等），已经成功的不受影响。
 - 解析：`lib/md/inline.ts` 的 `image` 节点，只有地址匹配 `/api/v1/attachments/<32 位小写十六进制>` 才成立，其余（外部地址、`javascript:`、编号格式不对）都保持文字，所以不会泄露访问者 IP，也没有脚本风险。
 - 编辑器里：光标不在这段图片语法上时只显示图片（`<img class="md-img">`，没有文字，所以「每行文字等于原文」依旧成立）；光标碰到时原文和图片都显示。只读渲染器里图片外面包一个新标签页打开的链接。
-- 编辑区旁边的按钮（评论的发送、描述的保存和取消）在 `mousedown` 时 `preventDefault`，不让编辑区失焦：失焦会把图片旁的原文收起，按钮被顶得移位，这次点击就落到别处了（e2e 抓到过）。
+- 编辑区旁边的按钮（评论的发送）在 `mousedown` 时 `preventDefault`，不让编辑区失焦：失焦会把图片旁的原文收起，按钮被顶得移位，这次点击就落到别处了（e2e 抓到过）。
 - 服务端见 `api.rest.go.md` 的「图片附件」。
 
 ## 快捷键
@@ -75,7 +75,7 @@ Ctrl 和 Cmd 都当作 Mod 键。
 | Mod+Alt+C | 代码块 |
 | Tab / Shift+Tab | 列表里缩进 / 取消缩进（不在列表里时不拦截，保留键盘焦点切换） |
 | Mod+Z / Mod+Shift+Z / Mod+Y | 撤销 / 重做 |
-| Mod+Enter | 提交（描述保存、评论发送） |
+| Mod+Enter | 提交（描述立即保存、评论发送） |
 | Esc | 取消（仅在有取消回调时） |
 
 用 `e.code` 判断，所以输入法和不同键盘布局下也一致。
@@ -104,10 +104,10 @@ Ctrl 和 Cmd 都当作 Mod 键。
 | `web/src/features/editor/dom.ts` | DOM 与原文下标的互相映射、`patchLines` |
 | `web/src/features/editor/keymap.ts` | 快捷键表 `keyAction`、工具栏命令 `COMMANDS` |
 | `web/src/features/editor/LiveView.ts` | 控制器（事件、撤销、输入法、复制粘贴、任务框点击） |
-| `web/src/features/editor/LiveEditor.tsx` | React 外壳：工具栏、标题/帮助气泡 |
+| `web/src/features/editor/LiveEditor.tsx` | React 外壳：工具栏（`toolbarOnFocus` 时只在有焦点时显示，评论框用）、标题/帮助气泡 |
 | `web/src/features/editor/LazyEditor.tsx` | 懒加载包装 |
 | `web/src/features/editor/editor.css` | 样式 |
-| `web/src/features/card/DescriptionEditor.tsx` | 描述：点击进入编辑，保存/取消 |
+| `web/src/features/card/DescriptionEditor.tsx` | 描述：点击进入编辑，失焦自动保存，Esc 放弃 |
 | `web/src/features/card/CardTimeline.tsx` | 评论：紧凑版编辑器 |
 
 ## 验证

@@ -1,7 +1,7 @@
 // 卡片弹窗：桌面宽度左右两栏（左边内容、右边「评论和活动」），手机宽度上下排；评论用实时编辑器写，事件和评论排在一起。
 
 import { expect, test, type Page } from '@playwright/test'
-import { createBoard, createCard } from './api'
+import { createBoard, createCard, getCard } from './api'
 import { columnOf, tileIn } from './board'
 
 const SHOT_DIR = process.env.SLATE_SHOT_DIR
@@ -102,4 +102,28 @@ test('评论框的占位提示按正常排版（带内边距），不是贴着�
   expect(hint.content).toContain('Write a comment')
   expect(hint.position).toBe('static')
   expect(hint.display).toBe('block')
+})
+
+test('描述没有保存按钮，焦点离开就自动保存；评论框没焦点时不显示工具栏', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  const board = await createBoard(request, 'Autosave')
+  const card = await createCard(request, board, 'To do', 'Auto save')
+  const dialog = await openCard(page, board.id, 'Auto save')
+
+  // 评论框：没焦点只有一个输入区，点进去才出现工具栏
+  await expect(dialog.getByRole('toolbar')).toHaveCount(0)
+  await dialog.getByRole('textbox', { name: 'Comment' }).click()
+  await expect(dialog.getByRole('toolbar')).toHaveCount(1)
+
+  // 描述：点开编辑、输入，界面上没有保存按钮；点别处（失焦）后写进服务端
+  await dialog.getByRole('button', { name: 'Markdown supported' }).click()
+  const editor = dialog.getByRole('textbox', { name: 'Description' })
+  await editor.click()
+  await page.keyboard.type('saved on blur')
+  await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0)
+  await dialog.getByRole('heading', { name: 'Comments and activity' }).click()
+  await expect(editor).toHaveCount(0)
+  await expect.poll(async () => (await getCard(request, card.id)).description).toBe('saved on blur')
+  // 评论框也失焦了，工具栏收起
+  await expect(dialog.getByRole('toolbar')).toHaveCount(0)
 })

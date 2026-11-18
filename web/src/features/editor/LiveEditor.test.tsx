@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
@@ -14,6 +14,16 @@ function setup(value = '') {
 }
 
 describe('LiveEditor', () => {
+  it('toolbarOnFocus：没焦点时不显示工具栏，焦点进编辑区才出现，焦点跑到别处又收起', () => {
+    render(<LiveEditor value="" onChange={() => {}} max={100} placeholder="写点什么" label="评论" toolbarOnFocus />)
+    expect(screen.queryByRole('toolbar')).toBeNull()
+    const editor = screen.getByRole('textbox', { name: '评论' })
+    fireEvent.focusIn(editor)
+    expect(screen.getByRole('toolbar', { name: en.editor.toolbar })).toBeInTheDocument()
+    fireEvent.focusOut(editor)
+    expect(screen.queryByRole('toolbar')).toBeNull()
+  })
+
   it('有工具栏，编辑区带占位提示和读屏名称', () => {
     const { editor } = setup()
     expect(screen.getByRole('toolbar', { name: en.editor.toolbar })).toBeInTheDocument()
