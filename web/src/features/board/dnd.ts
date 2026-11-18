@@ -19,6 +19,15 @@ export interface MovePlan {
   afterId?: number
 }
 
+/**
+ * 列落点在 dnd-kit 里的编号。卡片编号和列编号都是数据库自增的数字，经常相同（比如 3 号卡片和 3 号列），
+ * 而 dnd-kit 按编号登记落点，同号的两个会互相顶掉：卡片的落点失效，向上拖动时只能落在列上，
+ * 卡片被丢到列尾或者原地不动。所以列用带前缀的字符串，卡片继续用数字。
+ */
+export function columnDropId(columnId: number): string {
+  return `column-${columnId}`
+}
+
 /** 卡片的显示顺序：先按位置，位置相同按 id，保证每次刷新顺序一致 */
 export function compareCards(a: CardView, b: CardView): number {
   return a.position - b.position || a.id - b.id

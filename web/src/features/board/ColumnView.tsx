@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Button } from '@/components/ui/button'
 import { CardTile } from './CardTile'
 import { AddCard } from './AddCard'
+import { columnDropId } from './dnd'
 import { cn } from '@/lib/utils'
 
 interface ColumnViewProps {
@@ -58,7 +59,11 @@ export function ColumnView({
   onCollapse,
 }: ColumnViewProps) {
   const { t } = useTranslation()
-  const { setNodeRef, isOver } = useDroppable({ id: column.id, data: { type: 'column', columnId: column.id } })
+  // 列的落点编号带前缀，不会和同号的卡片撞车（见 columnDropId）
+  const { setNodeRef, isOver } = useDroppable({
+    id: columnDropId(column.id),
+    data: { type: 'column', columnId: column.id },
+  })
   const towardStart = collapseTowardStart(columnIndex, columnCount)
   const CollapseIcon = towardStart ? ChevronLeftIcon : ChevronRightIcon
   const ExpandIcon = towardStart ? ChevronRightIcon : ChevronLeftIcon
