@@ -391,7 +391,7 @@ export const ja: Messages = {
     traceId: 'トレース ID: {{id}}',
     ErrNetwork: 'サーバーに接続できません。ネットワークを確認してください。',
     ErrBadResponse: 'サーバーからの応答を読み取れませんでした。',
-    ErrInvalidActor: '本人確認ができませんでした。もう一度ログインしてください。',
+    ErrInvalidActor: '操作者名が無効なため、操作を完了できませんでした。',
     ErrBadRequest: 'リクエストが正しくありません。',
     ErrContentTooLarge: '内容が大きすぎます（上限は 1 MiB）。',
     ErrUnsupportedMediaType: 'この形式のリクエストには対応していません。',

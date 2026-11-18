@@ -384,7 +384,7 @@ export const zhCN: Messages = {
     traceId: '追踪编号：{{id}}',
     ErrNetwork: '连不上服务器，请检查网络。',
     ErrBadResponse: '服务器返回的内容页面读不懂。',
-    ErrInvalidActor: '无法确认你的身份，请重新登录。',
+    ErrInvalidActor: '操作者名称无效，无法完成操作。',
     ErrBadRequest: '请求不合法。',
     ErrContentTooLarge: '内容太大了（上限 1 MiB）。',
     ErrUnsupportedMediaType: '不支持这种请求格式。',

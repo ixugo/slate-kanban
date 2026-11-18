@@ -385,7 +385,7 @@ export const zhTW: Messages = {
     traceId: '追蹤編號：{{id}}',
     ErrNetwork: '無法連線到伺服器，請檢查網路。',
     ErrBadResponse: '伺服器回傳的內容頁面無法讀取。',
-    ErrInvalidActor: '無法確認你的身分，請重新登入。',
+    ErrInvalidActor: '操作者名稱無效，無法完成操作。',
     ErrBadRequest: '請求不合法。',
     ErrContentTooLarge: '內容太大了（上限 1 MiB）。',
     ErrUnsupportedMediaType: '不支援這種請求格式。',

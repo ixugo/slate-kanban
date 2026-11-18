@@ -390,7 +390,7 @@ export const ko: Messages = {
     traceId: '추적 ID: {{id}}',
     ErrNetwork: '서버에 연결할 수 없습니다. 네트워크를 확인하세요.',
     ErrBadResponse: '서버가 보낸 응답을 읽을 수 없습니다.',
-    ErrInvalidActor: '신원을 확인할 수 없습니다. 다시 로그인하세요.',
+    ErrInvalidActor: '작업자 이름이 올바르지 않아 작업을 완료할 수 없습니다.',
     ErrBadRequest: '요청이 올바르지 않습니다.',
     ErrContentTooLarge: '내용이 너무 큽니다(한도 1 MiB).',
     ErrUnsupportedMediaType: '지원하지 않는 요청 형식입니다.',

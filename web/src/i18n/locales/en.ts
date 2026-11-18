@@ -389,7 +389,7 @@ export const en = {
     traceId: 'Trace ID: {{id}}',
     ErrNetwork: 'Cannot reach the server. Check your connection.',
     ErrBadResponse: 'The server sent a response the page could not read.',
-    ErrInvalidActor: 'Your identity could not be verified. Sign in again.',
+    ErrInvalidActor: 'The actor name is invalid, so the action could not be completed.',
     ErrBadRequest: 'The request was not valid.',
     ErrContentTooLarge: 'The content is too large (the limit is 1 MiB).',
     ErrUnsupportedMediaType: 'The request format is not supported.',
