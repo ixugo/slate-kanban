@@ -1,7 +1,7 @@
 // 浏览器标签页的标题：页面名加应用名，离开页面时恢复成应用名。
 
 import { useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/i18n/react'
 
 /** 设置标签页标题；title 为空时只显示应用名 */
 export function useDocumentTitle(title: string | undefined): void {

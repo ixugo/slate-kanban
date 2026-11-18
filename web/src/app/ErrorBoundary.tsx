@@ -1,7 +1,7 @@
 // 页面渲染出错时的兜底：不让整个应用白屏，给出提示和刷新按钮，并把错误记到控制台方便排查。
 
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 
 /** 兜底界面：错误标题、具体信息（开发者看的）、重新加载按钮 */

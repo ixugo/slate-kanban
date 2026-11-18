@@ -1,7 +1,7 @@
 // 顶栏上的看板切换：显示当前看板的名字，点开可以跳到别的看板或回到看板列表。
 
 import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/i18n/react'
 import { useMatch, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import {

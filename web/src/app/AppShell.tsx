@@ -1,7 +1,7 @@
 // 所有页面共用的外框：顶栏（标志、看板切换、agent、语言、主题）加页面内容区。
 
 import { BotIcon } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/i18n/react'
 import { Link, Outlet, useMatch } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'

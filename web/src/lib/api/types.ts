@@ -197,6 +197,9 @@ export interface EventPage {
 
 /** 接入说明里一段可以直接复制的命令或配置 */
 export interface Snippet {
+  /** 用途：`worker`（工作视图的 MCP）、`manager`（管理视图的 MCP）、`skill`（安装 skill）；网页按它选各语言的小标题 */
+  kind: string
+  /** 服务端写的中文说明，网页不认识 kind 时才用它兜底 */
   title: string
   lang: 'sh' | 'json'
   code: string

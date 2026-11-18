@@ -1,7 +1,7 @@
 // 把接口错误整理成给人看的文字：按当前语言取 errors.<reason> 的翻译，
 // 没有翻译才退回服务端的兜底文案（中文），再没有就显示"出了点问题"。
 
-import type { TFunction } from 'i18next'
+import type { TFunction } from '@/i18n/react'
 import { en } from '@/i18n/locales/en'
 import { ApiError } from '@/lib/api/client'
 

@@ -1,7 +1,7 @@
 // 主题选择菜单：浅色、深色、跟随系统；按钮上的图标是当前实际生效的主题。
 
 import { MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,

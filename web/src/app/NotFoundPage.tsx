@@ -1,6 +1,6 @@
 // 地址不存在时的页面。
 
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/i18n/react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'

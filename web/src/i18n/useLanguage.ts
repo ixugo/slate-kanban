@@ -1,6 +1,6 @@
 // 读取和切换当前界面语言的钩子。
 
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from './react'
 import { normalizeLanguage, type Lang } from './languages'
 import { setLanguage } from './index'
 

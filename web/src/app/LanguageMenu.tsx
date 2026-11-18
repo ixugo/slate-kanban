@@ -1,7 +1,7 @@
 // 语言选择菜单：五种语言各用自己的文字显示，不管当前界面是什么语言都认得出来。
 
 import { GlobeIcon } from 'lucide-react'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
