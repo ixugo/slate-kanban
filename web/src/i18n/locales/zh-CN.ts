@@ -466,6 +466,14 @@ export const zhCN: Messages = {
   pwa: {
     offlineBanner: '当前离线，只能查看上次打开的内容。',
   },
+  auth: {
+    title: '需要访问口令',
+    description: '这个 Slate 设置了访问口令，输入后才能查看和修改项目。',
+    passcode: '访问口令',
+    submit: '进入',
+    wrong: '口令不对，请重试。',
+    logout: '退出',
+  },
   errors: {
     title: '出错了',
     traceId: '追踪编号：{{id}}',
@@ -476,6 +484,8 @@ export const zhCN: Messages = {
     ErrContentTooLarge: '内容太大了（上限 1 MiB）。',
     ErrUnsupportedMediaType: '不支持这种请求格式。',
     ErrTooManyRequests: '请求太频繁，请稍后再试。',
+    ErrUnauthorized: '需要访问口令，或登录已过期。',
+    ErrTooManyAttempts: '口令猜错的次数太多，请稍后再试。',
     ErrInternal: '服务器出了点问题，请稍后再试。',
     ErrStore: '服务器读写数据失败，请稍后再试。',
     ErrServer: '服务器出了点问题，请稍后再试。',

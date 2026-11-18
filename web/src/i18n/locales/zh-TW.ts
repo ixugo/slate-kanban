@@ -467,6 +467,14 @@ export const zhTW: Messages = {
   pwa: {
     offlineBanner: '目前離線，只能查看上次開啟的內容。',
   },
+  auth: {
+    title: '需要存取口令',
+    description: '這個 Slate 設定了存取口令，輸入後才能檢視和修改專案。',
+    passcode: '存取口令',
+    submit: '進入',
+    wrong: '口令不對，請重試。',
+    logout: '登出',
+  },
   errors: {
     title: '發生錯誤',
     traceId: '追蹤編號：{{id}}',
@@ -477,6 +485,8 @@ export const zhTW: Messages = {
     ErrContentTooLarge: '內容太大了（上限 1 MiB）。',
     ErrUnsupportedMediaType: '不支援這種請求格式。',
     ErrTooManyRequests: '請求太頻繁，請稍後再試。',
+    ErrUnauthorized: '需要存取口令，或登入已過期。',
+    ErrTooManyAttempts: '口令猜錯的次數太多，請稍後再試。',
     ErrInternal: '伺服器發生問題，請稍後再試。',
     ErrStore: '伺服器讀寫資料失敗，請稍後再試。',
     ErrServer: '伺服器發生問題，請稍後再試。',

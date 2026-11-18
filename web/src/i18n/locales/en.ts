@@ -470,6 +470,14 @@ export const en = {
   pwa: {
     offlineBanner: 'You are offline. Only the last opened content is available to view.',
   },
+  auth: {
+    title: 'Passcode required',
+    description: 'This Slate server is protected by a passcode. Enter it to view and edit projects.',
+    passcode: 'Passcode',
+    submit: 'Continue',
+    wrong: 'Wrong passcode. Try again.',
+    logout: 'Sign out',
+  },
   errors: {
     title: 'Something went wrong',
     traceId: 'Trace ID: {{id}}',
@@ -480,6 +488,8 @@ export const en = {
     ErrContentTooLarge: 'The content is too large (the limit is 1 MiB).',
     ErrUnsupportedMediaType: 'The request format is not supported.',
     ErrTooManyRequests: 'Too many requests. Try again in a moment.',
+    ErrUnauthorized: 'A passcode is required, or your session has expired.',
+    ErrTooManyAttempts: 'Too many wrong attempts. Try again in a moment.',
     ErrInternal: 'The server ran into a problem. Try again later.',
     ErrStore: 'The server could not read or write its data. Try again later.',
     ErrServer: 'The server ran into a problem. Try again later.',

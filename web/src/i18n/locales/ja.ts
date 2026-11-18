@@ -471,6 +471,14 @@ export const ja: Messages = {
   pwa: {
     offlineBanner: 'オフラインです。最後に開いた内容のみ閲覧できます。',
   },
+  auth: {
+    title: 'アクセスパスコードが必要です',
+    description: 'この Slate にはアクセスパスコードが設定されています。入力するとプロジェクトを表示・編集できます。',
+    passcode: 'アクセスパスコード',
+    submit: '開く',
+    wrong: 'パスコードが違います。もう一度お試しください。',
+    logout: 'ログアウト',
+  },
 
   errors: {
     title: '問題が発生しました',
@@ -482,6 +490,8 @@ export const ja: Messages = {
     ErrContentTooLarge: '内容が大きすぎます（上限は 1 MiB）。',
     ErrUnsupportedMediaType: 'この形式のリクエストには対応していません。',
     ErrTooManyRequests: 'リクエストが多すぎます。しばらくしてからお試しください。',
+    ErrUnauthorized: 'パスコードが必要です。またはセッションの有効期限が切れました。',
+    ErrTooManyAttempts: 'パスコードの誤入力が多すぎます。しばらくしてからお試しください。',
     ErrInternal: 'サーバーで問題が発生しました。しばらくしてからお試しください。',
     ErrStore: 'サーバーがデータを読み書きできませんでした。しばらくしてからお試しください。',
     ErrServer: 'サーバーで問題が発生しました。しばらくしてからお試しください。',

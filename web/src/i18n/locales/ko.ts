@@ -471,6 +471,14 @@ export const ko: Messages = {
   pwa: {
     offlineBanner: '오프라인입니다. 마지막으로 연 내용만 볼 수 있습니다.',
   },
+  auth: {
+    title: '접근 암호가 필요합니다',
+    description: '이 Slate에는 접근 암호가 설정되어 있습니다. 입력하면 프로젝트를 보고 수정할 수 있습니다.',
+    passcode: '접근 암호',
+    submit: '들어가기',
+    wrong: '암호가 틀렸습니다. 다시 시도하세요.',
+    logout: '로그아웃',
+  },
   errors: {
     title: '문제가 발생했습니다',
     traceId: '추적 ID: {{id}}',
@@ -481,6 +489,8 @@ export const ko: Messages = {
     ErrContentTooLarge: '내용이 너무 큽니다(한도 1 MiB).',
     ErrUnsupportedMediaType: '지원하지 않는 요청 형식입니다.',
     ErrTooManyRequests: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.',
+    ErrUnauthorized: '암호가 필요하거나 세션이 만료되었습니다.',
+    ErrTooManyAttempts: '암호를 너무 많이 잘못 입력했습니다. 잠시 후 다시 시도하세요.',
     ErrInternal: '서버에 문제가 생겼습니다. 잠시 후 다시 시도하세요.',
     ErrStore: '서버가 데이터를 읽거나 쓰지 못했습니다. 잠시 후 다시 시도하세요.',
     ErrServer: '서버에 문제가 생겼습니다. 잠시 후 다시 시도하세요.',

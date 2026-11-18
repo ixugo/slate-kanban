@@ -1,9 +1,10 @@
-// 应用的根组件：把主题、查询缓存、路由、提示条按顺序套起来。
+// 应用的根组件：把主题、查询缓存、路由、口令门、提示条按顺序套起来。
 // 悬浮提示（Tooltip）的 Provider 不放在这里：它依赖的 Radix 与定位库较重，由用到它的页面自己提供，首屏不用下载。
 
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from '@/components/ui/sonner'
+import { AuthGate } from '@/features/auth/AuthGate'
 import { createQueryClient } from '@/lib/queryClient'
 import { ThemeProvider } from '@/lib/theme'
 import { OfflineBanner } from '@/pwa/OfflineBanner'
@@ -21,7 +22,9 @@ export function App() {
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <OfflineBanner />
-            <AppRoutes />
+            <AuthGate>
+              <AppRoutes />
+            </AuthGate>
           </BrowserRouter>
           <Toaster closeButton />
         </QueryClientProvider>
