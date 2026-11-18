@@ -126,6 +126,23 @@ func initSession(t *testing.T, s *stack, token string) string {
 	return header.Get("Mcp-Session-Id")
 }
 
+// TestResponsesAreJSON 验证单个请求的结果直接用 JSON 返回，而不是占用一条 SSE 长连接：
+// 初始化和工具调用都是 application/json，对反向代理（缓冲、超时）更友好。
+func TestResponsesAreJSON(t *testing.T) {
+	s := newStack(t)
+	token := s.token(t, "claude")
+	_, header, _ := s.do(t, raw{token: token, body: initializeBody})
+	if got := header.Get("Content-Type"); !strings.HasPrefix(got, "application/json") {
+		t.Errorf("初始化的响应应该是 application/json，实际 %q", got)
+	}
+	session := header.Get("Mcp-Session-Id")
+	call := `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"whoami","arguments":{}}}`
+	code, header, body := s.do(t, raw{token: token, session: session, body: call})
+	if got := header.Get("Content-Type"); code != http.StatusOK || !strings.HasPrefix(got, "application/json") {
+		t.Errorf("工具调用的响应应该是 200 和 application/json，实际 %d %q %.200s", code, got, body)
+	}
+}
+
 // TestSessionBoundToIdentity 验证会话绑定创建它的身份：知道了别人的会话编号也没用，
 // 换成别的 agent 令牌、管理令牌都返回 403，只有原来的令牌能继续用。
 func TestSessionBoundToIdentity(t *testing.T) {
