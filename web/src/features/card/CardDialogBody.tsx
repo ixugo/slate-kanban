@@ -22,6 +22,15 @@ import { CardTimeMeta } from './CardTimeMeta'
 import { DescriptionEditor } from './DescriptionEditor'
 import { Comments } from './Comments'
 
+/** 让标题输入框的高度跟着内容走，长标题换行后也能完整看到（不依赖浏览器的 field-sizing） */
+function fitTitleHeight(el: HTMLTextAreaElement | null) {
+  if (!el) return
+  el.style.height = 'auto'
+  // border-box 的高度要把上下边框也算进去，否则内容会多出几像素
+  const border = el.offsetHeight - el.clientHeight
+  el.style.height = `${el.scrollHeight + border}px`
+}
+
 interface CardDialogBodyProps {
   card: CardDetail
   columns: Column[]
@@ -112,11 +121,13 @@ export function CardDialogBody({
         </Label>
         <textarea
           id="card-title"
+          ref={fitTitleHeight}
           rows={1}
           defaultValue={card.title}
           maxLength={CARD_TITLE_MAX}
-          className="-mx-2.5 block w-[calc(100%+1.25rem)] resize-none rounded-xl border border-transparent bg-transparent px-2.5 py-1.5 text-[1.5rem] leading-8 font-semibold tracking-tight [field-sizing:content] outline-none transition-[background-color,border-color,box-shadow] duration-200 hover:bg-secondary/60 focus-visible:border-ring focus-visible:bg-field focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          className="-mx-2.5 block w-[calc(100%+1.25rem)] resize-none overflow-hidden rounded-xl border border-transparent bg-transparent px-2.5 py-1.5 text-[1.5rem] leading-8 font-semibold tracking-tight outline-none transition-[background-color,border-color,box-shadow] duration-200 hover:bg-secondary/60 focus-visible:border-ring focus-visible:bg-field focus-visible:ring-[3px] focus-visible:ring-ring/25"
           aria-label={t('card.field.title')}
+          onInput={(e) => fitTitleHeight(e.currentTarget)}
           onKeyDown={(e) => {
             // 标题是单行文字：回车提交（失焦时保存），不插入换行
             if (e.key === 'Enter') {
