@@ -2,10 +2,12 @@ package mcpapi_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
 
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"slate-kanban/internal/core/kanban"
@@ -86,11 +88,18 @@ func TestBoardResourceRejectsBadURIs(t *testing.T) {
 		"slate://boards/ " + id, "slate://other/" + id, "slate://boards/99999999999999999999", "slate://boards/9999", "http://boards/" + id, "",
 	}
 	for _, uri := range bad {
-		if _, err := sess.ReadResource(t.Context(), &mcp.ReadResourceParams{URI: uri}); err == nil {
-			t.Errorf("读取 %q 应该失败", uri)
+		_, err := sess.ReadResource(t.Context(), &mcp.ReadResourceParams{URI: uri})
+		if !isResourceNotFound(err) {
+			t.Errorf("读取 %q 应该返回\"资源不存在\"，实际 %v", uri, err)
 		}
-		if err := sess.Subscribe(t.Context(), &mcp.SubscribeParams{URI: uri}); err == nil {
-			t.Errorf("订阅 %q 应该失败", uri)
+		if err := sess.Subscribe(t.Context(), &mcp.SubscribeParams{URI: uri}); !isResourceNotFound(err) {
+			t.Errorf("订阅 %q 应该返回\"资源不存在\"，实际 %v", uri, err)
 		}
 	}
+}
+
+// isResourceNotFound 判断错误是不是协议规定的"资源不存在"。
+func isResourceNotFound(err error) bool {
+	var rpc *jsonrpc.Error
+	return errors.As(err, &rpc) && rpc.Code == mcp.CodeResourceNotFound
 }
