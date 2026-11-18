@@ -9,11 +9,12 @@
 
 - 路径穿越防护；仅 GET/HEAD，其它 405
 - 无文件且非 API 路径 → `index.html`（前端路由）
-- API 类：`/api/`、`/mcp`、`/health`、`/install.md`、`/skills/`、`/app/` → 不 SPA 回退
+- API 类：`/api/`、`/mcp`、`/mcp/`（含下面的子路径）、`/health`、`/install.md`、`/skills/`、`/app/` → 不 SPA 回退，未匹配时 JSON 404
 - 可压缩类型预 gzip（BestCompression）内存缓存；`ETag` + `If-None-Match` 304
 - `/assets/*`：`Cache-Control: public, max-age=31536000, immutable`；其它 `no-cache`（含 `/sw.js`、`/manifest.webmanifest`）
 - `.webmanifest` → `application/manifest+json`；`.png` → `image/png`
 - `/sw.js`、`/manifest.webmanifest`、`/icons/*` 缺失时 **404**，不回退 `index.html`（见 `web.pwa.md`）
+- `/.well-known/*` 一律 **404**，不回退 `index.html`：MCP 客户端（Claude Code、Codex）收到 401 或检查连接时，会到这里和 `/mcp/.well-known/*` 找授权元数据，拿到 HTML 会按 JSON 解析失败，Claude Code 会报 `SyntaxError`，看不出是口令的问题（见 `agent.skill.go.md` 的「真实 host 里发现的差异」）
 - 无 `index.html` 时 `/` 返回嵌入说明文案 200
 
 ## 装配
