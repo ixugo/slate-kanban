@@ -1,192 +1,222 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getSnapshot } from '@/lib/api/endpoints'
-import type { BoardEvent } from '@/lib/api/types'
-import { createQueryClient } from '@/lib/queryClient'
+import { ApiError } from '@/lib/api/client'
+import * as endpoints from '@/lib/api/endpoints'
 import { queryKeys } from '@/lib/queryKeys'
-import { connectBoardStream, type StreamOptions } from '@/lib/stream'
-import { getToken, setToken } from '@/lib/token'
 import { makeSnapshot } from '@/test/factories'
-import { REFRESH_COALESCE_MS, useBoardLive } from './useBoardLive'
+import { RECONNECT_DELAY_MS, REFRESH_COALESCE_MS, useBoardLive } from './useBoardLive'
 
-vi.mock('@/lib/stream', () => ({ connectBoardStream: vi.fn() }))
-vi.mock('@/lib/api/endpoints', () => ({ getSnapshot: vi.fn() }))
+// 假的 EventSource：记录创建和关闭，并能手动触发事件
+class FakeEventSource {
+  static instances: FakeEventSource[] = []
+  static readonly CLOSED = 2
+  readonly url: string
+  readyState = 1
+  closed = false
+  private listeners = new Map<string, Array<(e: Event) => void>>()
 
-const connect = vi.mocked(connectBoardStream)
-const snapshotApi = vi.mocked(getSnapshot)
+  constructor(url: string) {
+    this.url = url
+    FakeEventSource.instances.push(this)
+  }
 
-// 每次连接的参数和对应的停止函数，按连接顺序记录
-let connections: { opts: StreamOptions; stop: ReturnType<typeof vi.fn> }[] = []
+  addEventListener(type: string, fn: (e: Event) => void) {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn])
+  }
 
-const event = (type: string, id = 1): BoardEvent => ({
-  id,
-  board_id: 1,
-  card_id: 0,
-  type,
-  actor_kind: 'human',
-  actor: 'admin',
-  payload: {},
-  created_at: '2026-11-18T08:00:00Z',
-})
+  close() {
+    this.closed = true
+    this.readyState = FakeEventSource.CLOSED
+  }
 
-// 快照序号传 null 表示快照还没取到
-function setup(initialSeq: number | null = 5) {
-  const queryClient: QueryClient = createQueryClient()
+  // 触发一个带数据的服务端事件
+  emit(type: string, data?: unknown) {
+    const event = new MessageEvent(type, { data: data === undefined ? undefined : JSON.stringify(data) })
+    this.listeners.get(type)?.forEach((fn) => fn(event))
+  }
+
+  // 触发浏览器的连接错误；closed 为真表示浏览器放弃了重连
+  fail(closed: boolean) {
+    this.readyState = closed ? FakeEventSource.CLOSED : 0
+    this.listeners.get('error')?.forEach((fn) => fn(new Event('error')))
+  }
+}
+
+const last = () => FakeEventSource.instances[FakeEventSource.instances.length - 1]
+
+function setup(boardId: number | null = 1) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  queryClient.setQueryData(queryKeys.board(1), makeSnapshot({ id: 1, seq: 5 }))
   const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
   const onGone = vi.fn()
-  const onStopped = vi.fn()
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   )
-  const hook = renderHook(
-    ({ seq }: { seq: number | undefined }) => useBoardLive({ boardId: 1, snapshotSeq: seq, onGone, onStopped }),
-    { wrapper, initialProps: { seq: initialSeq ?? undefined } },
-  )
-  return { ...hook, queryClient, invalidate, onGone, onStopped }
+  const hook = renderHook(() => useBoardLive({ boardId, onGone }), { wrapper })
+  return { ...hook, queryClient, invalidate, onGone }
 }
 
-const invalidatedKeys = (spy: { mock: { calls: unknown[][] } }) =>
-  spy.mock.calls.map((call) => (call[0] as { queryKey: unknown[] }).queryKey)
+// 被失效的查询键里有没有这个键
+const invalidated = (spy: { mock: { calls: unknown[][] } }, key: readonly unknown[]) =>
+  spy.mock.calls.some((c) => JSON.stringify((c[0] as { queryKey: unknown }).queryKey) === JSON.stringify(key))
+
+beforeEach(() => {
+  vi.useFakeTimers()
+  FakeEventSource.instances = []
+  vi.stubGlobal('EventSource', FakeEventSource)
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 describe('useBoardLive', () => {
-  beforeEach(() => {
-    connections = []
-    connect.mockImplementation((opts) => {
-      const stop = vi.fn()
-      connections.push({ opts, stop })
-      return stop
-    })
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-    vi.clearAllMocks()
-  })
-
-  it('快照还没取到时不连接，取到之后用快照的序号连接', () => {
-    const { rerender } = setup(null)
-    expect(connections).toHaveLength(0)
-    rerender({ seq: 7 })
-    expect(connections).toHaveLength(1)
-    expect(connections[0].opts).toMatchObject({ boardId: 1, after: 7 })
-  })
-
-  it('快照刷新（序号变大）不会重新连接', () => {
-    const { rerender } = setup(5)
-    rerender({ seq: 9 })
-    rerender({ seq: 12 })
-    expect(connections).toHaveLength(1)
-  })
-
-  it('连接时读取令牌的函数是实时的，登录状态变了立刻生效', () => {
-    setup(5)
-    setToken('t1')
-    expect(connections[0].opts.getToken()).toBe('t1')
-    setToken('t2')
-    expect(connections[0].opts.getToken()).toBe('t2')
-  })
-
-  it('连接状态原样透传给页面', () => {
-    const { result } = setup(5)
+  it('连接到这块看板的实时流，收到 ready 后状态变成已连接', () => {
+    const { result } = setup(1)
+    expect(last().url).toBe('/api/v1/boards/1/stream')
     expect(result.current.state).toBe('connecting')
-    act(() => connections[0].opts.onState('live'))
+    act(() => last().emit('ready', { latest: 5 }))
     expect(result.current.state).toBe('live')
-    act(() => connections[0].opts.onState('backoff'))
-    expect(result.current.state).toBe('backoff')
   })
 
-  it('一串事件合并成一次刷新：快照、卡片详情、活动流各失效一次', () => {
-    vi.useFakeTimers()
-    const { invalidate } = setup(5)
+  it('没有看板编号（地址不合法）时不连接', () => {
+    setup(null)
+    expect(FakeEventSource.instances).toHaveLength(0)
+  })
+
+  it('一次操作带来的多条事件合并成一次刷新，并同时刷新卡片详情', () => {
+    const { invalidate } = setup(1)
     act(() => {
-      connections[0].opts.onEvent(event('card.moved', 6))
-      connections[0].opts.onEvent(event('card.updated', 7))
-      connections[0].opts.onEvent(event('comment.added', 8))
+      last().emit('board', { type: 'card.moved' })
+      last().emit('board', { type: 'card.updated' })
+      last().emit('board', { type: 'card.updated' })
     })
     expect(invalidate).not.toHaveBeenCalled()
-    act(() => vi.advanceTimersByTime(REFRESH_COALESCE_MS - 1))
-    expect(invalidate).not.toHaveBeenCalled()
-    act(() => vi.advanceTimersByTime(1))
-    expect(invalidatedKeys(invalidate)).toEqual([queryKeys.board(1), queryKeys.card(), queryKeys.activity(1)])
-    // 合并窗口结束后，下一个事件重新开一个窗口
-    act(() => connections[0].opts.onEvent(event('card.moved', 9)))
     act(() => vi.advanceTimersByTime(REFRESH_COALESCE_MS))
-    expect(invalidate).toHaveBeenCalledTimes(6)
+    const snapshotCalls = invalidate.mock.calls.filter((c) => JSON.stringify(c[0]?.queryKey) === JSON.stringify(queryKeys.board(1)))
+    expect(snapshotCalls).toHaveLength(1)
+    expect(invalidated(invalidate, queryKeys.card())).toBe(true)
   })
 
-  it('看板信息类事件（board.*）马上让看板列表失效，其他事件不影响列表', () => {
-    vi.useFakeTimers()
-    const { invalidate } = setup(5)
-    act(() => connections[0].opts.onEvent(event('card.created', 6)))
-    expect(invalidatedKeys(invalidate)).not.toContainEqual(queryKeys.boards)
-    act(() => connections[0].opts.onEvent(event('board.updated', 7)))
-    expect(invalidatedKeys(invalidate)).toContainEqual(queryKeys.boards)
+  it('看板本身的事件（board.*）同时刷新看板列表', () => {
+    const { invalidate } = setup(1)
+    act(() => last().emit('board', { type: 'board.updated' }))
+    expect(invalidated(invalidate, queryKeys.boards)).toBe(true)
   })
 
-  it('卸载时停止连接，并取消还没执行的刷新', () => {
-    vi.useFakeTimers()
-    const { unmount, invalidate } = setup(5)
-    act(() => connections[0].opts.onEvent(event('card.moved', 6)))
+  it('卡片事件不刷新看板列表', () => {
+    const { invalidate } = setup(1)
+    act(() => last().emit('board', { type: 'card.created' }))
+    expect(invalidated(invalidate, queryKeys.boards)).toBe(false)
+  })
+
+  it('事件数据不是合法 JSON 时照常刷新，不丢更新', () => {
+    const { invalidate } = setup(1)
+    act(() => {
+      const bad = new MessageEvent('board', { data: 'not json' })
+      ;(last() as unknown as { listeners: Map<string, Array<(e: Event) => void>> }).listeners.get('board')?.forEach((fn) => fn(bad))
+      vi.advanceTimersByTime(REFRESH_COALESCE_MS)
+    })
+    expect(invalidated(invalidate, queryKeys.board(1))).toBe(true)
+  })
+
+  it('ready 带的序号比缓存里的快照新，说明取快照到连上之间有更新，要补刷一次', () => {
+    const { invalidate } = setup(1)
+    act(() => {
+      last().emit('ready', { latest: 9 })
+      vi.advanceTimersByTime(REFRESH_COALESCE_MS)
+    })
+    expect(invalidated(invalidate, queryKeys.board(1))).toBe(true)
+  })
+
+  it('ready 的序号和快照一样新，不多刷新', () => {
+    const { invalidate } = setup(1)
+    act(() => {
+      last().emit('ready', { latest: 5 })
+      vi.advanceTimersByTime(REFRESH_COALESCE_MS * 2)
+    })
+    expect(invalidate).not.toHaveBeenCalled()
+  })
+
+  it('reset：关闭旧连接，刷新，并新建一个连接', () => {
+    const { invalidate } = setup(1)
+    const first = last()
+    act(() => first.emit('reset', { latest: 3 }))
+    expect(first.closed).toBe(true)
+    expect(FakeEventSource.instances).toHaveLength(2)
+    // 立刻刷新，不等合并计时，因为旧连接清理时会丢掉未触发的计时器
+    expect(invalidated(invalidate, queryKeys.board(1))).toBe(true)
+  })
+
+  it('浏览器自己在重连时，状态显示为连接中，不新建连接', () => {
+    const { result } = setup(1)
+    act(() => last().emit('ready', { latest: 5 }))
+    act(() => last().fail(false))
+    expect(result.current.state).toBe('connecting')
+    expect(FakeEventSource.instances).toHaveLength(1)
+  })
+
+  it('浏览器放弃重连、看板已被删（快照 404）：通知看板已不存在，不再重连', async () => {
+    vi.spyOn(endpoints, 'getSnapshot').mockRejectedValue(new ApiError(404, 'ErrBoardNotFound', 'gone'))
+    const { result, onGone } = setup(1)
+    await act(async () => last().fail(true))
+    expect(result.current.state).toBe('offline')
+    expect(onGone).toHaveBeenCalledTimes(1)
+    await act(async () => vi.advanceTimersByTime(RECONNECT_DELAY_MS * 2))
+    expect(FakeEventSource.instances).toHaveLength(1)
+  })
+
+  it('浏览器放弃重连、看板还在（比如服务重启）：过一会儿自己重新连接', async () => {
+    vi.spyOn(endpoints, 'getSnapshot').mockResolvedValue(makeSnapshot({ id: 1, seq: 8 }))
+    const { onGone } = setup(1)
+    await act(async () => last().fail(true))
+    expect(onGone).not.toHaveBeenCalled()
+    await act(async () => vi.advanceTimersByTime(RECONNECT_DELAY_MS))
+    expect(FakeEventSource.instances).toHaveLength(2)
+  })
+
+  it('服务端发来 error 事件：关闭连接并确认看板是否还在', async () => {
+    vi.spyOn(endpoints, 'getSnapshot').mockRejectedValue(new ApiError(404, 'ErrBoardNotFound', 'gone'))
+    const { result, onGone } = setup(1)
+    const first = last()
+    await act(async () => first.emit('error', { reason: 'ErrBoardNotFound' }))
+    expect(first.closed).toBe(true)
+    expect(result.current.state).toBe('offline')
+    expect(onGone).toHaveBeenCalledTimes(1)
+  })
+
+  it('卸载时关闭连接并取消待执行的刷新', () => {
+    const { unmount, invalidate } = setup(1)
+    act(() => last().emit('board', { type: 'card.updated' }))
     unmount()
-    expect(connections[0].stop).toHaveBeenCalledTimes(1)
+    expect(last().closed).toBe(true)
     act(() => vi.advanceTimersByTime(REFRESH_COALESCE_MS * 2))
     expect(invalidate).not.toHaveBeenCalled()
   })
 
-  it('reset：重新取快照（即使缓存里的还很新），用新快照的序号重新连接，之后手动重试不再用它', async () => {
-    snapshotApi.mockResolvedValue(makeSnapshot({ seq: 321 }))
-    const { queryClient, result } = setup(5)
-    queryClient.setQueryData(queryKeys.board(1), makeSnapshot({ seq: 5 }))
-    act(() => connections[0].opts.onReset(300))
-    await waitFor(() => expect(connections).toHaveLength(2))
-    expect(snapshotApi).toHaveBeenCalledTimes(1)
-    expect(connections[1].opts.after).toBe(321)
-    expect(connections[0].stop).toHaveBeenCalledTimes(1)
-    expect(queryClient.getQueryData<{ seq: number }>(queryKeys.board(1))?.seq).toBe(321)
+  it('手动重试会新建连接', () => {
+    const { result } = setup(1)
     act(() => result.current.retry())
-    expect(connections).toHaveLength(3)
-    expect(connections[2].opts.after).toBe(5)
+    expect(FakeEventSource.instances).toHaveLength(2)
+    expect(FakeEventSource.instances[0].closed).toBe(true)
   })
 
-  it('reset 之后重新取快照失败：通知页面停止，不会无限重连', async () => {
-    snapshotApi.mockRejectedValue(new Error('boom'))
-    const { onStopped } = setup(5)
-    act(() => connections[0].opts.onReset(300))
-    await waitFor(() => expect(onStopped).toHaveBeenCalledWith('boom'))
-    expect(connections).toHaveLength(1)
-  })
-
-  it('令牌失效（unauthorized）：清掉令牌，页面会回到登录', () => {
-    setToken('t1')
-    const { onGone, onStopped } = setup(5)
-    act(() => connections[0].opts.onFatal('unauthorized', 'HTTP 401'))
-    expect(getToken()).toBe('')
-    expect(onGone).not.toHaveBeenCalled()
-    expect(onStopped).not.toHaveBeenCalled()
-  })
-
-  it('看板不存在（not_found）：通知页面离开，不清令牌', () => {
-    setToken('t1')
-    const { onGone, onStopped } = setup(5)
-    act(() => connections[0].opts.onFatal('not_found', 'HTTP 404'))
-    expect(onGone).toHaveBeenCalledTimes(1)
-    expect(onStopped).not.toHaveBeenCalled()
-    expect(getToken()).toBe('t1')
-  })
-
-  it('其他不可恢复的错误：通知页面停止并带上原因', () => {
-    const { onGone, onStopped } = setup(5)
-    act(() => connections[0].opts.onFatal('server_error', 'HTTP 400'))
-    expect(onStopped).toHaveBeenCalledWith('HTTP 400')
-    expect(onGone).not.toHaveBeenCalled()
-  })
-
-  it('手动重试：停掉旧连接并重新连接', () => {
-    const { result } = setup(5)
-    act(() => result.current.retry())
-    expect(connections).toHaveLength(2)
-    expect(connections[0].stop).toHaveBeenCalledTimes(1)
-    expect(connections[1].opts.after).toBe(5)
+  it('切换到另一块看板：旧连接关闭，新连接指向新看板', () => {
+    const queryClient = new QueryClient()
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+    const { rerender } = renderHook(({ id }: { id: number }) => useBoardLive({ boardId: id, onGone: () => {} }), {
+      wrapper,
+      initialProps: { id: 1 },
+    })
+    const first = last()
+    rerender({ id: 2 })
+    expect(first.closed).toBe(true)
+    expect(last().url).toBe('/api/v1/boards/2/stream')
   })
 })
