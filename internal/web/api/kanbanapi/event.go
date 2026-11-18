@@ -2,6 +2,7 @@ package kanbanapi
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,7 @@ const maxTimeoutSeconds = 3600
 func (a API) eventRoutes(r gin.IRouter) {
 	r.GET("/boards/:board_id/snapshot", route(a.snapshot))
 	r.GET("/boards/:board_id/events", route(a.listEvents))
+	r.GET("/boards/:board_id/activity", route(a.activity))
 	r.POST("/boards/:board_id/updates/pull", route(a.pullUpdates))
 	r.POST("/boards/:board_id/updates/wait", route(a.waitUpdates))
 	r.GET("/boards/:board_id/stream", a.stream)
@@ -29,6 +31,17 @@ type listEventsInput struct {
 	boardPath
 	After int64 `form:"after" json:"-"`
 	Limit int   `form:"limit" json:"-"`
+}
+
+// activityInput 是读活动流的请求。before 是翻页起点（只看比它更早的事件），limit 是一页最多几条；
+// types 是用逗号分隔的事件类型，actor_kind 和 actor 是操作者类型和名称，不填都表示不限。
+type activityInput struct {
+	boardPath
+	Before    int64  `form:"before" json:"-"`
+	Limit     int    `form:"limit" json:"-"`
+	Types     string `form:"types" json:"-"`
+	ActorKind string `form:"actor_kind" json:"-"`
+	Actor     string `form:"actor" json:"-"`
 }
 
 // pullUpdatesInput 是 agent 拉取更新的请求。
@@ -52,6 +65,19 @@ func (a API) snapshot(ctx context.Context, _ kanban.Actor, in *boardPath) (*kanb
 // listEvents 返回起点序号之后的事件，不做过滤，网页的活动列表和断线补发用。
 func (a API) listEvents(ctx context.Context, _ kanban.Actor, in *listEventsInput) (*kanban.EventPage, error) {
 	return a.core.ListEvents(ctx, in.BoardID, in.After, in.Limit)
+}
+
+// activity 返回看板的活动流：从新到旧，可按事件类型和操作者筛选，网页的活动抽屉用。
+// types 里出现空项（比如多写了逗号）会被当成不认识的类型，返回 400。
+func (a API) activity(ctx context.Context, _ kanban.Actor, in *activityInput) (*kanban.ActivityPage, error) {
+	q := kanban.ActivityQuery{Before: in.Before, Limit: in.Limit, ActivityFilter: kanban.ActivityFilter{
+		ActorKind: kanban.ActorKind(in.ActorKind),
+		Actor:     in.Actor,
+	}}
+	if in.Types != "" {
+		q.Types = strings.Split(in.Types, ",")
+	}
+	return a.core.ListActivity(ctx, in.BoardID, q)
 }
 
 // pullUpdates 返回 agent 还没看过的更新，并按请求里的 since 确认上一批，只有 agent 能做。
