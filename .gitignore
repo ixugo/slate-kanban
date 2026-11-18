@@ -61,3 +61,6 @@ tmp/
 !.cursor/
 .cursor/*
 !.cursor/scopes/
+
+# 前端构建产物：由 make build 生成，用 -tags embed_web 嵌入程序，不提交
+/internal/web/spa/dist/
