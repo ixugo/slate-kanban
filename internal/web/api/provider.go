@@ -47,6 +47,7 @@ type Usecase struct {
 // NewHTTPHandler 生成 Gin 路由：全局安全中间件、REST/MCP/静态页，未匹配路径走 SPA 回退或 JSON 404。
 func NewHTTPHandler(uc *Usecase) http.Handler {
 	cfg := uc.Conf
+	conf.WarnShortPasscode(uc.Conf)
 	if !uc.Conf.Runtime.Debug {
 		gin.SetMode(gin.ReleaseMode)
 	}
