@@ -55,6 +55,9 @@ func (d Event) ListBefore(ctx context.Context, boardID, beforeSeq int64, f kanba
 	if f.Actor != "" {
 		q = q.Where("actor = ?", f.Actor)
 	}
+	if f.CardID > 0 {
+		q = q.Where("card_id = ?", f.CardID)
+	}
 	items := make([]*kanban.Event, 0)
 	if err := q.Order("id DESC").Limit(limit).Find(&items).Error; err != nil {
 		return nil, err

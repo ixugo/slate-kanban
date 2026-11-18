@@ -240,6 +240,16 @@ func addEventAs(t *testing.T, store kanban.EventStorer, boardID int64, typ strin
 	return e.ID
 }
 
+// addCardEvent 给指定卡片追加一条事件，返回序号。
+func addCardEvent(t *testing.T, store kanban.EventStorer, boardID, cardID int64, typ string) int64 {
+	t.Helper()
+	e := &kanban.Event{BoardID: boardID, CardID: cardID, Type: typ, ActorKind: string(kanban.ActorHuman), Actor: "human", Payload: "{}"}
+	if err := store.Create(context.Background(), e); err != nil {
+		t.Fatalf("追加事件失败: %v", err)
+	}
+	return e.ID
+}
+
 // eventIDs 取出一组事件的序号。
 func eventIDs(items []*kanban.Event) []int64 {
 	ids := make([]int64, len(items))
@@ -292,6 +302,47 @@ func TestEventListBefore(t *testing.T) {
 		equal("三个条件叠加", list(0, kanban.ActivityFilter{Types: []string{kanban.EventCardMoved}, ActorKind: kanban.ActorAgent, Actor: "claude"}, 10), []int64{d})
 		equal("类型和操作者没有交集", list(0, kanban.ActivityFilter{Types: []string{kanban.EventCardCreated}, ActorKind: kanban.ActorAgent}, 10), []int64{})
 		equal("筛选加翻页", list(d, kanban.ActivityFilter{Types: []string{kanban.EventCardMoved}}, 10), []int64{b})
+	})
+}
+
+// TestEventListBeforeByCard 验证按卡片筛选：只留下这张卡片的事件，能和类型叠加、能翻页，0 表示不限。
+func TestEventListBeforeByCard(t *testing.T) {
+	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
+		ctx := context.Background()
+		store := db.Event()
+		a := addCardEvent(t, store, 1, 7, kanban.EventCardCreated)
+		addCardEvent(t, store, 1, 8, kanban.EventCardCreated) // 别的卡片
+		b := addCardEvent(t, store, 1, 7, kanban.EventCommentAdded)
+		addCardEvent(t, store, 2, 7, kanban.EventCommentAdded) // 别的看板，卡片编号即使相同也不能出现
+		c := addCardEvent(t, store, 1, 7, kanban.EventCardMoved)
+		addEventAs(t, store, 1, kanban.EventBoardUpdated, kanban.ActorHuman, "human") // 与卡片无关
+
+		ids := func(before int64, f kanban.ActivityFilter, limit int) []int64 {
+			t.Helper()
+			items, err := store.ListBefore(ctx, 1, before, f, limit)
+			if err != nil {
+				t.Fatalf("查询失败: %v", err)
+			}
+			return eventIDs(items)
+		}
+		same := func(name string, got, want []int64) {
+			t.Helper()
+			if len(got) != len(want) {
+				t.Fatalf("%s: 期望 %v，实际 %v", name, want, got)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Fatalf("%s: 期望 %v，实际 %v", name, want, got)
+				}
+			}
+		}
+		same("只看这张卡片", ids(0, kanban.ActivityFilter{CardID: 7}, 10), []int64{c, b, a})
+		same("和类型叠加", ids(0, kanban.ActivityFilter{CardID: 7, Types: []string{kanban.EventCommentAdded}}, 10), []int64{b})
+		same("筛选加翻页", ids(c, kanban.ActivityFilter{CardID: 7}, 10), []int64{b, a})
+		same("没有这张卡片的事件", ids(0, kanban.ActivityFilter{CardID: 99}, 10), []int64{})
+		if all := ids(0, kanban.ActivityFilter{}, 20); len(all) != 5 {
+			t.Fatalf("不限卡片时应该看到本看板全部 5 条事件: %v", all)
+		}
 	})
 }
 
