@@ -16,13 +16,13 @@ func TestRenderMarkdown(t *testing.T) {
 		if !strings.HasPrefix(md, "# ") || !strings.HasSuffix(md, "\n") {
 			t.Errorf("说明应该以一级标题开头、以换行结尾")
 		}
-		for _, want := range []string{g.BaseURL, g.MCPURL, g.InstallURL, "export SLATE_TOKEN="} {
+		for _, want := range []string{g.BaseURL, g.MCPURL, g.InstallURL, "?name="} {
 			if !strings.Contains(md, want) {
 				t.Errorf("说明里应该有 %q", want)
 			}
 		}
 		last := -1
-		for _, heading := range []string{"## 1. ", "## 2. ", "## 3. ", "## 4. "} {
+		for _, heading := range []string{"## 1. ", "## 2. ", "## 3. "} {
 			at := strings.Index(md, heading)
 			if at <= last {
 				t.Errorf("步骤 %q 缺失或顺序不对", heading)

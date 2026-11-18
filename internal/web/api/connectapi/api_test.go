@@ -111,22 +111,24 @@ func TestConnectJSON(t *testing.T) {
 		MCPURL     string `json:"mcp_url"`
 		InstallURL string `json:"install_url"`
 		SkillURL   string `json:"skill_url"`
-		TokenEnv   string `json:"token_env"`
 		Hosts      []struct {
-			ID    string                               `json:"id"`
-			Name  string                               `json:"name"`
-			MCP   []struct{ Title, Lang, Code string } `json:"mcp"`
-			Skill []struct{ Title, Lang, Code string } `json:"skill"`
+			ID    string                                     `json:"id"`
+			Name  string                                     `json:"name"`
+			MCP   []struct{ Kind, Title, Lang, Code string } `json:"mcp"`
+			Skill []struct{ Kind, Title, Lang, Code string } `json:"skill"`
 		} `json:"hosts"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("响应不是合法 JSON: %v\n%s", err, rec.Body)
 	}
 	if out.BaseURL != "https://kanban.example.com:8443" || out.MCPURL != out.BaseURL+"/mcp" ||
-		out.InstallURL != out.BaseURL+"/install.md" || out.SkillURL != out.BaseURL+"/skills/slate-kanban/SKILL.md" || out.TokenEnv != "SLATE_TOKEN" {
-		t.Errorf("地址或变量名不对: %+v", out)
+		out.InstallURL != out.BaseURL+"/install.md" || out.SkillURL != out.BaseURL+"/skills/slate-kanban/SKILL.md" {
+		t.Errorf("地址不对: %+v", out)
 	}
-	if len(out.Hosts) != 3 || out.Hosts[0].ID != "claude-code" || len(out.Hosts[0].MCP) == 0 || out.Hosts[0].Skill[0].Code == "" {
+	if strings.Contains(strings.ToLower(rec.Body.String()), "token") {
+		t.Error("connect 响应不应含 token")
+	}
+	if len(out.Hosts) != 3 || out.Hosts[0].ID != "claude-code" || len(out.Hosts[0].MCP) != 2 || out.Hosts[0].Skill[0].Code == "" {
 		t.Errorf("host 列表不对: %+v", out.Hosts)
 	}
 }

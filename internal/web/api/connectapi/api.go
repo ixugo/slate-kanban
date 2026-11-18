@@ -1,4 +1,4 @@
-// Package connectapi 提供 agent 的接入说明：免认证的安装说明页和 skill 下载，以及需要令牌的结构化说明。
+// Package connectapi 提供 agent 的接入说明：安装说明页、skill 下载与 JSON 结构化指南，均免认证。
 // 内容全部编译在服务里，没有外部依赖。
 package connectapi
 
