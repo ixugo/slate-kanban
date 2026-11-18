@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ixugo/goddd/pkg/reason"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"slate-kanban/internal/core/kanban"
 	"slate-kanban/skills"
@@ -19,6 +20,8 @@ const (
 	// maxSkillDescriptionRunes 是 skill 简介的字数上限：host 靠简介判断什么时候加载 skill，
 	// 常见 host 的上限是 1024 字。
 	maxSkillDescriptionRunes = 1024
+	// skillResourceURI 是 skill 作为 MCP 资源的固定地址。
+	skillResourceURI = "slate://skills/slate-kanban"
 )
 
 // skillErrors 是 skill 里允许出现的错误名。这里用真实的错误变量取名字：服务端把错误改名时，
@@ -107,6 +110,26 @@ func TestSkillErrorNames(t *testing.T) {
 	for _, word := range found {
 		if !slices.Contains(skillErrors, word) {
 			t.Errorf("skill 里的 %s 不是已登记的服务端错误", word)
+		}
+	}
+}
+
+// TestSkillResource 验证 skill 资源：两个视图都能在资源列表里看到它，读出来的正是编译进去的 skill 全文，
+// agent 没装 skill 的时候，靠它自己取到流程说明。
+func TestSkillResource(t *testing.T) {
+	s := newStack(t)
+	for name, sess := range map[string]*mcp.ClientSession{"agent": s.agent(t, "claude"), "人": s.human(t)} {
+		list, err := sess.ListResources(t.Context(), nil)
+		if err != nil || len(list.Resources) != 1 || list.Resources[0].URI != skillResourceURI || list.Resources[0].MIMEType != "text/markdown" {
+			t.Fatalf("%s：资源列表不对: %+v %v", name, list, err)
+		}
+		res, err := sess.ReadResource(t.Context(), &mcp.ReadResourceParams{URI: skillResourceURI})
+		if err != nil || len(res.Contents) != 1 {
+			t.Fatalf("%s：读取 skill 失败: %+v %v", name, res, err)
+		}
+		got := res.Contents[0]
+		if got.URI != skillResourceURI || got.MIMEType != "text/markdown" || got.Text != skills.SlateKanban() {
+			t.Errorf("%s：读到的 skill 地址、类型或内容不对: %s %s", name, got.URI, got.MIMEType)
 		}
 	}
 }
