@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/gin-gonic/gin"
 )
 
 func testFS(t *testing.T) fstest.MapFS {
@@ -119,5 +121,48 @@ func TestMissingSwAndIconsNotSPA(t *testing.T) {
 		if rec.Code != http.StatusNotFound || strings.Contains(rec.Body.String(), "<html>") {
 			t.Fatalf("%s 应 404 且非 HTML: %d %s", path, rec.Code, rec.Body.String())
 		}
+	}
+}
+
+// TestWellKnownNotSPA 授权发现地址（/.well-known/）必须返回 404，不能回退成 index.html。
+// MCP 客户端收到 401 后会去这些地址找授权服务器的元数据，拿到 HTML 会按 JSON 解析失败，
+// 用户看到的是「SyntaxError」，而不是「需要口令」。
+func TestWellKnownNotSPA(t *testing.T) {
+	h := NewHandler(fstest.MapFS{
+		"index.html": {Data: []byte("<html>hi</html>")},
+	})
+	paths := []string{
+		"/.well-known/oauth-protected-resource",
+		"/.well-known/oauth-protected-resource/mcp",
+		"/.well-known/oauth-authorization-server",
+		"/.well-known/openid-configuration/mcp",
+	}
+	for _, path := range paths {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNotFound || strings.Contains(rec.Body.String(), "<html>") {
+			t.Fatalf("%s 应 404 且非 HTML: %d %s", path, rec.Code, rec.Body.String())
+		}
+	}
+}
+
+// TestMCPSubpathsNotSPA /mcp/ 下面的路径属于后端，没匹配上时要返回 JSON 404；
+// 客户端也会在 /mcp/.well-known/ 下找授权元数据。
+func TestMCPSubpathsNotSPA(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.NoRoute(NoRouteHandler(fstest.MapFS{"index.html": {Data: []byte("<html>hi</html>")}}))
+	for _, path := range []string{"/mcp/.well-known/oauth-protected-resource", "/mcp/.well-known/openid-configuration", "/mcp/other"} {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNotFound || strings.Contains(rec.Body.String(), "<html>") {
+			t.Fatalf("%s 应 404 且非 HTML: %d %s", path, rec.Code, rec.Body.String())
+		}
+	}
+	// 普通的前端路由不受影响，仍回退到 index.html
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/b/1", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<html>") {
+		t.Fatalf("前端路由应回退 index.html: %d %s", rec.Code, rec.Body.String())
 	}
 }
