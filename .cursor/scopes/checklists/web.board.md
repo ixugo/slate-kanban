@@ -1,28 +1,39 @@
 # 看板页面需求质量清单
-用途: web.board.md 的需求质量自检
-所有者: AI 生成，用户终审
+
+用途：`web.board.md` 的需求质量自检  
+所有者：AI 生成，用户终审
 
 ## 完整性
-- [ ] CHK001 - 拖拽的所有落点（同列上移、下移、列尾、空列、跨列中间、取消、原地）是否都有定义，并有对应测试？[Gap]
-- [ ] CHK002 - 卡片弹窗里每个字段的保存时机（立即保存还是点保存）是否逐个写明？[Gap]
-- [x] CHK003 - v1 不做活动流，已从范围移除。[N/A]
-- [ ] CHK004 - 搜索无结果、语法错误、结果被截断三种情况是否都有对应的显示？[Gap]
-- [ ] CHK005 - 看板列表为空、看板没有卡片、列为空、评论为空等空状态是否都有设计？[Gap]
+
+- [x] CHK001 - 拖拽落点（同列、跨列、空列、列尾、取消、原地）在 `dnd.test.ts`、`handleDragEnd.test.ts` 有覆盖；手工路径未全量列出。[Gap 已缩小]
+- [x] CHK002 - `web.board.md` 与实现已区分：短字段失焦/变更即 PATCH；描述与评论要点保存；标签走 `TagEditor` 即时提交。
+- [x] CHK003 - v1 不做看板级活动流，文档已列入「v1 明确不做」。
+- [x] CHK004 - 搜索无结果（`search.noResults`）、语法错误（`role="alert"`）、截断（`search.truncated`）均有 UI；`BoardPage.test.tsx` 覆盖语法错误。
+- [ ] CHK005 - 看板列表空、整板无卡、列内无卡、无评论等空状态文案有零散实现，但未在 `web.board.md` 逐条验收表。[Gap：需在 `BoardListPage` / `Comments` 补文档或补测]
 
 ## 清晰度
-- [ ] CHK006 - "原地放下不发请求"的判断标准（列和相邻卡片都不变）是否明确，和服务端"次序没变不写事件"是否一致？[Ambiguity]
-- [ ] CHK007 - 乐观位置的计算和服务端 `positionBetween` 是否一致，差异由谁兜底？[Ambiguity]
-- [ ] CHK008 - 版本冲突后用户已输入的内容保留在哪里、怎么再提交？[Ambiguity]
+
+- [x] CHK006 - `planMove` 与「原地放下」在 `dnd.test.ts` 有明确用例；与服务端一致以集成+流刷新为准。
+- [x] CHK007 - `computePosition`/`applyMoveToSnapshot` 单测对齐 `POSITION_STEP=1024`；不一致由失败回滚与 SSE 重取兜底。
+- [x] CHK008 - 版本冲突：toast + 失效详情 query；输入框保留（见 `CardDialog.test.tsx`「版本冲突时不丢输入框内容」）。
 
 ## 一致性
-- [ ] CHK009 - 筛选语法的说明和服务端 `card_filter.go` 的写法是否一致？[Conflict]
-- [ ] CHK010 - 事件载荷字段名与 `kanban.event.go.md` 是否一致，网页读不到字段时会不会显示 `undefined`？[Conflict]
-- [ ] CHK011 - 新增的 `activity` 接口与现有 `events` 接口的权限、错误、字段命名是否一致？[Conflict]
-- [ ] CHK012 - "收回领取""删除卡片""删除评论"只给人用，前端隐藏之外服务端是否同样拒绝 agent？[Conflict]
+
+- [ ] CHK009 - 筛选说明在 `SearchHelp`，与服务端 `card_filter.go` 是否完全一致需后端对照。[未在本轮核对]
+- [x] CHK010 - 看板页不展示活动事件载荷；卡片弹窗无事件时间线，不适用。
+- [x] CHK011 - v1 无 `activity` 网页接口；与 `events` 一致性留待活动流功能。
+- [ ] CHK012 - 「释放领取」「删除卡片」前端对人可见；删除评论权限与 agent 拒绝需对照 `api.rest.go.md` + Core。[未写 E2E]
 
 ## 边界场景
-- [ ] CHK013 - 标题 200 字、标签 10 个、描述 2 万字的卡片在卡片上、弹窗里会不会撑破布局？[Edge Case]
-- [ ] CHK014 - 拖动过程中别人改了看板（实时流刷新）会不会把正在拖的卡片弄丢？[Edge Case]
-- [ ] CHK015 - 评论或描述里有 `<script>`、`javascript:` 链接、超长无空格文本时是否安全且不撑破？[Edge Case]
-- [ ] CHK016 - 卡片弹窗打开期间卡片被别人删除、被移到别的列时会怎样？[Edge Case]
-- [ ] CHK017 - 键盘能否完成：打开卡片、拖拽、添加卡片、搜索、关闭弹窗？[Edge Case]
+
+- [ ] CHK013 - 标题/标签/描述有 `limits` 常量与前端正则，超长布局未做专项视觉测。[Edge Case]
+- [ ] CHK014 - 拖动中 SSE 刷新会重置 `items`，极端竞态未单测。[Edge Case]
+- [x] CHK015 - `markdown.test.tsx` 覆盖 script、`javascript:`、HTML 图片语法；描述/评论共 `markdown.tsx`。
+- [ ] CHK016 - 弹窗打开时卡被删/移列：404 显示 `card.notFound`；移列依赖 invalidate，未单独集成测。[Edge Case]
+- [ ] CHK017 - 键盘：`/` `n`、磁贴 Enter/Space+方向键、弹窗 Esc 由 Radix 处理；**未**覆盖「关闭弹窗仅 Esc」的专用测。[部分实施]
+
+## v1 未做（与产品卡对齐）
+
+- [ ] CHK018 - 多选拖动 — **未做**，Slate 看板 **SLATE-37**。
+- [ ] CHK019 - 列表视图（表格）— **未做**，Slate 看板 **SLATE-38**。
+- [ ] CHK020 - 磁贴中新开标签页打开卡片 — **未做**（单 Tab 与 `?card=`），Slate 看板 **SLATE-35**。
