@@ -33,6 +33,8 @@
 - [x] CHK017 - 键盘：`/` `n`、磁贴 Enter/Space+方向键、**窄边 Enter 展开**（`BoardPage.test.tsx`）；弹窗 Esc 由 Radix。[部分：关闭弹窗专用测仍无]
 - [x] CHK021 - 列收起：默认 `is_done`、localStorage 键、`useDroppable` 落点、`handleDragEnd` 列落点单测、无障碍文案 `board.collapseColumn` / `expandColumn`。
 - [x] CHK022 - 松手后的落下动画：在真实浏览器里用 requestAnimationFrame 逐帧采样（跨列、同列各一次），松手后没有任何一帧卡片回到旧位置，浮起的卡片终点与真实卡片重合（偏差 < 0.5px），放大、倾斜、阴影收回到平放；纯函数部分见 `dnd.test.ts`（`pickShownItems`）、`dropAnimation.test.ts`。
+- [x] CHK023 - 点选筛选：真实浏览器里点选标签、列、状态、优先级后，看板只剩命中的卡片，命中数 / 卡片总数显示正确；亮色、暗色和 390 像素宽的手机屏上弹层都不超出屏幕，弹层很高时在内部滚动；点选不会让工具栏上的标题和搜索框错位。
+- [x] CHK024 - 点选拼出的筛选词与服务端 `|` 多选一语法一一对应（`card_filter_test.go` 与 `filters.test.ts` 用同样的写法），含引号或竖线的标签不会拼出错误条件。
 
 ## v1 未做（与产品卡对齐）
 

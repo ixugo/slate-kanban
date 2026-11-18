@@ -1,9 +1,9 @@
-# 看板页面：看板列表、看板、卡片、搜索
+# 看板页面：看板列表、看板、卡片、搜索与筛选
 
 ## 需求目标
 
 人在网页上看到整块看板，拖卡片、写卡片、留评论，别人（包括 agent）改了马上看到。
-看板上要一眼看出三件事：哪些列是 agent 会去领卡的（"AI 列"）、哪些卡正被哪个 agent 处理、哪些卡被依赖卡住或必须由人来做。
+看板上要一眼看出两件事：哪些卡正被哪个 agent 处理、哪些卡被依赖卡住或必须由人来做。
 这份文档讲页面行为和前端自己的算法；REST 契约见 `api.rest.go.md`；应用骨架（主题、Query、路由、多语言、错误提示）见 `web.app.md`（v1 网页免登录，无管理令牌与登录页流程）。
 
 ## 问题场景
@@ -15,9 +15,11 @@
 | 3 | 乐观更新的位置和服务端算的不一致 | 松手后卡片闪一下 | 乐观位置用和服务端同样的规则（相邻两张取中点，列头列尾各加减 1024）；接口成功后实时流会触发重取，以服务端为准；失败则恢复拖之前的快照并提示原因 | 实施 |
 | 3a | 松手后浮起的卡片飞回旧位置，落地时旁边的卡片还在跳 | 看起来像 bug：乐观更新要晚一两帧才落地，这期间排列退回了拖之前，落下动画量到的就是旧位置 | 松手后继续用松手时的排列，直到乐观更新换了新的数据（`dnd.ts` 的 `pickShownItems`，`BoardCanvas` 的 `settling` 状态）；落下动画（`dropAnimation.ts`）终点按外层容器对齐（卡片放大倾斜后外框比真实卡片大，按外框对齐会偏几个像素），放大、倾斜、阴影同时收回，真实卡片用 `visibility` 藏到动画结束（用透明度会被 CSS 过渡淡入，像闪一下）；「减少动态效果」时不飞行 | 实施 |
 | 4 | 点一下卡片和拖一下卡片要分得开；键盘要能操作 | 手一抖就变成拖动，或者点不开；读屏用户卡在两个焦点之间 | 鼠标移动 6 像素才算拖动；触屏按住 200 毫秒；每张卡片磁贴只有一个 Tab 停靠点：单击或 **Enter** 打开 `?card=` 弹窗；**空格**拾起/放下拖拽，方向键移动，**Esc** 取消（`BoardCanvas` 里 KeyboardSensor 的 `start`/`end` 仅配 Space，`CardTile` 在 Enter 时打开弹窗且不嵌套链接） | 实施 |
-| 5 | 卡片太多找不到 | 只能肉眼翻 | 工具栏的搜索框用和 agent 一样的筛选语法（服务端解析），300 毫秒防抖；有关键字时看板只显示命中的卡片，显示命中数/总数；语法错误在搜索框下面写出服务端指出的词；旁边有语法说明；按 `/` 聚焦搜索框 | 实施 |
-| 5a | 搜索时还在拖会乱序 | 用户不知道为何拖不动 | 只要搜索非空（`visibleIds` 非 null），`BoardCanvas` 关闭拖拽，工具栏下方一行提示 `board.dragDisabledSearch`；清空搜索后恢复拖动 | 实施 |
-| 6 | 一眼看出卡片的状态 | 要点开才知道谁在处理、被什么卡住 | 卡片上显示：编号（等宽字体）、标题、优先级色条、前 3 个标签（多的折成 +n）、截止日期（逾期且未完成标红）、"仅人工"锁图标、"等待依赖"图标、被 agent 领取时显示 agent 名加呼吸圆点；完成列里的卡片整体变淡；AI 列的列头有"AI"标记，列说明放在悬停提示里 | 实施 |
+| 5 | 卡片太多找不到 | 只能肉眼翻 | 工具栏的搜索框用和 agent 一样的筛选语法（服务端解析），300 毫秒防抖；有关键字或筛选条件时看板只显示命中的卡片，搜索框下面显示「命中数 / 看板上的卡片总数」；语法错误在搜索框下面写出服务端指出的词；旁边有语法说明；按 `/` 聚焦搜索框 | 实施 |
+| 5a | 搜索或筛选时还在拖会乱序 | 用户不知道为何拖不动 | 搜索框有字或选了筛选条件（`visibleIds` 非 null）时，`BoardCanvas` 关闭拖拽，工具栏下方一行提示 `board.dragDisabledSearch`；清空后恢复拖动 | 实施 |
+| 5b | 不想记语法，想像 Trello 那样点一点就能过滤 | 只有搜索框时，按标签、状态、截止日期找卡片都得先记住 `tag:`、`is:`、`due:` 这些前缀 | 搜索框右边有「筛选」按钮（带已选个数的角标），点开是一个弹层，分组列出：**标签**（带每个标签的卡片数，有「没有标签」；选了 2 个以上标签时出现「任一 / 全部」开关）、**列**、**状态**（未完成、已完成、没人领取、已被领取、等待依赖、仅人工）、**优先级**（高、中、低、未设置）、**领取者**（只在有 agent 正在领取卡片时出现）、**截止**（单选：不限、已逾期、今天到期、7 天内到期、有、没有）。点一下立刻生效，不需要确认，弹层不会自己关。点选出来的条件由 `filters.ts` 的 `buildFilterTerms` 翻译成筛选词，和搜索框里的关键字用空格连起来，仍然交给服务端同一个解析器，所以网页、agent 和自动化规则的结果不会不一致。组合规则：同一组里选多个取值是「任一」（标签选了「全部」时拆成多个 `tag:`），不同组之间是「同时满足」；互相矛盾的状态（未完成/已完成、没人领取/已被领取）选一个就取消另一个；7 天内到期按浏览器本地日期算成 `due:>=today due:<=日期` | 实施 |
+| 5c | 选了什么要看得见，也要能一键取消 | 过滤后看板变空，用户不知道是哪个条件造成的 | 工具栏下方一行小标签（`ActiveFilters`）：每个选中的取值一个，点叉取消，最右边是「清除全部」，什么都没选时不占位置；按 **Esc** 同时清空关键字和筛选（弹层打开时先关弹层）；筛选状态属于当前看板（`useBoardFilters`），换到另一块看板是什么都没选；标签或领取者名字里含双引号或竖线的，没法写进筛选语法，弹层里不列出，不会拼出和用户意图不同的条件；拼出的查询超过服务端的 500 个字符时不发请求，直接提示 `filter.tooLong` | 实施 |
+| 6 | 一眼看出卡片的状态 | 要点开才知道谁在处理、被什么卡住 | 卡片上显示：编号（等宽字体）、标题、优先级色条、前 3 个标签（多的折成 +n）、截止日期（逾期且未完成标红）、"仅人工"锁图标、"等待依赖"图标、被 agent 领取时显示 agent 名加呼吸圆点；完成列里的卡片整体变淡；列头只有列名和卡片数，列说明显示成一行小字，悬停看全文 | 实施 |
 | 7 | 在卡片弹窗里改字段，别人同时也在改 | 静默覆盖别人的改动 | 每次修改都带上打开时读到的 `version`；服务端返回版本冲突时 toast 提示并重新读取最新内容，用户的输入保留在控件里 | 实施 |
 | 8 | 卡片描述很长，修改要有保存和放弃 | 失焦就自动保存，写到一半的描述被存进去 | 标题、优先级、所在列、标签、截止、依赖、分支、链接等短字段改完立即保存；**标签**用 `TagEditor`（回车/逗号添加、× 删除、退格删最后一枚、大小写去重、上限内联提示）；描述用"编辑/保存/取消"，支持预览 Markdown；`Ctrl/Cmd + Enter` 保存评论和描述 | 实施 |
 | 9 | agent 的评论和描述里常带 Markdown | 原样显示难读 | 描述和评论用 Markdown 渲染，不解析原始 HTML，链接只放行 http、https、mailto（做法见 `web.app.md` 第 9 条） | 实施 |
@@ -26,7 +28,7 @@
 | 13 | 卡片弹窗要能分享给同事 | 复制链接只能到看板，找不到卡片 | 卡片弹窗的状态放在地址的 `?card=编号` 里，刷新、分享、浏览器返回都正常；卡片不存在时提示 | 实施 |
 | 14 | 新建项目的参数多 | 新手面对空项目不知道怎么开始 | 创建对话框叫「新建项目」：名称（必填）、编号前缀（选填，不填服务端按名称生成）、说明（选填）、一个**模板开关**（打开 = 研发流程，关闭 = 空白，开关旁显示当前模板名，不写模板描述）；**网页上不填也不展示项目路径**，由 agent 第一次接入时确认后写入（`set_project_path`）；语言取当前界面语言，起步的列和规则就是这种语言。网页只提供 `dev` 和 `empty` 两种，接口和 MCP 仍接受 `simple` | 实施 |
 | 15 | 导出备份 | 只能截图或调 API | 工具栏「导出」下拉：`GET /api/v1/boards/:id/export?format=json` 与 `?format=md`，浏览器下载附件（`BoardToolbar` 链到同源 `API_PREFIX`） | 实施 |
-| 16 | 首屏尽量少拉大组件 | 用不到的页面也加载 Tooltip 栈 | 根组件 `App.tsx` 不再包全局 `TooltipProvider`；**看板页**根节点包一层 `TooltipProvider`（列头 AI 说明等悬停提示）；卡片弹窗懒加载且内部不用 Tooltip | 实施 |
+| 16 | 首屏尽量少拉大组件 | 用不到的页面也加载 Tooltip 栈 | 根组件 `App.tsx` 不再包全局 `TooltipProvider`；**看板页**根节点包一层 `TooltipProvider`（列说明的悬停提示）；卡片弹窗懒加载且内部不用 Tooltip | 实施 |
 | 17 | 完成列常驻占位太宽 | 横向空间浪费，和 kanzo 一样希望侧边收起 | 每一列列头有收起按钮；收成 **48px** 窄边（宽约 250ms 过渡，`motion-reduce` 无动画）：展开图标、匹配卡片数、竖排列名；窄边为 `button`（`aria-expanded=false`，`board.expandColumn`），点整块或 Enter/空格展开；展开列头按钮 `board.collapseColumn`。无偏好时 **`is_done` 列默认收起**，其余展开。偏好键 `slate.col.<boardId>.<columnId>`，值 `1` 收起 / `0` 展开（`useCollapsedColumns`）。收起列仍注册 `useDroppable`（`type: column`），可拖进；搜索时窄边数字=当前可见卡数，不自动展开 | 实施 |
 
 ## v1 明确不做
@@ -42,10 +44,11 @@
 ```mermaid
 flowchart TB
     subgraph 看板页 /b/:id
-        T[工具栏: 看板名 编号 | 搜索 | 导出 JSON/MD | 设置 | LiveStatus 绿点]
-        S[搜索激活时: 禁用拖拽提示条]
+        T[工具栏: 看板名 编号 | 导出 JSON/MD | 设置 | 搜索 筛选 | LiveStatus 仅连接中或离线时出现]
+        F[当前筛选一行小标签 ActiveFilters]
+        S[搜索或筛选激活时: 禁用拖拽提示条]
         subgraph 画布 可横向滚动
-            C1[列: 名称 数量 AI标记 / 卡片 卡片 ... / 添加卡片]
+            C1[列: 名称 数量 说明 / 卡片 卡片 ... / 添加卡片]
             C2[列 ...]
         end
     end
@@ -53,7 +56,7 @@ flowchart TB
     C1 --> D
 ```
 
-一列的头部：列名、卡片数、`AI` 小标签（`agent_pickup` 为真）、完成标记（`is_done` 为真）；列底部是"添加卡片"：点开后是一个多行输入，`Enter` 添加、`Shift + Enter` 换行、`Esc` 取消；连续添加时输入框保持打开。
+一列的头部：列名、卡片数、收起按钮，下面是一行列说明（悬停看全文）；列底部是"添加卡片"：点开后是一个多行输入，`Enter` 添加、`Shift + Enter` 换行、`Esc` 取消；连续添加时输入框保持打开。
 
 ## 拖拽算法
 
@@ -88,7 +91,7 @@ flowchart TD
 
 ## 实时连接
 
-`useBoardLive` 用原生 `EventSource` 连接 `/api/v1/boards/:id/stream`（v1 免认证）。工具栏 `LiveStatus`：**已连接**为绿色圆点（`bg-emerald-500`），**连接中**琥珀色脉冲，**离线**灰色且可手动重试。事件合并刷新见 `web.app.md` 第 3–4 条；看板删除时快照 404 走 `BoardGone`。
+`useBoardLive` 用原生 `EventSource` 连接 `/api/v1/boards/:id/stream`（v1 免认证）。工具栏 `LiveStatus`：**已连接时什么都不显示**，只在**连接中**（琥珀色脉冲）、**离线**（灰色，可手动重试）、看板被删时提示。事件合并刷新见 `web.app.md` 第 3–4 条；看板删除时快照 404 走 `BoardGone`。
 
 ## 卡片弹窗
 
@@ -100,22 +103,24 @@ flowchart TD
 - **开始/完成时间**：只在 `CardTimeMeta` 只读展示，不在属性表单里编辑。
 - **版本冲突**：见问题场景第 7 条；测试见 `CardDialog.test.tsx`。
 
-## 搜索
+## 搜索与筛选
 
 ```mermaid
 sequenceDiagram
     participant U as 用户
     participant B as 搜索框
     participant S as 服务
-    U->>B: 输入 is:open tag:bug
-    B->>B: 防抖 300 毫秒
-    B->>S: GET /boards/:id/cards?query=...&limit=500
+    U->>B: 输入 is:open tag:bug，或在筛选弹层里点选
+    B->>B: 关键字防抖 300 毫秒，点选立刻生效
+    B->>S: GET /boards/:id/cards?query=关键字 点选的筛选词&limit=500
     S-->>B: 命中的卡片 id 与 total、truncated
     B->>B: 看板只显示命中的卡片
     Note over B,S: 实时流刷新快照时，搜索结果通过同一 query 键一起刷新
 ```
 
 语法说明在 `SearchHelp`；无结果、语法错误、结果被截断均有文案（`search.noResults`、`search.truncated` 等）。
+点选的筛选词和关键字合成一条查询（`filters.ts` 的 `joinQuery`）后，由 `useBoardSearch` 一次发给服务端；条件刚变、新结果还没回来时先用上一次的结果（`keepPreviousData`），点一下筛选不会闪一下空白。
+服务端的 `|` 多选一（`tag:bug|ui`、`col:待办|进行中`）就是为这个弹层加的：同一组里选多个取值时只需要一个词，不用在网页里再写一套过滤逻辑。
 
 ## 多语言文案分组
 
@@ -124,6 +129,7 @@ sequenceDiagram
 | `boards` | 看板列表、创建看板对话框、模板名称 |
 | `board` | 工具栏、列、卡片标记、添加卡片、空状态、搜索时禁用拖拽 |
 | `search` | 搜索框、语法说明、结果统计 |
+| `filter` | 筛选按钮与弹层的分组名、取值名，当前筛选小标签，查询过长提示 |
 | `card` | 卡片弹窗、标签上限、版本冲突、评论、释放领取 |
 | `stream` | 实时连接状态文案 |
 
@@ -132,7 +138,7 @@ sequenceDiagram
 | 路径 | 内容 |
 |------|------|
 | `web/src/features/boards/` | `BoardListPage.tsx`、`CreateBoardDialog.tsx`、`useBoards.ts`、`validation.ts` |
-| `web/src/features/board/` | `BoardPage.tsx`、`BoardToolbar.tsx`、`BoardCanvas.tsx`、`ColumnView.tsx`、`CardTile.tsx`、`AddCard.tsx`、`SearchBox.tsx`、`SearchHelp.tsx`、`LiveStatus.tsx`、`BoardGone.tsx`、`dnd.ts`、`handleDragEnd.ts`、`useBoard.ts`、`useBoardLive.ts`、`useMoveCard.ts`、`useBoardSearch.ts`、`useCreateCard.ts`、`useBoardKeyboard.ts`、`useCollapsedColumns.ts` |
+| `web/src/features/board/` | `BoardPage.tsx`、`BoardToolbar.tsx`、`BoardCanvas.tsx`、`ColumnView.tsx`、`CardTile.tsx`、`AddCard.tsx`、`SearchBox.tsx`、`SearchHelp.tsx`、`FilterPopover.tsx`、`ActiveFilters.tsx`、`filters.ts`、`filterChips.ts`、`useBoardFilters.ts`、`LiveStatus.tsx`、`BoardGone.tsx`、`dnd.ts`、`handleDragEnd.ts`、`useBoard.ts`、`useBoardLive.ts`、`useMoveCard.ts`、`useBoardSearch.ts`、`useCreateCard.ts`、`useBoardKeyboard.ts`、`useCollapsedColumns.ts` |
 | `web/src/features/card/` | `CardDialog.tsx`、`CardDialogBody.tsx`、`CardProperties.tsx`、`TagEditor.tsx`、`tagList.ts`、`CardTimeMeta.tsx`、`DescriptionEditor.tsx`、`Comments.tsx`、`DependencyPicker.tsx`、`useCardDetail.ts`、`useCardUpdate.ts`、`validateUrl.ts` |
 | `web/src/lib/markdown.tsx` | 安全 Markdown 渲染（描述与评论共用） |
 
@@ -145,8 +151,10 @@ sequenceDiagram
 | 列收起偏好 | `useCollapsedColumns.test.tsx`：默认、读写 localStorage、看板隔离、存储失败回退 |
 | `useMoveCard` | `useMoveCard.test.tsx`：乐观更新、成功失效、失败回滚、取消在飞请求、无快照不崩溃 |
 | `useBoardLive` | `useBoardLive.test.tsx`：连接 ready、事件合并刷新、board.* 刷新列表、reset 重连、404 看板不存在、卸载关闭等（**无**令牌/401 用例） |
-| `LiveStatus` | `LiveStatus.test.tsx`：`已连接时圆点为绿色` |
+| `LiveStatus` | `LiveStatus.test.tsx`：`已连接时什么都不显示`、`连接中显示提示文字`、`断线时显示提示并能点重试`、`项目已被删除时提示不存在，即使连接状态是 live` |
 | `BoardPage` 集成 | `BoardPage.test.tsx`：渲染列与卡片、非法 id、搜索防抖与语法错误、快捷键 `n`、新建卡片 POST、快照 404、完成列默认窄边/点击与键盘展开、收起按钮、刷新保留偏好 |
+| 筛选纯逻辑 | `filters.test.ts`：点选条件拼成筛选词（标签任一/全部、带空格加引号、没有标签、列用 id、状态、截止与跨月跨年的 7 天内）、含引号或竖线的取值被跳过、各组一起选、关键字合并、计数、切换与互斥状态、标签选项排序与领取者去重；`filterChips.test.ts`：小标签的文字、顺序和取消后的条件 |
+| 筛选界面 | `FilterPopover.test.tsx`：点选后发给服务端的查询与当前筛选小标签、任一/全部开关、各组一起选、点叉取消与清除全部、关键字和点选合成一条查询、未完成与已完成互斥、查询过长不发请求；`useBoardFilters.test.tsx`：设置与清空、换到另一块看板是什么都没选 |
 | 标签纯逻辑 | `tagList.test.ts`：去重、上限、截断、删除 |
 | 卡片弹窗 | `CardDialog.test.tsx`：`?card= 打开后修改标题带 version`、`版本冲突时不丢输入框内容（仍可编辑）`、`标签可添加，重复标签不重复提交`、`标签达到上限时内联提示`、`显示开始时间、无完成时间，领取可释放`、`弹窗内同时有属性区、描述与评论` |
 | Markdown | `markdown.test.tsx`：标题粗体、拒绝 `javascript:`、不渲染原始 HTML/图片标签 |
