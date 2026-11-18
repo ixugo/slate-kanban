@@ -155,6 +155,17 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 5. `/skills/slate-kanban/SKILL.md`、MCP 资源、编译进二进制的内容三者完全一致。
 6. 安装说明里的 JSON 片段必须是合法 JSON，每个 host 都有 MCP 和 skill 两组步骤，命令里的地址和请求一致，没有令牌明文。
 
+## 验证记录
+
+| 验证 | 做了什么 | 结果 |
+|------|---------|------|
+| 单元和路由测试 | skill 的格式和对服务端的一致性（`internal/web/mcpapi/skill_test.go`）；地址算法、说明内容、Markdown、页面的头和 400（`internal/web/api/connectapi`）；认证边界，以及说明里给的地址真的能连上 MCP、下载的 skill 与资源和编译进去的一致（`internal/web/api/connect_test.go`） | 通过，`-race` 在最终验收时统一跑 |
+| 变异验证 | 在 skill、资源、说明、地址校验、渲染和路由上共造 35 处变异（`tmp/mutate-mcp/run.py`） | 全部被测试发现；其中"代码围栏没有闭合"一处最初漏网：原来只数围栏个数，同时少了偶数个关闭围栏时发现不了，改成检查严格一开一关交替 |
+| 真实进程：页面 | 编译二进制启动，用 curl 检查两个免认证页面的类型和缓存头、代理头下的地址、非法主机返回 400、`/api/v1/connect` 无令牌和错令牌返回 401 | 符合预期；skill 下载与仓库文件逐字节一致；非法 `Host` 在到达我们的代码之前就被 Go 的 HTTP 库以 400 拒绝 |
+| 真实进程：host 命令 | 把页面上的命令原样取出，在临时的 HOME 和 CODEX_HOME 里执行（没有碰真实配置） | Claude Code 和 Codex 的命令都被接受；Claude Code 保存的是 `${SLATE_TOKEN}` 引用，配置里没有令牌明文；带环境变量时 `claude mcp list` 显示已连接，不带时返回 401；Codex 只保存变量名；三种 host 的 skill 安装命令都能执行，装好的文件与仓库一致 |
+| 真实进程：流程 | `tmp/smoke-mcp/smoke_skill_test.go` 用脚本照着 skill 走完整流程：确认并写入项目路径、守候、用 `list_cards` 加 `claim_card` 领两张、按 skill 的命令建 worktree 和分支、子 agent 提交、交接到审查、人返工后再交接、释放做不下去的卡片、人合并后清理；并触发错误对照表里的每个错误 | 通过：skill 里的 git 命令、查询写法和每个错误名，都和服务端真实行为一致 |
+| 没有验证的 | Cursor 没有命令行可以验证，只验证了 JSON 合法、结构符合官方文档；大模型会不会真的照着 skill 做，需要用真实的 agent 试用才知道，测试只能保证 skill 写的东西是对的、可执行的 | 见"限制" |
+
 ## 限制与没做的事
 
 - 只覆盖 Claude Code、Cursor、Codex 三种 host，其他 host（以及它们的配置格式）不在内；安装命令和目录依据的是本机已安装的命令行帮助和官方文档，host 改版后以其官方文档为准。
@@ -163,6 +174,7 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 - skill 不会自动更新：服务升级后，用户重新执行安装说明里的下载命令即可。
 - 并发上限、20 分钟续租、worktree 的命名是 skill 里的建议，不是服务端的强制规则；服务端强制的只有权限、租约和列的约束。
 - 没有 MCP Prompts：host 对它的支持参差不齐，流程说明放在 skill 和 `instructions` 里。
+- 说明页只支持 GET，不处理 HEAD 请求（用 `curl -I` 探测会得到 404，用 `curl` 直接取即可）。
 
 ## 代码对照
 
@@ -175,4 +187,4 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 | 路由与处理函数 | Register、RegisterPublic | internal/web/api/connectapi/api.go |
 | MCP 资源 | registerResources、readSkill | internal/web/mcpapi/resource.go |
 | 连接时的提示 | agentInstructions | internal/web/mcpapi/instructions.go |
-| 装配 | NewConnect、setupRouter | internal/web/api/provider.go、internal/web/api/api.go |
+| 装配 | connectapi.New、setupRouter | internal/web/api/provider.go、internal/web/api/api.go |
