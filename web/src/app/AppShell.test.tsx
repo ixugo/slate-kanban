@@ -18,9 +18,9 @@ function LocationProbe() {
 
 const boards = [makeBoard({ id: 1, name: 'Slate', slug: 'SLATE' }), makeBoard({ id: 2, name: '官网', slug: 'WEB' })]
 
-// 渲染完整应用，假服务端提供看板列表
-function setup(route = '/') {
-  const api = installFakeApi({ 'GET /api/v1/boards': boards })
+// 渲染完整应用，假服务端提供看板列表；auth 是访问口令的状态，默认没有启用口令
+function setup(route = '/', auth = { required: false, authenticated: true }) {
+  const api = installFakeApi({ 'GET /api/v1/boards': boards, 'GET /api/v1/auth/status': auth })
   renderApp(
     <>
       <AppRoutes />
@@ -36,6 +36,18 @@ describe('AppShell', () => {
     setup()
     expect(await screen.findByRole('link', { name: en.nav.skipToContent })).toHaveAttribute('href', '#main')
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main')
+  })
+
+  it('启用了访问口令且已登录时，顶栏有退出按钮', async () => {
+    setup('/', { required: true, authenticated: true })
+    expect(await screen.findByRole('button', { name: en.auth.logout })).toBeInTheDocument()
+  })
+
+  it('没有启用访问口令时，顶栏没有退出按钮', async () => {
+    const api = setup()
+    await screen.findByRole('heading', { name: en.boards.title })
+    await waitFor(() => expect(api.count('GET /api/v1/auth/status')).toBe(1))
+    expect(screen.queryByRole('button', { name: en.auth.logout })).toBeNull()
   })
 
   it('切换语言：界面文字、<html lang>、i18n 当前语言一起变', async () => {
