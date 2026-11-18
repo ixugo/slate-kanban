@@ -72,9 +72,9 @@ function ToastItem({ item, onClose }: { item: ToastRecord; onClose: (id: string 
     <li
       role={isError ? "alert" : "status"}
       className={cn(
-        "pointer-events-auto flex w-full max-w-sm gap-3 border bg-popover p-4 text-popover-foreground shadow-md",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out",
-        isError && "border-destructive/40",
+        "pointer-events-auto flex w-full max-w-sm gap-3 rounded-2xl material-panel p-4 text-popover-foreground",
+        "animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-spring data-[state=closed]:animate-out",
+        isError && "ring-1 ring-destructive/40",
       )}
       onMouseEnter={pause}
       onMouseLeave={resume}
@@ -90,7 +90,7 @@ function ToastItem({ item, onClose }: { item: ToastRecord; onClose: (id: string 
       </div>
       <button
         type="button"
-        className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground"
+        className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         onClick={() => onClose(item.id)}
         aria-label={t("common.close")}
       >
