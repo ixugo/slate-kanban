@@ -154,7 +154,7 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 
 | 验证 | 做了什么 | 结果 |
 |------|---------|------|
-| 单元和路由测试 | skill 的格式和对服务端的一致性（`internal/web/mcpapi/skill_test.go`）；地址算法、说明内容、Markdown、页面的头和 400（`internal/web/api/connectapi`）；认证边界，以及说明里给的地址真的能连上 MCP、下载的 skill 与资源和编译进去的一致（`internal/web/api/connect_test.go`） | 通过，`-race` 在最终验收时统一跑 |
+| 单元和路由测试 | skill 一致性（`skill_test.go`）；connectapi 地址与 Markdown；`/connect` 免认证、命令无秘密（`connect_test.go`、`guide_test.go`） | 通过 |
 | 变异验证 | 在 skill、资源、说明、地址校验、渲染和路由上共造 35 处变异（`tmp/mutate-mcp/run.py`） | 全部被测试发现；其中"代码围栏没有闭合"一处最初漏网：原来只数围栏个数，同时少了偶数个关闭围栏时发现不了，改成检查严格一开一关交替 |
 | 真实进程：页面 | curl 检查免认证页面头、`/api/v1/connect` 免认证 JSON、非法 Host 400 | skill 与仓库一致 |
 | 真实进程：host 命令 | 临时 HOME 执行安装命令 | MCP URL 带 `?name=`，无 SLATE_TOKEN；三种 host skill 安装可执行 |
