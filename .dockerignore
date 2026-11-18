@@ -1,6 +1,27 @@
-logs/
+# 版本库、编辑器和设计文档不进构建上下文
+.git
+.cursor
+.claude
+.vscode
+
+# 依赖和构建产物由镜像里的构建阶段重新生成
+web/node_modules
+web/dist
+internal/web/spa/dist
+build
+slate
+slate-kanban
+
+# 本地运行产生的数据、日志、临时文件和个人配置
+tmp
+logs
+*.log
+*.db
+*.db-shm
+*.db-wal
+configs/config.toml
+internal/conf/test.toml
+
+# 文档不需要
 README.md
-README_zh.md
-log.png
-logo_dart.png
 LICENSE
