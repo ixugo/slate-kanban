@@ -8,11 +8,16 @@ import { makeCard, makeSnapshot } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
 import { installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from './BoardPage'
+import { LIST_PREFETCH_DELAY_MS, prefetchListView } from './prefetchListView'
 import { boardViewStorageKey } from './useBoardView'
+
+// 预取只是为了让 Service Worker 缓存列表视图的代码，测试里换成可观察的假函数
+vi.mock('./prefetchListView', () => ({ LIST_PREFETCH_DELAY_MS: 300, prefetchListView: vi.fn() }))
 
 afterEach(() => {
   vi.unstubAllGlobals()
   localStorage.clear()
+  vi.mocked(prefetchListView).mockClear()
 })
 
 const snapshot = makeSnapshot({
@@ -83,5 +88,14 @@ describe('BoardPage 列表视图', () => {
     await user.type(screen.getByLabelText(en.board.addCard), '列表新建{Enter}')
     await waitFor(() => expect(api.count('POST /api/v1/boards/:id/cards')).toBe(1))
     expect(api.calls.find((c) => c.method === 'POST')?.body).toMatchObject({ title: '列表新建', column_id: 1 })
+  })
+
+  it('打开看板后延迟预取列表视图的代码，不阻塞首屏', async () => {
+    installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
+    renderBoard()
+    await screen.findByText('可见卡')
+    expect(LIST_PREFETCH_DELAY_MS).toBeGreaterThan(0)
+    expect(prefetchListView).not.toHaveBeenCalled()
+    await waitFor(() => expect(prefetchListView).toHaveBeenCalledTimes(1))
   })
 })

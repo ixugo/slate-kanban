@@ -1,6 +1,6 @@
 // 看板页：工具栏、搜索与筛选、列画布、卡片弹窗与实时同步。
 
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
 import { ApiError } from '@/lib/api/client'
@@ -24,6 +24,7 @@ import { BoardGone } from './BoardGone'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useBoardViewMode } from './useBoardView'
 import { useOnlineStatus } from '@/pwa/useOnlineStatus'
+import { LIST_PREFETCH_DELAY_MS, prefetchListView } from './prefetchListView'
 
 const CardDialog = lazy(() => import('@/features/card/CardDialog'))
 const ListView = lazy(() => import('./ListView'))
@@ -38,6 +39,12 @@ export default function BoardPage() {
   const [addColumnId, setAddColumnId] = useState<number | null>(null)
   const [listAddOpen, setListAddOpen] = useState(false)
   const { mode: viewMode, setMode: setViewMode } = useBoardViewMode(boardId ?? 0)
+
+  // 看板视图下也在空闲时预取列表视图的代码，让 Service Worker 缓存它，离线切换到列表才不会失败
+  useEffect(() => {
+    const timer = window.setTimeout(prefetchListView, LIST_PREFETCH_DELAY_MS)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   const { data: snapshot, error, isPending, refetch } = useBoardSnapshot(boardId)
   const { columns, cardsById } = useBoardView(snapshot)
