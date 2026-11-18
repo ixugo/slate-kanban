@@ -19,6 +19,7 @@ type Storer interface {
 	Rule() RuleStorer
 	Event() EventStorer
 	Cursor() CursorStorer
+	Attachment() AttachmentStorer
 }
 
 // Core 是看板领域的业务入口，是个很小的值类型，可以直接按值传递。

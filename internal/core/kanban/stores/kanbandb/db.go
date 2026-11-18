@@ -46,6 +46,11 @@ func (d DB) Comment() kanban.CommentStorer {
 	return Comment(d)
 }
 
+// Attachment 返回图片存储。
+func (d DB) Attachment() kanban.AttachmentStorer {
+	return Attachment(d)
+}
+
 // Rule 返回自动化规则存储。
 func (d DB) Rule() kanban.RuleStorer {
 	return Rule(d)
@@ -69,7 +74,7 @@ func (d DB) AutoMigrate(ok bool) DB {
 	}
 	if err := d.db.AutoMigrate(
 		new(kanban.Board), new(kanban.Column), new(kanban.Card), new(kanban.Comment),
-		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor),
+		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor), new(kanban.Attachment),
 	); err != nil {
 		panic(err)
 	}
