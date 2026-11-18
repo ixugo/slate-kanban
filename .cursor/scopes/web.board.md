@@ -27,7 +27,7 @@
 | 12 | 看板很宽、手机很窄 | 横向看不全，误触 | 列容器横向滚动，窄屏每列接近整屏宽并按列吸附；卡片弹窗窄屏接近全宽，桌面用 `sm:max-w-4xl` 放宽（与 `DialogContent` 默认同断点前缀，避免 `cn` 合并 Tailwind 类时小屏类盖不掉基础 `max-w-sm`） | 实施 |
 | 13 | 卡片弹窗要能分享给同事 | 复制链接只能到看板，找不到卡片 | 卡片弹窗的状态放在地址的 `?card=编号` 里，刷新、分享、浏览器返回都正常；卡片不存在时提示 | 实施 |
 | 14 | 新建项目的参数多 | 新手面对空项目不知道怎么开始 | 创建对话框叫「新建项目」：名称（必填）、编号前缀（选填，不填服务端按名称生成）、说明（选填）、一个**模板开关**（打开 = 研发流程，关闭 = 空白，开关旁显示当前模板名，不写模板描述）；**网页上不填也不展示项目路径**，由 agent 第一次接入时确认后写入（`set_project_path`）；语言取当前界面语言，起步的列和规则就是这种语言。网页只提供 `dev` 和 `empty` 两种，接口和 MCP 仍接受 `simple` | 实施 |
-| 15 | 导出备份 | 只能截图或调 API | 工具栏「导出」下拉：`GET /api/v1/boards/:id/export?format=json` 与 `?format=md`，浏览器下载附件（`BoardToolbar` 链到同源 `API_PREFIX`） | 实施 |
+| 15 | 导出备份 | 只能截图或调 API | 项目设置的「导出」页签：`GET /api/v1/boards/:id/export?format=json` 与 `?format=md`，浏览器下载附件（`ExportSection` 链到同源 `API_PREFIX`；看板工具栏不再放导出入口） | 实施 |
 | 16 | 首屏尽量少拉大组件 | 用不到的页面也加载 Tooltip 栈 | 根组件 `App.tsx` 不再包全局 `TooltipProvider`；**看板页**根节点包一层 `TooltipProvider`（列说明的悬停提示）；卡片弹窗懒加载且内部不用 Tooltip | 实施 |
 | 17 | 完成列常驻占位太宽 | 横向空间浪费，和 kanzo 一样希望侧边收起 | 每一列列头有收起按钮；收成 **48px** 窄边（宽约 250ms 过渡，`motion-reduce` 无动画）：展开图标、匹配卡片数、竖排列名；窄边为 `button`（`aria-expanded=false`，`board.expandColumn`），点整块或 Enter/空格展开；展开列头按钮 `board.collapseColumn`。无偏好时 **`is_done` 列默认收起**，其余展开。偏好键 `slate.col.<boardId>.<columnId>`，值 `1` 收起 / `0` 展开（`useCollapsedColumns`）。收起列仍注册 `useDroppable`（`type: column`），可拖进；搜索时窄边数字=当前可见卡数，不自动展开 | 实施 |
 | 18 | 想知道看板上发生过什么 | 只能一张张点开卡片翻评论 | 工具栏「活动」按钮（`BoardToolbar` 的 `onActivityOpen`）打开右侧抽屉，按时间列出谁做了什么，可按事件类型和操作者筛选，抽屉开着时实时出现新事件；抽屉代码在 `BoardPage` 里懒加载，第一次点击才下载。详见 `web.activity.md` | 实施 |
@@ -45,7 +45,7 @@
 ```mermaid
 flowchart TB
     subgraph 看板页 /b/:id
-        T[工具栏: 看板名 编号 | 看板/列表 | 导出 JSON/MD | 活动 | 设置 | 搜索 筛选 | LiveStatus 仅连接中或离线时出现]
+        T[工具栏: 看板名 编号 | 看板/列表 | 活动 | 设置 | 搜索 筛选 | LiveStatus 仅连接中或离线时出现]
         F[当前筛选一行小标签 ActiveFilters]
         S[搜索或筛选激活时: 禁用拖拽提示条]
         subgraph 画布 可横向滚动

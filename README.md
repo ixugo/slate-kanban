@@ -152,7 +152,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 
 ## 导出
 
-- 网页：看板工具栏的「导出」菜单。
+- 网页：「设置 → 导出」页签，JSON 和 Markdown 各一个下载链接。
 - 接口：`GET /api/v1/boards/:id/export?format=json|md`，JSON 含看板、列、规则、全部卡片和评论；Markdown 是方便阅读和归档的文档。
 
 ## 配置

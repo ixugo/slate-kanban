@@ -157,7 +157,7 @@ sequenceDiagram
 
 ### `web/src/components/ui/`
 
-vendored shadcn 组件（`button`、`dialog`、`dropdown-menu` 等）。**不要求**每个函数都写中文注释；业务改动的部分应注释。看板工具栏「导出」等仍可能用 `dropdown-menu`（懒加载 chunk，非首屏）。
+vendored shadcn 组件（`button`、`dialog`、`tabs` 等）。**不要求**每个函数都写中文注释；业务改动的部分应注释。
 
 ### `web/src/test/`
 
