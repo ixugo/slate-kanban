@@ -207,6 +207,7 @@ func (u *unit) deleteBoard(ctx context.Context, id int64) error {
 		del  func() error
 	}{
 		{"评论", func() error { return u.comment.DeleteByBoard(ctx, id) }},
+		{"图片", func() error { return u.attachment.DeleteByBoard(ctx, id) }},
 		{"卡片", func() error { return u.card.DeleteByBoard(ctx, id) }},
 		{"规则", func() error { return u.rule.DeleteByBoard(ctx, id) }},
 		{"列", func() error { return u.column.DeleteByBoard(ctx, id) }},
