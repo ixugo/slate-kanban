@@ -4,7 +4,9 @@ import { useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
+import { ApiError } from '@/lib/api/client'
 import { deleteCard, releaseCard } from '@/lib/api/endpoints'
+import { describeError } from '@/lib/errors'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { CardDetail, Snapshot, UpdateCardInput } from '@/lib/api/types'
@@ -83,7 +85,12 @@ export default function CardDialog({ boardId }: CardDialogProps) {
     onError: toastError,
   })
 
-  const showNotFound = open && !isPending && (error !== null || !card)
+  // 只有服务端明确说卡片不存在（404）才提示"已经没有这张卡片"；
+  // 断网、服务器出错时如实说明原因，不能让人误以为卡片被删了。
+  const gone = error instanceof ApiError && error.status === 404
+  const loaded = open && !isPending
+  const showNotFound = loaded && (gone || (error === null && !card))
+  const loadError = loaded && !card && error !== null && !gone ? describeError(error, t).message : ''
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
@@ -97,6 +104,7 @@ export default function CardDialog({ boardId }: CardDialogProps) {
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-1 pb-6">
           {isPending && <Skeleton className="h-40 w-full rounded-2xl" />}
           {showNotFound && <p role="alert">{t('card.notFound')}</p>}
+          {loadError !== '' && <p role="alert">{loadError}</p>}
           {card && (
             <CardDialogBody
               card={card}

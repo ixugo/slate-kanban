@@ -166,4 +166,41 @@ describe('CardDialog', () => {
     expect(within(dialog).getByRole('button', { name: en.card.descEdit })).toBeInTheDocument()
     expect(within(dialog).getByText(en.card.comment.title)).toBeInTheDocument()
   })
+
+  // 打开一个详情请求会失败的卡片，用来检查弹窗对不同失败原因的提示
+  function openBoardWithBrokenDetail(detail: () => { status?: number; body?: unknown }) {
+    installFakeEventSource()
+    installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ cards: [makeCard({ id: 1 })] }),
+      'GET /api/v1/cards/:id': detail,
+    })
+    renderApp(
+      <Routes>
+        <Route path="/b/:boardId" element={<BoardPage />} />
+      </Routes>,
+      { route: '/b/1?card=1' },
+    )
+  }
+
+  it('服务端说卡片不存在（404）时提示卡片已被删除', async () => {
+    openBoardWithBrokenDetail(() => ({ status: 404, body: { reason: 'ErrCardNotFound', msg: '没有' } }))
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByText(en.card.notFound)).toBeInTheDocument()
+  })
+
+  it('断网时如实提示连不上服务器，不说卡片已被删除', async () => {
+    openBoardWithBrokenDetail(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByText(en.errors.ErrNetwork)).toBeInTheDocument()
+    expect(within(dialog).queryByText(en.card.notFound)).toBeNull()
+  })
+
+  it('服务器出错（500）时也不说卡片已被删除', async () => {
+    openBoardWithBrokenDetail(() => ({ status: 500, body: { reason: 'ErrInternal', msg: '服务器出错了' } }))
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByText(en.errors.ErrInternal)).toBeInTheDocument()
+    expect(within(dialog).queryByText(en.card.notFound)).toBeNull()
+  })
 })
