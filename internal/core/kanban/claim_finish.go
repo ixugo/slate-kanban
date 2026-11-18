@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// FinishCard 完成交接：写一条总结评论，记录分支和链接，把卡片移到目标列末尾，清除领取。
+// FinishCard 完成交接：写一条总结评论，记录分支和链接，把卡片移到目标列的指定位置（默认末尾），清除领取。
 // 这些都在同一个事务里，任何一步失败整体回滚，不会出现总结写了但卡片还留在进行中的半成品。
 // 人可以完成任何卡片；agent 只能完成自己持有的卡片。目标列不指定时用当前列设置的下一列，
 // agent 显式指定的目标列不能是开启了 agent 领取的列，否则它能把卡片重新放回队列，绕过人的评审。
@@ -49,7 +49,7 @@ func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary 
 	if err := u.recordLinks(ctx, actor, card, in); err != nil {
 		return err
 	}
-	return u.handOver(ctx, actor, card, from, to)
+	return u.handOver(ctx, actor, card, from, to, in)
 }
 
 // finishTarget 确定交接后卡片去哪一列，同时返回卡片当前所在的列。
@@ -97,16 +97,20 @@ func (u *unit) recordLinks(ctx context.Context, actor Actor, card *Card, in Fini
 	})
 }
 
-// handOver 把卡片放到目标列末尾并清除领取。换了列时 card.moved 已经表达了"领取结束"，
+// handOver 把卡片放到目标列的指定位置（默认列尾，in.Top 为真时列头）并清除领取。换了列时 card.moved 已经表达了"领取结束"，
 // 所以不再单独写 card.released；留在原列时没有别的事件，才补一条 card.released。
-func (u *unit) handOver(ctx context.Context, actor Actor, card *Card, from, to *Column) error {
+func (u *unit) handOver(ctx context.Context, actor Actor, card *Card, from, to *Column, in FinishCardInput) error {
 	if from.ID == to.ID {
 		if err := u.clearClaim(ctx, actor, card, releaseReleased); err != nil {
 			return err
 		}
 		return u.saveCard(ctx, actor, card)
 	}
-	pos, err := u.appendPosition(ctx, to.ID)
+	others, err := u.cardsExcept(ctx, to.ID, card.ID)
+	if err != nil {
+		return err
+	}
+	pos, _, err := u.placeCard(ctx, others, topRef(others, in.Top, in.BeforeID, in.AfterID), in.AfterID)
 	if err != nil {
 		return err
 	}

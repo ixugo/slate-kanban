@@ -7,7 +7,7 @@ import (
 
 // MoveCard 把卡片移到目标列的指定位置，也用来在同一列里调整顺序。
 // 入参的 ColumnID 为零表示留在当前列；BeforeID 和 AfterID 最多给一个，表示放到那张卡的前面或后面，
-// 都不给就放到目标列末尾。人可以移动任何卡片；agent 只能移动自己持有的卡片，
+// 都不给就放到目标列末尾（Top 为真时放到最顶部）。人可以移动任何卡片；agent 只能移动自己持有的卡片，
 // 并且不能把卡片放进开启了 agent 领取的列，否则它就能把卡片重新放回队列。
 // 换列会清除领取并写 card.moved；同列调整顺序写 card.reordered；位置没有变化时什么都不做。
 func (c Core) MoveCard(ctx context.Context, actor Actor, cardID int64, in MoveCardInput) (*Card, error) {
@@ -48,7 +48,7 @@ func (u *unit) moveCard(ctx context.Context, actor Actor, card *Card, in MoveCar
 	}
 	// 当前下标必须在 placeCard 之前算：整列重排会改动其他卡片的位置，之后再比较就不准了。
 	current := indexInColumn(others, card)
-	pos, idx, err := u.placeCard(ctx, others, in.BeforeID, in.AfterID)
+	pos, idx, err := u.placeCard(ctx, others, topRef(others, in.Top, in.BeforeID, in.AfterID), in.AfterID)
 	if err != nil {
 		return err
 	}

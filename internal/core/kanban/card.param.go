@@ -38,6 +38,8 @@ type CreateCardInput struct {
 	FinishedAt  string   `json:"finished_at"`
 	Branch      string   `json:"branch"`
 	URL         string   `json:"url"`
+	// Top 为真表示新卡片放到所在列的最顶部，不填（默认）放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
+	Top bool `json:"-"`
 }
 
 // UpdateCardInput 是修改卡片的入参。指针字段为 nil 表示不修改，所以"清空"和"不改"是分得开的：
@@ -64,6 +66,8 @@ type MoveCardInput struct {
 	ColumnID int64 `json:"column_id"`
 	BeforeID int64 `json:"before_id"`
 	AfterID  int64 `json:"after_id"`
+	// Top 为真且没有指定 BeforeID、AfterID 时放到目标列最顶部，否则放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
+	Top bool `json:"-"`
 }
 
 // asPatch 把创建入参转成"所有字段都出现"的修改入参，创建和修改因此共用同一套校验和赋值。

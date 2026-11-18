@@ -38,6 +38,8 @@ type finishCardIn struct {
 	Branch   string `json:"branch,omitempty" jsonschema:"这次工作用的分支名；不填表示不改"`
 	URL      string `json:"url,omitempty" jsonschema:"相关链接，例如合并请求，必须以 http:// 或 https:// 开头；不填表示不改"`
 	ColumnID int64  `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；agent 不能指定 agent 领取列"`
+	BeforeID int64  `json:"before_id,omitempty" jsonschema:"放到目标列这张卡片（数字 id）的前面；和 after_id 最多填一个；都不填放到目标列最顶部"`
+	AfterID  int64  `json:"after_id,omitempty" jsonschema:"放到目标列这张卡片（数字 id）的后面；和 before_id 最多填一个"`
 }
 
 // commentCardIn 是 comment_card 的入参。
@@ -51,7 +53,7 @@ type createCardIn struct {
 	BoardID     int64    `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	Title       string   `json:"title" jsonschema:"标题，1 到 200 字，单行"`
 	Description string   `json:"description,omitempty" jsonschema:"详细描述，最多 20000 字；写清要做什么和验收标准"`
-	ColumnID    int64    `json:"column_id,omitempty" jsonschema:"放进哪一列；不填放进第一列"`
+	ColumnID    int64    `json:"column_id,omitempty" jsonschema:"放进哪一列；不填放进第一列；新卡片放在该列最顶部"`
 	Tags        []string `json:"tags,omitempty" jsonschema:"标签，最多 10 个，每个 1 到 30 字"`
 	Branch      string   `json:"branch,omitempty" jsonschema:"关联的分支名"`
 	URL         string   `json:"url,omitempty" jsonschema:"关联的链接，必须以 http:// 或 https:// 开头"`
@@ -95,7 +97,7 @@ type moveCardIn struct {
 	CardID   int64 `json:"card_id" jsonschema:"卡片编号，是数字 id，不是 SLATE-12 这样的 key"`
 	ColumnID int64 `json:"column_id,omitempty" jsonschema:"移到哪一列；不填表示留在当前列，只调整顺序"`
 	BeforeID int64 `json:"before_id,omitempty" jsonschema:"放到这张卡片（数字 id）的前面；和 after_id 最多填一个"`
-	AfterID  int64 `json:"after_id,omitempty" jsonschema:"放到这张卡片（数字 id）的后面；和 before_id 最多填一个；都不填放到目标列末尾"`
+	AfterID  int64 `json:"after_id,omitempty" jsonschema:"放到这张卡片（数字 id）的后面；和 before_id 最多填一个；都不填放到目标列最顶部"`
 }
 
 // setProjectPathIn 是 set_project_path 的入参。
@@ -242,6 +244,7 @@ func (a API) releaseCard(ctx context.Context, actor kanban.Actor, in cardIn) (an
 func (a API) finishCard(ctx context.Context, actor kanban.Actor, in finishCardIn) (any, error) {
 	detail, err := a.core.FinishCard(ctx, actor, in.CardID, kanban.FinishCardInput{
 		Summary: in.Summary, Branch: in.Branch, URL: in.URL, ColumnID: in.ColumnID,
+		BeforeID: in.BeforeID, AfterID: in.AfterID, Top: true,
 	})
 	if err != nil {
 		return nil, err
@@ -264,8 +267,10 @@ func (a API) createCardAdmin(ctx context.Context, actor kanban.Actor, in createC
 	return a.makeCard(ctx, actor, in.BoardID, in.input())
 }
 
-// makeCard 创建卡片并返回简要字段。两个视图的创建共用它，权限和校验都在 Core。
+// makeCard 创建卡片并返回简要字段。两个视图的创建共用它，权限和校验都在 Core；
+// 通过 MCP 创建的卡片放在所在列的最顶部，最新的在最上面。
 func (a API) makeCard(ctx context.Context, actor kanban.Actor, boardID int64, in kanban.CreateCardInput) (any, error) {
+	in.Top = true
 	card, err := a.core.CreateCard(ctx, actor, boardID, in)
 	if err != nil {
 		return nil, err
@@ -295,7 +300,7 @@ func (a API) saveCard(ctx context.Context, actor kanban.Actor, cardID int64, pat
 // moveCard 移动卡片并返回简要字段。
 func (a API) moveCard(ctx context.Context, actor kanban.Actor, in moveCardIn) (any, error) {
 	card, err := a.core.MoveCard(ctx, actor, in.CardID, kanban.MoveCardInput{
-		ColumnID: in.ColumnID, BeforeID: in.BeforeID, AfterID: in.AfterID,
+		ColumnID: in.ColumnID, BeforeID: in.BeforeID, AfterID: in.AfterID, Top: true,
 	})
 	if err != nil {
 		return nil, err

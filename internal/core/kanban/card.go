@@ -99,7 +99,7 @@ func (u *unit) buildNewCard(ctx context.Context, actor Actor, boardID int64, in 
 			return nil, "", err
 		}
 	}
-	if err := u.assignNumberAndPosition(ctx, card); err != nil {
+	if err := u.assignNumberAndPosition(ctx, card, in.Top); err != nil {
 		return nil, "", err
 	}
 	if err := u.card.Create(ctx, card); err != nil {
@@ -132,9 +132,9 @@ func columnByID(cols []*Column, id int64) *Column {
 	return nil
 }
 
-// assignNumberAndPosition 给新卡片分配看板内的编号和目标列末尾的位置。
+// assignNumberAndPosition 给新卡片分配看板内的编号和目标列的位置：默认放列尾，top 为真放列头。
 // 编号由看板上的计数器加一得到，永不回收；Key 由看板标识和编号拼成。
-func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card) error {
+func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card, top bool) error {
 	board, err := u.board.GetByID(ctx, card.BoardID)
 	if err != nil {
 		return mapNotFound(err, ErrBoardNotFound, "读取看板")
@@ -145,12 +145,17 @@ func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card) error {
 	}
 	card.Number = number
 	card.Key = fmt.Sprintf("%s-%d", board.Slug, number)
-	pos, err := u.appendPosition(ctx, card.ColumnID)
-	if err != nil {
+	if !top {
+		pos, err := u.appendPosition(ctx, card.ColumnID)
+		card.Position = pos
 		return err
 	}
-	card.Position = pos
-	return nil
+	others, err := u.card.ListByColumn(ctx, card.ColumnID)
+	if err != nil {
+		return wrapDB("读取目标列的卡片", err)
+	}
+	card.Position, _, err = u.placeCard(ctx, others, topRef(others, true, 0, 0), 0)
+	return err
 }
 
 // checkWaitsOn 读出看板的全部卡片，校验 deps 能不能作为 cardID 的依赖。新建卡片时 cardID 传 0。
