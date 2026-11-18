@@ -2,9 +2,9 @@
 // 选择立刻生效；选好的条件会拼成和搜索框同一套筛选语法（见 filters.ts）。
 
 import { ListFilterIcon } from 'lucide-react'
-import { useId, type ReactNode } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
+import { Chip, ChipGroup } from '@/components/ChipGroup'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { Column } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
@@ -34,61 +34,6 @@ export interface FilterPopoverProps {
   tags: readonly TagOption[]
   /** 正在领取卡片的 agent 名称 */
   claimers: readonly string[]
-}
-
-/** 选项小标签的公共样式：药丸形，选中时填充主色 */
-const CHIP =
-  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[0.8125rem] font-medium transition-colors duration-200 ease-spring outline-none select-none focus-visible:ring-[3px] focus-visible:ring-ring/40 active:scale-[0.97]'
-const CHIP_ON = 'bg-primary text-primary-foreground'
-const CHIP_OFF = 'bg-secondary text-foreground/80 hover:bg-accent'
-
-interface ChipProps {
-  selected: boolean
-  onClick: () => void
-  /** 单选组里的选项用 radio 语义，多选用 pressed 语义 */
-  radio?: boolean
-  children: ReactNode
-}
-
-/** 一个可点选的小标签 */
-function Chip({ selected, onClick, radio, children }: ChipProps) {
-  const state = radio ? { role: 'radio' as const, 'aria-checked': selected } : { 'aria-pressed': selected }
-  return (
-    <button type="button" {...state} onClick={onClick} className={cn(CHIP, selected ? CHIP_ON : CHIP_OFF)}>
-      {children}
-    </button>
-  )
-}
-
-interface GroupProps {
-  title: string
-  /** 标题右侧的附加控件 */
-  aside?: ReactNode
-  /** 单选组要标成 radiogroup */
-  radioGroup?: boolean
-  children: ReactNode
-}
-
-/** 弹层里的一组：小标题加一排小标签 */
-function Group({ title, aside, radioGroup, children }: GroupProps) {
-  const titleId = useId()
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex min-h-5 items-center justify-between gap-2">
-        <h3 id={titleId} className="text-xs font-medium text-muted-foreground">
-          {title}
-        </h3>
-        {aside}
-      </div>
-      <div
-        role={radioGroup ? 'radiogroup' : 'group'}
-        aria-labelledby={titleId}
-        className="flex flex-wrap gap-1.5"
-      >
-        {children}
-      </div>
-    </div>
-  )
 }
 
 /** 选了两个及以上标签时出现：在「任一」和「全部」之间切换 */
@@ -167,7 +112,7 @@ export function FilterPopover({ filters, onChange, columns, tags, claimers }: Fi
             )}
           </div>
 
-          <Group
+          <ChipGroup
             title={t('filter.groups.tags')}
             aside={
               filters.tags.length > 1 ? (
@@ -189,9 +134,9 @@ export function FilterPopover({ filters, onChange, columns, tags, claimers }: Fi
               </Chip>
             ))}
             {tagOptions.length === 0 && <p className="text-xs text-muted-foreground">{t('filter.noTagOptions')}</p>}
-          </Group>
+          </ChipGroup>
 
-          <Group title={t('filter.groups.columns')}>
+          <ChipGroup title={t('filter.groups.columns')}>
             {columns.map((column) => (
               <Chip
                 key={column.id}
@@ -201,17 +146,17 @@ export function FilterPopover({ filters, onChange, columns, tags, claimers }: Fi
                 {column.name}
               </Chip>
             ))}
-          </Group>
+          </ChipGroup>
 
-          <Group title={t('filter.groups.status')}>
+          <ChipGroup title={t('filter.groups.status')}>
             {STATE_FLAGS.map((state) => (
               <Chip key={state} selected={filters.states.includes(state)} onClick={() => onChange(toggleState(filters, state))}>
                 {t(`filter.states.${state}`)}
               </Chip>
             ))}
-          </Group>
+          </ChipGroup>
 
-          <Group title={t('filter.groups.priority')}>
+          <ChipGroup title={t('filter.groups.priority')}>
             {PRIORITY_NAMES.map((priority) => (
               <Chip
                 key={priority}
@@ -221,25 +166,25 @@ export function FilterPopover({ filters, onChange, columns, tags, claimers }: Fi
                 {t(`filter.priority.${priority}`)}
               </Chip>
             ))}
-          </Group>
+          </ChipGroup>
 
           {claimerOptions.length > 0 && (
-            <Group title={t('filter.groups.claimedBy')}>
+            <ChipGroup title={t('filter.groups.claimedBy')}>
               {claimerOptions.map((name) => (
                 <Chip key={name} selected={filters.claimers.includes(name)} onClick={() => onChange(toggleClaimer(filters, name))}>
                   {name}
                 </Chip>
               ))}
-            </Group>
+            </ChipGroup>
           )}
 
-          <Group title={t('filter.groups.due')} radioGroup>
+          <ChipGroup title={t('filter.groups.due')} radioGroup>
             {DUE_CHOICES.map((due) => (
               <Chip key={due} radio selected={filters.due === due} onClick={() => onChange({ ...filters, due })}>
                 {t(`filter.due.${due}`)}
               </Chip>
             ))}
-          </Group>
+          </ChipGroup>
         </div>
       </PopoverContent>
     </Popover>
