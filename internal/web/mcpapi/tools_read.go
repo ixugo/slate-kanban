@@ -77,6 +77,7 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 			"priority:high、priority:3、priority:>=2（high、medium、low、none 对应 3、2、1、0）；claimed:agent 名称；" +
 			"is:done、is:open、is:human、is:claimed、is:free、is:waiting、is:overdue、is:started、is:finished；" +
 			"has:due、has:branch、has:url、has:tags、has:desc、has:deps（no: 表示没有）；due:today、due:<2026-12-01（created:、updated: 同理）。" +
+			"tag、col、key、priority、claimed、is、has、no 的取值可以用竖线写成多选一，例如 tag:bug|ui、col:待办|进行中、priority:high|medium。" +
 			"例如：col:进行中 is:free -is:waiting。",
 	}, a.listCards)
 	register(s, spec{

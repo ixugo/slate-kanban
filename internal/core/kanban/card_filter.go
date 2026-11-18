@@ -128,6 +128,13 @@ func splitTerms(q string) ([]rawTerm, error) {
 	return s.terms, nil
 }
 
+// anyOfKeys 是取值可以用竖线写成"多选一"的前缀，例如 tag:bug|ui 表示带 bug 或者 ui 标签。
+// title、desc 和日期类的前缀不在其中：它们的取值是自由文字或日期，竖线按原样处理。
+var anyOfKeys = map[string]bool{
+	"tag": true, "col": true, "column": true, "key": true, "priority": true,
+	"claimed": true, "is": true, "has": true, "no": true,
+}
+
 // buildTerm 解析一个词：整个词加了引号、或者冒号前面不是一个英文单词时当作普通文字，
 // 否则冒号前面必须是认识的前缀。
 func buildTerm(raw rawTerm) (testFunc, error) {
@@ -135,14 +142,41 @@ func buildTerm(raw rawTerm) (testFunc, error) {
 	if raw.literal || !found || !isWord(key) {
 		return textTerm(raw.text), nil
 	}
-	build, ok := termBuilders[strings.ToLower(key)]
+	lowerKey := strings.ToLower(key)
+	build, ok := termBuilders[lowerKey]
 	if !ok {
 		return nil, badTerm(raw.text, "的前缀 "+key+" 无法识别；想搜索包含冒号的文字，请用双引号把它括起来")
 	}
 	if value == "" {
 		return nil, badTerm(raw.text, "的值不能为空")
 	}
-	return build(raw.text, value)
+	if !anyOfKeys[lowerKey] {
+		return build(raw.text, value)
+	}
+	return buildAnyOf(raw.text, value, build)
+}
+
+// buildAnyOf 解析用竖线隔开的多个取值：每个取值各自按前缀的规则解析，命中任意一个就算命中。
+// 竖线前后都必须有内容；只有一个取值时和不写竖线完全一样。取值的个数受整个筛选字符串的长度上限约束。
+func buildAnyOf(text, value string, build func(text, value string) (testFunc, error)) (testFunc, error) {
+	parts := strings.Split(value, "|")
+	tests := make([]testFunc, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			return nil, badTerm(text, "的取值不能为空，竖线前后都要有内容")
+		}
+		test, err := build(text, part)
+		if err != nil {
+			return nil, err
+		}
+		tests = append(tests, test)
+	}
+	if len(tests) == 1 {
+		return tests[0], nil
+	}
+	return func(c *Card, ix *boardIndex) bool {
+		return slices.ContainsFunc(tests, func(t testFunc) bool { return t(c, ix) })
+	}, nil
 }
 
 // badTerm 生成"某个筛选词有问题"的错误，开头固定写出出错的词。
