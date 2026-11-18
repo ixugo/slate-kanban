@@ -343,13 +343,6 @@
     },
     {
       "column": "想法池",
-      "title": "多选拖动卡片",
-      "priority": 1,
-      "tags": ["前端", "体验"],
-      "description": "参考项目 kanzo 有，v1 没做。一次选中多张卡片，拖到别的列。"
-    },
-    {
-      "column": "想法池",
       "title": "列表视图（表格）",
       "priority": 1,
       "tags": ["前端"],
