@@ -267,9 +267,9 @@ export const ja: Messages = {
       enabled: 'ルールを有効化',
       moreOptions: '詳細オプション',
       editor: {
-        when: '',
+        when: 'もし',
         then: 'したら',
-        thenDo: 'のとき',
+        thenDo: 'なら',
         addAnotherAction: 'アクションを追加',
       },
       trigger: 'トリガー',

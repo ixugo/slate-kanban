@@ -267,9 +267,9 @@ export const ko: Messages = {
       enabled: '규칙 사용',
       moreOptions: '추가 옵션',
       editor: {
-        when: '',
+        when: '만약',
         then: '하면',
-        thenDo: '일 때',
+        thenDo: '이면',
         addAnotherAction: '동작 하나 더 추가',
       },
       trigger: '트리거',
