@@ -37,6 +37,7 @@ export function columnId(board: BoardDetail, name: string): number {
 export interface CardExtras {
   tags?: string[]
   priority?: number
+  description?: string
 }
 
 /** 在指定列里新建一张卡片 */
@@ -68,4 +69,12 @@ export async function moveCard(request: APIRequestContext, cardId: number, targe
 /** 读出卡片当前在服务端的样子 */
 export async function getCard(request: APIRequestContext, cardId: number): Promise<Card> {
   return json<Card>(await request.get(`/api/v1/cards/${cardId}`))
+}
+
+/** 上传一张图片附件，返回能写进 Markdown 的地址 */
+export async function uploadImage(request: APIRequestContext, board: BoardDetail, png: Buffer): Promise<string> {
+  const res = await json<{ url: string }>(
+    await request.post(`/api/v1/boards/${board.id}/attachments`, { multipart: { file: { name: 'cover.png', mimeType: 'image/png', buffer: png } } }),
+  )
+  return res.url
 }

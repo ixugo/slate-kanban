@@ -18,7 +18,7 @@ const PRIORITY_DOT = ['', 'bg-p-low', 'bg-p-mid', 'bg-p-high'] as const
 
 /** 磁贴的外观：链接版和拖拽时跟手的那一份共用；iOS 的长按链接预览会和长按拖拽冲突，所以关掉 */
 const TILE_CLASS =
-  'group relative flex flex-col gap-2 overflow-hidden rounded-[0.875rem] bg-card p-3 text-left shadow-card outline-none transition-[box-shadow,opacity,translate] duration-300 ease-spring [-webkit-touch-callout:none]'
+  'group relative flex shrink-0 flex-col gap-2 overflow-hidden rounded-[0.875rem] bg-card p-3 text-left shadow-card outline-none transition-[box-shadow,opacity,translate] duration-300 ease-spring [-webkit-touch-callout:none]'
 
 interface CardTileProps {
   card: CardView
@@ -37,8 +37,8 @@ function TileBody({ card }: { card: CardView }) {
   return (
     <div className="space-y-1.5">
       {cover && (
-        // 封面是描述里的第一张图：贴着磁贴上沿铺满，高度封顶，装饰用所以不要替代文字
-        <img src={cover} alt="" loading="lazy" draggable={false} className="-mx-3 -mt-3 mb-2.5 block max-h-40 w-[calc(100%+1.5rem)] object-cover" />
+        // 封面是描述里的第一张图：贴着磁贴上沿铺满宽度，完整显示（太高的图按比例缩小、居中，两边留灰底），装饰用所以不要替代文字
+        <img src={cover} alt="" loading="lazy" draggable={false} className="-mx-3 -mt-3 mb-2.5 block max-h-48 w-[calc(100%+1.5rem)] bg-secondary object-contain" />
       )}
       <div className="flex items-center gap-1.5">
         {card.priority > 0 && (

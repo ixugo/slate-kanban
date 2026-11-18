@@ -61,8 +61,8 @@ export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDes
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <div className="min-w-0 space-y-5 px-5 py-5 sm:px-6 md:flex-1 md:overflow-y-auto">
         {cover && (
-          // 封面：描述里的第一张图，和看板磁贴上的一致；装饰用，不重复读给读屏
-          <img src={cover} alt="" className="-mx-5 -mt-5 block max-h-56 w-[calc(100%+2.5rem)] object-cover sm:-mx-6 sm:-mt-5 sm:w-[calc(100%+3rem)]" />
+          // 封面：描述里的第一张图，和看板磁贴上的一致，完整显示不裁剪；装饰用，不重复读给读屏
+          <img src={cover} alt="" className="-mx-5 -mt-5 block max-h-72 w-[calc(100%+2.5rem)] bg-secondary object-contain sm:-mx-6 sm:w-[calc(100%+3rem)]" />
         )}
         <ClaimBanner card={card} lang={lang} onRelease={onRelease} busy={releaseBusy} />
         <div>

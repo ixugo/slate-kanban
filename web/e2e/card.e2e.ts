@@ -1,7 +1,7 @@
 // 卡片弹窗：桌面宽度左右两栏（左边内容、右边「评论和活动」），手机宽度上下排；评论用实时编辑器写，事件和评论排在一起。
 
 import { expect, test, type Page } from '@playwright/test'
-import { createBoard, createCard, getCard } from './api'
+import { createBoard, createCard, getCard, uploadImage } from './api'
 import { columnOf, tileIn } from './board'
 
 const SHOT_DIR = process.env.SLATE_SHOT_DIR
@@ -126,4 +126,26 @@ test('描述没有保存按钮，焦点离开就自动保存；评论框没焦�
   await expect.poll(async () => (await getCard(request, card.id)).description).toBe('saved on blur')
   // 评论框也失焦了，工具栏收起
   await expect(dialog.getByRole('toolbar')).toHaveCount(0)
+})
+
+test('封面完整显示在磁贴顶部；列里卡片很多时磁贴不被压扁，标题都看得见', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  const board = await createBoard(request, 'Cover tiles')
+  const png = Buffer.from(TINY_PNG, 'base64')
+  const src = await uploadImage(request, board, png)
+  await createCard(request, board, 'To do', 'Has cover', { description: `intro\n\n![pic](${src})` })
+  for (let i = 0; i < 25; i++) await createCard(request, board, 'To do', `Filler ${i}`)
+  await page.goto(`/b/${board.id}`)
+
+  const tile = tileIn(columnOf(page, 'To do'), 'Has cover')
+  const img = tile.locator('img')
+  await expect(img).toHaveAttribute('src', src)
+  expect(await img.evaluate((el) => getComputedStyle(el).objectFit)).toBe('contain')
+  const [tileBox, imgBox] = [await tile.boundingBox(), await img.boundingBox()]
+  expect(tileBox && imgBox && imgBox.y >= tileBox.y && imgBox.y + imgBox.height <= tileBox.y + tileBox.height).toBe(true)
+
+  // 列里放不下时列自己滚动，磁贴保持自然高度（至少放得下编号和一行标题），不会被压扁
+  const heights = await columnOf(page, 'To do').getByRole('link').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
+  expect(heights).toHaveLength(26)
+  expect(Math.min(...heights)).toBeGreaterThan(60)
 })
