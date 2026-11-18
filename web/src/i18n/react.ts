@@ -1,4 +1,4 @@
-// 界面文案在 React 里的统一入口：用 useSyncExternalStore 订阅语言变化，换掉 react-i18next。
+// 界面文案在 React 里的统一入口：用 useSyncExternalStore 订阅语言变化，语言一换，用到文案的组件就重新渲染。
 
 import { useMemo, useSyncExternalStore } from 'react'
 import i18n from './index'

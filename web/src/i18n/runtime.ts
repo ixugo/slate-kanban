@@ -1,4 +1,4 @@
-// 当前语言、订阅通知和 t 函数：替代 i18next 的运行时核心。
+// 当前语言、订阅通知和 t 函数：多语言的运行时核心。
 
 import { getBundle, loadLanguage } from './bundles'
 import { DEFAULT_LANG, LANG_STORAGE_KEY, LANGUAGES, normalizeLanguage, pickLanguage, type Lang } from './languages'

@@ -1,4 +1,4 @@
-// 自研 Toaster：右下角堆叠提示，替换 sonner，保留导出名 Toaster 供 App 与测试挂载。
+// 自研 Toaster：右下角堆叠提示，导出名 Toaster 供 App 与测试挂载。
 
 import { useEffect, useRef, useSyncExternalStore, useState, type ReactNode } from "react"
 import {
@@ -100,7 +100,7 @@ function ToastItem({ item, onClose }: { item: ToastRecord; onClose: (id: string 
   )
 }
 
-/** 与旧 sonner Toaster 兼容的可选属性；closeButton 已由每条自带的关闭钮实现 */
+/** 可选属性；closeButton 保留只是为了调用方的写法不用改，关闭钮由每条提示自带 */
 type ToasterProps = { closeButton?: boolean }
 
 /** 全局提示容器：供 App 根节点挂载 */

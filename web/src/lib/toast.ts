@@ -1,4 +1,4 @@
-// 轻提示的统一入口：函数式 API 对齐原 sonner 常用写法，底层走自研 store。
+// 轻提示的统一入口：toast.success / toast.error 这类函数式写法，底层走自研的 toast-store。
 
 import { defaultDuration, dismissToast, pushToast, type ToastVariant } from './toast-store'
 
