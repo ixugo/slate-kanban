@@ -29,7 +29,7 @@ type stack struct {
 // newStack 搭一套全新的服务。
 func newStack(t *testing.T, opts ...mcpapi.Option) *stack {
 	t.Helper()
-	core := kanban.NewCore(kanbantest.NewDB(t))
+	core := kanban.NewCore(kanbantest.NewDB(t), kanbantest.Resources(t))
 	api, stop := mcpapi.New(core, "test", opts...)
 	t.Cleanup(stop)
 	closing, closeNow := context.WithCancel(t.Context())

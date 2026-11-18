@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
@@ -14,12 +16,16 @@ import (
 
 	"slate-kanban/internal/conf"
 	"slate-kanban/internal/core/kanban"
+	"slate-kanban/internal/core/kanban/stores/blobfs"
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
 	"slate-kanban/internal/web/mcpapi"
 	"slate-kanban/internal/web/spa"
 )
+
+// uploadDirName 是刚上传、还没随内容保存的图片在系统临时目录下的子目录名。
+const uploadDirName = "slate-kanban-uploads"
 
 var (
 	ProviderVersionSet = wire.NewSet(versionapi.NewVersionCore)
@@ -73,9 +79,15 @@ func ProvideConnectAPI(bc *conf.Bootstrap) connectapi.API {
 }
 
 // NewKanbanCore 创建看板领域并迁移表；REST、SSE、MCP 共用同一个 Core。
-func NewKanbanCore(db *gorm.DB) kanban.Core {
+// 图片正式放在资源目录（见 conf.ResourceDir）；刚粘贴、还没随内容保存的图片放在系统临时目录。
+func NewKanbanCore(db *gorm.DB, bc *conf.Bootstrap) (kanban.Core, error) {
+	dir, err := conf.ResourceDir(bc)
+	if err != nil {
+		return kanban.Core{}, err
+	}
+	uploads := blobfs.New(filepath.Join(os.TempDir(), uploadDirName))
 	store := kanbandb.NewDB(db).AutoMigrate(orm.GetEnabledAutoMigrate())
-	return kanban.NewCore(store)
+	return kanban.NewCore(store, kanban.WithResources(blobfs.New(dir), uploads)), nil
 }
 
 // NewMCP 创建 MCP 适配器，与看板 Core 共用事件通知。

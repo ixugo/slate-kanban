@@ -39,6 +39,8 @@ type ServerPPROF struct {
 type Data struct {
 	// Database 数据库
 	Database Database `comment:"数据库支持 sqlite 和 postgres 两种，使用 sqlite 时 dsn 应当填写文件存储路径"`
+	// ResourceDir 图片等资源文件的存放目录，数据库里只存相对它的路径
+	ResourceDir string `comment:"图片等资源文件的存放目录，按项目分子目录；留空则用配置目录下的 resource"`
 }
 
 // Database 结构体，包含 Dsn、MaxIdleConns、MaxOpenConns、ConnMaxLifetime 和 SlowThreshold 五个字段

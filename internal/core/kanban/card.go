@@ -114,6 +114,9 @@ func (u *unit) buildNewCard(ctx context.Context, actor Actor, boardID int64, in 
 	if err := u.card.Create(ctx, card); err != nil {
 		return nil, "", wrapDB("创建卡片", err)
 	}
+	if err := u.commitImages(ctx, boardID, card.Description); err != nil {
+		return nil, "", err
+	}
 	return card, target.Name, nil
 }
 
@@ -293,6 +296,7 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 			return err
 		}
 	}
+	oldDescription := card.Description
 	changed, err := in.apply(card)
 	if err != nil || len(changed) == 0 {
 		return err
@@ -305,6 +309,11 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 	u.renewLease(actor, card)
 	if err := u.saveCard(ctx, actor, card); err != nil {
 		return err
+	}
+	if slices.Contains(changed, "description") {
+		if err := u.syncImages(ctx, card.BoardID, oldDescription, card.Description); err != nil {
+			return err
+		}
 	}
 	return u.emitCardUpdates(ctx, actor, card, changed)
 }

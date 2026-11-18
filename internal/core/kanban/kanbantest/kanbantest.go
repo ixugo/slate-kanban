@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"slate-kanban/internal/core/kanban"
+	"slate-kanban/internal/core/kanban/stores/blobfs"
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 )
 
@@ -37,6 +38,13 @@ func NewDB(t testing.TB) kanbandb.DB {
 	return kanbandb.NewDB(NewRawDB(t)).AutoMigrate(true)
 }
 
+// Resources 返回指向临时目录的图片存储选项（正式目录和上传临时目录各一个），
+// 测试结束后目录自动清理，供需要上传图片的测试使用。
+func Resources(t testing.TB) kanban.Option {
+	t.Helper()
+	return kanban.WithResources(blobfs.New(t.TempDir()), blobfs.New(t.TempDir()))
+}
+
 // NewCore 创建一个接好内存数据库的 Core，供业务测试使用。
 func NewCore(t testing.TB, opts ...kanban.Option) kanban.Core {
 	t.Helper()
@@ -46,5 +54,5 @@ func NewCore(t testing.TB, opts ...kanban.Option) kanban.Core {
 // NewCoreFromDB 用调用方提供的存储 DB 组装 Core，PostgreSQL 并发场景与已有 store 共用同一连接。
 func NewCoreFromDB(t testing.TB, db kanbandb.DB, opts ...kanban.Option) kanban.Core {
 	t.Helper()
-	return kanban.NewCore(db, opts...)
+	return kanban.NewCore(db, append([]kanban.Option{Resources(t)}, opts...)...)
 }

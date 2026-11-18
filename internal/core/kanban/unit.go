@@ -33,6 +33,7 @@ type unit struct {
 	attachment AttachmentStorer
 	tag        TagStorer
 	touched    map[int64]int64 // 本事务动过的看板 → 其中最大的事件序号，提交后据此广播
+	after      []func()        // 事务提交成功后要执行的收尾动作，例如删除图片文件
 }
 
 // newEvent 是追加一条事件时由调用方提供的内容，操作者、时间和序号由 emit 补全。
@@ -102,8 +103,17 @@ func (c Core) run(ctx context.Context, boardID int64, fn func(*unit) error) erro
 	if err := tx.Commit(); err != nil {
 		return wrapDB("提交事务", err)
 	}
+	for _, fn := range u.after {
+		fn()
+	}
 	c.publish(ctx, u)
 	return nil
+}
+
+// afterCommit 登记一个收尾动作，事务提交成功后按登记顺序执行；回滚时不会执行。
+// 文件的删除不能回滚，所以必须放在提交之后，否则事务失败了文件却已经没了。
+func (u *unit) afterCommit(fn func()) {
+	u.after = append(u.after, fn)
 }
 
 // publish 把本事务动过的每个看板各广播一次，只带最大的事件序号。

@@ -27,7 +27,11 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 	}
 	core := versionapi.NewVersionCore(db)
 	versionapiAPI := versionapi.New(core)
-	kanbanCore := api.NewKanbanCore(db)
+	kanbanCore, err := api.NewKanbanCore(db, bc)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
 	kanbanapiAPI := kanbanapi.New(kanbanCore)
 	mcpapiAPI, cleanup2 := api.NewMCP(bc, kanbanCore)
 	connectapiAPI := api.ProvideConnectAPI(bc)

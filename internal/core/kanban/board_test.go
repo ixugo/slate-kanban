@@ -20,7 +20,7 @@ var testAgent = kanban.Actor{Kind: kanban.ActorAgent, Name: "claude"}
 func newBare(t *testing.T, opts ...kanban.Option) (kanban.Core, kanbandb.DB) {
 	t.Helper()
 	db := kanbantest.NewDB(t)
-	return kanban.NewCore(db, opts...), db
+	return kanban.NewCore(db, append([]kanban.Option{kanbantest.Resources(t)}, opts...)...), db
 }
 
 // mustCreateBoard 以人的身份创建看板，失败就让测试终止。

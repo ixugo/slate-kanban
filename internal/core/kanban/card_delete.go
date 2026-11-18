@@ -34,6 +34,10 @@ func (c Core) DeleteCard(ctx context.Context, actor Actor, cardID int64) error {
 
 // deleteCard 在事务里删除评论、清理依赖、删除卡片本身，最后追加 card.deleted 事件。
 func (u *unit) deleteCard(ctx context.Context, actor Actor, card *Card) error {
+	texts, err := u.cardTexts(ctx, card)
+	if err != nil {
+		return err
+	}
 	if err := u.comment.DeleteByCard(ctx, card.ID); err != nil {
 		return wrapDB("删除卡片的评论", err)
 	}
@@ -43,9 +47,25 @@ func (u *unit) deleteCard(ctx context.Context, actor Actor, card *Card) error {
 	if err := u.card.Delete(ctx, card); err != nil {
 		return wrapDB("删除卡片", err)
 	}
+	if err := u.releaseImages(ctx, card.BoardID, attachmentTokens(texts...)); err != nil {
+		return err
+	}
 	return u.emit(ctx, actor, newEvent{
 		BoardID: card.BoardID, CardID: card.ID, Type: EventCardDeleted, Payload: cardPayload(card, nil),
 	})
+}
+
+// cardTexts 返回卡片描述和全部评论的正文，删除卡片前用它找出这张卡片引用过的图片。
+func (u *unit) cardTexts(ctx context.Context, card *Card) ([]string, error) {
+	comments, err := u.comment.ListByCard(ctx, card.ID)
+	if err != nil {
+		return nil, wrapDB("读取卡片的评论", err)
+	}
+	texts := []string{card.Description}
+	for _, c := range comments {
+		texts = append(texts, c.Body)
+	}
+	return texts, nil
 }
 
 // dropDependency 把 card 从同看板其他卡片的依赖里移除，被改动的卡片版本加一。

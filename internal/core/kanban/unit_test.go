@@ -33,7 +33,7 @@ func newEnv(t *testing.T, opts ...kanban.Option) *env {
 	if err := db.Board().Create(context.Background(), board); err != nil {
 		t.Fatalf("创建测试看板失败: %v", err)
 	}
-	e := &env{db: db, core: kanban.NewCore(db, opts...), board: board}
+	e := &env{db: db, core: kanban.NewCore(db, append([]kanban.Option{kanbantest.Resources(t)}, opts...)...), board: board}
 	e.core.Observe("record", func(_ context.Context, p kanban.Published) error {
 		e.mu.Lock()
 		defer e.mu.Unlock()

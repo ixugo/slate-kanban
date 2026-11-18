@@ -4,7 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"log/slog"
 	"net/http"
+	"os"
 	"regexp"
 
 	"github.com/ixugo/goddd/pkg/orm"
@@ -12,7 +15,7 @@ import (
 )
 
 const (
-	// MaxAttachmentBytes 是单张图片的大小上限。图片存在数据库里，上限不宜太大。
+	// MaxAttachmentBytes 是单张图片的大小上限。图片整张读进内存处理，上限不宜太大。
 	MaxAttachmentBytes = 5 << 20
 	// attachmentTokenBytes 是随机编号的字节数，十六进制后是 32 个字符。
 	attachmentTokenBytes = 16
@@ -32,21 +35,52 @@ var (
 
 	// ErrAttachmentNotFound 图片不存在，可能所在的看板已经被删除。
 	ErrAttachmentNotFound = reason.NewError("ErrAttachmentNotFound", "图片不存在").WithHTTPStatus(404)
+
+	// ErrResourcesDisabled 没有配置资源目录，不能保存和读取图片。
+	ErrResourcesDisabled = reason.NewError("ErrResourcesDisabled", "未配置资源目录，无法处理图片").WithHTTPStatus(500)
 )
+
+// imageExts 是图片类型对应的文件扩展名。
+var imageExts = map[string]string{"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp"}
+
+// ResourceStorer 是图片等资源文件的存放接口。路径都是相对资源目录的，
+// 实现必须拒绝绝对路径和带 .. 的路径，不能写到资源目录之外。
+type ResourceStorer interface {
+	// Save 保存文件，同名文件会被覆盖；上级目录不存在时自动创建。
+	Save(rel string, data []byte) error
+	// Read 读取文件，不存在时返回 os.ErrNotExist 能识别的错误。
+	Read(rel string) ([]byte, error)
+	// Remove 删除文件，文件不存在也算成功。
+	Remove(rel string) error
+	// RemoveDir 删除一个子目录和里面的全部文件，目录不存在也算成功。
+	RemoveDir(dir string) error
+}
+
+// AttachmentFilePath 返回图片文件相对资源目录的路径：看板 slug 是子目录，文件名是编号加扩展名。
+// 类型不在白名单里时扩展名为空，这种文件不会由正常上传产生。
+func AttachmentFilePath(slug, token, contentType string) string {
+	return slug + "/" + token + imageExts[contentType]
+}
 
 // AttachmentStorer 是图片的数据持久化接口。
 type AttachmentStorer interface {
 	// WithTx 返回绑定到事务的副本，事务内的所有读写都必须用它。
 	WithTx(orm.Tx) AttachmentStorer
-	// Create 保存一张图片。
+	// Create 保存一张图片的记录（不含文件内容）。
 	Create(context.Context, *Attachment) error
 	// GetByToken 按公开编号读取，不存在时返回可用 orm.IsErrRecordNotFound 判断的错误。
 	GetByToken(context.Context, string) (*Attachment, error)
+	// DeleteByToken 删除一张图片的记录，记录不存在也算成功。
+	DeleteByToken(context.Context, string) error
 	// DeleteByBoard 删除看板的全部图片，用于删除看板。
 	DeleteByBoard(context.Context, int64) error
+	// IsReferenced 看板里是否还有卡片描述或评论引用这个编号。
+	IsReferenced(ctx context.Context, boardID int64, token string) (bool, error)
 }
 
-// SaveAttachment 把一张图片存进看板，返回带公开编号的记录。人和 agent 都能调用；
+// SaveAttachment 接收一张刚粘贴的图片，先放进系统临时目录，返回带公开编号的记录（还没有入库）。
+// 图片要等引用它的描述或评论保存时才会搬进资源目录并入库（见 commitImages），
+// 所以粘贴后又放弃的图片不会留在项目里。人和 agent 都能调用；
 // 类型按内容判断而不是相信上传时声明的类型，只接受 PNG、JPEG、GIF、WebP，大小不超过 5 MB。
 func (c Core) SaveAttachment(ctx context.Context, actor Actor, boardID int64, data []byte) (*Attachment, error) {
 	if err := requireWriter(actor); err != nil {
@@ -62,6 +96,9 @@ func (c Core) SaveAttachment(ctx context.Context, actor Actor, boardID int64, da
 	if !allowedImageTypes[kind] {
 		return nil, invalidf("只支持 PNG、JPEG、GIF、WebP 图片")
 	}
+	if c.resources == nil || c.uploads == nil {
+		return nil, ErrResourcesDisabled
+	}
 	if _, err := c.store.Board().GetByID(ctx, boardID); err != nil {
 		return nil, mapNotFound(err, ErrBoardNotFound, "读取看板")
 	}
@@ -69,24 +106,60 @@ func (c Core) SaveAttachment(ctx context.Context, actor Actor, boardID int64, da
 	if _, err := rand.Read(raw); err != nil {
 		return nil, wrapDB("生成图片编号", err)
 	}
-	item := &Attachment{
-		BoardID: boardID, Token: hex.EncodeToString(raw), ContentType: kind,
-		Size: int64(len(data)), Data: data, CreatedAt: c.now(),
+	token := hex.EncodeToString(raw)
+	if err := c.uploads.Save(token+imageExts[kind], data); err != nil {
+		return nil, wrapDB("保存上传的图片", err)
 	}
-	if err := c.store.Attachment().Create(ctx, item); err != nil {
-		return nil, wrapDB("保存图片", err)
-	}
-	return item, nil
+	return &Attachment{BoardID: boardID, Token: token, ContentType: kind, Size: int64(len(data)), CreatedAt: c.now()}, nil
 }
 
-// GetAttachment 按公开编号读取图片。编号格式不对直接当作不存在，不去查库。
-func (c Core) GetAttachment(ctx context.Context, token string) (*Attachment, error) {
+// GetAttachment 按公开编号读取图片记录和文件内容。编号格式不对直接当作不存在，不去查库。
+// 先查已入库的图片；查不到再看临时目录里有没有刚上传、还没随内容保存的。
+// 记录在但文件丢了（比如资源目录被手动清理）按不存在处理，并记一条警告方便排查。
+func (c Core) GetAttachment(ctx context.Context, token string) (*Attachment, []byte, error) {
 	if !attachmentTokenRe.MatchString(token) {
-		return nil, ErrAttachmentNotFound
+		return nil, nil, ErrAttachmentNotFound
+	}
+	if c.resources == nil || c.uploads == nil {
+		return nil, nil, ErrResourcesDisabled
 	}
 	item, err := c.store.Attachment().GetByToken(ctx, token)
-	if err != nil {
-		return nil, mapNotFound(err, ErrAttachmentNotFound, "读取图片")
+	if orm.IsErrRecordNotFound(err) {
+		item, data, found, err := c.readUpload(token)
+		if err != nil {
+			return nil, nil, wrapDB("读取上传的图片", err)
+		}
+		if !found {
+			return nil, nil, ErrAttachmentNotFound
+		}
+		return item, data, nil
 	}
-	return item, nil
+	if err != nil {
+		return nil, nil, wrapDB("读取图片", err)
+	}
+	data, err := c.resources.Read(item.Path)
+	if errors.Is(err, os.ErrNotExist) {
+		slog.Warn("图片记录存在但文件丢失", "path", item.Path)
+		return nil, nil, ErrAttachmentNotFound
+	}
+	if err != nil {
+		return nil, nil, wrapDB("读取图片文件", err)
+	}
+	return item, data, nil
+}
+
+// readUpload 在临时目录里按编号找刚上传的图片：文件名是编号加扩展名，扩展名只有四种，逐个试。
+// 没找到时 found 为 false、err 为 nil；其他读取错误原样返回。
+func (c Core) readUpload(token string) (item *Attachment, data []byte, found bool, err error) {
+	for kind, ext := range imageExts {
+		data, err = c.uploads.Read(token + ext)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, nil, false, err
+		}
+		return &Attachment{Token: token, ContentType: kind, Size: int64(len(data))}, data, true, nil
+	}
+	return nil, nil, false, nil
 }
