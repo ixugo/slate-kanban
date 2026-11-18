@@ -91,9 +91,6 @@ export const ja: Messages = {
   board: {
     settings: 'プロジェクト設定',
     newCard: '新しいカード',
-    export: 'エクスポート',
-    exportJson: 'JSON',
-    exportMd: 'Markdown',
     gone: {
       title: 'このプロジェクトは存在しません',
       body: '削除された可能性があります。',
@@ -306,7 +303,7 @@ export const ja: Messages = {
     backToBoard: 'プロジェクトに戻る',
     loadFailed: 'このプロジェクトを読み込めませんでした',
     badId: { title: 'プロジェクトのアドレスが正しくありません', body: 'リンク先のプロジェクトが見つかりません。' },
-    tabs: { general: '一般', columns: '列', automation: '自動化' },
+    tabs: { general: '一般', columns: '列', automation: '自動化', export: 'エクスポート' },
     general: {
       name: '名前',
       description: '説明',
@@ -491,6 +488,14 @@ export const ja: Messages = {
           unknown: '不明なアクション',
         },
       },
+    },
+    export: {
+      body: 'このプロジェクトのコピーをダウンロードします（列、カード、コメント、ルール）。',
+      json: 'JSON',
+      jsonHint: 'データが完全で、バックアップや他のツールでの処理に向いています。',
+      md: 'Markdown',
+      mdHint: '読みやすいドキュメントで、保管やメモへの貼り付けに向いています。',
+      download: 'ダウンロード',
     },
   },
   agents: {

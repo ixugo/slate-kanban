@@ -91,9 +91,6 @@ export const zhTW: Messages = {
   board: {
     settings: '專案設定',
     newCard: '新增卡片',
-    export: '匯出',
-    exportJson: 'JSON',
-    exportMd: 'Markdown',
     gone: {
       title: '這個專案已經不存在',
       body: '可能已被刪除。',
@@ -306,7 +303,7 @@ export const zhTW: Messages = {
     backToBoard: '返回專案',
     loadFailed: '無法載入這個專案',
     badId: { title: '專案網址不正確', body: '連結中的編號無法辨識。' },
-    tabs: { general: '一般', columns: '欄', automation: '自動化' },
+    tabs: { general: '一般', columns: '欄', automation: '自動化', export: '匯出' },
     general: {
       name: '名稱',
       description: '說明',
@@ -488,6 +485,14 @@ export const zhTW: Messages = {
           unknown: '未知動作',
         },
       },
+    },
+    export: {
+      body: '下載這個專案的一份副本：欄、卡片、評論和規則。',
+      json: 'JSON',
+      jsonHint: '資料完整，適合備份或交給其他工具處理。',
+      md: 'Markdown',
+      mdHint: '方便閱讀的文件，適合封存或貼進筆記。',
+      download: '下載',
     },
   },
   agents: {

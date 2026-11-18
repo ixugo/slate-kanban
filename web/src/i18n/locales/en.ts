@@ -94,9 +94,6 @@ export const en = {
   board: {
     settings: 'Project settings',
     newCard: 'New card',
-    export: 'Export',
-    exportJson: 'JSON',
-    exportMd: 'Markdown',
     gone: {
       title: 'This project no longer exists',
       body: 'It may have been deleted.',
@@ -308,7 +305,7 @@ export const en = {
     backToBoard: 'Back to project',
     loadFailed: 'Could not load this project',
     badId: { title: 'Invalid project address', body: 'The link does not point to a project.' },
-    tabs: { general: 'General', columns: 'Columns', automation: 'Automation' },
+    tabs: { general: 'General', columns: 'Columns', automation: 'Automation', export: 'Export' },
     general: {
       name: 'Name',
       description: 'Description',
@@ -490,6 +487,14 @@ export const en = {
           unknown: 'unknown action',
         },
       },
+    },
+    export: {
+      body: 'Download a copy of this project: its columns, cards, comments and rules.',
+      json: 'JSON',
+      jsonHint: 'Complete data, good for backups and other tools.',
+      md: 'Markdown',
+      mdHint: 'A readable document, good for archiving or pasting into notes.',
+      download: 'Download',
     },
   },
   agents: {

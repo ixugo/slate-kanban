@@ -42,6 +42,15 @@ describe('BoardPage', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
+  it('顶栏没有导出入口，导出在项目设置里；设置入口仍在', async () => {
+    installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
+    renderBoard()
+    await screen.findByText('Alpha')
+    expect(screen.queryByRole('button', { name: en.settings.tabs.export })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: en.settings.tabs.export })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: en.board.settings })).toHaveAttribute('href', '/b/1/settings')
+  })
+
   it('非法看板编号时提示返回列表', async () => {
     renderBoard('/b/abc')
     expect(await screen.findByText(en.notFound.body)).toBeInTheDocument()

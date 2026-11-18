@@ -36,6 +36,22 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('tab', { name: en.settings.tabs.general })).toBeInTheDocument()
   })
 
+  it('「导出」页签给出 JSON 和 Markdown 两个下载链接，指向当前项目的导出接口', async () => {
+    installFakeApi({ 'GET /api/v1/boards/:id/snapshot': makeSnapshot({ id: 7 }) })
+    renderSettings('7')
+    await screen.findByRole('heading', { name: '示例看板' })
+    await userEvent.click(screen.getByRole('tab', { name: en.settings.tabs.export }))
+
+    const links = await screen.findAllByRole('link', { name: en.settings.export.download })
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/api/v1/boards/7/export?format=json',
+      '/api/v1/boards/7/export?format=md',
+    ])
+    for (const link of links) expect(link).toHaveAttribute('download')
+    expect(screen.getByText(en.settings.export.jsonHint)).toBeInTheDocument()
+    expect(screen.getByText(en.settings.export.mdHint)).toBeInTheDocument()
+  })
+
   it('删除项目必须输入项目名称：slug、半截名称、大小写不符都不放行，首尾空白忽略', async () => {
     const api = installFakeApi({
       'GET /api/v1/boards/:id/snapshot': makeSnapshot({ name: 'Slate Kanban', slug: 'SLATE' }),

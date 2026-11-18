@@ -91,9 +91,6 @@ export const zhCN: Messages = {
   board: {
     settings: '项目设置',
     newCard: '新建卡片',
-    export: '导出',
-    exportJson: 'JSON',
-    exportMd: 'Markdown',
     gone: {
       title: '这个项目已经不存在',
       body: '可能已被删除。',
@@ -305,7 +302,7 @@ export const zhCN: Messages = {
     backToBoard: '返回项目',
     loadFailed: '无法加载这个项目',
     badId: { title: '项目地址不合法', body: '链接里的编号无法识别。' },
-    tabs: { general: '常规', columns: '列', automation: '自动化' },
+    tabs: { general: '常规', columns: '列', automation: '自动化', export: '导出' },
     general: {
       name: '名称',
       description: '说明',
@@ -487,6 +484,14 @@ export const zhCN: Messages = {
           unknown: '未知动作',
         },
       },
+    },
+    export: {
+      body: '下载这个项目的一份副本：列、卡片、评论和规则。',
+      json: 'JSON',
+      jsonHint: '数据完整，适合备份或交给别的工具处理。',
+      md: 'Markdown',
+      mdHint: '便于阅读的文档，适合归档或贴进笔记。',
+      download: '下载',
     },
   },
   agents: {

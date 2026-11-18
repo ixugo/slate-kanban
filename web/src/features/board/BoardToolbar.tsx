@@ -1,17 +1,10 @@
-// 看板页顶栏：名称、搜索与筛选、导出、活动、设置、实时状态。
+// 看板页顶栏：名称、搜索与筛选、活动、设置、实时状态。
 
 import type { RefObject } from 'react'
 import { Link } from 'react-router-dom'
-import { ActivityIcon, ChevronDownIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
+import { ActivityIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { API_PREFIX } from '@/lib/api/client'
 import type { Board } from '@/lib/api/types'
 import { FilterPopover, type FilterPopoverProps } from './FilterPopover'
 import { SearchBox } from './SearchBox'
@@ -63,7 +56,6 @@ export function BoardToolbar({
   onActivityOpen,
 }: BoardToolbarProps) {
   const { t } = useTranslation()
-  const exportBase = `${API_PREFIX}/boards/${board.id}/export`
   return (
     <form
       className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-3 sm:flex-row sm:items-start sm:px-6"
@@ -74,26 +66,6 @@ export function BoardToolbar({
         <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 font-mono text-[0.6875rem] text-muted-foreground">
           {board.slug}
         </span>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm">
-              {t('board.export')}
-              <ChevronDownIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem asChild>
-              <a href={`${exportBase}?format=json`} download>
-                {t('board.exportJson')}
-              </a>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href={`${exportBase}?format=md`} download>
-                {t('board.exportMd')}
-              </a>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
         <Button type="button" variant="ghost" size="sm" aria-label={t('activity.open')} onClick={onActivityOpen}>
           <ActivityIcon />
           <span className="hidden sm:inline">{t('activity.open')}</span>

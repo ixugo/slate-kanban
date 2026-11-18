@@ -1,4 +1,4 @@
-// 看板设置页：常规、列、自动化三个页签。
+// 项目设置页：常规、列、自动化、导出四个页签。
 
 import { ArrowLeftIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -14,6 +14,7 @@ import { parseId } from '@/lib/route'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { AutomationSection } from './AutomationSection'
 import { ColumnsSection } from './ColumnsSection'
+import { ExportSection } from './ExportSection'
 import { GeneralSection } from './GeneralSection'
 
 /** 看板设置页默认导出 */
@@ -70,6 +71,7 @@ export default function SettingsPage() {
           <TabsTrigger value="general">{t('settings.tabs.general')}</TabsTrigger>
           <TabsTrigger value="columns">{t('settings.tabs.columns')}</TabsTrigger>
           <TabsTrigger value="automation">{t('settings.tabs.automation')}</TabsTrigger>
+          <TabsTrigger value="export">{t('settings.tabs.export')}</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
           <GeneralSection board={data} />
@@ -79,6 +81,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="automation">
           <AutomationSection boardId={boardId} columns={view.columns} rules={data.rules} />
+        </TabsContent>
+        <TabsContent value="export">
+          <ExportSection board={data} />
         </TabsContent>
       </Tabs>
     </PageShell>

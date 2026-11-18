@@ -91,9 +91,6 @@ export const ko: Messages = {
   board: {
     settings: '프로젝트 설정',
     newCard: '새 카드',
-    export: '내보내기',
-    exportJson: 'JSON',
-    exportMd: 'Markdown',
     gone: {
       title: '이 프로젝트는 더 이상 없습니다',
       body: '삭제되었을 수 있습니다.',
@@ -306,7 +303,7 @@ export const ko: Messages = {
     backToBoard: '프로젝트로 돌아가기',
     loadFailed: '이 프로젝트를 불러오지 못했습니다',
     badId: { title: '프로젝트 주소가 올바르지 않습니다', body: '링크가 가리키는 프로젝트가 없습니다.' },
-    tabs: { general: '일반', columns: '열', automation: '자동화' },
+    tabs: { general: '일반', columns: '열', automation: '자동화', export: '내보내기' },
     general: {
       name: '이름',
       description: '설명',
@@ -491,6 +488,14 @@ export const ko: Messages = {
           unknown: '알 수 없는 동작',
         },
       },
+    },
+    export: {
+      body: '이 프로젝트의 사본을 내려받습니다: 열, 카드, 댓글, 규칙.',
+      json: 'JSON',
+      jsonHint: '데이터가 완전하여 백업이나 다른 도구에서 처리하기 좋습니다.',
+      md: 'Markdown',
+      mdHint: '읽기 쉬운 문서로, 보관하거나 메모에 붙여 넣기 좋습니다.',
+      download: '내려받기',
     },
   },
   agents: {
