@@ -5,7 +5,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"slate-kanban/internal/core/access"
 	"slate-kanban/internal/core/kanban"
 )
 
@@ -60,11 +59,13 @@ func register[In any](s *mcp.Server, sp spec, fn func(ctx context.Context, actor
 	})
 }
 
-// requestActor 取出这次工具调用的发起者。令牌信息由认证中间件放进请求，
-// 取不到说明请求绕过了认证，按未认证处理。
+// requestActor 取出这次工具调用的发起者。身份由 identityMiddleware 写进 HTTP 头，SDK 原样放进 Extra.Header。
 func requestActor(req *mcp.CallToolRequest) (kanban.Actor, error) {
-	if req.Extra == nil {
-		return kanban.Actor{}, access.ErrUnauthorized
+	if req.Extra == nil || req.Extra.Header == nil {
+		return kanban.Actor{}, kanban.ErrInvalidActor
+	}
+	if actor, err := actorFromHeaders(req.Extra.Header); err == nil {
+		return actor, nil
 	}
 	return actorOf(req.Extra.TokenInfo)
 }

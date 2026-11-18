@@ -35,7 +35,8 @@ type notice struct {
 func (s *stack) watch(t *testing.T, token string) (*mcp.ClientSession, <-chan notice) {
 	t.Helper()
 	ch := make(chan notice, 64)
-	sess := s.connect(t, token, &mcp.ClientOptions{
+	admin := token == s.adminToken()
+	sess := s.connect(t, token, admin, &mcp.ClientOptions{
 		ResourceUpdatedHandler: func(_ context.Context, r *mcp.ResourceUpdatedNotificationRequest) {
 			latest, _ := r.Params.Meta["latest"].(float64)
 			ch <- notice{URI: r.Params.URI, Latest: int64(latest)}
@@ -127,7 +128,7 @@ func TestNotificationsCoalesce(t *testing.T) {
 func TestNotifyOnlyThatBoard(t *testing.T) {
 	s := newStack(t, mcpapi.WithNotifyDelay(fastDelay))
 	b, other := s.seed(t, "SLATE"), s.seed(t, "OTHER")
-	subscribed, subscribedCh := s.watch(t, adminToken)
+	subscribed, subscribedCh := s.watch(t, s.adminToken())
 	elsewhere, elsewhereCh := s.watch(t, s.token(t, "codex"))
 	_, silentCh := s.watch(t, s.token(t, "claude"))
 	left, leftCh := s.watch(t, s.token(t, "gemini"))
