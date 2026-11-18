@@ -36,14 +36,15 @@
 | 项 | 说明 | 追踪 |
 |----|------|------|
 | 看板级活动流抽屉 | 只有卡片评论，没有按时间线展示移动/领取/规则等事件 | 产品待办「活动流：看板级事件时间线」（见 `docs/devlog/records.json`） |
-| 列表视图（表格） | 除看板外的排序表格视图 | 未做，Slate 看板 **SLATE-38** |
+
+列表视图见 `web.list.md`。
 
 ## 页面结构
 
 ```mermaid
 flowchart TB
     subgraph 看板页 /b/:id
-        T[工具栏: 看板名 编号 | 导出 JSON/MD | 设置 | 搜索 筛选 | LiveStatus 仅连接中或离线时出现]
+        T[工具栏: 看板名 编号 | 看板/列表 | 导出 JSON/MD | 设置 | 搜索 筛选 | LiveStatus 仅连接中或离线时出现]
         F[当前筛选一行小标签 ActiveFilters]
         S[搜索或筛选激活时: 禁用拖拽提示条]
         subgraph 画布 可横向滚动
@@ -153,6 +154,7 @@ sequenceDiagram
 | `LiveStatus` | `LiveStatus.test.tsx`：`已连接时什么都不显示`、`连接中显示提示文字`、`断线时显示提示并能点重试`、`项目已被删除时提示不存在，即使连接状态是 live` |
 | 磁贴链接 | `CardTile.test.tsx`：`href` 沿用其他参数并替换 `card`、`draggable=false`、单 Tab 停靠点且无嵌套可聚焦元素、左键应用内打开并拦截整页跳转、Ctrl/Cmd+点击不拦截、回车打开、空格拾起后按回车不打开、搜索中仍能点开且不标 `aria-disabled` |
 | `BoardPage` 集成 | `BoardPage.test.tsx`：渲染列与卡片、非法 id、搜索防抖与语法错误、快捷键 `n`、新建卡片 POST、快照 404、完成列默认窄边/点击与键盘展开、收起按钮、刷新保留偏好 |
+| 列表视图 | `web.list.md`：`sortCards.test.ts`、`ListView.test.tsx`、`useBoardView.test.tsx`、`BoardView.test.tsx` |
 | 筛选纯逻辑 | `filters.test.ts`：点选条件拼成筛选词（标签任一/全部、带空格加引号、没有标签、列用 id、状态、截止与跨月跨年的 7 天内）、含引号或竖线的取值被跳过、各组一起选、关键字合并、计数、切换与互斥状态、标签选项排序与领取者去重；`filterChips.test.ts`：小标签的文字、顺序和取消后的条件 |
 | 筛选界面 | `FilterPopover.test.tsx`：点选后发给服务端的查询与当前筛选小标签、任一/全部开关、各组一起选、点叉取消与清除全部、关键字和点选合成一条查询、未完成与已完成互斥、查询过长不发请求；`useBoardFilters.test.tsx`：设置与清空、换到另一块看板是什么都没选 |
 | 标签纯逻辑 | `tagList.test.ts`：去重、上限、截断、删除 |

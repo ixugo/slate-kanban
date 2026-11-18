@@ -38,5 +38,5 @@
 
 ## v1 未做（与产品卡对齐）
 
-- [ ] CHK019 - 列表视图（表格）— **未做**，Slate 看板 **SLATE-38**。
+- [x] CHK019 - 列表视图（表格）— `web.list.md`；`sortCards.test.ts`、`ListView.test.tsx`、`BoardView.test.tsx`。
 - [x] CHK020 - 磁贴中键/Cmd+点击在新标签页打开卡片，同时保持单一 Tab 停靠点（`CardTile.test.tsx`；真实 Chrome 里验证过中键、Cmd+点击新开 `?card=` 页，左键不整页刷新，拖拽松手不弹卡片）。
