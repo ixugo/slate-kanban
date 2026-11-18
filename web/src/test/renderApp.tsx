@@ -1,12 +1,11 @@
-// 页面测试的统一入口：把主题、查询缓存、提示气泡、路由按和正式应用一样的顺序套起来，
-// 并可以指定起始地址。
+// 页面测试的统一入口：把主题、查询缓存、路由、提示条按和正式应用一样的顺序套起来，
+// 并可以指定起始地址。悬浮提示的 Provider 由用到它的页面自己提供，这里不再套。
 
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import { render, type RenderResult } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { Toaster } from '@/components/ui/sonner'
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { createQueryClient } from '@/lib/queryClient'
 import { ThemeProvider } from '@/lib/theme'
 import '@/i18n'
@@ -25,10 +24,8 @@ export function renderApp(ui: ReactNode, options: Options = {}): RenderResult & 
   const result = render(
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <MemoryRouter initialEntries={[options.route ?? '/']}>{ui}</MemoryRouter>
-          <Toaster />
-        </TooltipProvider>
+        <MemoryRouter initialEntries={[options.route ?? '/']}>{ui}</MemoryRouter>
+        <Toaster />
       </QueryClientProvider>
     </ThemeProvider>,
   )

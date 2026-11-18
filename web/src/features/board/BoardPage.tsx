@@ -115,41 +115,41 @@ export default function BoardPage() {
   }
 
   return (
-    <TooltipProvider>
-    <div className="flex min-h-0 flex-1 flex-col">
-      <BoardToolbar
-        board={snapshot}
-        searchRef={searchRef}
-        query={search.query}
-        onQueryChange={search.setQuery}
-        matched={matched}
-        total={search.total || totalCards}
-        truncated={search.truncated}
-        syntaxError={search.syntaxError}
-        searching={search.searching}
-        searchActive={search.query.trim().length > 0}
-        liveState={live.state}
-        onLiveRetry={live.retry}
-      />
-      {dragDisabled && (
-        <p className="border-b bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">{t('board.dragDisabledSearch')}</p>
-      )}
-      <BoardCanvas
-        columns={columns}
-        cardsById={cardsById}
-        visibleIds={search.visibleIds}
-        dragDisabled={dragDisabled}
-        onMove={(cardId, plan) => move.mutate({ cardId, plan })}
-        addColumnId={addColumnId}
-        onAddOpen={setAddColumnId}
-        onAddClose={() => setAddColumnId(null)}
-        onAddCard={(columnId, title) => create.mutate({ columnId, title })}
-        addBusy={create.isPending}
-      />
-      <Suspense fallback={null}>
-        <CardDialog boardId={boardId} />
-      </Suspense>
-    </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <BoardToolbar
+          board={snapshot}
+          searchRef={searchRef}
+          query={search.query}
+          onQueryChange={search.setQuery}
+          matched={matched}
+          total={search.total || totalCards}
+          truncated={search.truncated}
+          syntaxError={search.syntaxError}
+          searching={search.searching}
+          searchActive={search.query.trim().length > 0}
+          liveState={live.state}
+          onLiveRetry={live.retry}
+        />
+        {dragDisabled && (
+          <p className="border-b bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">{t('board.dragDisabledSearch')}</p>
+        )}
+        <BoardCanvas
+          columns={columns}
+          cardsById={cardsById}
+          visibleIds={search.visibleIds}
+          dragDisabled={dragDisabled}
+          onMove={(cardId, plan) => move.mutate({ cardId, plan })}
+          addColumnId={addColumnId}
+          onAddOpen={setAddColumnId}
+          onAddClose={() => setAddColumnId(null)}
+          onAddCard={(columnId, title) => create.mutate({ columnId, title })}
+          addBusy={create.isPending}
+        />
+        <Suspense fallback={null}>
+          <CardDialog boardId={boardId} />
+        </Suspense>
+      </div>
     </TooltipProvider>
   )
 }
