@@ -545,7 +545,7 @@ export const ja: Messages = {
     loopHint: 'ループ方式：タイマーで next_card をポーリングします。',
     waitHint: 'ブロック方式：wait_for_updates が変更があるまで待ちます。',
     managerFold: 'マネージャー用 MCP（任意）',
-    managerHint: 'プロジェクト作成、列・ルールの編集、タスク一括登録が必要なときだけ入れてください。',
+    managerHint: '列・ルールの編集、タスク一括登録が必要なときだけ入れてください。',
     snippets: { worker: 'ワーカー用 MCP', manager: 'マネージャー用 MCP', skill: 'skill のインストール' },
     copyFailed: 'コピーできませんでした。テキストを選択して手動でコピーしてください。',
   },

@@ -541,7 +541,7 @@ export const zhTW: Messages = {
     loopHint: '輪詢模式：定時呼叫 next_card。',
     waitHint: '阻塞模式：wait_for_updates 會等到有更新。',
     managerFold: '管理檢視 MCP（選用）',
-    managerHint: '僅在需要建專案、改欄／規則或批次輸入任務時再安裝。',
+    managerHint: '僅在需要改欄／規則或批次輸入任務時再安裝。',
     snippets: { worker: '工作檢視 MCP', manager: '管理檢視 MCP', skill: 'Skill 安裝' },
     copyFailed: '無法複製，請手動選取文字後複製。',
   },

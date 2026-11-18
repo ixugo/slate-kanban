@@ -540,7 +540,7 @@ export const zhCN: Messages = {
     loopHint: '轮询模式：定时调用 next_card。',
     waitHint: '阻塞模式：wait_for_updates 阻塞到有更新。',
     managerFold: '管理视图 MCP（可选）',
-    managerHint: '只在需要建项目、改列/规则或批量录入任务时再装。',
+    managerHint: '只在需要改列/规则或批量录入任务时再装。',
     snippets: { worker: '工作视图 MCP', manager: '管理视图 MCP', skill: 'Skill 安装' },
     copyFailed: '复制失败，请手动选中并复制。',
   },

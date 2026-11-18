@@ -545,7 +545,7 @@ export const ko: Messages = {
     loopHint: '루프 방식: 타이머로 next_card를 폴링합니다.',
     waitHint: '대기 방식: wait_for_updates가 변경될 때까지 대기합니다.',
     managerFold: '관리자용 MCP(선택)',
-    managerHint: '프로젝트 생성, 열·규칙 편집, 작업 일괄 등록이 필요할 때만 설치하세요.',
+    managerHint: '열·규칙 편집, 작업 일괄 등록이 필요할 때만 설치하세요.',
     snippets: { worker: '워커용 MCP', manager: '관리자용 MCP', skill: 'skill 설치' },
     copyFailed: '복사하지 못했습니다. 텍스트를 선택해 수동으로 복사하세요.',
   },

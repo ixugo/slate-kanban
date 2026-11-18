@@ -544,7 +544,7 @@ export const en = {
     loopHint: 'Loop mode: poll next_card on a timer.',
     waitHint: 'Blocking mode: wait_for_updates sleeps until something changes.',
     managerFold: 'Manager MCP (optional)',
-    managerHint: 'Install only when the agent must create projects, edit columns/rules, or bulk-import tasks.',
+    managerHint: 'Install only when the agent must edit columns/rules, or bulk-import tasks.',
     snippets: { worker: 'Worker MCP', manager: 'Manager MCP', skill: 'Skill install' },
     copyFailed: 'Could not copy. Select the text and copy manually.',
   },
