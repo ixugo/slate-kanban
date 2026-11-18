@@ -80,7 +80,7 @@ func finished(err error) (any, error) {
 	return okOut{OK: true}, nil
 }
 
-// registerAdminTools 注册只有管理视图才有的工具：看板（项目）、列、规则的管理，以及卡片和评论的删除。
+// registerAdminTools 注册只有管理视图才有的工具：看板（项目）的修改、列、规则的管理，以及卡片和评论的删除。
 // 它们对应的 Core 方法都只允许人调用，agent 视图里没有这些工具，减少它的干扰。
 // 项目只能创建和修改，不提供删除：删除项目只能由人在网页上输入项目名称确认后完成，MCP 不开这个口子。
 func (a API) registerAdminTools(s *mcp.Server) {
@@ -97,14 +97,19 @@ func (a API) registerAdminTools(s *mcp.Server) {
 	}, a.deleteComment)
 }
 
-// registerBoardTools 注册看板（项目）的创建和修改；有意不注册删除，见 registerAdminTools。
-func (a API) registerBoardTools(s *mcp.Server) {
+// registerCreateBoard 注册 create_board。工作视图和管理视图都有这个工具：
+// agent 在用户要求时也能新建项目，但没有任何视图能删除项目，见 registerAdminTools。
+func (a API) registerCreateBoard(s *mcp.Server) {
 	register(s, spec{
 		name: "create_board", kind: kindWrite,
 		desc: "创建看板。template 决定起步的列：dev（想法池、待办、进行中、审查、完成，带开始和完成计时的自动化规则，默认）、" +
 			"simple（待办、进行中、完成）、empty（没有列，再用 create_column 自己搭）；locale 决定起步列名的语言。" +
 			"返回看板、列和规则，列的编号用于后面的 create_card、update_column 等。",
 	}, a.createBoard)
+}
+
+// registerBoardTools 注册看板（项目）的修改；创建见 registerCreateBoard，有意不注册删除，见 registerAdminTools。
+func (a API) registerBoardTools(s *mcp.Server) {
 	register(s, spec{
 		name: "update_board", kind: kindWrite,
 		desc: "修改看板的名称、说明或项目路径，只更新填写的字段；project_path 传空字符串表示清除。看板标识创建后不能改。",

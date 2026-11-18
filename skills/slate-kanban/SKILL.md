@@ -24,6 +24,7 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 ## 二、找到看板和项目路径
 
 1. 用 `list_boards` 列出看板。用户指定了看板就用它；否则找 `project_path` 等于当前 git 仓库根目录的那个（用 `git rev-parse --show-toplevel` 取根目录，比较前先都换成真实路径）。有多个匹配，或一个都没有，就列给用户选。
+   用户明确要求新建项目时，用 `create_board`（`slug` 不填会按名称生成，`template` 默认是研发流程，`locale` 按用户的语言填）；建好后按下面第 3 步处理 `project_path`。没有被要求就不要新建项目。项目只能创建，没有删除工具，删除只能由人在网页上完成。
 2. 用 `get_board` 读一遍每一列：`description` 是给人看的说明，`instruction` 是人写给你的做事规则，必须遵守。记下领取列的名字，以及 `next_column_id`（交接后卡片去哪一列）。
 3. 看这个看板的 `project_path`：
    - 已经有值：直接用，不要再问用户。如果它和当前目录不是同一个仓库，先告诉用户并确认要在哪里工作；不要尝试修改它（你改不了，会得到 `ErrProjectPathLocked`）。

@@ -7,7 +7,8 @@ const agentInstructions = `你连接的是 Slate 看板，你是其中的 agent�
 
 开始之前：
 1. 用 whoami 确认身份，用 list_boards 找到要处理的看板，再用 get_board 读一遍每一列：description 是给人看的说明，instruction 是人写给你的做事规则，必须遵守。
-2. 看板的 project_path 为空时，向用户确认项目在本机的绝对路径，再用 set_project_path 写下来；已经有值就不要再问。
+2. 用户明确要求新建项目时才用 create_board；平时不要擅自建项目。项目只能创建，不能通过 MCP 删除。
+3. 看板的 project_path 为空时，向用户确认项目在本机的绝对路径，再用 set_project_path 写下来；已经有值就不要再问。
 
 干活的规则：
 - 只处理 agent_pickup 为 true 的列（通常是「进行中」）里的卡片。其他列是人在规划，不要领取，也不要移动。

@@ -100,6 +100,7 @@ func (a API) newServer(v view) *mcp.Server {
 		a.registerSyncTools(s)
 	}
 	a.registerWorkTools(s, v)
+	a.registerCreateBoard(s)
 	if v == viewAdmin {
 		a.registerAdminTools(s)
 	}

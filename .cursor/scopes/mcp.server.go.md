@@ -10,7 +10,7 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 |------|----------|-------------|---------|------|
 | 1 | MCP 工具里自己再写一套权限判断 | 同一个操作在不同入口结果不同，漏洞藏在某个入口里 | 工具只做"取身份、调 Core、转结果"，权限和校验全在 Core；工具视图只是减少干扰，不是安全边界 | 实施 |
 | 2 | MCP 请求没有可靠的身份 | 不同入口的操作者混乱 | `identityMiddleware` 解析 `?name=` 与 `?role=worker|manager`，校验后写入 `X-Slate-Actor-*` 头；`bearerGate` 在无 Authorization 时补占位 `Bearer open`，SDK 用 `headerVerifier` 读头构造 TokenInfo 做会话绑定 | 实施 |
-| 3 | agent 看到一堆自己用不了的管理工具 | 占掉上下文，还会反复尝试越权再被拒绝 | 两套工具视图：`role=worker`（默认 agent 名）16 个工作工具，`role=manager` 23 个管理工具；同名工具入参按身份裁剪 | 实施 |
+| 3 | agent 看到一堆自己用不了的管理工具 | 占掉上下文，还会反复尝试越权再被拒绝 | 两套工具视图：`role=worker`（默认 agent 名）17 个工作工具，`role=manager` 23 个管理工具；同名工具入参按身份裁剪 | 实施 |
 | 4 | 一个工具返回整板卡片，每张描述最长 20000 字 | 一次响应几百 KB，把 agent 的上下文撑爆 | `list_cards` 和资源快照里的卡片只给摘要（没有描述和评论），要看全文用 `get_card`；`list_cards` 默认 50 张、最多 200 张；资源快照最多 200 张，并如实给出 `total` 和 `truncated`；创建、修改、移动卡片只返回精简字段，不把刚写进去的描述原样回传 | 实施 |
 | 5 | 服务端有更新，agent 不知道 | 只能盲目轮询 | agent 订阅资源 `slate://boards/{board_id}`，看板每次提交更新，服务端异步发 `notifications/resources/updated`（带最新事件序号）；200 毫秒内的多次更新合并成一次通知；通知不阻塞写请求 | 实施 |
 | 6 | agent 当时不在线，或者它的 host 不支持订阅通知 | 通知丢了就丢了更新 | 通知只是"有更新"的提示，不带数据也不保证送达；数据靠 `pull_updates`：进度按（看板，agent）存在服务端数据库里，离线多久都能补读；离线太久事件被清理时返回 `truncated`，agent 用 `list_cards` 重新了解现状 | 实施 |
@@ -47,13 +47,14 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 | move_card | 有 | 有 | MoveCard | agent 只能移自己持有的卡，且不能放进"agent 领取列" |
 | set_project_path | 有 | — | UpdateBoard | 项目路径为空时写入；已有值时返回 `ErrProjectPathLocked` |
 | list_events | — | 有 | ListEvents | 看板的活动流水 |
-| create_board、update_board | — | 有 | CreateBoard、UpdateBoard | 项目（看板）的创建和修改；有意不提供删除，删除项目只能由人在网页上输入项目名称确认后完成（`TestNoBoardDeletionTool` 守住这一条） |
+| create_board | 有 | 有 | CreateBoard | 新建项目；agent 只在用户明确要求时才用（说明和 skill 里都这样写）。自动化规则不能建 |
+| update_board | — | 有 | UpdateBoard | 项目（看板）的修改；有意不提供删除，删除项目只能由人在网页上输入项目名称确认后完成（`TestNoBoardDeletionTool` 守住这一条） |
 | create_column、update_column、reorder_columns、delete_column | — | 有 | CreateColumn、UpdateColumn、ReorderColumns、DeleteColumn | 列管理 |
 | create_rule、update_rule、delete_rule | — | 有 | CreateRule、UpdateRule、DeleteRule | 自动化规则管理 |
 | delete_card、delete_comment | — | 有 | DeleteCard、DeleteComment | 删除 |
 
-agent 视图 16 个，管理视图 23 个（`whoami`、`list_boards`、`get_board`、`list_cards`、`get_card`、`release_card`、`finish_card`、`comment_card`、
-`create_card`、`update_card`、`move_card` 共 11 个共用，加上 12 个管理专用）。
+agent 视图 17 个，管理视图 23 个（`whoami`、`list_boards`、`get_board`、`list_cards`、`get_card`、`release_card`、`finish_card`、`comment_card`、
+`create_card`、`update_card`、`move_card`、`create_board` 共 12 个共用，加上 11 个管理专用）。
 
 没有对应工具的 Core 方法：`DeleteBoard`（有意不提供，只有网页用的 REST 接口能删除项目）、`BoardSnapshot`（作为资源提供，见"资源"）、`GetCard`（`get_card` 已覆盖）、`LatestSeq`、`Subscribe`、`Observe`（内部使用）。
 不再提供 agent 令牌管理；MCP 通过 URL 自报名称区分 agent。

@@ -195,14 +195,25 @@ func TestCreateBoardAutoSlugConcurrent(t *testing.T) {
 	}
 }
 
-// TestCreateBoardRejects 验证不该成功的情况：agent 和身份无效的操作者被拒绝，
+// TestCreateBoardByAgent 验证 agent 也能创建看板，事件里记录的来源是 agent。
+func TestCreateBoardByAgent(t *testing.T) {
+	ctx := context.Background()
+	core, _ := newBare(t)
+	got, err := core.CreateBoard(ctx, testAgent, kanban.CreateBoardInput{Name: "agent 建的", Slug: "AGT"})
+	if err != nil || got.Board.Slug != "AGT" {
+		t.Fatalf("agent 应该能创建看板: %+v %v", got, err)
+	}
+}
+
+// TestCreateBoardRejects 验证不该成功的情况：自动化和身份无效的操作者被拒绝，
 // 不合法的输入返回 ErrInvalidInput，失败后都不会留下看板。
 func TestCreateBoardRejects(t *testing.T) {
 	ctx := context.Background()
 	core, _ := newBare(t)
 
-	if _, err := core.CreateBoard(ctx, testAgent, kanban.CreateBoardInput{Name: "x"}); !errors.Is(err, kanban.ErrHumanOnly) {
-		t.Fatalf("agent 应该得到 ErrHumanOnly，实际 %v", err)
+	system := kanban.Actor{Kind: kanban.ActorSystem, Name: "automation"}
+	if _, err := core.CreateBoard(ctx, system, kanban.CreateBoardInput{Name: "x"}); !errors.Is(err, kanban.ErrHumanOnly) {
+		t.Fatalf("自动化应该得到 ErrHumanOnly，实际 %v", err)
 	}
 	if _, err := core.CreateBoard(ctx, kanban.Actor{}, kanban.CreateBoardInput{Name: "x"}); !errors.Is(err, kanban.ErrInvalidActor) {
 		t.Fatalf("身份无效应该得到 ErrInvalidActor，实际 %v", err)

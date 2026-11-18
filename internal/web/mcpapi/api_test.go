@@ -14,7 +14,7 @@ var (
 	agentTools = []string{
 		"whoami", "list_boards", "get_board", "list_cards", "get_card", "pull_updates", "wait_for_updates",
 		"next_card", "claim_card", "release_card", "finish_card", "comment_card", "create_card", "update_card",
-		"move_card", "set_project_path",
+		"move_card", "set_project_path", "create_board",
 	}
 	adminTools = []string{
 		"whoami", "list_boards", "get_board", "list_cards", "get_card", "list_events",
