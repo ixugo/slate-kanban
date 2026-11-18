@@ -7,7 +7,7 @@ import { useTranslation } from '@/i18n/react'
 import { ApiError } from '@/lib/api/client'
 import { deleteCard, releaseCard } from '@/lib/api/endpoints'
 import { describeError } from '@/lib/errors'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { CardDetail, Snapshot, UpdateCardInput } from '@/lib/api/types'
 import { queryKeys } from '@/lib/queryKeys'
@@ -20,6 +20,7 @@ import { useCardDetail } from './useCardDetail'
 import { useCardUpdate } from './useCardUpdate'
 import { useLanguage } from '@/i18n/useLanguage'
 import { CardDialogBody } from './CardDialogBody'
+import { CardHeaderBar } from './CardHeaderBar'
 
 interface CardDialogProps {
   boardId: number
@@ -94,32 +95,23 @@ export default function CardDialog({ boardId }: CardDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && close()}>
-      <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:w-full sm:max-w-4xl">
-        <DialogHeader className="shrink-0 px-6 pt-5 pb-2 pr-16">
-          <DialogTitle className="font-mono text-ui font-medium tracking-normal text-muted-foreground">
-            {card?.key ?? t('card.title')}
-          </DialogTitle>
-          <DialogDescription className="sr-only">{t('card.title')}</DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-1 pb-6">
-          {isPending && <Skeleton className="h-40 w-full rounded-2xl" />}
-          {showNotFound && <p role="alert">{t('card.notFound')}</p>}
-          {loadError !== '' && <p role="alert">{loadError}</p>}
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden bg-popover! p-0 backdrop-blur-none! sm:w-full sm:max-w-4xl">
+        <CardHeaderBar card={card} columns={columns} onColumn={onColumn} onDelete={() => remove.mutate()} deleteBusy={remove.isPending} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-hidden">
+          {isPending && <Skeleton className="m-6 h-40 rounded-2xl" />}
+          {showNotFound && <p role="alert" className="p-6">{t('card.notFound')}</p>}
+          {loadError !== '' && <p role="alert" className="p-6">{loadError}</p>}
           {card && (
             <CardDialogBody
               card={card}
-              columns={columns}
               depOptions={depOptions}
               lang={lang}
               boardId={boardId}
               onPatch={onPatch}
-              onColumn={onColumn}
               onDesc={(description) => onPatch({ description, version: card.version })}
               patchBusy={patch.isPending}
               onRelease={() => release.mutate()}
               releaseBusy={release.isPending}
-              onDelete={() => remove.mutate()}
-              deleteBusy={remove.isPending}
             />
           )}
         </div>

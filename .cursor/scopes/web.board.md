@@ -25,7 +25,7 @@
 | 9 | agent 的评论和描述里常带 Markdown | 原样显示难读 | 描述和评论用 Markdown 渲染，不解析原始 HTML，链接只放行 http、https、mailto（做法见 `web.app.md` 第 9 条） | 实施 |
 | 11 | 看板被别人删除时页面还开着 | 一直转圈或者报一堆错 | 实时流或快照 404 时走 `BoardGone`（看板已不存在） | 实施 |
 | 12 | 看板很宽、手机很窄 | 横向看不全，误触 | 列容器横向滚动，窄屏每列接近整屏宽并按列吸附；卡片弹窗窄屏接近全宽，桌面用 `sm:max-w-4xl` 放宽（与 `DialogContent` 默认同断点前缀，避免 `cn` 合并 Tailwind 类时小屏类盖不掉基础 `max-w-sm`） | 实施 |
-| 16 | 卡片弹窗要像 Trello 那样左边内容、右边「评论和活动」 | 评论和卡片事件散在各处，看不出一张卡片的来龙去脉 | 桌面宽度（`md` 起）两栏：左栏标题、描述、属性、列指令与时间信息、删除；右栏是「评论和活动」，内容多时自己滚动并贴顶。手机宽度单栏，顺序是标题、描述、属性、评论和活动。右栏顶部是评论编辑器（同一个实时编辑器的紧凑版）加「发送」，下面把评论和这张卡片的事件（建卡、修改、换列、认领、释放、自动化）按时间从新到旧排在一起；「显示详情」开关可收起事件，只看评论。事件来自 `GET /boards/:id/activity?card_id=`（只取上述类型，最多 100 条），缓存键挂在看板键下面，所以实时刷新会让它自动更新 | 实施 |
+| 16 | 卡片弹窗要像 Trello 那样左边内容、右边「评论和活动」 | 评论和卡片事件散在各处，看不出一张卡片的来龙去脉 | 桌面宽度（`md` 起）两栏：左栏标题、属性、描述、依赖与链接、列指令与时间信息；右栏是浅灰底的「评论和活动」，两栏各自滚动。手机宽度单栏，评论和活动排在最后。右栏顶部是评论编辑器（同一个实时编辑器的紧凑版）加「发送」，下面把评论和这张卡片的事件（建卡、修改、换列、认领、释放、自动化）按时间从新到旧排在一起；「显示详情」开关可收起事件，只看评论。事件来自 `GET /boards/:id/activity?card_id=`（只取上述类型，最多 100 条），缓存键挂在看板键下面，所以实时刷新会让它自动更新 | 实施 |
 | 17 | 起步模板的列名、说明和默认规则名是创建时那种语言，换了界面语言还是原样 | 英文界面里看到「想法池」「待办」 | 网页显示时查 `web/src/lib/templateText.ts`：文字正好是某种语言的起步文案，就换成当前界面语言的说法（看板列头、卡片弹窗的列选择、筛选、列表视图、设置的列和规则页）；用户自己起的名字、改过的说明原样显示，只需要一种语言。编辑弹窗里仍是库里存的原文，保存时不会被悄悄改成别的语言。这张表和服务端 `board_template.go` 的 `templateTexts` 逐字一致，`board_template_web_test.go` 核对；历史事件（活动流、事件载荷里的列名）是当时的快照，不换 | 实施 |
 | 13 | 卡片弹窗要能分享给同事 | 复制链接只能到看板，找不到卡片 | 卡片弹窗的状态放在地址的 `?card=编号` 里，刷新、分享、浏览器返回都正常；卡片不存在时提示 | 实施 |
 | 14 | 新建项目的参数多 | 新手面对空项目不知道怎么开始 | 创建对话框叫「新建项目」：名称（必填）、编号前缀（选填，不填服务端按名称生成）、说明（选填）、一个**模板开关**（打开 = 研发流程，关闭 = 空白，开关旁显示当前模板名，不写模板描述）；**网页上不填也不展示项目路径**，由 agent 第一次接入时确认后写入（`set_project_path`）；语言取当前界面语言，起步的列和规则就是这种语言。网页只提供 `dev` 和 `empty` 两种，接口和 MCP 仍接受 `simple` | 实施 |
@@ -99,7 +99,7 @@ flowchart TD
 ## 卡片弹窗
 
 - **开关**：URL `?card=卡片数字 id`；`CardDialog` 由 `BoardPage` 懒加载。
-- **布局**：顶栏显示卡片 `key`，内容区整体可滚动。`md` 及以上是栅格 `minmax(0,1fr) / 21rem`：**左栏**依次是大号标题输入（含领取横幅与「释放」）、描述（`DescriptionEditor`）、属性（`CardProperties`，两列网格，标签与依赖占满整行）、本列 agent 指令（`details` 折叠）、只读时间信息（`CardTimeMeta`）、底部删除（二次确认）；**右栏**是「评论和活动」（`CardTimeline`），贴顶并在内容多时自己滚动。窄屏单栏，DOM 顺序：标题 → 描述 → 属性 → 评论和活动 → 列指令与时间信息 → 删除。详见问题场景第 16 条。
+- **布局**（对齐 Trello 的卡片）：实心背景（不再是磨砂透明）。顶栏 `CardHeaderBar`：左边是所在列的药丸下拉（选了就移动卡片，走 `useMoveCard`），接着卡片编号，右边是删除图标（二次确认）。`md` 及以上两栏：**左栏**依次是领取横幅、大号标题、一排属性 `CardMeta`（优先级、标签、截止、仅人工）、描述（`DescriptionEditor`）、依赖与分支和链接 `CardLinks`、本列 agent 指令（`details` 折叠）、只读时间信息；**右栏**是浅灰底的「评论和活动」（`CardTimeline`），固定宽 21rem，两栏各自滚动。窄屏单栏，DOM 顺序：标题 → 属性 → 描述 → 依赖与链接 → 时间信息 → 评论和活动。详见问题场景第 16 条。
 - **宽度**：`DialogContent` 使用 `sm:max-w-4xl` 与 `max-h-[90dvh]`（须与组件库默认断点前缀一致才能覆盖默认 `max-w-sm`）。
 - **属性区**：列（走 `useMoveCard` 与拖拽同一套规则）、优先级、**标签**（`TagEditor` + `tagList` 纯函数）、截止（本地 `datetime-local`）、仅人工、依赖（`DependencyPicker`）、分支、链接；PATCH 成功后 `useCardUpdate` 会把响应合并进详情缓存。
 - **领取**：`claim_active` 且 `claimed_by` 非空时显示 agent 名与租约到期时间，人可点「释放」（`POST /cards/:id/release`）。
@@ -142,7 +142,7 @@ sequenceDiagram
 |------|------|
 | `web/src/features/boards/` | `BoardListPage.tsx`、`CreateBoardDialog.tsx`、`useBoards.ts`、`validation.ts` |
 | `web/src/features/board/` | `BoardPage.tsx`、`BoardToolbar.tsx`、`BoardCanvas.tsx`、`ColumnView.tsx`、`CardTile.tsx`、`AddCard.tsx`、`SearchBox.tsx`、`SearchHelp.tsx`、`FilterPopover.tsx`、`ActiveFilters.tsx`、`filters.ts`、`filterChips.ts`、`useBoardFilters.ts`、`LiveStatus.tsx`、`BoardGone.tsx`、`dnd.ts`、`handleDragEnd.ts`、`useBoard.ts`、`useBoardLive.ts`、`useMoveCard.ts`、`useBoardSearch.ts`、`useCreateCard.ts`、`useBoardKeyboard.ts`、`useCollapsedColumns.ts` |
-| `web/src/features/card/` | `CardDialog.tsx`、`CardDialogBody.tsx`、`CardProperties.tsx`、`TagEditor.tsx`、`tagList.ts`、`CardTimeMeta.tsx`、`DescriptionEditor.tsx`、`CardTimeline.tsx`、`timeline.ts`、`useCardActivity.ts`、`DependencyPicker.tsx`、`useCardDetail.ts`、`useCardUpdate.ts`、`validateUrl.ts` |
+| `web/src/features/card/` | `CardDialog.tsx`、`CardDialogBody.tsx`、`CardHeaderBar.tsx`、`CardProperties.tsx`（`CardMeta`、`CardLinks`）、`TagEditor.tsx`、`tagList.ts`、`CardTimeMeta.tsx`、`DescriptionEditor.tsx`、`CardTimeline.tsx`、`timeline.ts`、`useCardActivity.ts`、`DependencyPicker.tsx`、`useCardDetail.ts`、`useCardUpdate.ts`、`validateUrl.ts` |
 | `web/src/features/editor/`、`web/src/lib/md/` | 实时渲染编辑器与共享的 Markdown 解析，见 `web.editor.md` |
 | `web/src/lib/markdown.tsx` | 安全 Markdown 渲染（描述与评论共用） |
 

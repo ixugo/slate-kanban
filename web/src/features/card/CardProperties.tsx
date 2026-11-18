@@ -1,7 +1,8 @@
-// 卡片弹窗的属性区：列、优先级、标签、截止等可编辑属性；宽一点时分两列，窄屏单列。
+// 卡片弹窗的属性区：标题下面一排紧凑的优先级、标签、截止、仅人工（对齐 Trello 的做法），
+// 以及描述下面的依赖、分支、链接。
 
 import { useTranslation } from '@/i18n/react'
-import type { CardDetail, Column } from '@/lib/api/types'
+import type { CardDetail } from '@/lib/api/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -12,53 +13,24 @@ import { DependencyPicker } from './DependencyPicker'
 import { TagEditor } from './TagEditor'
 import { normalizeCardUrl } from './validateUrl'
 import { toast } from '@/lib/toast'
-import { useTemplateText } from '@/lib/useTemplateText'
 
-interface CardPropertiesProps {
+interface CardPatchProps {
   card: CardDetail
-  columns: Column[]
-  depOptions: CardDetail['dependencies']
-  version: number
   onPatch: (patch: Record<string, unknown>) => void
-  onColumn: (columnId: number) => void
 }
 
-/** 属性表单（不含标题、描述、评论） */
-export function CardProperties({ card, columns, depOptions, version, onPatch, onColumn }: CardPropertiesProps) {
+/** 标题下面的一排属性：每项一个小标题加一个紧凑控件，放不下就换行 */
+export function CardMeta({ card, onPatch }: CardPatchProps) {
   const { t } = useTranslation()
-  const { columnName } = useTemplateText()
   const priorities = ['none', 'low', 'medium', 'high'] as const
-
-  const saveUrl = (url: string) => {
-    const norm = normalizeCardUrl(url)
-    if (!norm.ok) {
-      toast.error(t('card.urlInvalid'))
-      return
-    }
-    onPatch({ url: norm.value.slice(0, CARD_URL_MAX), version })
-  }
+  const version = card.version
 
   return (
-    <div className="grid gap-3.5 rounded-2xl bg-secondary/50 p-4 sm:grid-cols-2">
-      <div className="space-y-1.5">
-        <Label className="text-muted-foreground">{t('card.field.column')}</Label>
-        <Select value={String(card.column_id)} onValueChange={(v) => onColumn(Number(v))}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {columns.map((col) => (
-              <SelectItem key={col.id} value={String(col.id)}>
-                {columnName(col.name)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="flex flex-wrap items-start gap-x-5 gap-y-4">
       <div className="space-y-1.5">
         <Label className="text-muted-foreground">{t('card.field.priority')}</Label>
         <Select value={String(card.priority)} onValueChange={(v) => onPatch({ priority: Number(v), version })}>
-          <SelectTrigger>
+          <SelectTrigger size="sm" className="min-w-24">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -70,7 +42,7 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
           </SelectContent>
         </Select>
       </div>
-      <div className="sm:col-span-2">
+      <div className="min-w-48 flex-1 basis-56">
         <TagEditor tags={card.tags} onChange={(tags) => onPatch({ tags, version })} />
       </div>
       <div className="space-y-1.5">
@@ -78,14 +50,37 @@ export function CardProperties({ card, columns, depOptions, version, onPatch, on
         <Input
           id="card-due"
           type="datetime-local"
+          className="h-8 w-52"
           defaultValue={toLocalInput(card.due_at)}
           onBlur={(e) => onPatch({ due_at: e.target.value === '' ? '' : e.target.value, version })}
         />
       </div>
-      <div className="flex items-center justify-between gap-2 sm:self-end sm:pb-1.5">
+      <div className="space-y-1.5">
         <Label htmlFor="card-human" className="text-muted-foreground">{t('card.field.humanOnly')}</Label>
-        <Switch id="card-human" checked={card.human_only} onCheckedChange={(v) => onPatch({ human_only: v, version })} />
+        <div className="flex h-8 items-center">
+          <Switch id="card-human" checked={card.human_only} onCheckedChange={(v) => onPatch({ human_only: v, version })} />
+        </div>
       </div>
+    </div>
+  )
+}
+
+/** 描述下面的关联信息：依赖、分支、链接 */
+export function CardLinks({ card, depOptions, onPatch }: CardPatchProps & { depOptions: CardDetail['dependencies'] }) {
+  const { t } = useTranslation()
+  const version = card.version
+
+  const saveUrl = (url: string) => {
+    const norm = normalizeCardUrl(url)
+    if (!norm.ok) {
+      toast.error(t('card.urlInvalid'))
+      return
+    }
+    onPatch({ url: norm.value.slice(0, CARD_URL_MAX), version })
+  }
+
+  return (
+    <div className="grid gap-3.5 sm:grid-cols-2">
       <div className="space-y-1.5 sm:col-span-2">
         <Label className="text-muted-foreground">{t('card.field.deps')}</Label>
         <DependencyPicker
