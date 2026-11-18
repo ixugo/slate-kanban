@@ -79,6 +79,8 @@ claude mcp add --transport http --scope user slate 'http://127.0.0.1:7070/mcp?na
 claude mcp add --transport http --scope user slate-manager 'http://127.0.0.1:7070/mcp?name=claude-code-manager&role=manager'
 ```
 
+装完后在 agent 里**新开一个会话**，让它调用 `whoami` 确认身份（已经打开的会话不会获得新装的 MCP 和 skill）。也可以先在终端检查：Claude Code 用 `claude mcp list`，Codex 用 `codex mcp list`（它只列出配置，不会真的连服务）。启用口令后漏带口令时各 host 的表现、Cursor 需要重启等细节，都写在服务的 `/install.md` 里。
+
 ### 身份怎么确定
 
 Slate 没有登录，身份由 MCP 地址里的参数决定：
@@ -209,6 +211,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `make run` | 启动后端（开发模式，不带前端） |
 | `make web/dev` | 启动前端开发服务器 `http://127.0.0.1:5173`，接口和 MCP 转发到本机 7070 |
 | `make web/test` | 前端类型检查、oxlint、单元测试 |
+| `make web/e2e` | 浏览器端到端冒烟测试：自动构建前端、编译并启动临时服务，用本机 Chrome 跑用例（约 30 秒；需要装 Chrome，不碰 `configs/` 里的真实数据） |
 | `make web/build` | 构建前端（产物进 `internal/web/spa/dist`），并检查体积预算 |
 | `make build` | 前端 + 后端，得到带前端的 `./slate` |
 | `go test ./internal/...` | 后端测试（默认 SQLite，不依赖 docker） |
@@ -237,13 +240,16 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 - [x] 免登录与安全兜底、gzip 静态服务、单文件部署、Docker
 - [x] 五种语言、深浅主题、官网
 - [x] 新建项目只要名称和一个模板开关；完成列可收起；自动化有推荐规则和「两句话」编辑器；苹果风格的界面
+- [x] 列表视图（排序表格）、活动流（工具栏「活动」抽屉）、卡片磁贴可在新标签页打开
+- [x] PWA：可安装，离线时能查看上次缓存的看板快照
+- [x] 可选访问口令（`Server.HTTP.Passcode`）、开机自启（`./slate service`）、英文官网（入门、概念、接入已译，其余章节暂显示中文）
+- [x] PostgreSQL 存储层测试（`make test-postgres`）、浏览器端到端冒烟测试（`make web/e2e`）
+- [x] 接入已在 Claude Code 和 Codex 的真实会话里走通；Cursor 只对照了官方文档，还没有在真实 Cursor 里逐步验证
 
 以后再做（都已记入 Slate 自己的看板）：
 
-- [ ] 列表视图、PWA
-- [ ] 局域网共享与可选的访问口令、可选的用户名（多人区分评论作者）
-- [ ] 活动流（看板级事件时间线）
-- [ ] git 同步、系统服务安装、自动更新、英文官网
+- [ ] 可选的用户名（多人区分评论作者）
+- [ ] git 同步、自动更新
 
 ## 许可
 
