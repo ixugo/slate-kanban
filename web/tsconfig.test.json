@@ -1,0 +1,11 @@
+{
+  // 测试代码的类型检查：和应用代码用同一套规则，但允许使用 Node 的接口（比如读文件）。
+  // 应用代码不带 Node 类型，误用 Node 接口会在 tsconfig.app.json 里报错。
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["vite/client", "node"]
+  },
+  "include": ["src"],
+  "exclude": []
+}
