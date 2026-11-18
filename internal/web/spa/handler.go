@@ -86,7 +86,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rel = "index.html"
 	}
 	data, ok := h.loadFile(rel)
-	if !ok && !apiLikePath(r.URL.Path) && rel != "index.html" {
+	if !ok && !apiLikePath(r.URL.Path) && rel != "index.html" && !noSpaFallback(r.URL.Path) {
 		data, ok = h.loadFile("index.html")
 		if ok {
 			rel = "index.html"
@@ -197,6 +197,8 @@ func contentType(name string) string {
 		return "text/css; charset=utf-8"
 	case ".svg":
 		return "image/svg+xml"
+	case ".png":
+		return "image/png"
 	case ".json":
 		return "application/json; charset=utf-8"
 	case ".txt":
