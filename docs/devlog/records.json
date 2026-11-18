@@ -1,0 +1,401 @@
+{
+  "board": {
+    "name": "Slate 开发",
+    "slug": "SLATE",
+    "description": "用 Slate 管理 Slate 自己的开发：已完成的功能、验收中的事项和接下来的计划都在这里。",
+    "project_path": "/Users/pg506/Documents/slate-kanban",
+    "template": "dev",
+    "locale": "zh-CN"
+  },
+  "cards": [
+    {
+      "column": "完成",
+      "title": "搭好 goddd 项目骨架与基础配置",
+      "tags": ["基础", "后端"],
+      "started_at": "2026-11-17T16:41:00+08:00",
+      "finished_at": "2026-11-17T16:50:00+08:00",
+      "branch": "master",
+      "description": "用 goddd 模板初始化项目，Go 升到 1.27，补齐运行所需的基础配置。\n\n做了什么\n- 配置支持监听地址，默认只监听本机。\n- 配置目录、数据库路径都以启动目录为基准；SQLite 开启 WAL 和忙等待。\n- 长连接（SSE、MCP 阻塞等待）不受写超时限制。\n- 配置样例改名为 `config.example.toml`，首次启动按默认值生成 `configs/config.toml`。\n- 启动时自动迁移表结构。\n\n提交：`60183dc` 到 `16a4c3c`，以及 `63c58b2`。\n\n说明：本看板里的起止时间是按提交时间推算的。"
+    },
+    {
+      "column": "完成",
+      "title": "先写设计文档：领域类图、事件、看板与列、卡片、领取、自动化",
+      "tags": ["文档"],
+      "started_at": "2026-11-17T16:54:00+08:00",
+      "finished_at": "2026-11-17T17:00:00+08:00",
+      "branch": "master",
+      "description": "每个功能先写设计文档，再写代码，代码完成后回头把文档和实现对齐。文档都放在 `.cursor/scopes/`，每份带流程图、决策表和需求质量清单（`checklists/`）。\n\n这一批：领域类图、事件日志、看板与列、卡片与评论、领取与租约、自动化规则。\n\n提交：`eeb203a` 到 `e38fc78`；实现完成后的对齐在 `66c19dc` 到 `a22f8ae`。",
+      "comments": [
+        "过程约定：设计文档先行，每个函数写中文注释，一个提交只做一件事。后面所有功能都按这个节奏做。"
+      ]
+    },
+    {
+      "column": "完成",
+      "title": "领域模型、数据库存储与事务执行器",
+      "tags": ["后端", "kanban"],
+      "started_at": "2026-11-17T17:04:00+08:00",
+      "finished_at": "2026-11-17T17:16:00+08:00",
+      "branch": "master",
+      "description": "看板领域的地基。\n\n- 实体：看板、列、卡片、评论、规则、事件、游标。\n- 操作者（Actor）分人和 agent，名字做白名单校验。\n- 事务执行器：同一个事务里改数据、写事件，提交后再广播给订阅者。\n- 唤醒器（Hub）：看板有更新时通知等待中的 agent 和实时流。\n- 输入校验与统一的错误类型。\n\n设计文档：`.cursor/scopes/domain-class-diagram.md`、`kanban.event.go.md`。\n提交：`1da2488` 到 `f835bc3`。"
+    },
+    {
+      "column": "完成",
+      "title": "看板与列：创建、读取、修改、重排",
+      "tags": ["后端", "kanban"],
+      "started_at": "2026-11-17T17:16:00+08:00",
+      "finished_at": "2026-11-17T17:23:00+08:00",
+      "branch": "master",
+      "description": "- 创建看板时按模板（dev、simple、empty）和界面语言生成列与默认规则。\n- 看板标识（slug）会拼进每张卡片的编号，例如 `SLATE-12`，创建后不能改。\n- 列有两个驱动 AI 的开关：agent 领取列、完成列，还有给 agent 的指令和交接后的下一列。\n- agent 只能写看板的项目路径，其余管理操作只给人。\n\n设计文档：`kanban.board.go.md`。\n提交：`50b9c7d` 到 `8e501de`。"
+    },
+    {
+      "column": "完成",
+      "title": "卡片与评论：创建、修改、移动、排序、删除、依赖",
+      "tags": ["后端", "kanban"],
+      "started_at": "2026-11-17T17:23:00+08:00",
+      "finished_at": "2026-11-17T17:37:00+08:00",
+      "branch": "master",
+      "description": "- 乐观锁：修改时带上 `version`，别人改过就返回版本冲突，不会覆盖对方的修改。\n- 位置是带间隔的数字，插入时取相邻两张的中间值，不用整列重排；间隔用尽时才整列重排。\n- 依赖：被依赖的卡片没完成时，这张卡处于等待状态，agent 不会领取。\n- 评论只能新增，不能修改。\n- 卡片视图带出列名、是否完成、是否在等待、领取是否有效等派生字段。\n\n设计文档：`kanban.card.go.md`。\n提交：`49b8b9f` 到 `20fb73f`。"
+    },
+    {
+      "column": "完成",
+      "title": "卡片筛选语法",
+      "tags": ["后端", "kanban", "搜索"],
+      "started_at": "2026-11-17T17:40:00+08:00",
+      "finished_at": "2026-11-17T17:42:00+08:00",
+      "branch": "master",
+      "description": "网页搜索框、MCP 的 `list_cards`、自动化规则的条件，共用同一套语法。\n\n- 空格分隔，全部满足才命中；词前加 `-` 取反；双引号包起来算一个词。\n- 前缀：`tag` `col` `key` `title` `desc` `priority` `claimed` `is` `has` `no` `due` `created` `updated`。\n- 限制：整串最多 500 字符、30 个词；前缀或值不认识会明确报出是哪个词。\n\n设计文档：`kanban.card.go.md` 的「筛选语法」一节。\n提交：`01b1d66` 到 `9c45182`。"
+    },
+    {
+      "column": "完成",
+      "title": "领取与租约、完成交接",
+      "tags": ["后端", "kanban", "agent"],
+      "started_at": "2026-11-17T17:44:00+08:00",
+      "finished_at": "2026-11-17T17:49:00+08:00",
+      "branch": "master",
+      "description": "agent 干活的核心流程。\n\n- 只能在「agent 领取列」（默认「进行中」）里领卡片；`next_card` 取下一张可做的，`claim_card` 领取，`release_card` 释放。\n- 租约默认 30 分钟，最长 24 小时；持有者修改卡片、写评论时自动顺延；过期后别人可以领。\n- `finish_card`：写总结、填分支和链接，卡片自动进入当前列设置的下一列（默认「审查」）。\n- 人可以移动任何卡片，agent 只能移动自己持有的卡片；换列会清除领取。\n\n设计文档：`kanban.claim.go.md`。\n提交：`b223420` 到 `b066f25`。"
+    },
+    {
+      "column": "完成",
+      "title": "Trello 式自动化规则引擎",
+      "tags": ["后端", "kanban", "自动化"],
+      "started_at": "2026-11-17T17:51:00+08:00",
+      "finished_at": "2026-11-17T18:09:00+08:00",
+      "branch": "master",
+      "description": "用户最喜欢 Trello 的自动化，所以做成可配置的规则，而不是写死状态。\n\n- 触发器：卡片创建（`card_created`）、进入某列（`card_entered`）、离开某列（`card_left`）。\n- 条件：可选，用筛选语法描述。\n- 动作 12 种：写/清开始时间、写/清完成时间、设/清截止时间、设优先级、加/去标签、设仅人工、加评论、移动到某列。\n- 连锁：规则把卡片移到别的列会继续触发那里的规则，最多 3 层；同一条规则一次操作只执行一次，防止死循环。\n- 限制：每条规则最多 20 个动作，每个看板最多 50 条规则。\n- 新看板自带三条规则：进入「进行中」写开始时间，进入「完成」写完成时间，离开「完成」清除完成时间。\n- 列怎么驱动 AI：列上写的「指令」会在 agent 领到卡片时一并交给它。\n\n设计文档：`kanban.automation.go.md`。\n提交：`20bce4d` 到 `ce019c8`。",
+      "comments": [
+        "状态不写死：用户可以随意增删列和规则；为了让 AI 知道每一列该怎么处理，每列都有一段给 agent 的指令，agent 领到卡片时必须遵守。"
+      ]
+    },
+    {
+      "column": "完成",
+      "title": "删除列与删除看板",
+      "tags": ["后端", "kanban"],
+      "started_at": "2026-11-17T18:10:00+08:00",
+      "finished_at": "2026-11-17T18:12:00+08:00",
+      "branch": "master",
+      "description": "- 删除列时，列里有卡片必须指定移入哪一列；引用这一列的规则会自动停用。\n- 删除看板会连带删除它的全部数据。\n\n提交：`da26c80`、`7be9a99`、`9e860e4`。"
+    },
+    {
+      "column": "完成",
+      "title": "事件日志、拉取与阻塞等待、整板快照",
+      "tags": ["后端", "kanban", "agent"],
+      "started_at": "2026-11-17T18:14:00+08:00",
+      "finished_at": "2026-11-17T18:38:00+08:00",
+      "branch": "master",
+      "description": "解决「服务端更新了，agent 要知道；agent 可能离线，上线后要补读」。\n\n- 全局递增序号的事件日志，所有改动都在同一个事务里写事件。\n- 每个 agent 一个游标：`pull_updates` 返回游标之后的变更并推进游标，离线期间的变更不会丢。\n- `wait_for_updates`：阻塞等待，有变更立刻返回，超时返回空；服务关闭时主动结束。\n- 整板快照带最新事件序号，网页用它和实时流对齐。\n- 事件内容序列化为 JSON 对象，方便 agent 直接读。\n\n设计文档：`kanban.event.go.md`。\n提交：`d1fcf77` 到 `9977331`，`8c547c6`。"
+    },
+    {
+      "column": "完成",
+      "title": "访问令牌（后来整体移除）",
+      "tags": ["安全", "已废弃"],
+      "started_at": "2026-11-17T18:28:00+08:00",
+      "finished_at": "2026-11-17T18:36:00+08:00",
+      "branch": "master",
+      "description": "最初做了管理令牌加 agent 令牌的认证：网页登录要管理令牌，每个 agent 用自己的令牌连 MCP。\n\n第二天用户要求「免登录，不需要用户系统」，这套全部删除，见「免登录改造」。保留这张卡是为了记录决策过程。\n\n提交：`023647c` 到 `48aa0a8`；移除：`7ca5c3d`、`226d275`。",
+      "comments": [
+        "为什么删：Slate 是个人或小团队在本机用的工具，令牌带来的接入成本（建令牌、配环境变量、过期处理）大于收益。替代方案是身份由 MCP 地址参数决定，再加默认只监听本机等安全兜底。"
+      ]
+    },
+    {
+      "column": "完成",
+      "title": "REST 接口与实时流（SSE）",
+      "tags": ["后端", "api"],
+      "started_at": "2026-11-17T19:43:00+08:00",
+      "finished_at": "2026-11-17T20:47:00+08:00",
+      "branch": "master",
+      "description": "`/api/v1`：看板、列、卡片、评论、规则、快照、事件列表、拉取与等待、领取类接口。\n\n- JSON 字段全是 snake_case；错误统一返回 `{reason, msg, trace_id}`。\n- 请求体大小上限和 JSON 检查。\n- 实时流 `GET /boards/:id/stream`：事件 `ready`、`board`、`reset`、`error`，支持 `Last-Event-ID` 续传；服务关闭时长连接主动结束。\n\n设计文档：`api.rest.go.md`。\n提交：`8f10488` 到 `85c22a5`。"
+    },
+    {
+      "column": "完成",
+      "title": "MCP 服务：两套工具视图、通知、使用说明",
+      "tags": ["后端", "mcp", "agent"],
+      "started_at": "2026-11-17T21:01:00+08:00",
+      "finished_at": "2026-11-18T09:06:00+08:00",
+      "branch": "master",
+      "description": "基于官方 go-sdk，Streamable HTTP，挂在 `/mcp`。\n\n- 两套工具视图：工作视图 16 个（读看板、领取、交接、评论、创建和修改卡片、移动、写项目路径、拉取更新、阻塞等待），管理视图 24 个（再加建改删看板、列、规则，删除卡片和评论，读活动流水）。管理视图里没有领取类工具。\n- 工具错误只把 `reason` 和 `msg` 交给 agent。\n- 资源 `slate://boards/{id}` 与订阅：看板有更新时合并（默认 200 毫秒）后异步通知。\n- 连接时下发使用说明，两个视图各一份。\n- 卡片摘要不含描述，列表默认 50 条、最多 200 条，保护 agent 的上下文。\n\n设计文档：`mcp.server.go.md`。\n提交：`b53c517` 到 `134e097`，测试补强 `12d55dc` 到 `ac898d9`。"
+    },
+    {
+      "column": "完成",
+      "title": "agent skill 与连接说明（/install.md）",
+      "tags": ["后端", "mcp", "agent", "文档"],
+      "started_at": "2026-11-18T09:14:00+08:00",
+      "finished_at": "2026-11-18T09:27:00+08:00",
+      "branch": "master",
+      "description": "不只是 MCP：还要教 agent 怎么按看板的规矩干活，并且能让 agent 自己装好。\n\n- 内嵌 `slate-kanban` skill：确认项目路径（没有就问，有就不再问）、阻塞等待或循环拉取、在 worktree 和分支里开发（复杂任务派 subagent）、做完交接到审查、只处理「进行中」。\n- skill 同时作为 MCP 资源发布，也能通过 `/skills/slate-kanban/SKILL.md` 下载。\n- `/install.md`：给 agent 读的安装说明，覆盖 Claude Code、Cursor、Codex；`/api/v1/connect`：同一份内容的结构化 JSON，网页用它。\n- 测试保证 skill 里提到的工具名、错误名都真实存在，每个 agent 工具都讲到。\n- 地址从请求里算出，Host 和转发头严格校验，说明页不缓存。\n\n设计文档：`agent.skill.go.md`。\n提交：`f630646` 到 `8953fbc`，`f413ecf` 到 `b93e65b`。"
+    },
+    {
+      "column": "完成",
+      "title": "网页骨架：脚手架、主题、多语言、接口封装",
+      "tags": ["前端"],
+      "started_at": "2026-11-18T09:44:00+08:00",
+      "finished_at": "2026-11-18T10:15:00+08:00",
+      "branch": "master",
+      "description": "React 19 + Vite + TypeScript，Tailwind 4，shadcn/ui（radix 版，图标用 lucide），TanStack Query，react-router。\n\n- 深浅主题：浅色、深色、跟随系统，记住选择。\n- 类型化的接口封装，错误统一成 ApiError，并按当前语言翻译。\n- 各输入的长度和数量上限，测试直接读后端源码核对数值。\n- 日期时间格式化：相对时间向下取整，过去和未来对称。\n\n设计文档：`web.app.md`。\n提交：`79ccbb6` 到 `3da12fe`。"
+    },
+    {
+      "column": "完成",
+      "title": "五种界面语言",
+      "tags": ["前端", "i18n"],
+      "started_at": "2026-11-18T09:56:00+08:00",
+      "finished_at": "2026-11-18T11:20:00+08:00",
+      "branch": "master",
+      "description": "简体中文、繁体中文、English、日本語、한국어。\n\n- 文案键是类型化的，测试保证五种语言的键和占位符完全一致。\n- 英文随首屏打包，其余语言按需加载。\n- Go 侧新看板的起步模板（列名、说明、给 agent 的指令、默认规则名）也有五种语言。\n- 设置页和接入页的日语、韩语是单独翻译的，规则摘要的句子按各语言的语序重新拆分，读起来是完整的句子。\n\n提交：`57f6fe7`、`7dc6d51`、`b753669`、`ded4bc7`、`f91a7d3`、`855e066` 等。"
+    },
+    {
+      "column": "完成",
+      "title": "免登录改造",
+      "tags": ["安全", "后端", "前端"],
+      "started_at": "2026-11-18T10:44:00+08:00",
+      "finished_at": "2026-11-18T11:07:00+08:00",
+      "branch": "master",
+      "description": "用户要求：免登录，不需要用户系统。\n\n- REST：所有请求都是「人」，名称固定为 `human`。\n- MCP：身份由网址参数决定。`/mcp?name=<agent>` 是工作视图；再加 `&role=manager` 是管理视图（人）。名字只允许小写字母、数字、`.`、`_`、`-`，最长 64 位，`human` 和 `system` 是保留名。\n- 安全兜底：默认只监听 `127.0.0.1`；Host 白名单防 DNS 重绑定；写请求的 Origin 必须和 Host 一致；固定的安全响应头。\n- 删除令牌领域、令牌接口、管理令牌配置和登录页。\n\n设计文档：`v1.scope.md`、`identity.open.go.md`。\n提交：`5fd0ae3`、`bc22ff8`、`7ca5c3d`、`226d275`、`fb828d4`、`b7a51b7`、`50c2a3e`、`10bd6ea`。",
+      "comments": [
+        "取舍：MCP 的身份是自报的，不是安全边界，只用来区分 agent 和记录谁做了什么。要对外开放，README 要求放在带认证的反向代理后面，并把域名写进 AllowedHosts。"
+      ]
+    },
+    {
+      "column": "完成",
+      "title": "静态服务：嵌入前端、gzip、缓存头、SPA 回退",
+      "tags": ["后端", "前端", "性能"],
+      "started_at": "2026-11-18T10:44:00+08:00",
+      "finished_at": "2026-11-18T11:05:00+08:00",
+      "branch": "master",
+      "description": "目标：单文件部署，前端尽量小，服务端用 gzip 压缩。\n\n- 前端产物用 `go:embed` 打进程序，需要构建标签 `embed_web`；没带标签时访问网页会看到提示页。\n- html、js、css、svg、json 启动后第一次访问时压缩并缓存，带 ETag，支持 304。\n- `/assets/*` 带一年不变的缓存头，`index.html` 不缓存。\n- SPA 回退不会吞掉 API 路径。\n\n设计文档：`web.static.go.md`。\n提交：`a523e85`。"
+    },
+    {
+      "column": "完成",
+      "title": "前端瘦身：自研 i18n 与 toast、懒加载、体积预算",
+      "tags": ["前端", "性能"],
+      "started_at": "2026-11-18T10:44:00+08:00",
+      "finished_at": "2026-11-18T11:27:00+08:00",
+      "branch": "master",
+      "description": "用户要求前端尽量小。首屏 JS（gzip）从 149.0 kB 降到 118.5 kB，预算 130 kB；整个 dist（gzip）243.9 kB，预算 300 kB。`npm run build` 会自动检查预算，超了就失败。\n\n做法\n- 自研 i18n（英文静态，其余语言按需加载）和 toast，卸载 i18next、react-i18next、sonner、clsx、tailwind-merge。\n- 实时流直接用浏览器自带的 EventSource。\n- 顶栏的语言、主题、看板切换改成原生 select 和循环按钮，悬浮提示的依赖只在看板页加载。\n- 看板页、设置页、接入页和各弹窗按路由或按需懒加载。\n- 不用网页字体，用系统字体栈；Markdown 用自己写的安全渲染器。\n\n提交：`58d60ba`、`b753669` 到 `0c01f02`、`ac84df1` 到 `6033ca8`、`ed28061`、`65463d3`。"
+    },
+    {
+      "column": "完成",
+      "title": "看板页：列、卡片、拖拽、搜索、快捷键、实时同步",
+      "tags": ["前端"],
+      "started_at": "2026-11-18T10:07:00+08:00",
+      "finished_at": "2026-11-18T11:24:00+08:00",
+      "branch": "master",
+      "description": "- 拖拽：把落点换算成服务端认的相邻卡片；本地先预测，失败时恢复并提示，结束后以服务端为准。\n- 搜索：用服务端同一套筛选语法，搜索时关闭拖拽。\n- 快捷键：`/` 搜索，`n` 新建卡片，`Esc` 关闭或清空。\n- 实时同步：服务端有更新就合并刷新；收到 reset 就重取快照再续传；看板被删时回到列表。\n- 键盘：每张卡片只有一个 Tab 停靠点，Enter 打开，空格拾起或放下，方向键移动。\n- 同时有导出菜单、实时状态指示（绿点是已连接）。\n\n设计文档：`web.board.md`。\n提交：`05c9a1f` 到 `607402f`，`b59edd1`、`3afbdfb`、`cf6d529`、`54cc314`。"
+    },
+    {
+      "column": "完成",
+      "title": "卡片弹窗：两栏布局、描述、评论、依赖、标签、领取信息",
+      "tags": ["前端"],
+      "started_at": "2026-11-18T10:48:00+08:00",
+      "finished_at": "2026-11-18T11:29:00+08:00",
+      "branch": "master",
+      "description": "- 宽屏两栏：左边标题、描述（编辑和预览）、评论；右边所在列、优先级、标签、截止时间、仅人工、依赖、分支、链接、领取状态、本列 agent 指令、创建/更新/开始/完成时间。窄屏退回单栏。\n- 标签：回车或逗号添加，退格删除，不区分大小写去重，数量和长度有上限。\n- 描述支持 Markdown，只渲染安全的子集，不渲染原始 HTML。\n- 修改带版本号，冲突时提示刷新。\n\n提交：`68db003`、`6eacee0`、`2743245` 等。",
+      "comments": [
+        "踩坑：弹窗宽度一开始写成 `max-w-4xl`，被基础组件的 `sm:max-w-sm` 盖住，弹窗仍然很窄，单元测试发现不了。改成 `sm:max-w-4xl` 后用浏览器真实渲染确认。纯布局问题要靠真实渲染检查。"
+      ]
+    },
+    {
+      "column": "完成",
+      "title": "设置页：列管理与 Trello 式规则编辑器",
+      "tags": ["前端", "自动化"],
+      "started_at": "2026-11-18T10:48:00+08:00",
+      "finished_at": "2026-11-18T11:02:00+08:00",
+      "branch": "master",
+      "description": "- 常规：名称、说明、项目路径、删除看板（需要二次确认）。\n- 列：新增、改名、改说明和给 agent 的指令、设为 agent 领取列或完成列、设置交接后的下一列、用上移和下移按钮调整顺序、删除（有卡片时要选移入的列）。\n- 自动化：规则列表（启用开关、一句话摘要）；规则编辑器选触发器、列、条件、动作；有预设一键加入常用规则。\n\n设计文档：`web.settings.md`。\n提交：`f7f8973` 到 `e5c209e`。"
+    },
+    {
+      "column": "完成",
+      "title": "Agent 接入页：按 host 复制 MCP、skill 与一句话提示",
+      "tags": ["前端", "agent"],
+      "started_at": "2026-11-18T10:48:00+08:00",
+      "finished_at": "2026-11-18T11:02:00+08:00",
+      "branch": "master",
+      "description": "网页上的接入入口：选择 Claude Code、Cursor、Codex，复制工作视图和管理视图的 MCP 命令或配置、skill 安装命令，还有一句话提示（让 agent 自己读 `/install.md` 完成接入）。\n\n设计文档：`web.agents.md`。\n提交：`9faf7de`。"
+    },
+    {
+      "column": "完成",
+      "title": "看板导出 JSON 与 Markdown",
+      "tags": ["后端", "前端", "导出"],
+      "started_at": "2026-11-18T11:15:00+08:00",
+      "finished_at": "2026-11-18T11:18:00+08:00",
+      "branch": "master",
+      "description": "`GET /api/v1/boards/:id/export?format=json|md`，网页看板工具栏有「导出」菜单。\n\n- JSON：看板、列、规则、全部卡片（含派生字段）、每张卡片的评论、导出时的最新事件序号。\n- Markdown：按列、按卡片整理，带元信息和评论，方便阅读和归档。\n- 整板一次性导出，评论按看板批量读取，避免每张卡片查一次。\n- 文件名 `<slug>-<yyyymmdd>.json|md`，只含合法字符。\n\n提交：`60f69e7`、`bf2cc51`。"
+    },
+    {
+      "column": "完成",
+      "title": "官网 slate_web（Docusaurus）",
+      "tags": ["文档"],
+      "started_at": "2026-11-18T10:48:00+08:00",
+      "finished_at": "2026-11-18T11:01:00+08:00",
+      "branch": "master",
+      "description": "同级目录 `../slate_web`，简体中文，带 Mermaid 图。\n\n页面：介绍、快速开始、核心概念、筛选语法、自动化、接入 agent、agent 工作流、设计取舍、配置、MCP 工具、REST 接口、部署、自举、FAQ 与路线图；首页有示意看板和闭环图。\n\n提交记录在 slate_web 仓库里。"
+    },
+    {
+      "column": "完成",
+      "title": "清理遗留与稳定性修复",
+      "tags": ["后端", "前端", "缺陷"],
+      "started_at": "2026-11-18T11:25:00+08:00",
+      "finished_at": "2026-11-18T11:35:00+08:00",
+      "branch": "master",
+      "description": "- 恢复被误覆盖的测试辅助文件 `export_test.go`，导出测试改放 `board_export_test.go`（`6167709`）。\n- 弹窗宽度被基础组件的 `sm:max-w-sm` 盖住，改用 `sm:max-w-4xl`（`2743245`）。\n- 去掉没人使用的 `JwtSecret` 配置项，旧配置文件里留着它也不影响启动（`e860868`）。\n- 服务退出时真正关闭数据库：原先清理函数的判断写反了，SQLite 的 WAL 不会合并回主文件（`9ec3ada`，带回归测试）。",
+      "comments": [
+        "教训：几个子代理并行改同一个包时，`export_test.go` 这类有 Go 约定含义的文件名要提前告知，否则会被新增的测试同名覆盖，导致整个包的测试编译失败。集成时必须跑全量 go vet 和 go test，不能只信子代理的汇报。"
+      ]
+    },
+    {
+      "column": "完成",
+      "title": "构建与部署：Makefile、Dockerfile、compose、README",
+      "tags": ["部署", "文档"],
+      "started_at": "2026-11-18T11:35:00+08:00",
+      "finished_at": "2026-11-18T11:46:00+08:00",
+      "branch": "master",
+      "description": "- `make build`：安装前端依赖（需要时）、构建前端、编译成带前端的单文件程序 `./slate`；`make web/dev`、`make web/test`、`make run` 等开发命令。\n- 多阶段 Dockerfile：前端、后端、运行镜像；用普通用户运行，数据和日志放 `/data`，带健康检查。\n- `docker-compose.yml`：命名卷保存数据，默认只映射到宿主机的 `127.0.0.1`。\n- README 完整重写：快速开始、接入 agent、自动化、搜索语法、配置、安全说明、开发、进度与路线。\n\n提交：`1596c74`、`59580d9` 以及本批后续提交。"
+    },
+    {
+      "column": "完成",
+      "title": "自举：用 MCP 把开发记录录入 Slate 自己的看板",
+      "tags": ["agent", "文档"],
+      "started_at": "2026-11-18T11:40:00+08:00",
+      "finished_at": "2026-11-18T11:48:00+08:00",
+      "branch": "master",
+      "description": "你现在看到的这些卡片，就是用 `cmd/devlog-import` 通过管理视图的 MCP 工具录入的：\n\n```sh\ngo run ./cmd/devlog-import -url http://127.0.0.1:7070 -file docs/devlog/records.json\n```\n\n- 看板按 slug 查找，没有就创建；卡片按标题去重，重复运行是安全的。\n- 记录文件是 `docs/devlog/records.json`，可以直接修改后再导入。\n- 起止时间按提交时间推算。\n\n从现在起，Slate 的后续开发就用这块看板来管理：把想做的事放进「想法池」，确定要做的放进「待办」，拖进「进行中」交给 agent。",
+      "comments": [
+        "验证过：网页和 MCP 读到的是同一份数据；用工作视图连上来可以看到本看板，并且 agent 只会处理「进行中」的卡片。"
+      ]
+    },
+    {
+      "column": "审查",
+      "title": "v1 整体验收",
+      "priority": 3,
+      "tags": ["验收"],
+      "branch": "master",
+      "description": "v1 已经做完，请按下面的清单验收，没问题就把这张卡拖到「完成」。\n\n- [ ] `make build && ./slate`，打开 `http://127.0.0.1:7070`，新建看板、加卡片、拖动、搜索、改规则。\n- [ ] 在「Agent」页复制命令，给自己的 agent 装上 MCP 和 skill；把一张卡片拖进「进行中」，确认 agent 领取、干活、交到「审查」。\n- [ ] 离线补读：关掉 agent，在网页上改几张卡片，再让 agent 上线，确认它能读到离线期间的变更。\n- [ ] 切换五种语言和深浅主题，各页面没有错位。\n- [ ] 打开官网（`../slate_web`，`npm start`），读一遍快速开始。\n- [ ] 需要时试一下 `docker compose up -d --build`。\n- [ ] 阅读 README 的「安全说明」，决定是否对外开放。",
+      "comments": [
+        "未核实项都放在「待办」里，标了「待验证」：真实的 Claude Code、Cursor、Codex 上的接入步骤，PostgreSQL，浏览器端到端测试。"
+      ]
+    },
+    {
+      "column": "待办",
+      "title": "在真实的 Claude Code、Cursor、Codex 上验证接入步骤",
+      "priority": 3,
+      "tags": ["待验证", "agent"],
+      "description": "`/install.md` 里的命令和配置是按各 host 的文档写的，还没有在真实环境里逐个跑通；资源订阅通知在各 host 里的表现也没验证。\n\n验收：三个 host 各走通一遍「装 MCP → 装 skill → 领取一张进行中的卡片 → 交到审查」，把差异写回 `/install.md`、skill 和官网。"
+    },
+    {
+      "column": "待办",
+      "title": "浏览器端到端冒烟测试（Playwright）",
+      "priority": 2,
+      "tags": ["测试", "前端"],
+      "description": "现在前端只有 jsdom 的单元和集成测试，拖拽、实时同步、布局靠人工在浏览器里检查（弹窗宽度的问题就是这样才发现的）。\n\n验收：覆盖新建看板、拖动卡片、搜索、规则触发、实时同步、五种语言切换的冒烟用例，一条命令能跑。"
+    },
+    {
+      "column": "待办",
+      "title": "活动流：看板级事件时间线",
+      "priority": 2,
+      "tags": ["前端", "后端"],
+      "description": "事件日志已经有了，管理视图的 `list_events` 能读。网页上做一个抽屉，按时间展示谁在什么时候做了什么（移动、领取、评论、规则触发），方便回看 agent 做了什么。\n\n验收：抽屉里能按事件类型和操作者筛选，新事件实时出现。"
+    },
+    {
+      "column": "待办",
+      "title": "可选的访问口令与局域网共享",
+      "priority": 2,
+      "tags": ["安全"],
+      "description": "现在没有任何认证，对外开放只能靠反向代理。做一个可选的访问口令：配置里设置后，网页和 MCP 都要带；不设置就保持现在的免登录。\n\n验收：设置口令后，没有口令的网页和 MCP 请求都被拒绝；README 的安全说明同步更新。"
+    },
+    {
+      "column": "待办",
+      "title": "在 PostgreSQL 上跑一遍存储层测试",
+      "priority": 1,
+      "tags": ["后端", "待验证"],
+      "description": "框架支持 PostgreSQL（DSN 以 postgres 开头），但 Slate 的存储层和测试只在 SQLite 上跑过。补一套在 Postgres 上运行的存储测试，核对事务、行锁、JSON 字段和唯一约束的行为。\n\n验收：同一套存储测试在 SQLite 和 PostgreSQL 上都通过；README 的配置说明去掉「只在 SQLite 上充分测试」的限定。"
+    },
+    {
+      "column": "待办",
+      "title": "卡片磁贴支持在新标签页打开",
+      "priority": 1,
+      "tags": ["前端", "体验"],
+      "description": "为了让每张卡片只有一个 Tab 停靠点，磁贴里去掉了内嵌的链接，所以中键、Cmd+点击不能在新标签页打开卡片。想办法两者兼得（例如磁贴整体是链接，拖拽手柄单独做）。"
+    },
+    {
+      "column": "待办",
+      "title": "清理没有启用的配置热加载及其有数据竞争的测试",
+      "priority": 1,
+      "tags": ["后端", "缺陷"],
+      "description": "`internal/conf/watcher.go` 的 `WatchConfig` 是 goddd 模板带来的，Slate 没有调用它（修改配置需要重启），但它的测试在 `go test -race ./internal/conf/` 下报数据竞争。\n\n验收：要么删掉没用的热加载和它的测试，要么修好竞争；`go test -race ./internal/...` 全部通过。"
+    },
+    {
+      "column": "想法池",
+      "title": "多选拖动卡片",
+      "priority": 1,
+      "tags": ["前端", "体验"],
+      "description": "参考项目 kanzo 有，v1 没做。一次选中多张卡片，拖到别的列。"
+    },
+    {
+      "column": "想法池",
+      "title": "列表视图（表格）",
+      "priority": 1,
+      "tags": ["前端"],
+      "description": "除了看板视图，再提供按列、按优先级、按截止时间排序的表格视图，适合卡片很多的时候。"
+    },
+    {
+      "column": "想法池",
+      "title": "PWA：可安装、离线打开",
+      "priority": 1,
+      "tags": ["前端"],
+      "description": "让网页可以安装成桌面或手机上的应用，离线时能打开上次的看板（只读）。"
+    },
+    {
+      "column": "想法池",
+      "title": "git 同步：把看板导出成仓库里的文件并双向同步",
+      "priority": 1,
+      "tags": ["后端", "集成"],
+      "description": "把看板按 Markdown 导出到项目仓库，跟着代码一起版本管理；仓库里改了文件也能同步回看板。需要先想清楚冲突怎么处理。"
+    },
+    {
+      "column": "想法池",
+      "title": "系统服务安装（launchd、systemd）",
+      "priority": 1,
+      "tags": ["部署"],
+      "description": "提供一条命令把 Slate 装成开机自启的系统服务，并生成对应的服务文件。"
+    },
+    {
+      "column": "想法池",
+      "title": "自动更新",
+      "priority": 1,
+      "tags": ["部署"],
+      "description": "检查新版本并替换程序。需要先确定发布渠道和校验方式，不能在用户不知情时更新。"
+    },
+    {
+      "column": "想法池",
+      "title": "可选的用户名，让多人使用时区分评论作者",
+      "priority": 1,
+      "tags": ["前端", "后端"],
+      "description": "现在网页上的操作者固定是 human。多人共用一个看板时，希望能设置自己的名字，让评论和活动里能区分是谁。要保持免登录，只是自报名字。"
+    },
+    {
+      "column": "想法池",
+      "title": "英文官网",
+      "priority": 1,
+      "tags": ["文档"],
+      "description": "现在官网只有简体中文。用 Docusaurus 的 i18n 加英文，先翻译快速开始、核心概念和接入 agent。"
+    }
+  ]
+}
