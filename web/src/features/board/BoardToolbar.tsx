@@ -53,10 +53,10 @@ export function BoardToolbar({
   const exportBase = `${API_PREFIX}/boards/${board.id}/export`
   return (
     <form
-      className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-3 sm:flex-row sm:items-center sm:px-6"
+      className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-3 sm:flex-row sm:items-start sm:px-6"
       onSubmit={(e) => e.preventDefault()}
     >
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex min-h-9 min-w-0 items-center gap-2.5">
         <h1 className="truncate text-title font-semibold tracking-tight">{board.name}</h1>
         <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 font-mono text-[0.6875rem] text-muted-foreground">
           {board.slug}
@@ -88,7 +88,7 @@ export function BoardToolbar({
           </Link>
         </Button>
       </div>
-      <div className="flex min-w-0 flex-1 items-center gap-3 sm:justify-end">
+      <div className="flex min-w-0 flex-1 items-start gap-3 sm:justify-end">
         <SearchBox
           ref={searchRef}
           query={query}

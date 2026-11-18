@@ -1,4 +1,5 @@
 // 工具栏上的实时同步状态：连着的时候什么都不显示，只在连接中、断线、项目被删时提示，断线时提供重试。
+// 工具栏按顶部对齐，这里的 mt-1 让它在 36px 高的第一行里上下居中。
 
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,7 @@ export function LiveStatus({ state, onRetry, gone }: LiveStatusProps) {
   const label = gone ? t('stream.notFound') : t(`stream.${state}`)
   const dotClass = state === 'connecting' ? 'bg-signal animate-pulse' : 'bg-muted-foreground'
   return (
-    <div className="flex shrink-0 items-center gap-2 rounded-full bg-secondary/70 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+    <div className="mt-1 flex shrink-0 items-center gap-2 rounded-full bg-secondary/70 px-3 py-1.5 text-xs font-medium text-muted-foreground">
       <span className={cn('size-2 shrink-0 rounded-full', dotClass)} aria-hidden />
       <span className="hidden sm:inline">{label}</span>
       {state === 'offline' && !gone && (
