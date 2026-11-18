@@ -8,6 +8,7 @@ import {
   findColumnOf,
   finalizeDrop,
   moveToColumn,
+  pickShownItems,
   planMove,
   type Items,
 } from './dnd'
@@ -71,6 +72,29 @@ describe('findColumnOf / moveToColumn', () => {
     expect(moveToColumn(items, 10, 99, 0)).toBe(items)
     moveToColumn(items, 10, 2, 0)
     expect(items).toEqual({ 1: [10, 11, 12], 2: [20], 3: [] })
+  })
+})
+
+describe('pickShownItems', () => {
+  const base: Items = { 1: [10, 11], 2: [] }
+  const dropped: Items = { 1: [11], 2: [10] }
+
+  it('拖动中永远用实时预览', () => {
+    const preview: Items = { 1: [10], 2: [11] }
+    expect(pickShownItems(preview, { items: dropped, base }, base)).toBe(preview)
+  })
+
+  it('松手后服务端数据还没落地（base 没变）：继续用松手时的排列', () => {
+    expect(pickShownItems(null, { items: dropped, base }, base)).toBe(dropped)
+  })
+
+  it('服务端数据落地后（base 换成新的）：以新的 base 为准，不再用旧的过渡排列', () => {
+    const fresh: Items = { 1: [11], 2: [10] }
+    expect(pickShownItems(null, { items: dropped, base }, fresh)).toBe(fresh)
+  })
+
+  it('没有拖动也没有过渡：用 base', () => {
+    expect(pickShownItems(null, null, base)).toBe(base)
   })
 })
 

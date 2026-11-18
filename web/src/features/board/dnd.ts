@@ -38,6 +38,22 @@ export function buildItems(columns: Column[], cards: CardView[], visibleIds: Rea
   return items
 }
 
+/** 松手到服务端数据落地之间的过渡状态：items 是松手时的排列，base 是当时按服务端数据算出的排列 */
+export interface Settling {
+  items: Items
+  base: Items
+}
+
+/**
+ * 当前该画哪一份排列：拖动中用实时预览；松手后，在 base（按服务端数据算出的排列）换成新的之前，
+ * 继续用松手时的排列。否则这一瞬间卡片会退回旧位置，落下动画就会飞向旧位置，再突然跳到新位置。
+ */
+export function pickShownItems(dragging: Items | null, settling: Settling | null, base: Items): Items {
+  if (dragging) return dragging
+  if (settling && settling.base === base) return settling.items
+  return base
+}
+
 /** 找出卡片当前在哪一列；不在任何一列返回 null */
 export function findColumnOf(items: Items, cardId: number): number | null {
   for (const [columnId, ids] of Object.entries(items)) {

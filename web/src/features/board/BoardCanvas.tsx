@@ -17,8 +17,9 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useMemo, useRef, useState } from 'react'
 import type { CardView, Column } from '@/lib/api/types'
-import { buildItems, findColumnOf, moveToColumn, type Items, type MovePlan } from './dnd'
+import { buildItems, findColumnOf, moveToColumn, pickShownItems, type Items, type MovePlan, type Settling } from './dnd'
 import { handleDragEnd } from './handleDragEnd'
+import { createDropAnimation, prefersReducedMotion } from './dropAnimation'
 import { ColumnView } from './ColumnView'
 import { CardTile } from './CardTile'
 import { useCollapsedColumns } from './useCollapsedColumns'
@@ -55,9 +56,11 @@ export function BoardCanvas({
   const cards = useMemo(() => [...cardsById.values()], [cardsById])
   const baseItems = useMemo(() => buildItems(columns, cards, visibleIds), [columns, cards, visibleIds])
   const [dragItems, setDragItems] = useState<Items | null>(null)
+  const [settling, setSettling] = useState<Settling | null>(null)
   const [activeId, setActiveId] = useState<number | null>(null)
   const originalRef = useRef<Items>(baseItems)
-  const shownItems = dragItems ?? baseItems
+  const shownItems = pickShownItems(dragItems, settling, baseItems)
+  const dropAnimation = useMemo(() => createDropAnimation(prefersReducedMotion()), [])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -75,6 +78,7 @@ export function BoardCanvas({
   const onDragStart = (e: DragStartEvent) => {
     const id = Number(e.active.id)
     originalRef.current = shownItems
+    setSettling(null)
     setDragItems(shownItems)
     setActiveId(id)
   }
@@ -114,13 +118,12 @@ export function BoardCanvas({
     const overId = Number(over.id)
     const overData = over.data.current as { type?: string } | undefined
     const { items: next, plan } = handleDragEnd(workItems, originalRef.current, active, overId, overData?.type === 'column')
+    // 有移动时先保持松手时的排列，等乐观更新落地再换成服务端数据；
+    // 否则这一瞬间卡片会退回旧位置，落下动画就飞向旧位置，再跳到新位置
+    setSettling(plan ? { items: next, base: baseItems } : null)
     setDragItems(null)
     setActiveId(null)
-    if (plan) {
-      onMove(active, plan)
-    } else if (JSON.stringify(next) !== JSON.stringify(baseItems)) {
-      setDragItems(null)
-    }
+    if (plan) onMove(active, plan)
   }
 
   const activeCard = activeId !== null ? cardsById.get(activeId) : undefined
@@ -159,7 +162,7 @@ export function BoardCanvas({
           )
         })}
       </div>
-      <DragOverlay dropAnimation={{ duration: 300, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' }}>
+      <DragOverlay dropAnimation={dropAnimation}>
         {activeCard ? <CardTile card={activeCard} dragDisabled overlay /> : null}
       </DragOverlay>
     </DndContext>
