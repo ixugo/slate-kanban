@@ -71,6 +71,8 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 | POST /cards/:card_id/finish | FinishCard | 人；agent 只能完成自己持有的卡片 | FinishCardInput | CardDetail |
 | POST /cards/:card_id/comments | AddComment | 人和 agent | `{body}` | Comment |
 | DELETE /comments/:comment_id | DeleteComment | 人 | — | `{}` |
+| POST /boards/:board_id/attachments | SaveAttachment | 人和 agent | multipart 表单，字段 `file`（图片） | `{token, url, content_type, size}`；见「图片附件」 |
+| GET /attachments/:token | GetAttachment | 全部 | — | 图片字节（不是 JSON） |
 没有对应路由的 Core 方法：`ListRules`（看板详情里已经带了规则）、`GetCard`（卡片详情接口已经覆盖）、
 `Observe`（留给 MCP 做更新通知）、`Subscribe` 和 `LatestSeq`（实时流内部使用）。
 
@@ -121,6 +123,16 @@ agent 通过 MCP 接入，身份由 `GET/POST /mcp?name=...&role=worker|manager`
 | md | `text/markdown; charset=utf-8` | 在 `kanbanapi` 用 `renderBoardMarkdown` 渲染，按列分组、列内顺序与看板一致 |
 
 两种格式都带 `Content-Disposition: attachment; filename="<slug 小写>-YYYYMMDD.json|md"`；文件名只保留 slug 的合法字符，防止响应头注入。整板不分页，规模按个人看板设计。
+
+## 图片附件
+
+粘贴进 Markdown 的图片存在数据库表 `attachments`（`Data` 字段是图片字节），不依赖文件目录，随数据库一起备份。
+
+- 上传 `POST /boards/:board_id/attachments`：表单字段 `file`，请求体先限制在 5 MB + 1 MB 再解析。类型由 `http.DetectContentType` 按内容判断，只收 PNG、JPEG、GIF、WebP；**不收 SVG**（SVG 能带脚本）。超过 5 MB 返回 413 `ErrAttachmentTooLarge`，类型不对或字段缺失返回 400 `ErrInvalidInput`，看板不存在 404。
+- 读取 `GET /attachments/:token`：`token` 是随机的 32 位小写十六进制，格式不对直接 404。响应头带 `X-Content-Type-Options: nosniff`、`Content-Security-Policy: default-src 'none'; sandbox`、`Content-Disposition: inline`，内容不变所以 `Cache-Control: private, max-age=31536000, immutable`。
+- Markdown 里写 `![说明](/api/v1/attachments/<token>)`，网页只渲染这种本服务的附件图片，外部图片地址当文字显示，不会去加载。
+- 删除看板时图片一起删除；删除卡片不删（图片可能被别处引用）。整板导出的 JSON/Markdown 只保留图片地址，不内嵌图片字节。
+- 没有访问口令时和其他接口一样免登录；设了口令后图片地址也要带会话 cookie（`<img>` 同源请求会自动带上）。
 
 ## 实时流
 

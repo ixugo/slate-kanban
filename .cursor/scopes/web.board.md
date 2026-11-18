@@ -163,7 +163,7 @@ sequenceDiagram
 | 筛选界面 | `FilterPopover.test.tsx`：点选后发给服务端的查询与当前筛选小标签、任一/全部开关、各组一起选、点叉取消与清除全部、关键字和点选合成一条查询、未完成与已完成互斥、查询过长不发请求；`useBoardFilters.test.tsx`：设置与清空、换到另一块看板是什么都没选 |
 | 标签纯逻辑 | `tagList.test.ts`：去重、上限、截断、删除 |
 | 卡片弹窗 | `CardDialog.test.tsx`：`?card= 打开后修改标题带 version`、`版本冲突时不丢输入框内容（仍可编辑）`、`标签可添加，重复标签不重复提交`、`标签达到上限时内联提示`、`显示开始时间、无完成时间，领取可释放`、`弹窗内同时有属性区、描述与评论和活动`、`「评论和活动」把评论和这张卡片的事件按时间排在一起，可收起详情`；`timeline.test.ts`：合并排序、收起详情、同时刻评论在事件前；`e2e/card.e2e.ts`：桌面两栏、手机上下排且不横向滚动 |
-| Markdown | `markdown.test.tsx`：标题粗体、拒绝 `javascript:`、不渲染原始 HTML/图片标签 |
+| Markdown | `markdown.test.tsx`：标题粗体、拒绝 `javascript:`、不渲染原始 HTML，外部图片不加载、本服务的图片附件才显示 |
 | 看板列表（相关） | `BoardListPage.test.tsx`、`boards/validation.test.ts`（创建看板校验） |
 | 手工 | 浏览器拖卡片、搜索、开关弹窗、深浅主题、窄屏、五种语言 |
 
