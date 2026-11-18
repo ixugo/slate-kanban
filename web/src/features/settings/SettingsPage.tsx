@@ -65,7 +65,7 @@ export default function SettingsPage() {
         </Button>
       }
     >
-      <Tabs defaultValue="general" className="space-y-4">
+      <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="flex-wrap">
           <TabsTrigger value="general">{t('settings.tabs.general')}</TabsTrigger>
           <TabsTrigger value="columns">{t('settings.tabs.columns')}</TabsTrigger>
@@ -88,9 +88,9 @@ export default function SettingsPage() {
 /** 页面外框：标题与返回链接 */
 function PageShell({ title, back, children }: { title: ReactNode; back?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5 p-4 sm:p-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-5 py-8 sm:px-8 sm:py-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-display font-semibold tracking-tight">{title}</h1>
         {back}
       </header>
       {children}

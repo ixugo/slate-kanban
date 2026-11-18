@@ -34,7 +34,7 @@ export function SnippetCard({ snippet, subdued }: Props) {
       <SnippetHeader title={heading} onCopy={onCopy} t={t} />
       <pre
         ref={preRef}
-        className="mt-2 max-h-60 overflow-auto border border-border bg-muted/50 p-3 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap"
+        className="mt-2 max-h-60 overflow-auto rounded-2xl bg-secondary/70 p-4 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap"
       >
         {snippet.code}
       </pre>
@@ -53,7 +53,7 @@ function SnippetHeader({
 }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <h3 className="text-sm font-medium">{title}</h3>
+      <h3 className="text-ui font-semibold">{title}</h3>
       <Button type="button" size="sm" variant="outline" onClick={onCopy}>
         <CopyIcon />
         {t('common.copy')}

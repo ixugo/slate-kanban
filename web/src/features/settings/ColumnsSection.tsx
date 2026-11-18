@@ -36,15 +36,15 @@ export function ColumnsSection({ boardId, columns, cards }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">{t('settings.columns.subtitle')}</p>
+        <p className="text-ui text-muted-foreground">{t('settings.columns.subtitle')}</p>
         <Button size="sm" onClick={() => setEditor('new')}>
           <PlusIcon />
           {t('settings.columns.add')}
         </Button>
       </div>
-      <ul className="divide-y divide-border border border-border">
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-card">
         {sorted.map((col) => (
-          <li key={col.id} className="flex flex-wrap items-center gap-2 p-3">
+          <li key={col.id} className="flex flex-wrap items-center gap-2 px-4 py-3.5">
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{col.name}</p>
               <p className="text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 // 自动化规则的创建/编辑对话框：两句话描述触发与动作，高级项收在「更多选项」。
 
-import { Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { ChevronRightIcon, Loader2Icon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { useTranslation } from '@/i18n/react'
 import type { TranslationKey } from '@/i18n/types'
@@ -245,7 +245,7 @@ function ThenRow({
   const { t } = useTranslation()
   const label = index === 0 ? t('settings.rules.editor.thenDo') : t('settings.rules.editor.andDo')
   return (
-    <div className="space-y-2 border border-border p-3">
+    <div className="space-y-2 rounded-2xl bg-secondary/50 p-3.5">
       <div className="flex flex-wrap items-start gap-2">
         <span className="pt-2 text-sm">{label}</span>
         <ActionTypeSelect row={row} onChange={onChange} />
@@ -323,10 +323,11 @@ function MoreOptionsSection({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-auto p-0"
+        className="h-auto p-0 text-muted-foreground"
         aria-expanded={open}
         onClick={() => onOpenChange(!open)}
       >
+        <ChevronRightIcon className={`transition-transform duration-200 ease-spring ${open ? 'rotate-90' : ''}`} />
         {t('settings.rules.moreOptions')}
       </Button>
       {open && (

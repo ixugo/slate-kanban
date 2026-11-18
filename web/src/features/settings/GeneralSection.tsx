@@ -53,7 +53,7 @@ export function GeneralSection({ board }: Props) {
 
   return (
     <div>
-      <form onSubmit={submit} className="max-w-xl space-y-4">
+      <form onSubmit={submit} className="max-w-xl space-y-4 rounded-2xl bg-card p-5 shadow-card">
         <div className="space-y-1.5">
           <Label htmlFor="board-name">{t('settings.general.name')}</Label>
           <Input
@@ -93,7 +93,7 @@ export function GeneralSection({ board }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label>{t('settings.general.slug')}</Label>
-          <p className="font-mono text-sm text-muted-foreground">{board.slug}</p>
+          <p className="font-mono text-ui text-muted-foreground">{board.slug}</p>
           <p className="text-xs text-muted-foreground">{t('settings.general.slugHint')}</p>
         </div>
         <Button type="submit" disabled={updateBoard.isPending}>
@@ -101,9 +101,9 @@ export function GeneralSection({ board }: Props) {
           {t('common.save')}
         </Button>
       </form>
-      <section className="mt-10 max-w-xl space-y-3 border border-destructive/30 p-4">
-        <h3 className="text-sm font-semibold text-destructive">{t('settings.general.dangerTitle')}</h3>
-        <p className="text-sm text-muted-foreground">{t('settings.general.dangerBody')}</p>
+      <section className="mt-8 max-w-xl space-y-3 rounded-2xl bg-destructive/10 p-5">
+        <h3 className="text-body font-semibold tracking-tight text-destructive">{t('settings.general.dangerTitle')}</h3>
+        <p className="text-ui text-muted-foreground">{t('settings.general.dangerBody')}</p>
         <Button type="button" variant="destructive" onClick={() => setDeleteOpen(true)}>
           {t('settings.general.deleteBoard')}
         </Button>

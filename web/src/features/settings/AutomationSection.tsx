@@ -54,20 +54,20 @@ export function AutomationSection({ boardId, columns, rules }: Props) {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">{t('settings.rules.subtitle')}</p>
+      <p className="text-ui text-muted-foreground">{t('settings.rules.subtitle')}</p>
 
       {recommended.length > 0 && (
         <section className="space-y-2" aria-labelledby="rules-recommended-heading">
-          <h3 id="rules-recommended-heading" className="text-sm font-medium">
+          <h3 id="rules-recommended-heading" className="text-body font-semibold tracking-tight">
             {t('settings.rules.recommended')}
           </h3>
-          <ul className="divide-y divide-border border border-border">
+          <ul className="divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-card">
             {recommended.map((presetId) => {
               const form = buildRulePreset(presetId, columns)
               const label = autoNameFromFormState(form.trigger, form.columnId, form.actions, columns, t)
               return (
-                <li key={presetId} className="flex flex-wrap items-center justify-between gap-2 p-3">
-                  <span className="text-sm">{label}</span>
+                <li key={presetId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                  <span className="text-ui">{label}</span>
                   <Button
                     type="button"
                     size="sm"
@@ -87,7 +87,7 @@ export function AutomationSection({ boardId, columns, rules }: Props) {
 
       <section className="space-y-3" aria-labelledby="rules-my-heading">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 id="rules-my-heading" className="text-sm font-medium">
+          <h3 id="rules-my-heading" className="text-body font-semibold tracking-tight">
             {t('settings.rules.myRules')}
           </h3>
           <Button size="sm" onClick={() => setEditing('new')}>
@@ -98,13 +98,13 @@ export function AutomationSection({ boardId, columns, rules }: Props) {
         {sorted.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('settings.rules.empty')}</p>
         ) : (
-          <ul className="divide-y divide-border border border-border">
+          <ul className="divide-y divide-border overflow-hidden rounded-2xl bg-card shadow-card">
             {sorted.map((rule) => {
               const showSummary = !isAutoRuleName(rule, columns, t)
               return (
-                <li key={rule.id} className="space-y-1 p-3">
+                <li key={rule.id} className="space-y-1 px-4 py-3.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-medium">{rule.name}</span>
+                    <span className="text-ui font-medium">{rule.name}</span>
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={rule.enabled}
@@ -132,7 +132,7 @@ export function AutomationSection({ boardId, columns, rules }: Props) {
                     </div>
                   </div>
                   {showSummary && (
-                    <p className="text-sm">
+                    <p className="text-ui">
                       <RuleSummaryText rule={rule} columns={columns} />
                     </p>
                   )}

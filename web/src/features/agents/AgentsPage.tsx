@@ -31,7 +31,7 @@ export default function AgentsPage() {
     const msg = error ? describeError(error, t).message : t('errors.ErrNotFound')
     return (
       <Page>
-        <h1 className="text-lg font-semibold">{t('agents.title')}</h1>
+        <h1 className="text-display font-semibold tracking-tight">{t('agents.title')}</h1>
         <p role="alert" className="text-destructive">
           {msg}
         </p>
@@ -46,21 +46,21 @@ export default function AgentsPage() {
 
   return (
     <Page>
-      <header className="space-y-1">
-        <h1 className="text-lg font-semibold tracking-tight">{t('agents.title')}</h1>
-        <p className="text-muted-foreground">{t('agents.subtitle')}</p>
+      <header className="space-y-1.5">
+        <h1 className="text-display font-semibold tracking-tight">{t('agents.title')}</h1>
+        <p className="text-body text-muted-foreground">{t('agents.subtitle')}</p>
       </header>
-      <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+      <ol className="list-decimal space-y-2 pl-5 text-ui text-muted-foreground marker:font-semibold marker:text-foreground">
         <li>{t('agents.steps.mcp')}</li>
         <li>{t('agents.steps.skill')}</li>
         <li>{t('agents.steps.work')}</li>
       </ol>
-      <section className="space-y-2 border border-border p-4">
-        <h2 className="text-sm font-medium">{t('agents.promptTitle')}</h2>
-        <p className="text-sm">{prompt}</p>
+      <section className="space-y-2.5 rounded-2xl bg-card p-5 shadow-card">
+        <h2 className="text-body font-semibold tracking-tight">{t('agents.promptTitle')}</h2>
+        <p className="text-ui">{prompt}</p>
         <CopyPromptButton text={prompt} label={t('common.copy')} ok={t('common.copied')} fail={t('agents.copyFailed')} />
       </section>
-      <section className="space-y-2 text-sm text-muted-foreground">
+      <section className="space-y-2 text-ui text-muted-foreground">
         <p>{t('agents.nameHint')}</p>
         <p>{t('agents.pullHint')}</p>
         <p>{t('agents.columnHint')}</p>
@@ -86,7 +86,7 @@ export default function AgentsPage() {
               .filter((s) => s.kind === 'manager')
               .map((s) => (
                 <details key={`${h.id}-manager`} className="space-y-2">
-                  <summary className="cursor-pointer text-sm font-medium">{t('agents.managerFold')}</summary>
+                  <summary className="cursor-pointer text-ui font-medium">{t('agents.managerFold')}</summary>
                   <p className="text-xs text-muted-foreground">{t('agents.managerHint')}</p>
                   <SnippetCard snippet={s} subdued />
                 </details>
@@ -102,7 +102,7 @@ export default function AgentsPage() {
 }
 
 function Page({ children }: { children: ReactNode }) {
-  return <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6">{children}</div>
+  return <div className="mx-auto w-full max-w-3xl space-y-6 px-5 py-8 sm:px-8 sm:py-10">{children}</div>
 }
 
 function CopyPromptButton({ text, label, ok, fail }: { text: string; label: string; ok: string; fail: string }) {
