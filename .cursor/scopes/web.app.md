@@ -6,7 +6,7 @@
 网页是纯静态资源，由 Go 服务同源提供（构建后嵌入二进制），无跨域。
 
 本文件只讲**骨架**：路由与外框、接口调用、实时同步、多语言、主题、提示、Markdown、体积预算。
-看板画布、卡片弹窗、设置、接入说明等有独立 scope（`web.board.md`、`web.settings.md`、`web.agents.md`）。
+看板画布、卡片弹窗、设置、接入说明等有独立 scope（`web.board.md`、`web.settings.md`、`web.agents.md`）；视觉与动效的统一规则见 `web.design.md`。
 
 技术栈：Vite 8、React 19、TypeScript 7、Tailwind CSS 4、**vendored shadcn/ui**（`radix-ui` 聚合包 + lucide）、TanStack Query 5、React Router 7、@dnd-kit（看板页）、Vitest + Testing Library + jsdom。包管理只用 **npm**。
 
@@ -171,7 +171,7 @@ vendored shadcn 组件（`button`、`dialog`、`dropdown-menu` 等）。**不要
 
 | 文件 | 覆盖 |
 |------|------|
-| `features/boards/BoardListPage.test.tsx` | 列表、新建看板对话框 |
+| `features/boards/BoardListPage.test.tsx` | 列表、新建项目对话框（名称、模板开关） |
 | `features/boards/validation.test.ts` | 表单校验 |
 | `features/board/useBoardLive.test.tsx` | EventSource 客户端 |
 
