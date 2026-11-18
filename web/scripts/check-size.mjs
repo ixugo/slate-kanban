@@ -5,7 +5,12 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
-const DIST = new URL('../../internal/web/spa/dist/', import.meta.url).pathname
+const distArg = process.argv[2]
+const DIST = distArg
+  ? distArg.startsWith('/')
+    ? distArg
+    : new URL(distArg, import.meta.url).pathname
+  : new URL('../../internal/web/spa/dist/', import.meta.url).pathname
 /** 首屏 JS（index.html 里直接引用的脚本）gzip 后的上限，单位字节 */
 const ENTRY_JS_BUDGET = 130 * 1024
 /** 整个 dist 目录 gzip 后的上限，单位字节 */
