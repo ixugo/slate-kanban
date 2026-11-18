@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateCard } from '@/lib/api/endpoints'
-import type { UpdateCardInput } from '@/lib/api/types'
+import type { CardDetail, UpdateCardInput } from '@/lib/api/types'
 import { isVersionConflict } from '@/lib/errors'
 import { queryKeys } from '@/lib/queryKeys'
 import { useErrorToast } from '@/lib/useErrorToast'
@@ -23,7 +23,17 @@ export function useCardUpdate() {
 
   return useMutation({
     mutationFn: ({ cardId, input }: PatchArgs) => updateCard(cardId, input),
-    onSuccess: (_card, { cardId, boardId }) => {
+    onSuccess: (updated, { cardId, boardId }) => {
+      queryClient.setQueryData<CardDetail>(queryKeys.card(cardId), (prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          ...updated,
+          dependencies: prev.dependencies,
+          comments: prev.comments,
+          column_instruction: prev.column_instruction,
+        }
+      })
       void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.card(cardId) })
     },

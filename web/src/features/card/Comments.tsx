@@ -21,7 +21,8 @@ interface CommentsProps {
 }
 
 /** 评论区 */
-export function Comments({ cardId, boardId, comments }: CommentsProps) {
+export function Comments({ cardId, boardId, comments: rawComments }: CommentsProps) {
+  const comments = rawComments ?? []
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const [body, setBody] = useState('')

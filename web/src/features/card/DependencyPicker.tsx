@@ -17,23 +17,24 @@ interface DependencyPickerProps {
 /** 多选依赖 */
 export function DependencyPicker({ cardId, selected, options, onChange }: DependencyPickerProps) {
   const { t } = useTranslation()
-  const available = options.filter((c) => c.id !== cardId && !selected.includes(c.id))
+  const deps = selected ?? []
+  const available = options.filter((c) => c.id !== cardId && !deps.includes(c.id))
 
   const add = (id: string) => {
     const num = Number(id)
-    if (selected.length >= CARD_DEPS_MAX) return
-    onChange([...selected, num])
+    if (deps.length >= CARD_DEPS_MAX) return
+    onChange([...deps, num])
   }
 
-  const remove = (id: number) => onChange(selected.filter((x) => x !== id))
+  const remove = (id: number) => onChange(deps.filter((x) => x !== id))
 
   const labelOf = (id: number) => options.find((c) => c.id === id)
 
   return (
     <div className="space-y-2">
-      {selected.length === 0 && <p className="text-sm text-muted-foreground">{t('card.depEmpty')}</p>}
+      {deps.length === 0 && <p className="text-sm text-muted-foreground">{t('card.depEmpty')}</p>}
       <ul className="space-y-1">
-        {selected.map((id) => {
+        {deps.map((id) => {
           const ref = labelOf(id)
           if (!ref) return null
           return (
@@ -47,7 +48,7 @@ export function DependencyPicker({ cardId, selected, options, onChange }: Depend
           )
         })}
       </ul>
-      {available.length > 0 && selected.length < CARD_DEPS_MAX && (
+      {available.length > 0 && deps.length < CARD_DEPS_MAX && (
         <Select onValueChange={add}>
           <SelectTrigger className="h-8 w-full max-w-xs">
             <SelectValue placeholder={t('card.depAdd')} />

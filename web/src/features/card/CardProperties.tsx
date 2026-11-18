@@ -1,4 +1,4 @@
-// 卡片弹窗里的可编辑字段（除描述、评论外即时保存）。
+// 卡片弹窗右栏：列、优先级、标签、截止等可编辑属性。
 
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, Column } from '@/lib/api/types'
@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CARD_BRANCH_MAX, CARD_TITLE_MAX, CARD_URL_MAX } from '@/lib/limits'
+import { CARD_BRANCH_MAX, CARD_URL_MAX } from '@/lib/limits'
 import { toLocalInput } from '@/lib/format'
 import { DependencyPicker } from './DependencyPicker'
+import { TagEditor } from './TagEditor'
 import { normalizeCardUrl } from './validateUrl'
 import { toast } from '@/lib/toast'
 
-interface CardFieldsProps {
+interface CardPropertiesProps {
   card: CardDetail
   columns: Column[]
   depOptions: CardDetail['dependencies']
@@ -21,12 +22,10 @@ interface CardFieldsProps {
   onColumn: (columnId: number) => void
 }
 
-/** 标题、列、优先级等字段 */
-export function CardFields({ card, columns, depOptions, version, onPatch, onColumn }: CardFieldsProps) {
+/** 右栏属性表单（不含标题、描述、评论） */
+export function CardProperties({ card, columns, depOptions, version, onPatch, onColumn }: CardPropertiesProps) {
   const { t } = useTranslation()
   const priorities = ['none', 'low', 'medium', 'high'] as const
-
-  const saveTitle = (title: string) => onPatch({ title: title.trim().slice(0, CARD_TITLE_MAX), version })
 
   const saveUrl = (url: string) => {
     const norm = normalizeCardUrl(url)
@@ -38,18 +37,7 @@ export function CardFields({ card, columns, depOptions, version, onPatch, onColu
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div className="space-y-1 sm:col-span-2">
-        <Label htmlFor="card-title">{t('card.field.title')}</Label>
-        <Input
-          id="card-title"
-          defaultValue={card.title}
-          maxLength={CARD_TITLE_MAX}
-          onBlur={(e) => {
-            if (e.target.value.trim() !== card.title) saveTitle(e.target.value)
-          }}
-        />
-      </div>
+    <div className="flex flex-col gap-3">
       <div className="space-y-1">
         <Label>{t('card.field.column')}</Label>
         <Select value={String(card.column_id)} onValueChange={(v) => onColumn(Number(v))}>
@@ -67,10 +55,7 @@ export function CardFields({ card, columns, depOptions, version, onPatch, onColu
       </div>
       <div className="space-y-1">
         <Label>{t('card.field.priority')}</Label>
-        <Select
-          value={String(card.priority)}
-          onValueChange={(v) => onPatch({ priority: Number(v), version })}
-        >
+        <Select value={String(card.priority)} onValueChange={(v) => onPatch({ priority: Number(v), version })}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -83,6 +68,7 @@ export function CardFields({ card, columns, depOptions, version, onPatch, onColu
           </SelectContent>
         </Select>
       </div>
+      <TagEditor tags={card.tags} onChange={(tags) => onPatch({ tags, version })} />
       <div className="space-y-1">
         <Label htmlFor="card-due">{t('card.field.due')}</Label>
         <Input
@@ -93,12 +79,17 @@ export function CardFields({ card, columns, depOptions, version, onPatch, onColu
         />
       </div>
       <div className="flex items-center gap-2">
-        <Switch
-          id="card-human"
-          checked={card.human_only}
-          onCheckedChange={(v) => onPatch({ human_only: v, version })}
-        />
+        <Switch id="card-human" checked={card.human_only} onCheckedChange={(v) => onPatch({ human_only: v, version })} />
         <Label htmlFor="card-human">{t('card.field.humanOnly')}</Label>
+      </div>
+      <div className="space-y-1">
+        <Label>{t('card.field.deps')}</Label>
+        <DependencyPicker
+          cardId={card.id}
+          selected={card.waits_on}
+          options={depOptions}
+          onChange={(waits_on) => onPatch({ waits_on, version })}
+        />
       </div>
       <div className="space-y-1">
         <Label htmlFor="card-branch">{t('card.field.branch')}</Label>
@@ -111,7 +102,7 @@ export function CardFields({ card, columns, depOptions, version, onPatch, onColu
           }}
         />
       </div>
-      <div className="space-y-1 sm:col-span-2">
+      <div className="space-y-1">
         <Label htmlFor="card-url">{t('card.field.url')}</Label>
         <Input
           id="card-url"
@@ -120,15 +111,6 @@ export function CardFields({ card, columns, depOptions, version, onPatch, onColu
           onBlur={(e) => {
             if (e.target.value !== card.url) saveUrl(e.target.value)
           }}
-        />
-      </div>
-      <div className="space-y-1 sm:col-span-2">
-        <Label>{t('card.field.deps')}</Label>
-        <DependencyPicker
-          cardId={card.id}
-          selected={card.waits_on}
-          options={depOptions}
-          onChange={(waits_on) => onPatch({ waits_on, version })}
         />
       </div>
     </div>
