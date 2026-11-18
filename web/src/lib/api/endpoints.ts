@@ -1,10 +1,11 @@
 // 每个 REST 接口一个函数，路径和方法对应 .cursor/scopes/api.rest.go.md 里的路由表。
 // 这里只负责拼路径和入参，不做任何业务判断（权限和校验都在服务端）。
 
-import { request } from './client'
+import { request, upload } from './client'
 import type {
   ActivityPage,
   ActivityQuery,
+  Attachment,
   AuthStatus,
   Board,
   BoardDetail,
@@ -174,4 +175,9 @@ export function login(passcode: string): Promise<{ authenticated: boolean }> {
 /** 退出登录，清掉会话 cookie */
 export function logout(): Promise<Empty> {
   return request<Empty>('/auth/logout', { method: 'POST' })
+}
+
+/** 把粘贴的图片上传到看板，返回可写进 Markdown 的地址 */
+export function uploadAttachment(boardId: number, file: Blob): Promise<Attachment> {
+  return upload<Attachment>(`/boards/${boardId}/attachments`, 'file', file)
 }

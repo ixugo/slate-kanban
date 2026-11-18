@@ -115,10 +115,27 @@ describe('parseInline：链接', () => {
     expect(md(src)).toBe(want)
   })
 
-  it('图片语法不产生图片，也不把图片地址之外的东西变成链接', () => {
+  it('外部图片地址不产生图片，也不当成 [文字](地址) 链接', () => {
     const nodes = parseInline('![x](https://e.com/x.png)')
-    expect(JSON.stringify(nodes)).not.toContain('img')
+    expect(JSON.stringify(nodes)).not.toContain('image')
+    expect(links(nodes).every((l) => l.open === '')).toBe(true)
     expect(show(nodes).startsWith('![x](')).toBe(true)
+  })
+
+  it.each([
+    ['本服务附件', '![截图](/api/v1/attachments/0123456789abcdef0123456789abcdef)', true],
+    ['夹在文字中间', '前 ![a](/api/v1/attachments/0123456789abcdef0123456789abcdef) 后', true],
+    ['编号长度不对', '![a](/api/v1/attachments/abc)', false],
+    ['编号带大写', '![a](/api/v1/attachments/0123456789ABCDEF0123456789ABCDEF)', false],
+    ['路径多一段', '![a](/api/v1/attachments/0123456789abcdef0123456789abcdef/x)', false],
+    ['别的路径', '![a](/api/v1/boards/1)', false],
+    ['javascript 地址', '![a](javascript:alert(1))', false],
+    ['说明里有方括号', '![a[b](/api/v1/attachments/0123456789abcdef0123456789abcdef)', false],
+    ['地址里有空格', '![a](/api/v1/attachments/0123456789abcdef0123456789abcdef x)', false],
+  ])('图片：%s', (_name, src, isImage) => {
+    const nodes = parseInline(src)
+    expect(JSON.stringify(nodes).includes('"kind":"image"')).toBe(isImage)
+    expect(inlineSource(nodes)).toBe(src)
   })
 
   it('链接文字里不再嵌套链接', () => {

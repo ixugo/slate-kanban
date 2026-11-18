@@ -101,6 +101,7 @@ export function CardTimeline({ cardId, boardId, comments }: CardTimelineProps) {
         placeholder={t('card.comment.placeholder')}
         label={t('card.comment.title')}
         onSubmit={() => body.trim() && send.mutate()}
+        boardId={boardId}
       />
       <Button type="button" size="sm" disabled={!body.trim() || send.isPending} onClick={() => send.mutate()}>
         {t('card.comment.send')}

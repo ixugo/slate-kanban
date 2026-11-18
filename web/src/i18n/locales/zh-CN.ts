@@ -248,6 +248,7 @@ export const zhCN: Messages = {
     },
   },
   editor: {
+    uploading: '正在上传图片…',
     toolbar: '格式',
     heading: '标题',
     paragraph: '正文',
@@ -595,5 +596,7 @@ export const zhCN: Messages = {
     ErrRuleNotFound: '这条自动化规则已经不存在。',
     ErrRuleLimit: '这个项目的自动化规则数已经到上限。',
     ErrProjectPathLocked: '项目路径已经设置，只有人可以修改。',
+    ErrAttachmentTooLarge: '图片太大，上限是 5 MB。',
+    ErrAttachmentNotFound: '这张图片已经不存在。',
   },
 }

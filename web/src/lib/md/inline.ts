@@ -1,8 +1,9 @@
 // 行内 Markdown 解析：把一段文字拆成带源码记号的节点树。
 // 编辑器（边输入边渲染）和只读渲染器共用这一份，所以"输入时看到的"和"保存后看到的"始终一致。
 // 每个节点都保留自己的记号（open / close），把树还原成字符串正好等于原文；编辑器靠它把记号藏起来或亮出来。
-// 只认一小撮安全语法：粗体、斜体、删除线、<u> 下划线、行内代码、链接（http、https、mailto）、裸网址和反斜杠转义。
-// 其它 HTML 一律当文字，图片语法不产生图片。强调的配对规则照 CommonMark，并对中文标点相邻的情况放宽。
+// 只认一小撮安全语法：粗体、斜体、删除线、<u> 下划线、行内代码、链接（http、https、mailto）、裸网址、反斜杠转义，
+// 以及指向本服务图片附件的图片 ![说明](/api/v1/attachments/编号)。
+// 其它 HTML 一律当文字；图片地址不是本服务的附件时也当文字，不会去加载外部图片。强调的配对规则照 CommonMark，并对中文标点相邻的情况放宽。
 
 export type SpanTag = 'strong' | 'em' | 'del' | 'u'
 
@@ -16,12 +17,17 @@ export type Inline =
   | { kind: 'span'; tag: SpanTag; open: string; close: string; children: Inline[] }
   /** 链接：写法 [文字](地址) 时 open 是 `[`、close 是 `](地址)`；裸网址时两者都是空串 */
   | { kind: 'link'; open: string; close: string; href: string; children: Inline[] }
+  /** 图片：源码是 open + alt + close，写法 ![说明](地址)；地址只会是本服务的图片附件 */
+  | { kind: 'image'; open: string; close: string; alt: string; src: string }
 
 /** 一段文字里最多拿多少个分隔符段去配对强调；超出的都当普通文字，防止病态输入把配对拖成平方级 */
 const MAX_DELIMS = 2000
 /** 链接文字、链接地址的最大长度；更长的不当链接，同样是为了限制扫描量 */
 const MAX_LABEL = 1000
 const MAX_HREF = 2000
+
+/** 允许渲染的图片地址：只认本服务上传的附件（32 位小写十六进制编号） */
+const ATTACHMENT_SRC = /^\/api\/v1\/attachments\/[0-9a-f]{32}$/
 
 const WHITESPACE = /\s/
 const PUNCTUATION = /[\p{P}\p{S}]/u
@@ -48,6 +54,11 @@ type Token = { t: 'node'; node: Inline } | DelimToken
 /** 判断链接协议是否允许：只放行 http、https、mailto */
 export function isSafeHref(href: string): boolean {
   return /^(https?:\/\/|mailto:)/i.test(href.trim())
+}
+
+/** 判断图片地址是否允许：只放行本服务的图片附件 */
+export function isImageSrc(src: string): boolean {
+  return ATTACHMENT_SRC.test(src)
 }
 
 /** 取 i 之前的一个字符（按码点），字符串开头当作空白 */
@@ -141,6 +152,19 @@ function tryLink(src: string, start: number): { node: Inline; end: number } | nu
   return { node: { kind: 'link', open: '[', close: `](${href})`, href, children }, end: k + 1 }
 }
 
+/** 从 start 处的 `![` 起尝试解析 ![说明](地址)；说明里不能有方括号、反斜杠和换行，地址必须是本服务的附件，否则返回 null */
+function tryImage(src: string, start: number): { node: Inline; end: number } | null {
+  const labelEnd = src.indexOf(']', start + 2)
+  if (labelEnd < 0 || labelEnd - start > MAX_LABEL || src[labelEnd + 1] !== '(') return null
+  const alt = src.slice(start + 2, labelEnd)
+  if (/[[\\\n]/.test(alt)) return null
+  const close = src.indexOf(')', labelEnd + 2)
+  if (close < 0 || close - labelEnd > MAX_HREF) return null
+  const url = src.slice(labelEnd + 2, close)
+  if (!isImageSrc(url)) return null
+  return { node: { kind: 'image', open: '![', close: `](${url})`, alt, src: url }, end: close + 1 }
+}
+
 /** 在 i 处匹配裸网址，去掉末尾的标点和多余的右括号；不是网址返回 null */
 function matchBareUrl(src: string, i: number): string | null {
   BARE_URL.lastIndex = i
@@ -188,6 +212,15 @@ function tokenize(src: string, allowLinks: boolean): Token[] {
       } else {
         push({ kind: 'code', open: '`'.repeat(run), close: '`'.repeat(run), text: src.slice(i + run, end) })
         i = end + run
+      }
+    } else if (ch === '!' && allowLinks && src[i + 1] === '[') {
+      const image = tryImage(src, i)
+      if (image) {
+        push(image.node)
+        i = image.end
+      } else {
+        text += ch
+        i++
       }
     } else if (ch === '[' && allowLinks && charBefore(src, i) !== '!') {
       const link = tryLink(src, i)
@@ -314,6 +347,8 @@ export function inlineSource(nodes: readonly Inline[]): string {
           return `\\${n.char}`
         case 'code':
           return n.open + n.text + n.close
+        case 'image':
+          return n.open + n.alt + n.close
         default:
           return n.open + inlineSource(n.children) + n.close
       }

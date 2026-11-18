@@ -135,6 +135,14 @@ export interface CardView extends Card {
   claim_active: boolean
 }
 
+/** 上传图片后的结果：url 可以直接写进 Markdown 的图片语法 */
+export interface Attachment {
+  token: string
+  url: string
+  content_type: string
+  size: number
+}
+
 export interface Comment {
   id: number
   board_id: number

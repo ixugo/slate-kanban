@@ -86,7 +86,7 @@ export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDes
         </div>
         <CardMeta card={card} onPatch={patch} />
         <section>
-          <DescriptionEditor key={card.version} value={card.description} onSave={onDesc} busy={patchBusy} />
+          <DescriptionEditor key={card.version} value={card.description} onSave={onDesc} busy={patchBusy} boardId={boardId} />
         </section>
         <section className="border-t border-border/60 pt-5">
           <CardLinks card={card} depOptions={depOptions} onPatch={patch} />

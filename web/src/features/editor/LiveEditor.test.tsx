@@ -1,7 +1,8 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
+import { installFakeApi } from '@/test/fakeApi'
 import { writeSelection } from './dom'
 import LiveEditor from './LiveEditor'
 
@@ -52,5 +53,65 @@ describe('LiveEditor', () => {
     const { rerender } = render(<LiveEditor value="a" onChange={() => {}} max={100} placeholder="" label="描述" />)
     rerender(<LiveEditor value="b" onChange={() => {}} max={100} placeholder="" label="描述" />)
     expect(screen.getByRole('textbox', { name: '描述' })).toHaveTextContent('b')
+  })
+
+  describe('粘贴图片', () => {
+    const URL = '/api/v1/attachments/0123456789abcdef0123456789abcdef'
+
+    /** 渲染带看板编号的编辑器（光标在末尾），返回编辑区和 onChange 记录 */
+    function setupBoard(value = '前') {
+      const onChange = vi.fn()
+      render(<LiveEditor value={value} onChange={onChange} max={500} placeholder="" label="描述" boardId={7} />)
+      const editor = screen.getByRole('textbox', { name: '描述' })
+      editor.dispatchEvent(new Event('focus'))
+      return { editor, onChange }
+    }
+
+    /** 往编辑区派发一次粘贴事件：text 是纯文字，files 是剪贴板里的文件 */
+    function paste(editor: HTMLElement, text: string, files: File[]) {
+      const e = new Event('paste', { bubbles: true, cancelable: true })
+      Object.defineProperty(e, 'clipboardData', { value: { getData: () => text, files } })
+      editor.dispatchEvent(e)
+      return e
+    }
+
+    const png = () => new File([new Uint8Array([137, 80, 78, 71])], 'image.png', { type: 'image/png' })
+
+    it('只有图片：上传到看板，传完在光标处插入图片语法', async () => {
+      const api = installFakeApi({ 'POST /api/v1/boards/:id/attachments': { token: 't', url: URL, content_type: 'image/png', size: 4 } })
+      const { editor, onChange } = setupBoard()
+      const e = paste(editor, '', [png()])
+      expect(e.defaultPrevented).toBe(true)
+      await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(`前![image](${URL})`))
+      expect(api.calls).toHaveLength(1)
+      expect(api.calls[0].path).toBe('/api/v1/boards/7/attachments')
+      expect((api.calls[0].body as { file: File }).file).toBeInstanceOf(File)
+      await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+    })
+
+    it('图片和文字同时在剪贴板里：按文字粘贴，不上传', () => {
+      const api = installFakeApi({})
+      const { editor, onChange } = setupBoard()
+      paste(editor, '表格', [png()])
+      expect(onChange).toHaveBeenLastCalledWith('前表格')
+      expect(api.calls).toHaveLength(0)
+    })
+
+    it('没有看板编号时不处理图片', () => {
+      const api = installFakeApi({})
+      const onChange = vi.fn()
+      render(<LiveEditor value="前" onChange={onChange} max={500} placeholder="" label="描述" />)
+      paste(screen.getByRole('textbox', { name: '描述' }), '', [png()])
+      expect(api.calls).toHaveLength(0)
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('上传失败：不插入任何内容，提示消失', async () => {
+      installFakeApi({ 'POST /api/v1/boards/:id/attachments': () => ({ status: 413, body: { reason: 'ErrAttachmentTooLarge', msg: '图片太大' } }) })
+      const { editor, onChange } = setupBoard()
+      paste(editor, '', [png()])
+      await waitFor(() => expect(screen.queryByRole('status')).toBeNull())
+      expect(onChange).not.toHaveBeenCalled()
+    })
   })
 })

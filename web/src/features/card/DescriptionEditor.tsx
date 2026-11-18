@@ -13,10 +13,12 @@ interface DescriptionEditorProps {
   value: string
   onSave: (next: string) => void
   busy?: boolean
+  /** 粘贴的图片上传到这个看板 */
+  boardId: number
 }
 
 /** 描述的查看与编辑 */
-export function DescriptionEditor({ value, onSave, busy }: DescriptionEditorProps) {
+export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionEditorProps) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -64,6 +66,7 @@ export function DescriptionEditor({ value, onSave, busy }: DescriptionEditorProp
             onSubmit={save}
             onCancel={cancel}
             autoFocus
+            boardId={boardId}
           />
           <div className="flex gap-2">
             <Button type="button" size="sm" disabled={busy} onClick={save}>

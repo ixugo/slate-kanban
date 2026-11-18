@@ -248,6 +248,7 @@ export const zhTW: Messages = {
     },
   },
   editor: {
+    uploading: '正在上傳圖片…',
     toolbar: '格式',
     heading: '標題',
     paragraph: '內文',
@@ -596,5 +597,7 @@ export const zhTW: Messages = {
     ErrRuleNotFound: '這條自動化規則已經不存在。',
     ErrRuleLimit: '這個專案的自動化規則數已達上限。',
     ErrProjectPathLocked: '專案路徑已經設定，只有人可以修改。',
+    ErrAttachmentTooLarge: '圖片太大，上限是 5 MB。',
+    ErrAttachmentNotFound: '這張圖片已經不存在。',
   },
 }

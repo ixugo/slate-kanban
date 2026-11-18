@@ -1,4 +1,4 @@
-// 安全的 Markdown 渲染：不解析原始 HTML，链接只放行 http、https、mailto。
+// 安全的 Markdown 渲染：不解析原始 HTML，链接只放行 http、https、mailto，图片只显示本服务的附件。
 // 输出全是 React 节点，不用 dangerouslySetInnerHTML；也不接 react-markdown，避免把解析库打进首屏。
 // 解析交给 lib/md（和编辑器共用一份），这里只负责把块树和行内节点画成界面。
 
@@ -40,6 +40,12 @@ function renderInline(nodes: readonly Inline[], key: string): ReactNode[] {
           <code key={k} className={CODE_CLASS}>
             {node.text}
           </code>
+        )
+      case 'image':
+        return (
+          <a key={k} href={node.src} target="_blank" rel="noopener noreferrer" className="inline-block max-w-full align-bottom">
+            <img src={node.src} alt={node.alt} loading="lazy" className="max-h-96 max-w-full rounded-lg border border-border object-contain" />
+          </a>
         )
       case 'link':
         return (

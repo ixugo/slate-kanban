@@ -248,6 +248,7 @@ export const ko: Messages = {
     },
   },
   editor: {
+    uploading: '이미지 업로드 중…',
     toolbar: '서식',
     heading: '제목',
     paragraph: '본문',
@@ -600,5 +601,7 @@ export const ko: Messages = {
     ErrRuleNotFound: '이 자동화 규칙은 더 이상 존재하지 않습니다.',
     ErrRuleLimit: '이 프로젝트의 자동화 규칙 수가 한도에 도달했습니다.',
     ErrProjectPathLocked: '프로젝트 경로가 이미 설정되어 있습니다. 사람만 변경할 수 있습니다.',
+    ErrAttachmentTooLarge: '이미지가 너무 큽니다. 한도는 5 MB입니다.',
+    ErrAttachmentNotFound: '이미지가 더 이상 존재하지 않습니다.',
   },
 }

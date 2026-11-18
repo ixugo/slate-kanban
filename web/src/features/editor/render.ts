@@ -29,6 +29,8 @@ interface Part {
   cls: string
   hidden: boolean
   href?: string
+  /** 图片预览：这一段本身没有文字，只在原文记号后面画一张图 */
+  img?: { src: string; alt: string }
 }
 
 /** 要按行内语法一起解析的一组行：lines 是行号，cols 是每行正文从第几个字符开始 */
@@ -96,6 +98,13 @@ function renderUnit(doc: Doc, unit: Unit, sel: Span | null): Part[][] {
           pos += n.open.length + n.text.length + n.close.length
           break
         }
+        case 'image': {
+          const len = n.open.length + n.alt.length + n.close.length
+          emit(mark(n.open + n.alt + n.close, touch(from, from + len)))
+          out[cur].push({ text: '', cls: '', hidden: false, img: { src: n.src, alt: n.alt } })
+          pos += len
+          break
+        }
         case 'span':
         case 'link': {
           const on = touch(from, from + n.open.length + inlineSource(n.children).length + n.close.length)
@@ -119,7 +128,7 @@ function merge(parts: Part[]): Part[] {
   const out: Part[] = []
   for (const p of parts) {
     const last = out[out.length - 1]
-    if (last && last.cls === p.cls && last.hidden === p.hidden && last.href === p.href) last.text += p.text
+    if (last && !last.img && !p.img && last.cls === p.cls && last.hidden === p.hidden && last.href === p.href) last.text += p.text
     else out.push({ ...p })
   }
   return out
@@ -129,11 +138,12 @@ function merge(parts: Part[]): Part[] {
 function body(parts: Part[]): string {
   const html = merge(parts)
     .map((p) => {
+      if (p.img) return `<img class="md-img" src="${esc(p.img.src)}" alt="${esc(p.img.alt)}" draggable="false" contenteditable="false">`
       if (!p.cls) return esc(p.text)
       return `<span class="${p.cls}"${p.href ? ` data-href="${esc(p.href)}"` : ''}>${esc(p.text)}</span>`
     })
     .join('')
-  return parts.some((p) => !p.hidden && p.text) ? html : `${html}<br>`
+  return parts.some((p) => !p.hidden && (p.text || p.img)) ? html : `${html}<br>`
 }
 
 /** 拼出一行的 div */

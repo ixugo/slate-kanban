@@ -32,6 +32,24 @@ describe('renderLines 不丢字', () => {
     }
   })
 
+  it('图片附件：不丢字；光标没碰到时只显示图片，碰到时记号和图片都在', () => {
+    const doc = '前 ![截图](/api/v1/attachments/0123456789abcdef0123456789abcdef) 后'
+    const off = mount(doc)[0]
+    expect(off.textContent).toBe(doc)
+    expect(off.querySelector('img.md-img')).toHaveAttribute('src', '/api/v1/attachments/0123456789abcdef0123456789abcdef')
+    expect(visible(off)).toBe('前  后')
+    const on = mount(doc, { lo: 3, hi: 3 })[0]
+    expect(visible(on)).toBe(doc)
+    expect(on.querySelector('img.md-img')).not.toBeNull()
+  })
+
+  it('只有一张图片的行也不补 <br>，外部图片地址仍是文字', () => {
+    expect(mount('![a](/api/v1/attachments/0123456789abcdef0123456789abcdef)')[0].querySelector('br')).toBeNull()
+    const ext = mount('![a](https://e.com/x.png)')[0]
+    expect(ext.querySelector('img')).toBeNull()
+    expect(ext.textContent).toBe('![a](https://e.com/x.png)')
+  })
+
   it('用户文字里的标签不会变成元素', () => {
     const els = mount('<img src=x onerror=alert(1)>')
     expect(els[0].querySelector('img')).toBeNull()

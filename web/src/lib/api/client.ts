@@ -99,3 +99,19 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
     throw new ApiError(res.status, REASON_BAD_RESPONSE, 'invalid response body')
   }
 }
+
+/**
+ * 以 multipart 表单上传一个文件并返回解析后的 JSON。
+ * 不手动设置 Content-Type：浏览器要自己补上带分隔符的值。
+ */
+export async function upload<T>(path: string, field: string, file: Blob): Promise<T> {
+  const form = new FormData()
+  form.append(field, file)
+  const res = await send(`${API_PREFIX}${path}`, { method: 'POST', headers: { Accept: 'application/json' }, body: form })
+  if (!res.ok) throw await toApiError(res)
+  try {
+    return (await res.json()) as T
+  } catch {
+    throw new ApiError(res.status, REASON_BAD_RESPONSE, 'invalid response body')
+  }
+}

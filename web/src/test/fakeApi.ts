@@ -26,8 +26,9 @@ export interface FakeApi {
   expectNoUnmatched: () => void
 }
 
-// 把请求体解析成 JSON；没有请求体返回 undefined。
+// 把请求体解析成 JSON；表单（上传文件）解析成 { 字段: 值 }；没有请求体返回 undefined。
 function parseBody(body: BodyInit | null | undefined): unknown {
+  if (body instanceof FormData) return Object.fromEntries(body.entries())
   return typeof body === 'string' && body !== '' ? JSON.parse(body) : undefined
 }
 

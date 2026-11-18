@@ -23,6 +23,8 @@ import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { uploadAttachment } from '@/lib/api/endpoints'
+import { useErrorToast } from '@/lib/useErrorToast'
 import { LiveView } from './LiveView'
 import { COMMANDS, type Command } from './keymap'
 import './editor.css'
@@ -43,6 +45,8 @@ interface LiveEditorProps {
   autoFocus?: boolean
   /** 紧凑模式：编辑区更矮（评论用） */
   compact?: boolean
+  /** 图片上传到哪个看板；不提供时不处理粘贴图片 */
+  boardId?: number
 }
 
 /** 工具栏上的一个按钮：图标、名称（同时作为悬停提示和读屏名称）和对应命令 */
@@ -99,16 +103,33 @@ const SHORTCUTS = [
 const TOOL_BUTTON = 'size-8 pointer-coarse:size-10'
 
 /** 实时渲染编辑器 */
-export default function LiveEditor({ value, onChange, max, placeholder, label, onSubmit, onCancel, autoFocus, compact }: LiveEditorProps) {
+export default function LiveEditor({ value, onChange, max, placeholder, label, onSubmit, onCancel, autoFocus, compact, boardId }: LiveEditorProps) {
   const { t } = useTranslation()
   const rootRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<LiveView | null>(null)
   const [headingOpen, setHeadingOpen] = useState(false)
+  const [uploading, setUploading] = useState(0)
+  const showError = useErrorToast()
   // 回调放进 ref：父组件每次渲染都会生成新函数，不能因此重建编辑器
-  const latest = useRef({ onChange, onSubmit, onCancel })
+  const latest = useRef({ onChange, onSubmit, onCancel, showError })
   useEffect(() => {
-    latest.current = { onChange, onSubmit, onCancel }
+    latest.current = { onChange, onSubmit, onCancel, showError }
   })
+
+  /** 把粘贴的图片按顺序上传，每传完一张就在光标处插入图片语法；失败的弹提示，不影响其余的 */
+  const pasteImages = async (target: number, files: File[]) => {
+    for (const file of files) {
+      setUploading((n) => n + 1)
+      try {
+        const { url } = await uploadAttachment(target, file)
+        viewRef.current?.insert(`![image](${url})`)
+      } catch (err) {
+        latest.current.showError(err)
+      } finally {
+        setUploading((n) => n - 1)
+      }
+    }
+  }
 
   useEffect(() => {
     const root = rootRef.current
@@ -118,6 +139,7 @@ export default function LiveEditor({ value, onChange, max, placeholder, label, o
       onChange: (v) => latest.current.onChange(v),
       onSubmit: () => latest.current.onSubmit?.(),
       onCancel: latest.current.onCancel ? () => latest.current.onCancel?.() : undefined,
+      onPasteImages: boardId === undefined ? undefined : (files) => void pasteImages(boardId, files),
     })
     viewRef.current = view
     if (autoFocus) view.focus()
@@ -212,6 +234,11 @@ export default function LiveEditor({ value, onChange, max, placeholder, label, o
         aria-placeholder={placeholder}
         className={cn('md-editor max-h-[50dvh] overflow-y-auto px-3 py-2.5 text-body', compact ? 'min-h-16' : 'min-h-32')}
       />
+      {uploading > 0 && (
+        <p role="status" className="border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
+          {t('editor.uploading')}
+        </p>
+      )}
     </div>
   )
 }

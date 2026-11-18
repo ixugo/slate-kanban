@@ -29,6 +29,8 @@ export interface LiveViewOptions {
   onSubmit?: () => void
   /** Esc；没有提供时 Esc 交还给浏览器 */
   onCancel?: () => void
+  /** 粘贴了图片文件（剪贴板里没有文字时才触发）；不提供时图片粘贴被忽略 */
+  onPasteImages?: (files: File[]) => void
 }
 
 /** 删除类输入事件 → [是否向后删, 删多少] */
@@ -122,6 +124,12 @@ export class LiveView {
     return true
   }
 
+  /** 在当前光标处插入文字（上传完成后插入图片语法用）；超出长度上限时原样不动 */
+  insert(text: string): void {
+    this.pull()
+    this.apply(insertText(this.state, text, this.opts.max), 'command')
+  }
+
   /** 撤销一步 */
   undo(): void {
     this.restore(this.history.undo())
@@ -158,6 +166,12 @@ export class LiveView {
     this.on(root, 'paste', (e: ClipboardEvent) => {
       e.preventDefault()
       const text = e.clipboardData?.getData('text/plain') ?? ''
+      const images = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'))
+      // 有文字就按文字粘贴（例如从表格复制会同时带一张截图）；只有图片才走上传
+      if (!text && images.length > 0) {
+        this.opts.onPasteImages?.(images)
+        return
+      }
       this.pull()
       if (text) this.apply(pasteText(this.state, text, this.opts.max), 'command')
     })

@@ -248,6 +248,7 @@ export const ja: Messages = {
     },
   },
   editor: {
+    uploading: '画像をアップロード中…',
     toolbar: '書式',
     heading: '見出し',
     paragraph: '本文',
@@ -601,5 +602,7 @@ export const ja: Messages = {
     ErrRuleNotFound: 'この自動化ルールはもう存在しません。',
     ErrRuleLimit: 'このプロジェクトの自動化ルール数が上限に達しています。',
     ErrProjectPathLocked: 'プロジェクトのパスはすでに設定されています。変更できるのは人だけです。',
+    ErrAttachmentTooLarge: '画像が大きすぎます。上限は 5 MB です。',
+    ErrAttachmentNotFound: 'この画像はすでに存在しません。',
   },
 }

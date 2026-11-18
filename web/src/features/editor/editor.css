@@ -83,6 +83,17 @@
   text-underline-offset: 2px;
 }
 
+/* 图片预览：不能比编辑区宽，也别太高；点它等于点这一行，记号随之亮出来 */
+.md-img {
+  display: block;
+  max-width: 100%;
+  max-height: 24rem;
+  margin-block: 0.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  object-fit: contain;
+}
+
 /* —— 标题：字号和只读渲染器一致 —— */
 .md-h {
   font-weight: 600;

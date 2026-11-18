@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -27,9 +27,14 @@ describe('Markdown', () => {
     expect(good).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('不渲染图片标签语法为 HTML 图片', () => {
+  it('外部图片不加载，本服务的图片附件显示成可点开的图片', () => {
     render(<Markdown source={'![x](https://evil.com/x.png)'} />)
     expect(screen.queryByRole('img')).toBeNull()
+    cleanup()
+    render(<Markdown source={'![截图](/api/v1/attachments/0123456789abcdef0123456789abcdef)'} />)
+    const img = screen.getByRole('img', { name: '截图' })
+    expect(img).toHaveAttribute('src', '/api/v1/attachments/0123456789abcdef0123456789abcdef')
+    expect(img.closest('a')).toHaveAttribute('target', '_blank')
   })
 })
 

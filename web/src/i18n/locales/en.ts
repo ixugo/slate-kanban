@@ -251,6 +251,7 @@ export const en = {
     },
   },
   editor: {
+    uploading: 'Uploading image…',
     toolbar: 'Formatting',
     heading: 'Heading',
     paragraph: 'Normal text',
@@ -599,6 +600,8 @@ export const en = {
     ErrRuleNotFound: 'That automation rule no longer exists.',
     ErrRuleLimit: 'This project has reached its automation rule limit.',
     ErrProjectPathLocked: 'The project path is already set. Only people can change it.',
+    ErrAttachmentTooLarge: 'Image is too large. The limit is 5 MB.',
+    ErrAttachmentNotFound: 'The image no longer exists.',
   },
 }
 
