@@ -2,7 +2,7 @@
 
 ## 需求目标
 
-v1 不要账号体系：网页打开即用；REST 所有写操作记在人名下（固定 `human`）；MCP 用网址参数自报身份与视图。
+v1 不要账号体系：默认免登录、网页打开即用；可选配置 `Server.HTTP.Passcode` 后网页登录 + Bearer 进门。REST 所有写操作仍记在人名下（固定 `human`）；MCP 用网址参数自报身份与视图。
 已删除令牌表、管理令牌配置和 `/agent-tokens`（`internal/core/access` 与 `accessapi` 包都已不存在）。安全靠默认只监听本机、Host 白名单、跨站写拦截、安全响应头——能连上端口的人等同管理员。
 
 ## MCP 身份规则
@@ -24,7 +24,7 @@ SDK 仍走 Bearer 占位 + `headerVerifier` 读 `X-Slate-Actor-*` 头，会话�
 
 ## 已知局限
 
-能访问到端口的人等同管理员（REST 固定 human，MCP 可自报 manager）。对外开放须放在可信网络或带认证的反向代理后。
+能访问到端口且没有启用口令的人等同管理员。启用口令后只是「进门」，仍无 per-user 账号。对外开放建议结合口令或反向代理认证，并配置 `AllowedHosts`。
 
 ## 实施位置
 
@@ -32,6 +32,7 @@ SDK 仍走 Bearer 占位 + `headerVerifier` 读 `X-Slate-Actor-*` 头，会话�
 |------|---------|
 | REST 固定人 | `internal/web/restactor` |
 | Host/Origin/头 | `internal/web/api/security.go` |
+| 可选口令 | `internal/web/api/passcode.go`、`auth.go` |
 | MCP 查询参数 | `internal/web/mcpapi/middleware.go` |
-| `/connect` 免认证 | `internal/web/api/connectapi/api.go` |
+| `/connect` 需口令时与 REST 同保护；安装页仍公开 | `internal/web/api/connectapi/api.go` |
 | 全局 Host/Origin | `internal/web/api/security.go` |
