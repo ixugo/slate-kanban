@@ -12,7 +12,6 @@ import (
 	"syscall"
 
 	"github.com/ixugo/goddd/pkg/logger"
-	"github.com/ixugo/goddd/pkg/orm"
 	"github.com/ixugo/goddd/pkg/server"
 	"github.com/ixugo/goddd/pkg/system"
 
@@ -26,11 +25,6 @@ import (
 func Run(bc *conf.Bootstrap) {
 	log, clean := SetupLog(bc)
 	defer clean()
-
-	// 检查是否设置了 JWT 密钥，如果未设置，则生成一个随机字符串作为密钥
-	if bc.Server.HTTP.JwtSecret == "" {
-		bc.Server.HTTP.JwtSecret = orm.GenerateRandomString(32)
-	}
 
 	handler, cleanUp, err := WireApp(bc, log)
 	if err != nil {

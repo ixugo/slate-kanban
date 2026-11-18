@@ -8,8 +8,6 @@
     Host = '127.0.0.1'
     # http 端口
     Port = 7070
-    # jwt 秘钥，空串时，每次启动程序将随机赋值
-    JwtSecret = ''
     # 请求超时时间
     Timeout = '30s'
     # 额外允许的 Host 白名单（不含端口）；IP、localhost 和 *.localhost 始终允许
