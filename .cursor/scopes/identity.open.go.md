@@ -11,7 +11,7 @@ v1 不要账号体系：默认免登录、网页打开即用；可选配置 `Ser
 |------|------|
 | `name` | agent 名称，缺省工作视图 `agent`、管理视图 `manager`；格式 `^[a-z0-9][a-z0-9._-]{0,63}$`；保留 `human`、`system` |
 | `role=worker` 或缺省 | 工作视图（agent 工具集，操作者类型 agent） |
-| `role=manager` | 管理视图（24 个工具，操作者类型 human） |
+| `role=manager` | 管理视图（23 个工具，操作者类型 human） |
 
 SDK 仍走 Bearer 占位 + `headerVerifier` 读 `X-Slate-Actor-*` 头，会话按创建时 `role` 选 Server。
 

@@ -75,7 +75,7 @@ Slate 对 agent 提供三样东西：**MCP 服务**（读写看板）、**skill*
 # 工作视图：agent 日常领任务、干活（16 个工具）
 claude mcp add --transport http --scope user slate 'http://127.0.0.1:7070/mcp?name=claude-code'
 
-# 管理视图：建看板、改列、写规则、录入任务（24 个工具），只有需要时再装
+# 管理视图：建项目、改列、写规则、录入任务（23 个工具；项目只能创建，不能通过 MCP 删除），只有需要时再装
 claude mcp add --transport http --scope user slate-manager 'http://127.0.0.1:7070/mcp?name=claude-code-manager&role=manager'
 ```
 
