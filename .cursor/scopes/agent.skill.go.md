@@ -155,10 +155,10 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 | 验证 | 做了什么 | 结果 |
 |------|---------|------|
 | 单元和路由测试 | skill 一致性（`skill_test.go`）；connectapi 地址与 Markdown；`/connect` 免认证、命令无秘密（`connect_test.go`、`guide_test.go`） | 通过 |
-| 变异验证 | 在 skill、资源、说明、地址校验、渲染和路由上共造 35 处变异（`tmp/mutate-mcp/run.py`） | 全部被测试发现；其中"代码围栏没有闭合"一处最初漏网：原来只数围栏个数，同时少了偶数个关闭围栏时发现不了，改成检查严格一开一关交替 |
+| 变异验证 | 在 skill、资源、说明、地址校验、渲染和路由上共造 35 处变异（一次性脚本，用完已清理） | 全部被测试发现；其中"代码围栏没有闭合"一处最初漏网：原来只数围栏个数，同时少了偶数个关闭围栏时发现不了，改成检查严格一开一关交替 |
 | 真实进程：页面 | curl 检查免认证页面头、`/api/v1/connect` 免认证 JSON、非法 Host 400 | skill 与仓库一致 |
 | 真实进程：host 命令 | 临时 HOME 执行安装命令 | MCP URL 带 `?name=`，无 SLATE_TOKEN；三种 host skill 安装可执行 |
-| 真实进程：流程 | `tmp/smoke-mcp/smoke_skill_test.go` 用脚本照着 skill 走完整流程：确认并写入项目路径、守候、用 `list_cards` 加 `claim_card` 领两张、按 skill 的命令建 worktree 和分支、子 agent 提交、交接到审查、人返工后再交接、释放做不下去的卡片、人合并后清理；并触发错误对照表里的每个错误 | 通过：skill 里的 git 命令、查询写法和每个错误名，都和服务端真实行为一致 |
+| 真实进程：流程 | 一次性的冒烟测试（用完已清理）用脚本照着 skill 走完整流程：确认并写入项目路径、守候、用 `list_cards` 加 `claim_card` 领两张、按 skill 的命令建 worktree 和分支、子 agent 提交、交接到审查、人返工后再交接、释放做不下去的卡片、人合并后清理；并触发错误对照表里的每个错误 | 通过：skill 里的 git 命令、查询写法和每个错误名，都和服务端真实行为一致 |
 | 真实 host：Claude Code 2.1.286 | 临时 HOME 里照 `/install.md` 的命令装用户级 MCP 和 skill，中间放一个记录请求的代理，再用 `claude -p` 开真实会话 | 通过：会话里看得到用户级 MCP 和 skill，`Skill` 工具能加载；`whoami`、`list_boards`、`get_board`、`next_card`、`finish_card` 走通，卡片进审查；`wait_for_updates` 阻塞和被事件唤醒都正常；带口令的 `--header` 写法有效 |
 | 真实 host：Codex 0.168.0 | 同上，用 `codex mcp add` 和 `codex exec` | 通过：skill 从 `~/.codex/skills` 被发现；`whoami`、读取 skill 资源、`list_cards`、`claim_card`、`finish_card` 走通，卡片进审查；`--bearer-token-env-var` 带口令有效（每个请求都带了头）；`wait_for_updates` 等满 50 秒正常返回，没有触发 Codex 默认的 60 秒工具超时 |
 | 真实 host：Cursor 命令行客户端（Cursor 3.30.14 自带，版本 2026.11.13） | 隔离的 HOME 里放 `~/.cursor/mcp.json`（四个临时服务）和一份项目级 `.cursor/mcp.json`，中间放记录请求的代理，运行 `agent mcp list`、`agent mcp list-tools slate`、`agent mcp enable` | 通过，但只到 MCP 连接这一层：`~/.cursor/mcp.json` 里的服务直接显示 `ready`；`list-tools` 看到工作视图的 16 个工具；带口令的 `Authorization` 头有效，`${env:SLATE_PASSCODE}` 写法也有效；漏带口令显示 `Error: Connection failed`；项目级 `.cursor/mcp.json` 先显示 `not loaded (needs approval)`，`agent mcp enable` 之后才连上。每个连接只调用 `initialize`、`tools/list`、`resources/list` |
