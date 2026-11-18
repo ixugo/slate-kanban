@@ -12,8 +12,11 @@ import (
 func testFS(t *testing.T) fstest.MapFS {
 	t.Helper()
 	return fstest.MapFS{
-		"index.html":    {Data: []byte("<html>hi</html>")},
-		"assets/app.js": {Data: []byte("console.log(1)")},
+		"index.html":           {Data: []byte("<html>hi</html>")},
+		"assets/app.js":        {Data: []byte("console.log(1)")},
+		"manifest.webmanifest": {Data: []byte(`{"name":"Slate"}`)},
+		"sw.js":                {Data: []byte("// sw")},
+		"icons/icon.png":       {Data: []byte{0x89, 0x50, 0x4e, 0x47}},
 	}
 }
 
@@ -69,5 +72,52 @@ func TestStubRoot(t *testing.T) {
 	body, _ := io.ReadAll(rec.Body)
 	if rec.Code != http.StatusOK || !strings.Contains(string(body), "embed_web") {
 		t.Fatalf("无 dist 时根路径提示: %d %s", rec.Code, body)
+	}
+}
+
+// TestManifestContentType manifest 要以 application/manifest+json 返回，浏览器才认它。
+func TestManifestContentType(t *testing.T) {
+	h := NewHandler(testFS(t))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/manifest.webmanifest", nil))
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "application/manifest+json" {
+		t.Fatalf("manifest 类型不对: %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	}
+}
+
+// TestPngContentType 图标 png 要带 image/png 类型。
+func TestPngContentType(t *testing.T) {
+	h := NewHandler(testFS(t))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/icons/icon.png", nil))
+	if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("png 类型不对: %d %s", rec.Code, rec.Header().Get("Content-Type"))
+	}
+}
+
+// TestSwAndManifestNoCache sw.js 和 manifest 不能被长期缓存，否则应用升级后浏览器拿不到新版本。
+func TestSwAndManifestNoCache(t *testing.T) {
+	h := NewHandler(testFS(t))
+	for _, path := range []string{"/sw.js", "/manifest.webmanifest"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-cache" {
+			t.Fatalf("%s 应 no-cache: %v", path, rec.Header())
+		}
+	}
+}
+
+// TestMissingSwAndIconsNotSPA sw.js 和图标缺失时必须返回 404，不能回退成 index.html，
+// 否则浏览器会把 HTML 当成 Service Worker 脚本去解析而报错。
+func TestMissingSwAndIconsNotSPA(t *testing.T) {
+	h := NewHandler(fstest.MapFS{
+		"index.html": {Data: []byte("<html>hi</html>")},
+	})
+	for _, path := range []string{"/sw.js", "/icons/missing.png"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNotFound || strings.Contains(rec.Body.String(), "<html>") {
+			t.Fatalf("%s 应 404 且非 HTML: %d %s", path, rec.Code, rec.Body.String())
+		}
 	}
 }

@@ -15,3 +15,15 @@ func apiLikePath(path string) bool {
 }
 
 const installPath = "/install.md"
+
+// noSpaFallback 判断路径在文件缺失时是否禁止回退到 index.html（SW、manifest、图标缺失时不能返回 HTML）。
+func noSpaFallback(urlPath string) bool {
+	switch {
+	case urlPath == "/sw.js", urlPath == "/manifest.webmanifest":
+		return true
+	case strings.HasPrefix(urlPath, "/icons/"):
+		return true
+	default:
+		return false
+	}
+}
