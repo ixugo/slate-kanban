@@ -7,7 +7,6 @@ import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import type { CardView, Column } from '@/lib/api/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CardTile } from './CardTile'
 import { AddCard } from './AddCard'
@@ -72,7 +71,7 @@ export function ColumnView({
 
   if (collapsed) {
     return (
-      <section className={cn(COLUMN_SHELL, 'w-12', isOver && 'bg-primary/15 ring-2 ring-primary/50')}>
+      <section className={cn(COLUMN_SHELL, 'w-12', isOver && 'bg-ring/15 ring-2 ring-ring/50')}>
         <button
           ref={setNodeRef}
           type="button"
@@ -94,7 +93,7 @@ export function ColumnView({
   }
 
   return (
-    <section className={cn(COLUMN_SHELL, 'w-[min(100%,17.5rem)] p-1.5 sm:w-[17.5rem]', isOver && 'bg-primary/10 ring-2 ring-primary/40')}>
+    <section className={cn(COLUMN_SHELL, 'w-[min(100%,17.5rem)] p-1.5 sm:w-[17.5rem]', isOver && 'bg-ring/10 ring-2 ring-ring/40')}>
       <header className="flex items-start gap-2 px-2.5 pt-2 pb-2.5">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -102,10 +101,6 @@ export function ColumnView({
             <span className="rounded-full bg-secondary px-1.5 text-[0.6875rem] font-medium tabular-nums text-muted-foreground">
               {cards.length}
             </span>
-            {column.agent_pickup && (
-              <Badge className="bg-agent/15 text-agent">{t('board.columnAi')}</Badge>
-            )}
-            {column.is_done && <Badge className="bg-success/15 text-success">{t('board.columnDone')}</Badge>}
           </div>
           {column.description && (
             <Tooltip>
