@@ -21,8 +21,10 @@ import { buildItems, findColumnOf, moveToColumn, type Items, type MovePlan } fro
 import { handleDragEnd } from './handleDragEnd'
 import { ColumnView } from './ColumnView'
 import { CardTile } from './CardTile'
+import { useCollapsedColumns } from './useCollapsedColumns'
 
 interface BoardCanvasProps {
+  boardId: number
   columns: Column[]
   cardsById: Map<number, CardView>
   visibleIds: ReadonlySet<number> | null
@@ -37,6 +39,7 @@ interface BoardCanvasProps {
 
 /** 看板列与拖拽上下文 */
 export function BoardCanvas({
+  boardId,
   columns,
   cardsById,
   visibleIds,
@@ -48,6 +51,7 @@ export function BoardCanvas({
   onAddCard,
   addBusy,
 }: BoardCanvasProps) {
+  const collapse = useCollapsedColumns(boardId, columns)
   const cards = useMemo(() => [...cardsById.values()], [cardsById])
   const baseItems = useMemo(() => buildItems(columns, cards, visibleIds), [columns, cards, visibleIds])
   const [dragItems, setDragItems] = useState<Items | null>(null)
@@ -131,7 +135,7 @@ export function BoardCanvas({
       onDragCancel={() => endDrag(true)}
     >
       <div className="flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto p-3">
-        {columns.map((column) => {
+        {columns.map((column, columnIndex) => {
           const ids = shownItems[column.id] ?? []
           const columnCards = ids.map((id) => cardsById.get(id)).filter((c): c is CardView => c !== undefined)
           return (
@@ -146,6 +150,11 @@ export function BoardCanvas({
               onAddCard={(title) => onAddCard(column.id, title)}
               addBusy={addBusy}
               dragDisabled={dragDisabled}
+              collapsed={collapse.isCollapsed(column.id)}
+              columnIndex={columnIndex}
+              columnCount={columns.length}
+              onExpand={() => collapse.expandColumn(column.id)}
+              onCollapse={() => collapse.collapseColumn(column.id)}
             />
           )
         })}

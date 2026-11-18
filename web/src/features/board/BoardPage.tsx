@@ -135,6 +135,7 @@ export default function BoardPage() {
           <p className="border-b bg-muted/40 px-3 py-1 text-center text-[11px] text-muted-foreground">{t('board.dragDisabledSearch')}</p>
         )}
         <BoardCanvas
+          boardId={boardId}
           columns={columns}
           cardsById={cardsById}
           visibleIds={search.visibleIds}
