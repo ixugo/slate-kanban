@@ -69,7 +69,7 @@ func runWithSharedRouter(m *testing.M) int {
 		Version: versionapi.New(versionapi.NewVersionCore(db)),
 		Kanban:  kanbanapi.New(kcore),
 		MCP:     mcpAPI,
-		Connect: connectapi.New(),
+		Connect: connectapi.New(false),
 	}
 	engine, ok := NewHTTPHandler(uc).(*gin.Engine)
 	if !ok {

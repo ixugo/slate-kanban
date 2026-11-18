@@ -30,7 +30,7 @@ var (
 		NewKanbanCore,
 		kanbanapi.New,
 		NewMCP,
-		connectapi.New,
+		ProvideConnectAPI,
 	)
 )
 
@@ -64,6 +64,11 @@ func NewHTTPHandler(uc *Usecase) http.Handler {
 func NewUniqueID(db *gorm.DB) uniqueid.Core {
 	store := uniqueiddb.NewDB(db).AutoMigrate(orm.GetEnabledAutoMigrate())
 	return uniqueid.NewCore(store, 6)
+}
+
+// ProvideConnectAPI 按是否配置口令生成接入说明（只传布尔，不传口令本身），供 Wire 装配。
+func ProvideConnectAPI(bc *conf.Bootstrap) connectapi.API {
+	return connectapi.New(conf.PasscodeRequired(bc))
 }
 
 // NewKanbanCore 创建看板领域并迁移表；REST、SSE、MCP 共用同一个 Core。

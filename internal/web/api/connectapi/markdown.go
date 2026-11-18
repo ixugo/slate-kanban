@@ -29,7 +29,7 @@ const (
 )
 
 // renderMarkdown 把接入说明渲染成 Markdown。
-func renderMarkdown(g Guide) string {
+func renderMarkdown(g Guide, passcodeRequired bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, introFormat, g.BaseURL, g.MCPURL, g.InstallURL)
 	b.WriteString(mcpIntro)
@@ -38,6 +38,9 @@ func renderMarkdown(g Guide) string {
 	writeHostSteps(&b, g.Hosts, func(h Host) []Snippet { return h.Skill })
 	b.WriteString(verifyStep)
 	b.WriteString(faqSection)
+	if passcodeRequired {
+		b.WriteString("- 服务启用了访问口令：网页需先登录；MCP 与 curl 要在请求头带 `Authorization: Bearer <口令>`（把 `<口令>` 换成你在配置里设置的值，不要写进仓库）。\n")
+	}
 	return b.String()
 }
 
