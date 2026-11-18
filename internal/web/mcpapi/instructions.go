@@ -2,7 +2,7 @@ package mcpapi
 
 // agentInstructions 是 agent 连接时收到的使用说明。它会进入每个会话的上下文，所以只写最关键的几条：
 // 先看什么、只做哪些卡片、做完怎么交接、没活时怎么等、掉线后怎么补读。
-// worktree、子 agent、项目路径这类更完整的流程放在 slate-kanban 这个 skill 里。
+// worktree、子 agent、项目路径这类更完整的流程放在 slate-kanban 这个 skill 里，没装时可以读 skill 资源自己安装。
 const agentInstructions = `你连接的是 Slate 看板，你是其中的 agent，和人一起管理开发工作。
 
 开始之前：
@@ -22,7 +22,7 @@ const agentInstructions = `你连接的是 Slate 看板，你是其中的 agent�
 - 订阅资源 slate://boards/{board_id} 可以在看板有更新时收到通知。通知只是提示，不带数据，也不保证送达，不要依赖它。
 
 被拒绝（例如 ErrNotHolder、ErrAgentPickupColumn）说明做法不对，换一种做法，不要反复重试。
-如果装了 slate-kanban 这个 skill，先读它：里面有项目路径、worktree 和子 agent 的完整流程。`
+完整流程（项目路径、守候、worktree、子 agent）写在 slate-kanban 这个 skill 里：装了就先读它；没装就读取资源 slate://skills/slate-kanban，经用户同意后存成 skills 目录里的 slate-kanban/SKILL.md。`
 
 // adminInstructions 是人（管理视图）连接时收到的使用说明。
 const adminInstructions = `你连接的是 Slate 看板，当前是人的管理视图：可以管理看板、列和自动化规则，也可以像 agent 一样读写卡片。
