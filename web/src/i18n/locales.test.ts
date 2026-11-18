@@ -76,7 +76,6 @@ describe('服务端错误的翻译', () => {
   // 经过 REST 层或框架可能返回给网页的通用错误，以及网页自己产生的网络错误
   it.each([
     'ErrBadRequest',
-    'ErrUnauthorized',
     'ErrContentTooLarge',
     'ErrUnsupportedMediaType',
     'ErrTooManyRequests',
@@ -105,10 +104,10 @@ describe('语言的选择和记忆', () => {
     expect(localStorage.getItem(LANG_STORAGE_KEY)).toBe('ja')
     expect(initialLanguage()).toBe('ja')
     expect(document.documentElement.lang).toBe('ja')
-    expect(i18n.t('login.title')).toBe('ログイン')
+    expect(i18n.t('common.save')).toBe('保存')
     await setLanguage('zh-TW')
     expect(document.documentElement.lang).toBe('zh-TW')
-    expect(i18n.t('login.title')).toBe('登入')
+    expect(i18n.t('common.save')).toBe('儲存')
     await setLanguage('en')
   })
 
@@ -119,8 +118,8 @@ describe('语言的选择和记忆', () => {
 
   it('文案里的占位符能被替换', async () => {
     await setLanguage('ko')
-    expect(i18n.t('account.signedInAs', { name: 'admin' })).toBe('admin(으)로 로그인됨')
+    expect(i18n.t('boards.updated', { time: '3분 전' })).toBe('3분 전 업데이트')
     await setLanguage('en')
-    expect(i18n.t('account.signedInAs', { name: 'admin' })).toBe('Signed in as admin')
+    expect(i18n.t('boards.updated', { time: '3 min ago' })).toBe('Updated 3 min ago')
   })
 })
