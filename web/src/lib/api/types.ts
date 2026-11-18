@@ -195,6 +195,32 @@ export interface EventPage {
   truncated: boolean
 }
 
+/** 活动流里出现过的一个操作者 */
+export interface ActivityActor {
+  kind: ActorKind
+  name: string
+}
+
+/** 活动流的一页：事件从新到旧；latest 和 actors 不受筛选条件影响 */
+export interface ActivityPage {
+  events: BoardEvent[]
+  /** 这一页之后还有更早的、满足条件的事件 */
+  has_more: boolean
+  latest: number
+  actors: ActivityActor[]
+}
+
+/** 读活动流的参数，都可以不填 */
+export interface ActivityQuery {
+  /** 只看序号比它小的事件，翻页用 */
+  before?: number
+  limit?: number
+  /** 事件类型，多个取并集 */
+  types?: readonly string[]
+  actor_kind?: ActorKind
+  actor?: string
+}
+
 /** 接入说明里一段可以直接复制的命令或配置 */
 export interface Snippet {
   /** 用途：`worker`（工作视图的 MCP）、`manager`（管理视图的 MCP）、`skill`（安装 skill）；网页按它选各语言的小标题 */

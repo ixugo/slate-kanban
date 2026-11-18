@@ -3,6 +3,8 @@
 
 import { request } from './client'
 import type {
+  ActivityPage,
+  ActivityQuery,
   AuthStatus,
   Board,
   BoardDetail,
@@ -60,6 +62,15 @@ export function getSnapshot(boardId: number, signal?: Signal): Promise<Snapshot>
 /** 读取序号大于 after 的事件，按序号升序 */
 export function listEvents(boardId: number, after: number, limit: number, signal?: Signal): Promise<EventPage> {
   return request<EventPage>(`/boards/${boardId}/events`, { query: { after, limit }, signal })
+}
+
+/** 读活动流：事件从新到旧，可按事件类型和操作者筛选，before 是翻页起点 */
+export function listActivity(boardId: number, query: ActivityQuery, signal?: Signal): Promise<ActivityPage> {
+  const { types, ...rest } = query
+  return request<ActivityPage>(`/boards/${boardId}/activity`, {
+    query: { ...rest, types: types && types.length > 0 ? types.join(',') : undefined },
+    signal,
+  })
 }
 
 /** 在最右边新增一列 */
