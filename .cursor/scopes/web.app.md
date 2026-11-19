@@ -229,7 +229,7 @@ vendored shadcn 组件（`button`、`dialog`、`tabs` 等）。**不要求**每�
 | `make web/dev` | Vite 5173，代理到 7070 |
 | `make web/test` | `tsc -b` + `oxlint` + `vitest run` |
 | `make web/build` | 前端构建 + 体积检查 |
-| `make build` | 含 `web/build`，产出 `./slate`（`-tags embed_web`） |
+| `make build` | 含 `web/build`，产出 `./slate`（`-tags embed_web,nomsgpack`） |
 
 仓库内亦可：`cd web && npm run dev|build|test|lint|typecheck|size`。
 

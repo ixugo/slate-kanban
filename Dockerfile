@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 COPY --from=web /src/internal/web/spa/dist ./internal/web/spa/dist
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -tags embed_web -trimpath \
+RUN CGO_ENABLED=0 go build -tags embed_web,nomsgpack -trimpath \
     -ldflags="-s -w -X main.buildVersion=${VERSION} -X main.release=true" \
     -o /out/slate .
 

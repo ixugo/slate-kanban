@@ -198,6 +198,8 @@ GOOS		= $(shell go env GOOS)
 GOARCH		= $(shell go env GOARCH)
 # 本项目的依赖都是纯 Go（SQLite 用 glebarez/sqlite），关闭 cgo 才能在本机交叉编译出静态程序
 CGO_ENABLED	= 0
+# 构建标签：embed_web 把前端嵌进程序；nomsgpack 去掉 gin 里用不到的 msgpack 编码，约省 5MB
+GO_TAGS		= embed_web,nomsgpack
 # 编译进程序的版本信息，build 和 build/local 共用
 LDFLAGS		= -s -w \
 	-X main.buildVersion=$(VERSION) \
@@ -212,7 +214,7 @@ IMAGE_NAME	:= $(MODULE_NAME):latest
 .PHONY: build
 build: web/build
 	@echo 'Building $(VERSION) ./slate...'
-	@CGO_ENABLED=$(CGO_ENABLED) go build -tags embed_web -trimpath -ldflags="$(LDFLAGS)" -o slate .
+	@CGO_ENABLED=$(CGO_ENABLED) go build -tags $(GO_TAGS) -trimpath -ldflags="$(LDFLAGS)" -o slate .
 	@echo '>>> OK: ./slate'
 
 ## build/clean: 清理构建缓存目录
@@ -227,7 +229,7 @@ build/local: web/build
 	@echo 'Building $(VERSION) $(dir)...'
 	@rm -rf $(dir)
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) go build \
-		-tags embed_web \
+		-tags $(GO_TAGS) \
 		-trimpath \
 		-ldflags="$(LDFLAGS)" -o=$(dir)/bin .
 	@echo '>>> OK'

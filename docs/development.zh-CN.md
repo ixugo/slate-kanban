@@ -38,7 +38,7 @@ make build
 ./slate
 ```
 
-打开 [http://127.0.0.1:7070](http://127.0.0.1:7070)。构建会把前端写到 `internal/web/spa/dist`，检查 gzip 体积预算，再用 `-tags embed_web` 将前端嵌入 `./slate`。使用 `./slate -conf /path/to/dir` 可指定配置目录。
+打开 [http://127.0.0.1:7070](http://127.0.0.1:7070)。构建会把前端写到 `internal/web/spa/dist`，检查 gzip 体积预算，再用 `-tags embed_web,nomsgpack` 将前端嵌入 `./slate`（`nomsgpack` 去掉 gin 用不到的 msgpack，约省 5MB）。使用 `./slate -conf /path/to/dir` 可指定配置目录。
 
 旧版本如果把数据放在启动目录下的 `configs/`，可继续用 `./slate -conf ./configs` 指向原目录。迁移目录前先停止 Slate，复制配置、数据库及已有的 `-wal`、`-shm` 文件和资源目录，再更新配置中的 `Data.Database.Dsn`、`Data.ResourceDir` 和 `Log.Dir`，使它们指向迁移后的位置。
 

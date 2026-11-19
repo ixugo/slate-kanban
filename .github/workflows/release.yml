@@ -45,6 +45,18 @@ jobs:
           npm ci
           npm run build
 
+      # upx 只压缩 linux 和 windows 的程序，体积能从约 30MB 降到约 9MB。
+      # macOS 不压缩：upx 对 Apple 芯片的程序支持不可靠，压缩还会破坏代码签名。
+      - name: 安装 upx
+        env:
+          UPX_VERSION: "5.3.0"
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "${RUNNER_TEMP}/upx.tar.xz" "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz"
+          mkdir -p "${RUNNER_TEMP}/upx"
+          tar -xJf "${RUNNER_TEMP}/upx.tar.xz" --strip-components=1 -C "${RUNNER_TEMP}/upx"
+          echo "${RUNNER_TEMP}/upx" >> "$GITHUB_PATH"
+
       # 依赖都是纯 Go（SQLite 用 glebarez/sqlite），关闭 cgo 后一台机器就能交叉编译全部平台。
       # 包名固定为 slate_<tag>_<系统>_<架构>.tar.gz（windows 为 .zip），程序内的自动更新按这个规则挑包。
       # gitBranch 写成 release：main.go 靠它认出官方发布包，只有这样的程序才检查更新。
@@ -59,7 +71,15 @@ jobs:
             name="slate_${TAG}_${os}_${arch}"
             bin="slate"
             [ "$os" = "windows" ] && bin="slate.exe"
-            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -tags embed_web -trimpath -ldflags="$ldflags" -o "dist/${bin}" .
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -tags embed_web,nomsgpack -trimpath -ldflags="$ldflags" -o "dist/${bin}" .
+            if [ "$os" != "darwin" ]; then
+              upx --best --lzma -q "dist/${bin}"
+              upx -t -q "dist/${bin}"
+            fi
+            # 压缩后的程序能不能跑，只有和 runner 同平台的 linux/amd64 能当场验证
+            if [ "$os/$arch" = "linux/amd64" ]; then
+              "dist/${bin}" service help > /dev/null
+            fi
             if [ "$os" = "windows" ]; then
               (cd dist && zip -q "${name}.zip" "${bin}")
             else
