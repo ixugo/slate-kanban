@@ -4,7 +4,7 @@
 
 提供 `slate service` 子命令：生成 macOS launchd 用户级 LaunchAgent 或 Linux 用户级 systemd 单元，
 写入当前用户目录下的标准位置，并打印用户须在本机手工执行的 `launchctl` / `systemctl` 步骤。
-不替用户加载或启停服务，避免未经同意改动系统状态。
+另提供 `slate -d` / `slate -stop`：用户明确执行这两个命令时，由 Slate 自己调用 `launchctl` / `systemctl` 完成注册启动与停止删除（见「-d 与 -stop」）。`slate service install` 仍只写文件、打印命令。
 
 默认配置目录是 `~/.slate-kanban`（`conf.DefaultDir`），配置、SQLite、程序日志、launchd 的标准输出日志都放在里面，所以进程方式和服务方式用的是同一份数据。
 配置里写的相对路径（Dsn、Log.Dir）仍以**进程启动时的工作目录**为基准（见 `main.go`、`internal/data/provider.go`、`internal/app/app.go`），
@@ -14,7 +14,7 @@
 |------|----------|-------------|---------|------|
 | 1 | 用户希望 Slate 登录后自动拉起 | 每次开机或关终端都要手工 `./slate` | `slate service install` 写 LaunchAgent / user unit，并打印 bootstrap / enable 命令 | 实施 |
 | 2 | 可执行文件、配置、工作目录路径含空格或 XML 特殊字符 | 服务文件损坏，launchd/systemd 拒载 | plist 做 XML 转义；systemd 的 `ExecStart` 参数里有空格、引号、反斜杠、`%`、`$` 时整体加双引号并转义（`%` 写成 `%%`，`$` 写成 `$$`），`WorkingDirectory` 只转义 `%`、空格原样保留（systemd 把等号后面整段当路径，加引号反而成了路径的一部分）；打印给用户粘贴的命令里，含空格等字符的路径用单引号包住 | 实施 |
-| 3 | 程序自动执行 launchctl/systemctl | 用户不知系统被改了什么，安全与可预期性差 | **只写文件 + 打印命令**；文档与输出明确说明 | 实施 |
+| 3 | 程序自动执行 launchctl/systemctl | 用户不知系统被改了什么，安全与可预期性差 | `service install` 只写文件 + 打印命令；只有用户显式执行 `-d` / `-stop` 才会调用系统命令，且只动 `dev.slate.kanban` / `slate.service` 这一个服务 | 实施 |
 | 4 | macOS LaunchAgent vs「通电即起」 | 用户以为未登录也会跑服务 | 文档说明：用户级 LaunchAgent 在**登录图形会话后**启动 | 实施 |
 | 5 | Linux 用户 unit 默认随会话退出 | 无人登录时服务不起 | 提示 `loginctl enable-linger <用户名>` | 实施 |
 | 6 | 需要 root / 系统级服务 | 多用户机器权限复杂 | **仅用户级**：`~/Library/LaunchAgents/`、`~/.config/systemd/user/`，不需 root | 实施 |
@@ -47,6 +47,29 @@ slate service uninstall [--dry-run]
 
 没有验证到的部分：本机没有真的执行 `launchctl` / `systemctl`，加载、开机自启、崩溃重启的实际效果没有在真机上验收；systemd 的引号规则（`ExecStart` 加引号、`WorkingDirectory` 不加）依据 systemd 文档写成，没有在真实 systemd 上跑过。
 
+## -d 与 -stop
+
+```text
+slate -d [-conf 目录]   注册为用户级服务并启动
+slate -stop             停止并删除服务
+```
+
+用户觉得 `service install` 再手工敲命令太繁琐，所以主程序直接提供这两个旗标（`main.go` 在加载配置前处理，`-d` 与 `-stop` 互斥）。实现在 `internal/svcinstall/run.go`，命令通过 `Env.Run` 注入，测试用假实现，生产用带 30 秒超时的 `exec`。
+
+| 场景 | 行为 |
+|------|------|
+| macOS 首次 `-d` | 写 plist → `launchctl bootstrap gui/<uid> <plist>`（失败最多重试 5 次，应对 bootout 后尚未卸载完） |
+| macOS 已加载且 plist 没变 | `launchctl kickstart -k` 重启进程 |
+| macOS 已加载但 plist 变了（换 `-conf`、换程序路径） | 先 `bootout` 再 `bootstrap` |
+| Linux `-d` | `daemon-reload` → `enable` → `restart`，三步都成功才算启动 |
+| macOS `-stop` | 已加载则 `bootout`，再删 plist |
+| Linux `-stop` | `disable --now` → 删单元文件 → `daemon-reload` |
+| 没注册过就 `-stop` | 直接成功，提示「没有已注册的服务」 |
+| 停止命令失败 | 保留服务文件并报错，避免进程还在跑却丢了注册信息 |
+| Windows 等其它系统 | 报不支持，不执行任何命令 |
+
+已知限制：`-d` 不探测端口是否就绪，只代表注册和启动命令成功；`-stop` 只处理 `-d` 注册的服务，不会杀掉直接运行的 `./slate`。真机验证过 macOS 的 `-d`、重复 `-d`、`-stop`、重复 `-stop`；Linux 只在单元测试里用假命令验证，没有真实 systemd 验收。
+
 ## 流程
 
 ```mermaid
@@ -76,9 +99,11 @@ internal/svcinstall/
 ├── generate.go     plist / unit 文本生成与转义
 ├── install.go      写入、幂等、后续命令文案
 ├── cli.go          子命令解析与分发
+├── run.go          -d / -stop：调用 launchctl / systemctl 启停
 ├── generate_test.go
-└── cli_test.go
-main.go             os.Args[1]==service 时转 RunFromMain，不改原 flag 启动路径
+├── cli_test.go
+└── run_test.go
+main.go             os.Args[1]==service 时转 RunFromMain；-d / -stop 转 RunDaemonFromMain
 ```
 
 ## 验证计划

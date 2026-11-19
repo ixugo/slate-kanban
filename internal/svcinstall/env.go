@@ -17,6 +17,7 @@ type Env struct {
 	UID        int
 	Username   string
 	GOOS       string
+	Run        Runner // 执行 launchctl / systemctl 的函数；为空时调用真实命令，测试里注入假实现
 }
 
 // DefaultEnv 用当前进程信息构造环境，供真实命令行入口使用。

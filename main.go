@@ -32,6 +32,12 @@ const officialBranch = "release"
 // 自定义配置目录；不填就用 ~/.slate-kanban（配置文件和数据库都在里面）
 var configDir = flag.String("conf", "", "config directory, default ~/.slate-kanban, eg: -conf /configs/")
 
+// -d 注册为用户级服务并启动，-stop 停止并删除该服务（仅 macOS 和 Linux）
+var (
+	daemonMode = flag.Bool("d", false, "register as a user service and start it (macOS launchd / Linux systemd)")
+	stopMode   = flag.Bool("stop", false, "stop the service registered by -d and remove it")
+)
+
 func getBuildRelease() bool {
 	v, _ := strconv.ParseBool(release)
 	return v
@@ -44,6 +50,15 @@ func main() {
 	}
 
 	flag.Parse()
+
+	if *daemonMode || *stopMode {
+		if *daemonMode && *stopMode {
+			fmt.Fprintln(os.Stderr, "-d 和 -stop 不能同时使用")
+			os.Exit(1)
+		}
+		svcinstall.RunDaemonFromMain(*stopMode, *configDir)
+		return
+	}
 
 	// 初始化配置
 	var bc conf.Bootstrap
