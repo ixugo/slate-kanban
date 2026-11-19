@@ -26,7 +26,7 @@
   # 图片等资源文件的存放目录，按项目分子目录，数据库里只存相对它的路径；留空则用配置目录下的 resource
   ResourceDir = '/home/you/.slate-kanban/resource'
   [Data.Database]
-    # 数据库支持 sqlite 和 postgres 两种，使用 sqlite 时 dsn 应当填写文件存储路径（相对路径以启动目录为基准）
+    # 默认构建只支持 sqlite，dsn 填写文件存储路径（相对路径以启动目录为基准）；postgres 需要用 -tags postgres 自行编译
     # 首次生成的配置里是 ~/.slate-kanban/data.db 的绝对路径；这里换成你的实际路径
     Dsn = '/home/you/.slate-kanban/data.db'
     MaxIdleConns = 1

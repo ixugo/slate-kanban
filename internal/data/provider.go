@@ -10,7 +10,6 @@ import (
 	"github.com/google/wire"
 	"github.com/ixugo/goddd/pkg/orm"
 	"github.com/ixugo/goddd/pkg/system"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	"slate-kanban/internal/conf"
@@ -23,7 +22,10 @@ var ProviderSet = wire.NewSet(SetupDB)
 // 这样 SQLite 能把 WAL 里还没合并的内容写回主文件。
 func SetupDB(c *conf.Bootstrap) (*gorm.DB, func(), error) {
 	cfg := c.Data.Database
-	dial, isSQLite := getDialector(cfg.Dsn)
+	dial, isSQLite, err := getDialector(cfg.Dsn)
+	if err != nil {
+		return nil, func() {}, err
+	}
 	if isSQLite {
 		cfg.MaxIdleConns = 1
 		cfg.MaxOpenConns = 1
@@ -52,15 +54,14 @@ func closeDB(db *gorm.DB) {
 	}
 }
 
-// getDialector 返回 dial 和 是否 sqlite
-func getDialector(dsn string) (gorm.Dialector, bool) {
+// getDialector 返回 dial 和 是否 sqlite；DSN 以 postgres 开头时走 PostgreSQL，
+// 默认构建不含 PostgreSQL 驱动，此时返回错误，而不是把 DSN 当成文件路径建一个怪文件。
+func getDialector(dsn string) (gorm.Dialector, bool, error) {
 	if strings.HasPrefix(dsn, "postgres") {
-		return postgres.New(postgres.Config{
-			DriverName: "pgx",
-			DSN:        dsn,
-		}), false
+		dial, err := postgresDialector(dsn)
+		return dial, false, err
 	}
-	return sqlite.Open(sqliteDSN(dsn)), true
+	return sqlite.Open(sqliteDSN(dsn)), true, nil
 }
 
 // sqliteDSN 把配置里的文件路径转成带参数的 sqlite DSN。

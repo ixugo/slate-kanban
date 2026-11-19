@@ -39,7 +39,7 @@ type ServerPPROF struct {
 // Data 结构体，包含 Database 和 Redis 两个字段
 type Data struct {
 	// Database 数据库
-	Database Database `comment:"数据库支持 sqlite 和 postgres 两种，使用 sqlite 时 dsn 应当填写文件存储路径"`
+	Database Database `comment:"默认构建只支持 sqlite，dsn 填写文件存储路径；postgres 需要用 -tags postgres 自行编译"`
 	// ResourceDir 图片等资源文件的存放目录，数据库里只存相对它的路径
 	ResourceDir string `comment:"图片等资源文件的存放目录，按项目分子目录；留空则用配置目录下的 resource"`
 }
