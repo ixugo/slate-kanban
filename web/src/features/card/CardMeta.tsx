@@ -1,8 +1,9 @@
 // 卡片弹窗标题下面的一排属性：优先级、标签、截止、依赖、分支、链接、仅人工，做成紧凑的小按钮（对齐 Trello 的「添加到卡片」）。
 // 没设值时按钮上只有图标和名称；设了值就把值显示在按钮上。点开按钮才出现编辑控件，平时不占地方。
+// 标签例外：设了标签以后单独占一行，显示成大号标签（对齐 Trello）。
 
 import { useState, type ReactNode } from 'react'
-import { CheckIcon, ClockIcon, FlagIcon, GitBranchIcon, Link2Icon, LinkIcon, LockIcon, TagIcon, XIcon } from 'lucide-react'
+import { CheckIcon, ClockIcon, FlagIcon, GitBranchIcon, Link2Icon, LinkIcon, LockIcon, PlusIcon, TagIcon, XIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { useLanguage } from '@/i18n/useLanguage'
 import type { CardDetail } from '@/lib/api/types'
@@ -37,9 +38,6 @@ interface TextChipProps {
 
 /** 优先级的取值顺序，下标就是服务端的数值 */
 const PRIORITIES = ['none', 'low', 'medium', 'high'] as const
-
-/** 标签按钮上最多直接写出几枚标签，多出来的折成「+N」 */
-const CHIP_TAGS_SHOWN = 2
 
 /** 属性小按钮的外观：圆角矩形、浅底；设了值（active）时底色更深 */
 const CHIP_CLASS = 'h-8 max-w-full rounded-lg px-2.5 font-medium'
@@ -92,35 +90,35 @@ function PriorityChip({ card, onPatch }: CardMetaProps) {
   )
 }
 
-/** 标签：按钮上直接列出前几枚带颜色的标签，点开后在标签库里勾选、编辑 */
-function TagsChip({ card, onPatch }: CardMetaProps) {
+/** 没有标签时放在属性按钮一排里的「标签」按钮；点开是标签选择器 */
+function TagsChip() {
   const { t } = useTranslation()
-  const tagIds = card.tag_ids ?? []
-  const names = card.tags ?? []
-  const rest = tagIds.length - CHIP_TAGS_SHOWN
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="secondary" aria-label={names.length > 0 ? names.join('、') : undefined} className={cn(CHIP_CLASS, tagIds.length > 0 && 'bg-accent')}>
-          <ChipLabel icon={<TagIcon />}>
-            {tagIds.length > 0 ? (
-              <span className="flex items-center gap-1">
-                {tagIds.slice(0, CHIP_TAGS_SHOWN).map((id) => (
-                  <TagBadge key={id} id={id} className="max-w-[6rem]" />
-                ))}
-                {rest > 0 && <span className="text-xs text-muted-foreground">+{rest}</span>}
-              </span>
-            ) : (
-              t('card.field.tags')
-            )}
-          </ChipLabel>
-        </Button>
-      </PopoverTrigger>
-      {/* 编辑页（30 色色板）比较高：高度不超过窗口剩余空间，放不下时弹层内部滚动，保存按钮始终够得着 */}
-      <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-72 overflow-y-auto">
-        <LabelPicker tagIds={tagIds} onChange={(next) => onPatch({ tag_ids: next, version: card.version })} />
-      </PopoverContent>
-    </Popover>
+    <PopoverTrigger asChild>
+      <Button type="button" variant="secondary" className={CHIP_CLASS}>
+        <ChipLabel icon={<TagIcon />}>{t('card.field.tags')}</ChipLabel>
+      </Button>
+    </PopoverTrigger>
+  )
+}
+
+/** 设了标签以后单独占一行（对齐 Trello）：小标题加一排大号标签，末尾的「+」点开标签选择器 */
+function TagsSection({ tagIds }: { tagIds: number[] }) {
+  const { t } = useTranslation()
+  return (
+    <section aria-label={t('card.field.tags')} className="space-y-1.5">
+      <h3 className="text-xs font-semibold text-muted-foreground">{t('card.field.tags')}</h3>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {tagIds.map((id) => (
+          <TagBadge key={id} id={id} size="lg" />
+        ))}
+        <PopoverTrigger asChild>
+          <Button type="button" variant="secondary" size="icon" className="size-8 rounded-md" aria-label={t('card.field.tags')}>
+            <PlusIcon />
+          </Button>
+        </PopoverTrigger>
+      </div>
+    </section>
   )
 }
 
@@ -229,6 +227,10 @@ function hostOf(url: string): string {
 /** 标题下面的一排属性按钮，放不下就换行 */
 export function CardMeta({ card, depOptions, onPatch }: CardMetaProps & { depOptions: CardDetail['dependencies'] }) {
   const { t } = useTranslation()
+  // 标签选择器的开关放在这里：加第一枚标签时入口从按钮挪到标签区，弹层不能跟着关掉
+  const [tagsOpen, setTagsOpen] = useState(false)
+  const tagIds = card.tag_ids ?? []
+  const hasTags = tagIds.length > 0
 
   const saveUrl = (url: string) => {
     const norm = normalizeCardUrl(url)
@@ -240,28 +242,35 @@ export function CardMeta({ card, depOptions, onPatch }: CardMetaProps & { depOpt
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <PriorityChip card={card} onPatch={onPatch} />
-      <TagsChip card={card} onPatch={onPatch} />
-      <DueChip card={card} onPatch={onPatch} />
-      <DepsChip card={card} depOptions={depOptions} onPatch={onPatch} />
-      <TextChip
-        icon={<GitBranchIcon />}
-        name={t('card.field.branch')}
-        value={card.branch}
-        max={CARD_BRANCH_MAX}
-        onCommit={(next) => onPatch({ branch: next.trim().slice(0, CARD_BRANCH_MAX), version: card.version })}
-      />
-      <TextChip icon={<LinkIcon />} name={t('card.field.url')} value={card.url} max={CARD_URL_MAX} onCommit={saveUrl} display={hostOf} />
-      <Button
-        type="button"
-        variant="secondary"
-        aria-pressed={card.human_only}
-        className={cn(CHIP_CLASS, card.human_only && 'bg-primary text-primary-foreground hover:bg-primary/88')}
-        onClick={() => onPatch({ human_only: !card.human_only, version: card.version })}
-      >
-        <ChipLabel icon={<LockIcon />}>{t('card.field.humanOnly')}</ChipLabel>
-      </Button>
-    </div>
+    <Popover open={tagsOpen} onOpenChange={setTagsOpen}>
+      <div className="flex flex-wrap items-center gap-2">
+        <PriorityChip card={card} onPatch={onPatch} />
+        {!hasTags && <TagsChip />}
+        <DueChip card={card} onPatch={onPatch} />
+        <DepsChip card={card} depOptions={depOptions} onPatch={onPatch} />
+        <TextChip
+          icon={<GitBranchIcon />}
+          name={t('card.field.branch')}
+          value={card.branch}
+          max={CARD_BRANCH_MAX}
+          onCommit={(next) => onPatch({ branch: next.trim().slice(0, CARD_BRANCH_MAX), version: card.version })}
+        />
+        <TextChip icon={<LinkIcon />} name={t('card.field.url')} value={card.url} max={CARD_URL_MAX} onCommit={saveUrl} display={hostOf} />
+        <Button
+          type="button"
+          variant="secondary"
+          aria-pressed={card.human_only}
+          className={cn(CHIP_CLASS, card.human_only && 'bg-primary text-primary-foreground hover:bg-primary/88')}
+          onClick={() => onPatch({ human_only: !card.human_only, version: card.version })}
+        >
+          <ChipLabel icon={<LockIcon />}>{t('card.field.humanOnly')}</ChipLabel>
+        </Button>
+      </div>
+      {hasTags && <TagsSection tagIds={tagIds} />}
+      {/* 标签选择器：编辑页（30 色色板）比较高，高度不超过窗口剩余空间，放不下时弹层内部滚动，保存按钮始终够得着 */}
+      <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-72 overflow-y-auto">
+        <LabelPicker tagIds={tagIds} onChange={(next) => onPatch({ tag_ids: next, version: card.version })} />
+      </PopoverContent>
+    </Popover>
   )
 }

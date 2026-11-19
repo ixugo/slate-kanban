@@ -2,6 +2,7 @@
 
 import type { TFunction } from '@/i18n/react'
 import type { Column } from '@/lib/api/types'
+import { tagText } from '@/features/labels/tagName'
 import {
   toggleClaimer,
   toggleColumn,
@@ -26,7 +27,7 @@ export function describeFilters(filters: BoardFilters, columns: readonly Column[
     filters.tagMode === 'all' && filters.tags.length > 1 ? t('filter.groups.tagsAll') : t('filter.groups.tags')
   const chips: FilterChip[] = []
   for (const tag of filters.tags) {
-    chips.push({ key: `tag:${tag}`, label: chip(tagGroup, tag), next: toggleTag(filters, tag) })
+    chips.push({ key: `tag:${tag}`, label: chip(tagGroup, tagText(tag, t)), next: toggleTag(filters, tag) })
   }
   if (filters.noTags) {
     chips.push({ key: 'noTags', label: chip(tagGroup, t('filter.noTags')), next: toggleNoTags(filters) })

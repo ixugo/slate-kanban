@@ -132,10 +132,21 @@ describe('CardDialog', () => {
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByLabelText(en.card.field.title)
-    await user.click(within(dialog).getByRole('button', { name: /t0/ }))
-    const input = await screen.findByLabelText(en.card.field.tags)
+    await user.click(within(dialog).getByRole('button', { name: en.card.field.tags }))
+    const input = await screen.findByRole('textbox', { name: en.card.field.tags })
     await user.type(input, 'overflow{Enter}')
     expect(await screen.findByText(en.card.tagLimit.replace('{{max}}', String(CARD_TAGS_MAX)))).toBeInTheDocument()
+  })
+
+  it('设了标签后单独占一行：小标题加大号标签，属性按钮一排里不再有标签按钮；没有标签时才是一排里的按钮', async () => {
+    const library = [{ id: 1, text: 'bug', color: 'red-2' }]
+    openBoardWithCard({ ...baseDetail, tag_ids: [1], tags: ['bug'] }, [], library)
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByLabelText(en.card.field.title)
+    const section = within(dialog).getByRole('region', { name: en.card.field.tags })
+    expect(within(section).getByText('bug')).toHaveStyle({ backgroundColor: '#c9372c' })
+    expect(within(section).getByRole('button', { name: en.card.field.tags })).toBeInTheDocument()
+    expect(within(dialog).getAllByRole('button', { name: en.card.field.tags })).toHaveLength(1)
   })
 
   it('优先级按钮：显示当前值，点开选另一档就提交，选同一档不提交', async () => {

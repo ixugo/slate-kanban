@@ -4,7 +4,7 @@
 
 import { useState, type KeyboardEvent } from 'react'
 import { CheckIcon, PencilIcon, PlusIcon } from 'lucide-react'
-import { useTranslation } from '@/i18n/react'
+import { useTranslation, type TFunction } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import type { Tag, TagInput } from '@/lib/api/types'
@@ -12,7 +12,7 @@ import { CARD_TAGS_MAX } from '@/lib/limits'
 import { labelStyle } from '@/lib/labelColors'
 import { cn } from '@/lib/utils'
 import { LabelEditor, type LabelDraft } from './LabelEditor'
-import { tagName } from './tagName'
+import { tagName, tagText } from './tagName'
 import { useLabels } from './useLabels'
 import { useSaveLabels } from './useSaveLabels'
 
@@ -27,6 +27,10 @@ type View = { kind: 'list' } | { kind: 'edit'; tag: Tag | null }
 /** 标签库的一项转成保存入参 */
 const toInput = (tag: Tag): TagInput => ({ id: tag.id, text: tag.text, color: tag.color })
 
+/** 标签的原文字或译文（都转小写）有一个满足条件就算命中；起步标签搜原文和译文都能找到 */
+const matchText = (tag: Tag, t: TFunction, test: (lowerText: string) => boolean): boolean =>
+  test(tag.text.toLowerCase()) || test(tagText(tag.text, t).toLowerCase())
+
 /** 标签选择器：列表页和编辑页两个视图 */
 export function LabelPicker({ tagIds, onChange }: LabelPickerProps) {
   const { t } = useTranslation()
@@ -37,7 +41,7 @@ export function LabelPicker({ tagIds, onChange }: LabelPickerProps) {
   const [hint, setHint] = useState('')
 
   const needle = query.trim().toLowerCase()
-  const visible = needle ? tags.filter((tag) => tag.text.toLowerCase().includes(needle)) : tags
+  const visible = needle ? tags.filter((tag) => matchText(tag, t, (text) => text.includes(needle))) : tags
   const has = (id: number) => tagIds.includes(id)
 
   /** 勾选或取消一个标签；卡片已经满了就提示 */
@@ -73,7 +77,7 @@ export function LabelPicker({ tagIds, onChange }: LabelPickerProps) {
     e.preventDefault()
     const text = query.trim()
     if (!text) return
-    const same = tags.find((tag) => tag.text.toLowerCase() === text.toLowerCase())
+    const same = tags.find((tag) => matchText(tag, t, (name) => name === text.toLowerCase()))
     if (same) {
       if (!has(same.id)) toggle(same.id)
       setQuery('')
@@ -131,7 +135,7 @@ export function LabelPicker({ tagIds, onChange }: LabelPickerProps) {
               )}
               onClick={() => toggle(tag.id)}
             >
-              <span className="min-w-0 flex-1 truncate">{tag.text}</span>
+              <span className="min-w-0 flex-1 truncate">{tagText(tag.text, t)}</span>
               {has(tag.id) && <CheckIcon className="size-4 shrink-0" aria-hidden />}
             </button>
             <Button

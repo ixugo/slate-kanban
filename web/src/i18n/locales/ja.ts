@@ -228,6 +228,14 @@ export const ja: Messages = {
     empty: '一致するラベルがありません',
     blank: 'テキストなし',
     namePlaceholder: '空欄なら色だけのラベル',
+    seed: {
+      feature: '要件',
+      docs: 'ドキュメント',
+      mobile: 'モバイル',
+      bug: 'バグ',
+      backend: 'サーバー',
+      frontend: 'フロント',
+    },
     colorName: '{{hue}}（{{shade}}）',
     hues: {
       green: '緑',

@@ -228,6 +228,14 @@ export const zhTW: Messages = {
     empty: '沒有符合的標籤',
     blank: '無文字',
     namePlaceholder: '留空表示只有顏色',
+    seed: {
+      feature: '需求',
+      docs: '文件',
+      mobile: '行動端',
+      bug: 'Bug',
+      backend: '伺服端',
+      frontend: '前端',
+    },
     colorName: '{{hue}}（{{shade}}）',
     hues: {
       green: '綠',

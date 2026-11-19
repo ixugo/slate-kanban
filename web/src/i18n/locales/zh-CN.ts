@@ -228,6 +228,14 @@ export const zhCN: Messages = {
     empty: '没有匹配的标签',
     blank: '无文字',
     namePlaceholder: '留空表示只有颜色',
+    seed: {
+      feature: '需求',
+      docs: '文档',
+      mobile: '移动端',
+      bug: 'Bug',
+      backend: '服务端',
+      frontend: '前端',
+    },
     colorName: '{{hue}}（{{shade}}）',
     hues: {
       green: '绿',

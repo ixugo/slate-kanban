@@ -124,3 +124,47 @@ describe('TagBadge', () => {
     expect(screen.getAllByRole('img')).toHaveLength(1)
   })
 })
+
+describe('起步标签的译文', () => {
+  const seeded = [
+    { id: 21, text: '需求', color: 'green-3' },
+    { id: 22, text: '自定义', color: '' },
+  ]
+
+  it('服务端存中文；文字和起步标签完全相等时按界面语言显示译文，其余原样显示', () => {
+    renderApp(
+      <LabelsProvider boardId={1} tags={seeded}>
+        <TagBadge id={21} />
+        <TagBadge id={22} />
+      </LabelsProvider>,
+    )
+    expect(screen.getByText(en.label.seed.feature)).toBeInTheDocument()
+    expect(screen.queryByText('需求')).toBeNull()
+    expect(screen.getByText('自定义')).toBeInTheDocument()
+  })
+
+  it('选择器里搜译文和原文都能找到；编辑页显示译文，没改文字就原样存回中文', async () => {
+    const api = installFakeApi({ 'PATCH /api/v1/boards/:id': saveTags })
+    renderApp(
+      <LabelsProvider boardId={1} tags={seeded}>
+        <LabelPicker tagIds={[]} onChange={vi.fn()} />
+      </LabelsProvider>,
+    )
+    const search = screen.getByLabelText(en.card.field.tags)
+    await userEvent.type(search, 'feat')
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+    await userEvent.clear(search)
+    await userEvent.type(search, '需')
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+
+    await userEvent.click(screen.getByRole('button', { name: en.label.edit.replace('{{name}}', en.label.seed.feature) }))
+    expect(screen.getByLabelText(en.label.name)).toHaveValue(en.label.seed.feature)
+    await userEvent.click(screen.getByRole('radio', { name: /Red, medium/ }))
+    await userEvent.click(screen.getByRole('button', { name: en.common.save }))
+    await waitFor(() => expect(api.count('PATCH /api/v1/boards/:id')).toBe(1))
+    expect(savedTags(api)).toEqual([
+      { id: 21, text: '需求', color: 'red-2' },
+      { id: 22, text: '自定义', color: '' },
+    ])
+  })
+})

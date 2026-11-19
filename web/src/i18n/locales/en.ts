@@ -231,6 +231,14 @@ export const en = {
     empty: 'No matching labels',
     blank: 'No text',
     namePlaceholder: 'Leave empty for a color-only label',
+    seed: {
+      feature: 'Feature',
+      docs: 'Docs',
+      mobile: 'Mobile',
+      bug: 'Bug',
+      backend: 'Backend',
+      frontend: 'Frontend',
+    },
     colorName: '{{hue}}, {{shade}}',
     hues: {
       green: 'Green',

@@ -228,6 +228,14 @@ export const ko: Messages = {
     empty: '일치하는 라벨이 없습니다',
     blank: '텍스트 없음',
     namePlaceholder: '비워 두면 색만 있는 라벨',
+    seed: {
+      feature: '요구사항',
+      docs: '문서',
+      mobile: '모바일',
+      bug: '버그',
+      backend: '서버',
+      frontend: '프런트엔드',
+    },
     colorName: '{{hue}} ({{shade}})',
     hues: {
       green: '초록',

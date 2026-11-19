@@ -10,7 +10,7 @@ import { CARD_TAG_MAX } from '@/lib/limits'
 import { LABEL_HUES, LABEL_SHADES, labelStyle } from '@/lib/labelColors'
 import { cn } from '@/lib/utils'
 import type { Tag } from '@/lib/api/types'
-import { colorName } from './tagName'
+import { colorName, tagText } from './tagName'
 
 /** 编辑中的标签：id 为 0 表示新建；text 可以为空，表示只有颜色 */
 export interface LabelDraft {
@@ -31,7 +31,7 @@ interface LabelEditorProps {
 /** 标签编辑页 */
 export function LabelEditor({ tag, busy, onBack, onSave, onDelete }: LabelEditorProps) {
   const { t } = useTranslation()
-  const [text, setText] = useState(tag?.text ?? '')
+  const [text, setText] = useState(tag ? tagText(tag.text, t) : '')
   const [color, setColor] = useState(tag?.color ?? '')
   const trimmed = text.trim()
   const nameRef = useRef<HTMLInputElement>(null)
@@ -41,7 +41,8 @@ export function LabelEditor({ tag, busy, onBack, onSave, onDelete }: LabelEditor
     nameRef.current?.focus({ preventScroll: true })
   }, [])
 
-  const submit = () => onSave({ id: tag?.id ?? 0, text: trimmed, color })
+  // 起步标签在编辑页里显示的是译文；没改动就原样存回中文，不让译文悄悄覆盖数据
+  const submit = () => onSave({ id: tag?.id ?? 0, text: tag && trimmed === tagText(tag.text, t) ? tag.text : trimmed, color })
 
   return (
     <div className="flex flex-col gap-3">

@@ -9,6 +9,7 @@ import { Chip, ChipGroup } from '@/components/ChipGroup'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { Column } from '@/lib/api/types'
 import { cn } from '@/lib/utils'
+import { tagText } from '@/features/labels/tagName'
 import {
   DUE_CHOICES,
   EMPTY_FILTERS,
@@ -131,7 +132,7 @@ export function FilterPopover({ filters, onChange, columns, tags, claimers }: Fi
                 selected={filters.tags.some((name) => name.toLowerCase() === tag.name.toLowerCase())}
                 onClick={() => onChange(toggleTag(filters, tag.name))}
               >
-                {tag.name}
+                {tagText(tag.name, t)}
                 {tag.count > 0 && <span className="opacity-60">{tag.count}</span>}
               </Chip>
             ))}

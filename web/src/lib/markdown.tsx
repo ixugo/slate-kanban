@@ -44,7 +44,7 @@ function renderInline(nodes: readonly Inline[], key: string): ReactNode[] {
       case 'image':
         return (
           <a key={k} href={node.src} target="_blank" rel="noopener noreferrer" className="inline-block max-w-full align-bottom">
-            <img src={node.src} alt={node.alt} loading="lazy" className="max-h-96 max-w-full rounded-lg border border-border object-contain" />
+            <img src={node.src} alt={node.alt} loading="lazy" className="max-h-96 max-w-full rounded-lg object-contain" />
           </a>
         )
       case 'link':
