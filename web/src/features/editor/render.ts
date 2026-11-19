@@ -215,7 +215,8 @@ export function renderLines(value: string, sel: Span | null): string[] {
     let next = i + 1
     switch (info.kind) {
       case 'blank':
-        html[i] = row('md-blank', '', plain(i))
+        // 光标所在的空行按正常行高画：窄缝行高只有半个字，光标会比开始输入后矮一截、位置也对不上
+        html[i] = row(touched(i) ? '' : 'md-blank', '', plain(i))
         break
       case 'code': {
         const f = fenceOf.get(i) as Fence

@@ -98,6 +98,13 @@ describe('块级外观', () => {
     expect(a.className).toContain('md-p')
   })
 
+  it('光标所在的空行不用窄缝：空编辑区和新按出的空行，光标和开始输入后一样高', () => {
+    expect(mount('', { lo: 0, hi: 0 })[0].className).not.toContain('md-blank')
+    expect(mount('', null)[0].className).toContain('md-blank')
+    // 光标在第 3 行（下标 2）：中间的空行还是窄缝，光标所在的空行是正常行高
+    expect(mount('a\n\n\nb', { lo: 3, hi: 3 }).map((el) => el.className.includes('md-blank'))).toEqual([false, true, false, false])
+  })
+
   it('围栏代码：有代码行时围栏行平时藏起来，光标进入代码块后亮出来', () => {
     const doc = '```js\nlet a\n```'
     const off = mount(doc)
