@@ -421,6 +421,23 @@ export interface VersionInfo {
   remark: string
 }
 
+/** 自动更新的检查结果：只有官方 release 构建才可能有更新；can_apply 为假时只能引导用户去 release 页面手动下载 */
+export interface UpdateInfo {
+  current: string
+  latest: string
+  /** 最新版本的更新说明（Markdown） */
+  notes: string
+  /** 最新 release 的页面地址 */
+  url: string
+  has_update: boolean
+  can_apply: boolean
+}
+
+/** 立即更新成功的结果：程序已被替换，重启后才是这个版本 */
+export interface UpdateApplied {
+  version: string
+}
+
 /** 访问口令的状态：required 表示服务端启用了口令；authenticated 表示当前浏览器是否已通过 */
 export interface AuthStatus {
   required: boolean

@@ -591,6 +591,15 @@ export const zhCN: Messages = {
       download: '下载',
     },
   },
+  update: {
+    title: '发现新版本',
+    versions: '当前 {{current}}，最新 {{latest}}',
+    ignore: '此版本忽略',
+    now: '立即更新',
+    updating: '更新中…',
+    done: '已更新到 {{version}}。请重启 Slate，再刷新页面。',
+    download: '去下载',
+  },
   agents: {
     title: '接入 Agent',
     subtitle: '安装 MCP 与 Slate skill，让编程 agent 读写这个项目。',

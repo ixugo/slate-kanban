@@ -594,6 +594,15 @@ export const en = {
       download: 'Download',
     },
   },
+  update: {
+    title: 'A new version is available',
+    versions: 'Current {{current}}, latest {{latest}}',
+    ignore: 'Skip this version',
+    now: 'Update now',
+    updating: 'Updating…',
+    done: 'Updated to {{version}}. Restart Slate, then refresh the page.',
+    download: 'Download',
+  },
   agents: {
     title: 'Connect agents',
     subtitle: 'Install MCP and the Slate skill so coding agents can read and update this project.',

@@ -22,6 +22,7 @@ import (
 	"slate-kanban/internal/web/api"
 	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
+	"slate-kanban/internal/web/api/updateapi"
 )
 
 const (
@@ -80,6 +81,7 @@ func run(m *testing.M) int {
 		Kanban:  kanbanapi.New(kcore),
 		MCP:     mcpAPI,
 		Connect: connectapi.New(conf.PasscodeRequired(bc)),
+		Update:  updateapi.New(updateapi.Options{}),
 	}
 	h, ok := api.NewHTTPHandler(uc).(*gin.Engine)
 	if !ok {

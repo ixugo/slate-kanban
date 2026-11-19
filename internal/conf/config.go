@@ -12,6 +12,7 @@ type Bootstrap struct {
 type Runtime struct {
 	Debug        bool   `toml:"-" json:"-"`
 	BuildVersion string `toml:"-" json:"-"`
+	Official     bool   `toml:"-" json:"-"` // 是否官方 release 构建，只有它才会检查和执行自动更新
 	ConfigDir    string `toml:"-" json:"-"`
 	ConfigPath   string `toml:"-" json:"-"`
 }

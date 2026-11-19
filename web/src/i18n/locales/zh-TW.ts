@@ -592,6 +592,15 @@ export const zhTW: Messages = {
       download: '下載',
     },
   },
+  update: {
+    title: '發現新版本',
+    versions: '目前 {{current}}，最新 {{latest}}',
+    ignore: '此版本忽略',
+    now: '立即更新',
+    updating: '更新中…',
+    done: '已更新到 {{version}}。請重新啟動 Slate，再重新整理頁面。',
+    download: '前往下載',
+  },
   agents: {
     title: '連接 Agent',
     subtitle: '安裝 MCP 與 Slate skill，讓程式 Agent 讀寫這個專案。',

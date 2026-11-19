@@ -595,6 +595,15 @@ export const ko: Messages = {
       download: '내려받기',
     },
   },
+  update: {
+    title: '새 버전이 있습니다',
+    versions: '현재 {{current}}, 최신 {{latest}}',
+    ignore: '이 버전 건너뛰기',
+    now: '지금 업데이트',
+    updating: '업데이트 중…',
+    done: '{{version}}(으)로 업데이트했습니다. Slate를 다시 시작한 뒤 페이지를 새로고침하세요.',
+    download: '다운로드',
+  },
   agents: {
     title: '에이전트 연결',
     subtitle: 'MCP와 Slate skill을 설치하면 코딩 에이전트가 이 프로젝트를 읽고 수정할 수 있습니다.',

@@ -9,6 +9,7 @@ import (
 
 	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
+	"slate-kanban/internal/web/api/updateapi"
 	"slate-kanban/internal/web/restactor"
 )
 
@@ -52,5 +53,6 @@ func setupRouter(r *gin.Engine, uc *Usecase) {
 	v1 := r.Group(apiPrefix, restactor.Middleware(), limitBody(maxRequestBody), requireJSON())
 	connectapi.Register(v1, uc.Connect)
 	kanbanapi.Register(v1, uc.Kanban)
+	updateapi.Register(v1, uc.Update)
 	versionapi.Register(v1, uc.Version)
 }

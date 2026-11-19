@@ -20,6 +20,7 @@ import (
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
+	"slate-kanban/internal/web/api/updateapi"
 	"slate-kanban/internal/web/mcpapi"
 	"slate-kanban/internal/web/spa"
 )
@@ -37,6 +38,7 @@ var (
 		kanbanapi.New,
 		NewMCP,
 		ProvideConnectAPI,
+		ProvideUpdateAPI,
 	)
 )
 
@@ -48,6 +50,7 @@ type Usecase struct {
 	Kanban  kanbanapi.API
 	MCP     mcpapi.API
 	Connect connectapi.API
+	Update  updateapi.API
 }
 
 // NewHTTPHandler 生成 Gin 路由：全局安全中间件、REST/MCP/静态页，未匹配路径走 SPA 回退或 JSON 404。
@@ -93,4 +96,9 @@ func NewKanbanCore(db *gorm.DB, bc *conf.Bootstrap) (kanban.Core, error) {
 // NewMCP 创建 MCP 适配器，与看板 Core 共用事件通知。
 func NewMCP(bc *conf.Bootstrap, core kanban.Core) (mcpapi.API, func()) {
 	return mcpapi.New(core, bc.Runtime.BuildVersion)
+}
+
+// ProvideUpdateAPI 按当前版本和是否官方构建生成自动更新接口，供 Wire 装配。
+func ProvideUpdateAPI(bc *conf.Bootstrap) updateapi.API {
+	return updateapi.New(updateapi.Options{Current: bc.Runtime.BuildVersion, Official: bc.Runtime.Official})
 }

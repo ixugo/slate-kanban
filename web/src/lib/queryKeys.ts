@@ -15,6 +15,8 @@ export const queryKeys = {
   card: (cardId?: number) => (cardId === undefined ? (['card'] as const) : (['card', cardId] as const)),
   /** 服务端版本信息 */
   version: ['version'] as const,
+  /** 检查更新的结果 */
+  update: ['update'] as const,
   /** 接入说明 */
   connect: ['connect'] as const,
 }

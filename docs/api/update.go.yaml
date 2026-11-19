@@ -1,0 +1,133 @@
+openapi: "3.1.0"
+info:
+  title: 自动更新
+  description: 检查 GitHub release 的新版本，并下载替换本地程序。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  /api/v1/update:
+    get:
+      tags:
+        - admin/自动更新
+      summary: 检查更新
+      description: 服务端请求 GitHub 的 releases/latest 比较版本号，结果缓存 1 小时。请求失败只记日志，按“没有更新”返回，不报错。
+      operationId: getUpdate
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateInfo"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags:
+        - admin/自动更新
+      summary: 立即更新
+      description: 下载当前平台的包，用 checksums.txt 校验 sha256 后替换本地程序，不做备份；替换后需要重启程序才生效。非官方构建、容器里、已经是最新版本、校验不通过都会失败，失败时不改动现有程序。
+      operationId: applyUpdate
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateApplied"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 服务端出错
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+    UpdateApplied:
+      type: object
+      properties:
+        version:
+          type: string
+          description: 已经替换成功的版本号，程序重启后才生效
+      description: 自动更新的结果
+    UpdateInfo:
+      type: object
+      properties:
+        current:
+          type: string
+          description: 当前程序的版本号
+        latest:
+          type: string
+          description: GitHub 上最新 release 的版本号，查询失败或不是官方构建时为空
+        notes:
+          type: string
+          description: 最新版本的更新说明（release 正文），最多 4000 个字符
+        url:
+          type: string
+          description: 最新 release 的页面地址
+        has_update:
+          type: boolean
+          description: 是否有更高的版本；只有官方 release 构建才会检查，本机编译的版本永远是 false
+        can_apply:
+          type: boolean
+          description: 能否立即更新：有新版本，不在容器里，并且 release 里有当前平台的包和 checksums.txt
+      description: 自动更新的检查结果
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

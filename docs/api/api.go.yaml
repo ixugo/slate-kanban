@@ -115,6 +115,18 @@ components:
           items:
             $ref: "#/components/schemas/Host"
           description: 各个 agent 宿主的接入步骤
+        watch_prompt:
+          type: string
+          description: "长期守候提示词，里面的 <看板名> 是占位符，使用时换成真实的看板名"
+        loop_prompt:
+          type: string
+          description: 单轮提示词，配合宿主自带的 loop 或定时功能使用，占位符同上
+        watch_notes:
+          type: array
+          items:
+            type: string
+            description: 一条注意事项
+          description: 长期挂着的注意事项，和具体宿主无关
     Host:
       type: object
       properties:
@@ -134,6 +146,11 @@ components:
           items:
             $ref: "#/components/schemas/Snippet"
           description: 安装 skill 的命令或配置
+        watch:
+          type: array
+          items:
+            $ref: "#/components/schemas/Snippet"
+          description: 长期挂着的步骤：开会话的命令，以及会话结束后怎么恢复
     Snippet:
       type: object
       properties:

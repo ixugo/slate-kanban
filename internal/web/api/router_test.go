@@ -25,6 +25,7 @@ import (
 	"slate-kanban/internal/web/api/apitest"
 	"slate-kanban/internal/web/api/connectapi"
 	"slate-kanban/internal/web/api/kanbanapi"
+	"slate-kanban/internal/web/api/updateapi"
 )
 
 const testBuildVersion = "router-test-version"
@@ -81,6 +82,7 @@ func runWithSharedRouter(m *testing.M) int {
 		Kanban:  kanbanapi.New(kcore),
 		MCP:     mcpAPI,
 		Connect: connectapi.New(false),
+		Update:  updateapi.New(updateapi.Options{}),
 	}
 	engine, ok := NewHTTPHandler(uc).(*gin.Engine)
 	if !ok {

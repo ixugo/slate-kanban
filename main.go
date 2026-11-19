@@ -25,6 +25,10 @@ var (
 	buildTime    string    // 构建时间戳
 )
 
+// officialBranch 是发布工作流（.github/workflows/release.yml）写进 gitBranch 的值，
+// 带这个值的程序才是官方 release 包，会检查更新；本机编译的版本带的是真实分支名。
+const officialBranch = "release"
+
 // 自定义配置目录；不填就用 ~/.slate-kanban（配置文件和数据库都在里面）
 var configDir = flag.String("conf", "", "config directory, default ~/.slate-kanban, eg: -conf /configs/")
 
@@ -62,6 +66,7 @@ func main() {
 	}
 	bc.Runtime.Debug = !getBuildRelease()
 	bc.Runtime.BuildVersion = buildVersion
+	bc.Runtime.Official = gitBranch == officialBranch
 	bc.Runtime.ConfigDir = fileDir
 	bc.Runtime.ConfigPath = filePath
 

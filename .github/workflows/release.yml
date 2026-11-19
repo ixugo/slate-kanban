@@ -47,6 +47,7 @@ jobs:
 
       # 依赖都是纯 Go（SQLite 用 glebarez/sqlite），关闭 cgo 后一台机器就能交叉编译全部平台。
       # 包名固定为 slate_<tag>_<系统>_<架构>.tar.gz（windows 为 .zip），程序内的自动更新按这个规则挑包。
+      # gitBranch 写成 release：main.go 靠它认出官方发布包，只有这样的程序才检查更新。
       - name: 构建四个平台的包
         run: |
           set -euo pipefail

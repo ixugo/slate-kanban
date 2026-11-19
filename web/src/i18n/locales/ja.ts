@@ -595,6 +595,15 @@ export const ja: Messages = {
       download: 'ダウンロード',
     },
   },
+  update: {
+    title: '新しいバージョンがあります',
+    versions: '現在 {{current}}、最新 {{latest}}',
+    ignore: 'このバージョンをスキップ',
+    now: '今すぐ更新',
+    updating: '更新中…',
+    done: '{{version}} に更新しました。Slate を再起動してからページを再読み込みしてください。',
+    download: 'ダウンロード',
+  },
   agents: {
     title: 'エージェント接続',
     subtitle: 'MCP と Slate の skill を入れると、コーディングエージェントがこのプロジェクトを読み書きできます。',

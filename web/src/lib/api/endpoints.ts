@@ -27,6 +27,8 @@ import type {
   UpdateCardInput,
   UpdateColumnInput,
   UpdateRuleInput,
+  UpdateApplied,
+  UpdateInfo,
   VersionInfo,
 } from './types'
 
@@ -165,6 +167,16 @@ export function deleteRule(ruleId: number): Promise<Empty> {
 /** 接入说明：MCP 地址、skill 地址，以及各 agent 宿主的安装命令（工作视图和管理视图各一条） */
 export function getConnectGuide(signal?: Signal): Promise<ConnectGuide> {
   return request<ConnectGuide>('/connect', { signal })
+}
+
+/** 检查有没有新版本（服务端去问 GitHub，查询失败时按没有更新返回） */
+export function getUpdateInfo(signal?: Signal): Promise<UpdateInfo> {
+  return request<UpdateInfo>('/update', { signal })
+}
+
+/** 立即更新：服务端下载、校验并替换本地程序，返回新版本号 */
+export function applyUpdate(): Promise<UpdateApplied> {
+  return request<UpdateApplied>('/update', { method: 'POST' })
 }
 
 /** 服务端的构建版本，「关于」弹窗里显示 */

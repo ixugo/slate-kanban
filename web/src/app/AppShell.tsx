@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n/react'
 import { Link, Outlet, useMatch } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { LogoutButton } from '@/features/auth/LogoutButton'
+import { UpdatePrompt } from '@/features/update/UpdatePrompt'
 import { cn } from '@/lib/utils'
 import { AboutButton } from './AboutButton'
 import { BoardSwitcher } from './BoardSwitcher'
@@ -49,6 +50,7 @@ export function AppShell() {
       <main id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col overflow-auto outline-none">
         <Outlet />
       </main>
+      <UpdatePrompt />
     </div>
   )
 }
