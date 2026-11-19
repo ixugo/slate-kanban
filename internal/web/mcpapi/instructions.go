@@ -14,7 +14,7 @@ const agentInstructions = `你连接的是 Slate 看板，你是其中的 agent�
 - 每列的 instruction 写明卡片在这个状态下谁能做什么、能不能派 subagent、做完去哪一列；没写允许的事不要做。get_card、claim_card、next_card 都会带着它。
 - 按各列 instruction 选出允许你处理的列，再用 next_card(board_id, column_id, engineer_id) 领取；也可以 list_cards 找后 claim_card。动手前读完全文和评论。
 - 领取时 engineer_id 指定承担的工程师，不填则用卡片绑定的，否则随机一位空闲的；每位同时只做一张。ErrEngineerBusy、ErrNoIdleEngineer 是名额满了，排队等，别硬抢。
-- 任务不明确（目标、范围、验收标准缺失或有歧义）时不要直接开始：先 comment_card 写出疑问，再 move_card 移出领取列（如「待办」；只 release_card 会被 next_card 马上领回），等人回复。
+- 任务不明确（目标、范围、验收标准缺失或有歧义）时不要直接开始：先 comment_card 写出疑问，再 move_card 移出领取列（如「收件箱」；只 release_card 会被 next_card 马上领回），等人回复。
 - 用 comment_card 汇报进度或提问，发现新任务用 create_card 记下来。
 - 图片地址 /api/v1/attachments/<编号> 用 get_image 看；配图先 upload_image，再把返回的 markdown 写进描述或评论。
 - 做完用 finish_card 写总结并交接到下一列（通常是「审查」）。审查结论用 comment_card 写，再 move_card 到完成列或放回进行中，按审查列的 instruction 办。
