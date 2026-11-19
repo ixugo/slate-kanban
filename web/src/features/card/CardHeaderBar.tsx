@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { displayKey } from '@/lib/cardKey'
 
 interface CardHeaderBarProps {
   card: CardDetail | undefined
@@ -49,7 +50,7 @@ export function CardHeaderBar({ card, columns, onColumn, onDelete, deleteBusy }:
         </Select>
       )}
       <DialogTitle className="truncate font-mono text-ui font-medium tracking-normal text-muted-foreground">
-        {card?.key ?? t('card.title')}
+        {card ? displayKey(card.key) : t('card.title')}
       </DialogTitle>
       <DialogDescription className="sr-only">{t('card.title')}</DialogDescription>
       {card && (

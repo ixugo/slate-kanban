@@ -101,7 +101,7 @@ describe('活动抽屉', () => {
     expect(rows).toHaveLength(4)
     expect(rows[0]).toContain('Me')
     expect(rows[0]).toContain('moved the card from “Todo” to “Doing”')
-    expect(rows[0]).toContain('SLATE-2 卡片二')
+    expect(rows[0]).toContain('#2 卡片二')
     expect(rows[1]).toContain('codex')
     expect(rows[1]).toContain('commented')
     expect(rows[1]).toContain('收到，开始做')
@@ -238,9 +238,9 @@ describe('活动抽屉', () => {
     const dialog = await openDrawer(user)
     await within(dialog).findByText(/deleted the card/)
     expect(within(dialog).queryByRole('link', { name: /已删的卡/ })).toBeNull()
-    expect(within(dialog).getByText('SLATE-9 已删的卡')).toBeInTheDocument()
+    expect(within(dialog).getByText('#9 已删的卡')).toBeInTheDocument()
 
-    const link = within(dialog).getByRole('link', { name: 'SLATE-2 卡片二' })
+    const link = within(dialog).getByRole('link', { name: '#2 卡片二' })
     expect(link).toHaveAttribute('href', '/b/1?card=2')
     await user.click(link)
     // 卡片弹窗一打开，抽屉会被标成隐藏，按角色查不到它，所以直接看抽屉的节点是不是真的卸掉了

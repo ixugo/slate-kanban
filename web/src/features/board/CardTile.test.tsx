@@ -64,21 +64,21 @@ describe('CardTile 是指向卡片的链接', () => {
 
   it('每张磁贴是 ?card= 链接：沿用地址里的其他参数，且不会被浏览器原生拖走', async () => {
     renderBoard('/b/1?x=1')
-    const link = await screen.findByRole('link', { name: 'SLATE-1 Alpha' })
+    const link = await screen.findByRole('link', { name: '#1 Alpha' })
     expect(link).toHaveAttribute('href', '/b/1?x=1&card=1')
     expect(link).toHaveAttribute('draggable', 'false')
-    expect(screen.getByRole('link', { name: 'SLATE-2 Beta' })).toHaveAttribute('href', '/b/1?x=1&card=2')
+    expect(screen.getByRole('link', { name: '#2 Beta' })).toHaveAttribute('href', '/b/1?x=1&card=2')
   })
 
   it('地址里已有 card 时只替换它', async () => {
     renderBoard('/b/1?card=2')
-    const link = await screen.findByRole('link', { name: 'SLATE-1 Alpha' })
+    const link = await screen.findByRole('link', { name: '#1 Alpha' })
     expect(link).toHaveAttribute('href', '/b/1?card=1')
   })
 
   it('每张磁贴只有一个 Tab 停靠点，里面没有嵌套的可聚焦元素', async () => {
     renderBoard()
-    const link = await screen.findByRole('link', { name: 'SLATE-1 Alpha' })
+    const link = await screen.findByRole('link', { name: '#1 Alpha' })
     expect(link).toHaveAttribute('tabindex', '0')
     expect(link.querySelectorAll('a, button, input, select, textarea, [tabindex]')).toHaveLength(0)
   })
@@ -87,7 +87,7 @@ describe('CardTile 是指向卡片的链接', () => {
     const clicks = recordClickDefaults()
     const user = userEvent.setup()
     renderBoard()
-    await user.click(await screen.findByRole('link', { name: 'SLATE-1 Alpha' }))
+    await user.click(await screen.findByRole('link', { name: '#1 Alpha' }))
     clicks.stop()
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.getByTestId('location')).toHaveTextContent('/b/1?card=1')
@@ -99,7 +99,7 @@ describe('CardTile 是指向卡片的链接', () => {
       const clicks = recordClickDefaults()
       const user = userEvent.setup()
       const { unmount } = renderBoard()
-      const link = await screen.findByRole('link', { name: 'SLATE-1 Alpha' })
+      const link = await screen.findByRole('link', { name: '#1 Alpha' })
       await user.keyboard(`{${key}>}`)
       await user.click(link)
       await user.keyboard(`{/${key}}`)
@@ -114,7 +114,7 @@ describe('CardTile 是指向卡片的链接', () => {
   it('回车打开卡片', async () => {
     const user = userEvent.setup()
     renderBoard()
-    const link = await screen.findByRole('link', { name: 'SLATE-1 Alpha' })
+    const link = await screen.findByRole('link', { name: '#1 Alpha' })
     link.focus()
     await user.keyboard('{Enter}')
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
@@ -124,7 +124,7 @@ describe('CardTile 是指向卡片的链接', () => {
   it('空格拾起磁贴做键盘拖拽，拖拽中按回车也不会打开卡片', async () => {
     const user = userEvent.setup()
     renderBoard()
-    const link = await screen.findByRole('link', { name: 'SLATE-1 Alpha' })
+    const link = await screen.findByRole('link', { name: '#1 Alpha' })
     link.focus()
     await user.keyboard(' ')
     expect(screen.getByTestId('location')).toHaveTextContent(/^\/b\/1$/)
@@ -143,7 +143,7 @@ describe('CardTile 是指向卡片的链接', () => {
     await user.type(screen.getByPlaceholderText(en.search.placeholder), 'alpha')
     await waitFor(() => expect(screen.queryByText('Beta')).toBeNull(), { timeout: 3000 })
     expect(screen.getByText(en.board.dragDisabledSearch)).toBeInTheDocument()
-    const link = screen.getByRole('link', { name: 'SLATE-1 Alpha' })
+    const link = screen.getByRole('link', { name: '#1 Alpha' })
     expect(link).not.toHaveAttribute('aria-disabled')
     await user.click(link)
     expect(await screen.findByRole('dialog')).toBeInTheDocument()

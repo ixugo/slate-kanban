@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { XIcon } from 'lucide-react'
 import { CARD_DEPS_MAX } from '@/lib/limits'
+import { displayKey } from '@/lib/cardKey'
 
 interface DependencyPickerProps {
   cardId: number
@@ -39,7 +40,7 @@ export function DependencyPicker({ cardId, selected, options, onChange }: Depend
           if (!ref) return null
           return (
             <li key={id} className="flex items-center gap-2 text-sm">
-              <span className="font-mono text-xs text-muted-foreground">{ref.key}</span>
+              <span className="font-mono text-xs text-muted-foreground">{displayKey(ref.key)}</span>
               <span className={ref.done ? 'text-muted-foreground line-through' : ''}>{ref.title}</span>
               <Button type="button" variant="ghost" size="icon-xs" aria-label={t('common.delete')} onClick={() => remove(id)}>
                 <XIcon />
@@ -56,7 +57,7 @@ export function DependencyPicker({ cardId, selected, options, onChange }: Depend
           <SelectContent>
             {available.map((c) => (
               <SelectItem key={c.id} value={String(c.id)}>
-                <span className="font-mono text-xs">{c.key}</span> {c.title}
+                <span className="font-mono text-xs">{displayKey(c.key)}</span> {c.title}
               </SelectItem>
             ))}
           </SelectContent>

@@ -76,7 +76,7 @@ describe('离线时看板只读', () => {
     goOffline()
     const user = userEvent.setup()
     renderBoard()
-    const link = await screen.findByRole('link', { name: 'SLATE-1 Alpha' })
+    const link = await screen.findByRole('link', { name: '#1 Alpha' })
     link.focus()
     await user.keyboard(' ')
     await user.keyboard('{Enter}')

@@ -7,6 +7,7 @@ import { useLanguage } from '@/i18n/useLanguage'
 import type { ActorKind, BoardEvent, CardView } from '@/lib/api/types'
 import { formatDateTime, formatRelative } from '@/lib/format'
 import { actorLabel, describeEvent, eventCard } from './describeEvent'
+import { displayKey } from '@/lib/cardKey'
 
 interface ActivityItemProps {
   event: BoardEvent
@@ -44,14 +45,14 @@ export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps
         {card && (
           <p className="truncate text-xs">
             {card.id === null ? (
-              <span className="text-muted-foreground">{`${card.key} ${card.title}`.trim()}</span>
+              <span className="text-muted-foreground">{`${displayKey(card.key)} ${card.title}`.trim()}</span>
             ) : (
               <Link
                 to={{ search: next.toString() }}
                 onClick={onOpenCard}
                 className="rounded-sm font-medium text-foreground underline-offset-2 hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
               >
-                {`${card.key} ${card.title}`.trim()}
+                {`${displayKey(card.key)} ${card.title}`.trim()}
               </Link>
             )}
           </p>

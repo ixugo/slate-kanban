@@ -21,6 +21,7 @@ import {
   type SortKey,
   type SortState,
 } from './sortCards'
+import { displayKey } from '@/lib/cardKey'
 
 /** 标签列最多展示枚数，与磁贴一致 */
 const TAGS_VISIBLE = 3
@@ -159,7 +160,7 @@ export default function ListView({
                     key={card.id}
                     className={cn('border-b border-border/60 hover:bg-muted/40', card.done && 'opacity-65')}
                   >
-                    <td className="whitespace-nowrap px-3 py-2.5 font-mono text-muted-foreground">{card.key}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 font-mono text-muted-foreground">{displayKey(card.key)}</td>
                     <td className="min-w-[12rem] px-3 py-2.5">
                       <Link
                         to={{ search: next.toString() }}

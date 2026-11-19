@@ -12,6 +12,7 @@ import { useLanguage } from '@/i18n/useLanguage'
 import { cn } from '@/lib/utils'
 import { TagBadge } from '@/features/labels/TagBadge'
 import { coverSrc } from '@/lib/md/cover'
+import { displayKey } from '@/lib/cardKey'
 
 /** 优先级圆点的颜色：低、中、高；0 表示没设优先级，不显示 */
 const PRIORITY_DOT = ['', 'bg-p-low', 'bg-p-mid', 'bg-p-high'] as const
@@ -44,7 +45,7 @@ function TileBody({ card }: { card: CardView }) {
         {card.priority > 0 && (
           <span className={cn('size-1.5 shrink-0 rounded-full', PRIORITY_DOT[card.priority])} aria-hidden />
         )}
-        <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{card.key}</span>
+        <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{displayKey(card.key)}</span>
       </div>
       <p className="line-clamp-3 text-[0.9375rem] leading-snug font-medium tracking-[-0.005em]">{card.title}</p>
       {(card.tags.length > 0 || card.due_at || card.human_only || card.waiting || card.claim_active) && (
@@ -111,7 +112,7 @@ export function CardTile({ card, dragDisabled }: CardTileProps) {
       {...listeners}
       // 搜索时 dnd-kit 会标记 disabled，但链接仍然能点，不能让读屏说它不可用
       aria-disabled={undefined}
-      aria-label={`${card.key} ${card.title}`}
+      aria-label={`${displayKey(card.key)} ${card.title}`}
       // 键盘拖拽中按 Enter 会触发链接点击，这时不能打开卡片
       onClick={(e) => {
         if (isDragging) e.preventDefault()

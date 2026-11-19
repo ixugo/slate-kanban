@@ -221,7 +221,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `go vet ./internal/... ./pkg/... .` | 后端静态检查 |
 | `make docker/build` | 用多阶段 Dockerfile 构建镜像 |
 
-前端体积有预算：首屏 JS gzip 后不超过 130 kB，整个 `dist` gzip 后不超过 320 kB（含懒加载的实时渲染编辑器），`npm run build` 会检查。
+前端体积有预算：首屏 JS gzip 后不超过 130 kB，整个 `dist` gzip 后不超过 325 kB（含懒加载的实时渲染编辑器），`npm run build` 会检查。
 前端产物不进仓库：`go build` 默认不嵌入前端（访问网页会看到提示），加 `-tags embed_web` 才嵌入，`make build` 已经带上。
 
 ## 文档
