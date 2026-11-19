@@ -15,7 +15,7 @@ const maxInstructionRunes = 1500
 var toolWord = regexp.MustCompile(`\b(?:whoami|(?:list|get|set|create|update|delete|move|claim|release|finish|comment|pull|wait_for|next|reorder)_[a-z_]+)\b`)
 
 // notTools 是说明里出现的、长得像工具名但其实是字段名的词。
-var notTools = []string{"next_column_id"}
+var notTools = []string{"next_column_id", "claim_engineer_id"}
 
 // TestInstructions 验证两个视图都在连接时下发了使用说明：不能太长；里面提到的工具必须真的存在于这个视图
 // （写错或者提到别的视图的工具，agent 就会去调用不存在的工具）；关键的工作流程工具一个不少。

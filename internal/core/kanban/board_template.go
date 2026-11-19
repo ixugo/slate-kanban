@@ -36,6 +36,40 @@ type localeTexts struct {
 	RuleStart, RuleFinish, RuleReopen string
 }
 
+// engineerText 是一位起步工程师的名称和角色提示词。
+type engineerText struct {
+	Name, Prompt string
+}
+
+// 起步工程师在 seedEngineerTexts 里的下标。
+const (
+	seedDev1 = iota
+	seedDev2
+	seedReview
+	engineerSeedCount
+)
+
+// seedEngineerTexts 是起步工程师的名称和角色提示词。名称固定用英文名、提示词固定写中文，
+// 不随界面语言变化；之后都是看板自己的数据，可以随意改。
+var seedEngineerTexts = [engineerSeedCount]engineerText{
+	seedDev1:   {Name: "Atlas", Prompt: seedDevPrompt},
+	seedDev2:   {Name: "Orion", Prompt: seedDevPrompt},
+	seedReview: {Name: "Sentinel", Prompt: "你是测试工程师，只验收，不改代码。对照任务原文逐条检查，运行测试、构建和静态检查，必要时实际运行功能；给出通过或不通过的结论，不通过时写清哪里不对、怎么复现、怎么改。"},
+}
+
+// seedDevPrompt 是两位起步全栈工程师共用的角色提示词。
+const seedDevPrompt = "你是全栈工程师，前端、后端、数据库和测试都能做。先读懂任务原文和相关代码，改动只围绕任务本身，保持项目现有风格；做完自己跑测试和构建，确认通过再交付，总结里写清改了什么、怎么验证的。"
+
+// engineerSeedKinds 是各起步工程师的类型。
+var engineerSeedKinds = [engineerSeedCount]string{EngineerDev, EngineerDev, EngineerReview}
+
+// engineerSeeds 是各模板起步招募哪些工程师：研发模板 2 个全栈加 1 个测试，
+// 简单模板没有审查列，只有 2 个全栈，empty 没有。
+var engineerSeeds = map[string][]int{
+	TemplateDev:    {seedDev1, seedDev2, seedReview},
+	TemplateSimple: {seedDev1, seedDev2},
+}
+
 // columnSpec 描述模板里的一列：用哪段文案、两个开关，以及完成后去哪一列。
 type columnSpec struct {
 	Text        textKind
@@ -90,7 +124,7 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "收件箱",
 				Description: "还没想清楚的想法和需求，由人整理后再决定要不要做。",
-				Instruction: "这一列是人收集想法的地方。agent 不要派发子 agent，不要领取、移动或修改这一列的卡片，也不要动手实现。需要时可以在卡片下留言补充分析。",
+				Instruction: "这一列是人收集想法的地方，agent 不处理这里已有的卡片：不派发子 agent，不领取，不动手实现，也不要移动或修改别人创建的卡片。你可以在这里创建新任务，并把自己创建的任务移到下一列，之后才轮到研发承接；需要时可以在卡片下留言补充分析。",
 			},
 			textTodo: {
 				Name:        "待办",
@@ -120,7 +154,7 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "收件匣",
 				Description: "還沒想清楚的想法與需求，由人整理後再決定要不要做。",
-				Instruction: "這一列是人收集想法的地方。agent 不要派發子 agent，不要領取、移動或修改這一列的卡片，也不要動手實作。需要時可以在卡片下留言補充分析。",
+				Instruction: "這一列是人收集想法的地方，agent 不處理這裡已有的卡片：不派發子 agent，不領取，不動手實作，也不要移動或修改別人建立的卡片。你可以在這裡建立新任務，並把自己建立的任務移到下一列，之後才輪到研發承接；需要時可以在卡片下留言補充分析。",
 			},
 			textTodo: {
 				Name:        "待辦",
@@ -150,7 +184,7 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "Inbox",
 				Description: "Rough ideas and requests that are not ready yet. A person sorts them out and decides whether to do them.",
-				Instruction: "This column is where people collect ideas. Do not dispatch sub-agents, and do not claim, move or edit cards here or start implementing them. You may leave a comment with extra analysis if it helps.",
+				Instruction: "This column is where people collect ideas. Agents do not work on the cards already here: do not dispatch sub-agents, do not claim them, do not start implementing, and do not move or edit cards that others created. You may create new tasks here and move the ones you created to the next column, and only then does development pick them up. You may leave a comment with extra analysis if it helps.",
 			},
 			textTodo: {
 				Name:        "To do",
@@ -180,7 +214,7 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "受信トレイ",
 				Description: "まだ固まっていないアイデアや要望。人が整理して、やるかどうかを決めます。",
-				Instruction: "この列は人がアイデアを集める場所です。サブエージェントを割り当てず、この列のカードを担当・移動・編集せず、実装も始めないでください。必要なら、カードにコメントで分析を補足できます。",
+				Instruction: "この列は人がアイデアを集める場所で、エージェントはここにあるカードを処理しません。サブエージェントを割り当てず、担当せず、実装も始めず、他の人が作ったカードを移動・編集しないでください。ここで新しいタスクを作り、自分で作ったタスクを次の列へ移せます。開発が引き受けるのはその後です。必要なら、カードにコメントで分析を補足できます。",
 			},
 			textTodo: {
 				Name:        "未着手",
@@ -210,7 +244,7 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "받은 편지함",
 				Description: "아직 정리되지 않은 아이디어와 요청입니다. 사람이 정리한 뒤 진행할지 결정합니다.",
-				Instruction: "이 열은 사람이 아이디어를 모으는 곳입니다. 하위 에이전트를 배정하지 말고, 이 열의 카드를 맡거나 옮기거나 수정하지 말며, 구현도 시작하지 마세요. 필요하면 카드에 댓글로 분석을 덧붙일 수 있습니다.",
+				Instruction: "이 열은 사람이 아이디어를 모으는 곳이며, 에이전트는 여기에 있는 카드를 처리하지 않습니다. 하위 에이전트를 배정하지 말고, 맡지 말고, 구현도 시작하지 말며, 다른 사람이 만든 카드를 옮기거나 수정하지 마세요. 여기에 새 작업을 만들고 직접 만든 작업을 다음 열로 옮길 수 있으며, 개발이 맡는 것은 그 이후입니다. 필요하면 카드에 댓글로 분석을 덧붙일 수 있습니다.",
 			},
 			textTodo: {
 				Name:        "할 일",

@@ -32,6 +32,7 @@ type unit struct {
 	cursor     CursorStorer
 	attachment AttachmentStorer
 	tag        TagStorer
+	engineer   EngineerStorer
 	touched    map[int64]int64 // 本事务动过的看板 → 其中最大的事件序号，提交后据此广播
 	after      []func()        // 事务提交成功后要执行的收尾动作，例如删除图片文件
 }
@@ -57,6 +58,7 @@ func newUnit(c Core, tx orm.Tx) *unit {
 		cursor:     c.store.Cursor().WithTx(tx),
 		attachment: c.store.Attachment().WithTx(tx),
 		tag:        c.store.Tag().WithTx(tx),
+		engineer:   c.store.Engineer().WithTx(tx),
 		touched:    make(map[int64]int64),
 	}
 }

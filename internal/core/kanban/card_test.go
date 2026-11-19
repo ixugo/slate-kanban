@@ -45,6 +45,10 @@ func newCardEnvOn(t *testing.T, core kanban.Core, db kanbandb.DB, slug string) *
 		t.Fatalf("清掉起步规则失败: %v", err)
 	}
 	board.Rules = []*kanban.Rule{}
+	if err := db.Engineer().DeleteByBoard(context.Background(), board.ID); err != nil {
+		t.Fatalf("清掉起步工程师失败: %v", err)
+	}
+	board.Engineers = []*kanban.Engineer{}
 	return &cardEnv{core: core, db: db, board: board}
 }
 

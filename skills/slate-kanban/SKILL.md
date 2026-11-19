@@ -5,7 +5,7 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 
 # Slate 看板协作
 
-你和人共用一个看板来管理开发工作。人把卡片放进「进行中」这类领取列，来安排你做什么；研发做完交接到「审查」，审查通过的才算完成。你（主 agent）负责调度：把卡片原文按自己的理解写成角色和提示词，分给子 agent 去做，自己不写具体的代码，也不做具体的审查。
+你和人共用一个看板来管理开发工作。人把卡片放进「进行中」这类领取列，来安排你做什么；研发做完交接到「审查」，审查通过的才算完成。你（主 agent）负责调度：把卡片原文按自己的理解写成角色和提示词，分给子 agent 去做，自己不写具体的代码，也不做具体的审查。看板上的工程师名册（`get_board` 的 `engineers`）决定有几个并发名额。
 
 下面几条规则不能违反：
 
@@ -26,25 +26,28 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 
 1. 用 `list_boards` 列出看板。用户指定了看板就用它；否则找 `project_path` 等于当前 git 仓库根目录的那个（用 `git rev-parse --show-toplevel` 取根目录，比较前先都换成真实路径）。有多个匹配，或一个都没有，就列给用户选。
    用户明确要求新建项目时，用 `create_board`（`slug` 不填会按名称生成，`template` 默认是研发流程，`locale` 按用户的语言填）；建好后按下面第 3 步处理 `project_path`。没有被要求就不要新建项目。项目只能创建，没有删除工具，删除只能由人在网页上完成。
-2. 用 `get_board` 读一遍每一列：`description` 是给人看的说明，`instruction` 是人写给你的提示词，必须遵守。记下领取列的名字，以及 `next_column_id`（交接后卡片去哪一列）。
+2. 用 `get_board` 读一遍每一列：`description` 是给人看的说明，`instruction` 是人写给你的提示词，必须遵守。记下领取列的名字，以及 `next_column_id`（交接后卡片去哪一列）。再读 `engineers`：每位工程师是一个并发名额，`kind` 为 `dev`（全栈）、`frontend`（前端）、`backend`（后端）、`ui`（UI）的都做研发，只是专长不同，`review` 的是测试；`prompt` 是他的角色提示词，派子 agent 时当作角色设定的底稿。
 3. 看这个看板的 `project_path`：
    - 已经有值：直接用，不要再问用户。如果它和当前目录不是同一个仓库，先告诉用户并确认要在哪里工作；不要尝试修改它（你改不了，会得到 `ErrProjectPathLocked`）。
    - 是空的：问用户一次"这个看板对应的项目是 <当前仓库根目录> 吗"。用户确认后用 `set_project_path` 写下来；用户不确认，就先不开工。
 
 ## 三、守候和领取
 
-你（主 agent）只做调度，不亲自写代码，也不亲自审查。同时进行的数量有两个上限：研发卡片默认 2 张，审查卡片默认 1 张，用户另有要求时按用户的（例如「并发 1」）。超过上限的卡片留在原来的列里排队，等有名额再领。
+你（主 agent）只做调度，不亲自写代码，也不亲自审查。并发上限就是名册里的名额：研发类工程师（全栈、前端、后端、UI）有几位，研发卡片最多同时做几张；测试有几位，审查卡片最多同时审几张。名册里没有某一类工程师时，这一类按 1 张处理；用户另有要求时按用户的（例如「并发 1」，只用名册里的第一位研发工程师）。超过名额的卡片留在原来的列里排队，等有名额再领。
+
+每次领取都带上 `engineer_id`，明确由哪位工程师承担：自己手上没有卡片的工程师就是空闲的。卡片的 `engineer_id`（绑定或首次领取时分配的研发工程师）有值时，研发要用这一位；他在做别的卡片，这张就排队。不带 `engineer_id` 也行，服务端会按卡片绑定或随机挑一位空闲的，但多个 agent 共用同一个名字时一定要带，否则分不清谁是谁。
 
 ```text
 循环：
-  1. 研发空闲 = 研发上限 - 正在做的研发卡片数；审查空闲 = 审查上限 - 正在审的卡片数
+  1. 研发空闲 = 空闲的研发类工程师（按卡片内容选专长合适的）；审查空闲 = 空闲的测试工程师
   2. 研发空闲大于 0：
-     - 上限是 1：card = next_card(board_id)，card 为 null 表示没有可做的
-     - 上限大于 1：对 list_cards(board_id, query='col:"<领取列名>" is:free -is:waiting -is:human', limit=研发空闲)
-       的结果逐张 claim_card(card_id)
-     领到的卡片按第四节派研发子 agent
-  3. 审查空闲大于 0：对 list_cards(board_id, query='col:审查 is:free -is:human', limit=审查空闲)
-     的结果逐张 claim_card(card_id)，按第五节派审查子 agent
+     - 只有 1 位空闲：card = next_card(board_id, engineer_id=他)，card 为 null 表示没有可做的
+     - 多位空闲：对 list_cards(board_id, query='col:"<领取列名>" is:free -is:waiting -is:human', limit=空闲人数)
+       的结果，给每张卡配一位空闲的研发工程师（卡片有 engineer_id 就用他），逐张 claim_card(card_id, engineer_id)
+     领到的卡片按第四节派研发子 agent，角色提示词以这位工程师的 prompt 为底稿
+  3. 审查空闲大于 0：对 list_cards(board_id, query='col:审查 is:free -is:human', limit=空闲人数)
+     的结果，每张配一位空闲的测试，逐张 claim_card(card_id, engineer_id)，按第五节派审查子 agent
+     遇到 ErrEngineerBusy、ErrNoIdleEngineer 说明名额满了，这张留着排队，不要重试
   4. 刚派发了卡片，回到 1；否则守候：
      result = wait_for_updates(board_id, since=上一次的 cursor, timeout_seconds=30)
      记下 result 里的 cursor；timed_out 为 true 只是超时，不是错误
@@ -53,7 +56,7 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 ```
 
 - `list_cards` 每次最多返回 30 张（默认 10 张），并发上限一般不超过 5，用 `limit` 取够空闲名额就行，不要一次要很多。
-- 重启之后，先找回自己还持有的卡片：`list_cards(board_id, query="claimed:<你的名称>")`（名称来自 `whoami`），接着做它们。`next_card` 也会优先给你已经持有的卡片。
+- 重启之后，先找回自己还持有的卡片：`list_cards(board_id, query="claimed:<你的名称>")`（名称来自 `whoami`），卡片上的 `claim_engineer_id` 就是承担它的工程师，接着用这一位做。`next_card` 也会优先给你已经持有的卡片。
 - 你离线期间发生的更新，上线后第一次 `wait_for_updates` 或 `pull_updates` 就会补给你，不用自己记时间。处理完这一批，才把返回的 `cursor` 当作下一次的 `since`。
 - 你自己和你的子 agent 做的操作（包括审查子 agent 把卡片放回进行中）不会作为事件推给你，要靠子 agent 返回的结果知道。事件里有 `type` 和 `card_id`。涉及你正在做的卡片时：
   - `comment.added`、`card.updated`：人有新的补充。用 `get_card` 读一下，转告子 agent。
@@ -81,7 +84,7 @@ Claude Code 和 Codex 都能正常等满 50 秒（Codex 的工具调用默认 60
 
    基础分支：列的指令里指定了就用它，否则用项目的默认分支。分支或目录已经存在，说明这张卡片做过一半（返工，或者你重启过），直接进那个 worktree 接着做，不要重建。
    建好之后，用 `update_card` 把分支名写到卡片的 `branch` 上，让人在看板上就能看到这张卡片的代码在哪个分支。
-3. 派一个研发子 agent 去做：按你对任务原文的理解，给它写一段角色和提示词。告诉它：卡片全文和评论、`column_instruction`、worktree 的绝对路径，并写明：
+3. 派一个研发子 agent 去做：按你对任务原文的理解，结合这位工程师的 `prompt`，给它写一段角色和提示词。告诉它：卡片全文和评论、`column_instruction`、worktree 的绝对路径，并写明：
    - 只在这个 worktree 里改动；
    - 按项目的惯例写代码、跑测试，通过之后提交到这个分支；
    - 不合并到主分支，不推送，除非列的指令明确要求；
@@ -97,7 +100,7 @@ Claude Code 和 Codex 都能正常等满 50 秒（Codex 的工具调用默认 60
 「审查」列里的卡片（研发已经 `finish_card` 交接过来的）派审查子 agent。任务本身是否完成，只由审查决定。
 
 1. 用 `claim_card` 领取审查卡片，读全文、全部评论（含研发的交接总结）和卡片的 `branch`。
-2. 派一个审查子 agent，告诉它：卡片全文和评论、研发的分支和 worktree 路径、`column_instruction`，并写明：对照卡片描述里的要求逐条验收，看提交内容、跑测试、必要时实际运行；只读不改，不要自己修代码；返回结论是「通过」还是「不通过」，附上逐条依据和问题清单。
+2. 派一个审查子 agent，角色以测试工程师的 `prompt` 为底稿，告诉它：卡片全文和评论、研发的分支和 worktree 路径、`column_instruction`，并写明：对照卡片描述里的要求逐条验收，看提交内容、跑测试、必要时实际运行；只读不改，不要自己修代码；返回结论是「通过」还是「不通过」，附上逐条依据和问题清单。
 3. 子 agent 返回后，由你记录结论：
    - 通过：先用 `comment_card` 写审查结论，再用 `move_card` 把卡片移到完成列。进完成列的规则会自动记下完成时间，这就是任务本身的完成。
    - 不通过：先用 `comment_card` 写清楚哪里不对、怎么改，再用 `move_card` 把卡片放回「进行中」。研发会在下一轮循环里重新领到它。
@@ -116,6 +119,9 @@ Claude Code 和 Codex 都能正常等满 50 秒（Codex 的工具调用默认 60
 | `ErrProjectPathLocked` | 看板已经有项目路径 | 不要改，有问题告诉用户 |
 | `ErrCardClaimed` | 别的 agent 正在做这张卡片（领取或移动都不行） | 先做别的，等它交接或释放 |
 | `ErrCardWaiting` | 它依赖的卡片还没完成 | 先做别的 |
+| `ErrEngineerBusy` | 指定的工程师在做别的卡片 | 换一位空闲的，或者排队等 |
+| `ErrNoIdleEngineer` | 同类型的工程师都在忙 | 这张卡排队，等有工程师交接再领 |
+| `ErrEngineerBound` | 卡片绑定了另一位研发工程师 | 改用卡片绑定的那一位 |
 | `ErrCardHumanOnly` | 这张卡片只能由人处理 | 跳过 |
 | `ErrServiceUnavailable` | 服务正在关闭或重启 | 过几秒再试 |
 

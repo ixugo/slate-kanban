@@ -24,12 +24,14 @@ type nextCardOut struct {
 type nextCardIn struct {
 	BoardID      int64 `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	LeaseMinutes int   `json:"lease_minutes,omitempty" jsonschema:"领取的租约分钟数，默认 30，最多 1440"`
+	EngineerID   int64 `json:"engineer_id,omitempty" jsonschema:"由哪位研发工程师承担，来自 get_board 的 engineers；不填则由服务端挑一位空闲的；看板没有工程师时忽略"`
 }
 
 // claimCardIn 是 claim_card 的入参。
 type claimCardIn struct {
 	CardID       int64 `json:"card_id" jsonschema:"卡片编号，是数字 id，不是 SLATE-12 这样的 key"`
 	LeaseMinutes int   `json:"lease_minutes,omitempty" jsonschema:"领取的租约分钟数，默认 30，最多 1440"`
+	EngineerID   int64 `json:"engineer_id,omitempty" jsonschema:"由哪位工程师承担，来自 get_board 的 engineers，类型要和这张卡所在列对得上（取卡列要研发类（全栈、前端、后端、UI），其他列要测试）；不填则卡片绑定的优先，否则服务端挑一位空闲的；看板没有工程师时忽略"`
 }
 
 // finishCardIn 是 finish_card 的入参。
@@ -66,6 +68,7 @@ type createCardAdminIn struct {
 	createCardIn
 	Priority   int     `json:"priority,omitempty" jsonschema:"优先级：0 未设置，1 低，2 中，3 高"`
 	HumanOnly  bool    `json:"human_only,omitempty" jsonschema:"为 true 表示只能由人处理，agent 不会领取"`
+	EngineerID int64   `json:"engineer_id,omitempty" jsonschema:"绑定一位研发类工程师（全栈、前端、后端、UI，来自 get_board 的 engineers），领取时由他承担；不填表示领取时随机分配"`
 	WaitsOn    []int64 `json:"waits_on,omitempty" jsonschema:"依赖的卡片编号（数字 id）；依赖没完成之前这张卡处于等待状态"`
 	DueAt      string  `json:"due_at,omitempty" jsonschema:"到期时间，RFC3339 格式，例如 2026-12-01T18:00:00+08:00"`
 	StartedAt  string  `json:"started_at,omitempty" jsonschema:"开始时间，RFC3339 格式；通常由自动化规则写入"`
@@ -89,6 +92,7 @@ type updateCardAdminIn struct {
 	updateCardIn
 	Priority   *int     `json:"priority,omitempty" jsonschema:"优先级：0 未设置，1 低，2 中，3 高；不填不改"`
 	HumanOnly  *bool    `json:"human_only,omitempty" jsonschema:"是否只能由人处理；不填不改"`
+	EngineerID *int64   `json:"engineer_id,omitempty" jsonschema:"绑定的研发工程师编号，来自 get_board 的 engineers；传 0 取消绑定；不填不改"`
 	WaitsOn    *[]int64 `json:"waits_on,omitempty" jsonschema:"依赖的卡片编号，整体替换；传空数组清空；不填不改"`
 	DueAt      *string  `json:"due_at,omitempty" jsonschema:"到期时间，RFC3339 格式；传空字符串清除；不填不改"`
 	StartedAt  *string  `json:"started_at,omitempty" jsonschema:"开始时间，RFC3339 格式；传空字符串清除；不填不改"`
@@ -122,6 +126,7 @@ func (in createCardAdminIn) input() kanban.CreateCardInput {
 	out := in.createCardIn.input()
 	out.Priority, out.HumanOnly, out.WaitsOn = in.Priority, in.HumanOnly, in.WaitsOn
 	out.DueAt, out.StartedAt, out.FinishedAt = in.DueAt, in.StartedAt, in.FinishedAt
+	out.EngineerID = in.EngineerID
 	return out
 }
 
@@ -138,6 +143,7 @@ func (in updateCardAdminIn) patch() kanban.UpdateCardInput {
 	out := in.updateCardIn.patch()
 	out.Priority, out.HumanOnly, out.WaitsOn = in.Priority, in.HumanOnly, in.WaitsOn
 	out.DueAt, out.StartedAt, out.FinishedAt = in.DueAt, in.StartedAt, in.FinishedAt
+	out.EngineerID = in.EngineerID
 	return out
 }
 
@@ -183,7 +189,8 @@ func (a API) registerAgentWork(s *mcp.Server) {
 	register(s, spec{
 		name: "next_card", kind: kindWrite,
 		desc: "领取下一张该你做的卡片。只从 agent_pickup 为 true 的列（通常叫「进行中」）里取，顺序和看板上一致（列从左到右、同一列从上到下），" +
-			"跳过只能由人处理的、还在等依赖的和别人正在做的；你自己已经持有的卡片优先，所以重启之后能接着做原来的活。" +
+			"跳过只能由人处理的、还在等依赖的、别人正在做的和绑定给别的工程师的；你自己已经持有的卡片优先，所以重启之后能接着做原来的活。" +
+			"看板有工程师名册时，engineer_id 指定由哪位研发工程师承担（不填则卡片绑定的优先，否则随机挑空闲的）；一位工程师同时只做一张，名额满了返回 ErrNoIdleEngineer，排队等一等。" +
 			"领到后返回卡片全文、评论、依赖和所在列的指令（column_instruction，必须遵守）。" +
 			"没有可做的卡片时 card 为 null，不是错误：用 wait_for_updates 等人安排新工作。领到卡片时结果带 agent_notice：任务不明确就先评论反馈，不要直接开始。" +
 			"领取有租约（lease_minutes，默认 30 分钟，最多 1440 分钟）：持有期间在卡片上评论或修改会把租约顺延到至少 30 分钟之后，" +
@@ -192,7 +199,8 @@ func (a API) registerAgentWork(s *mcp.Server) {
 	register(s, spec{
 		name: "claim_card", kind: kindWrite,
 		desc: "领取指定的卡片，已经由你持有时只是续租。哪一列的卡片你能领，按这一列的 instruction 来（例如审查 agent 领审查列的卡）；卡片不是只能由人处理的，" +
-			"依赖已经完成，并且没有被别的 agent 持有。领到后返回卡片全文、评论、依赖和所在列的指令，以及 agent_notice 提醒（任务不明确就先评论反馈）。一般用 next_card 就够了。",
+			"依赖已经完成，并且没有被别的 agent 持有。看板有工程师名册时由 engineer_id 指定的工程师承担（类型要和这一列对得上），不填则卡片绑定的优先，否则随机挑空闲的；" +
+			"指定的工程师在做别的卡返回 ErrEngineerBusy，和卡片绑定的不一致返回 ErrEngineerBound。领到后返回卡片全文、评论、依赖和所在列的指令，以及 agent_notice 提醒（任务不明确就先评论反馈）。一般用 next_card 就够了。",
 	}, a.claimCard)
 	register(s, spec{
 		name: "create_card", kind: kindWrite,
@@ -226,7 +234,7 @@ func (a API) registerAdminCards(s *mcp.Server) {
 
 // nextCard 为 agent 领取下一张该做的卡片，没有时返回 card 为 null。
 func (a API) nextCard(ctx context.Context, actor kanban.Actor, in nextCardIn) (any, error) {
-	card, err := a.core.NextCard(ctx, actor, in.BoardID, kanban.NextCardInput{LeaseMinutes: in.LeaseMinutes})
+	card, err := a.core.NextCard(ctx, actor, in.BoardID, kanban.NextCardInput{LeaseMinutes: in.LeaseMinutes, EngineerID: in.EngineerID})
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +247,7 @@ func (a API) nextCard(ctx context.Context, actor kanban.Actor, in nextCardIn) (a
 
 // claimCard 领取指定的卡片，返回卡片全文和「任务不清楚先反馈」的提示。
 func (a API) claimCard(ctx context.Context, actor kanban.Actor, in claimCardIn) (any, error) {
-	detail, err := a.core.ClaimCard(ctx, actor, in.CardID, kanban.ClaimCardInput{LeaseMinutes: in.LeaseMinutes})
+	detail, err := a.core.ClaimCard(ctx, actor, in.CardID, kanban.ClaimCardInput{LeaseMinutes: in.LeaseMinutes, EngineerID: in.EngineerID})
 	if err != nil {
 		return nil, err
 	}

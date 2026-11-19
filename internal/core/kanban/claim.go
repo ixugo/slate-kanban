@@ -74,7 +74,7 @@ func (u *unit) clearClaim(ctx context.Context, actor Actor, card *Card, why stri
 		return nil
 	}
 	agent := card.ClaimedBy
-	card.ClaimedBy, card.ClaimExpiresAt = "", nil
+	card.ClaimedBy, card.ClaimExpiresAt, card.ClaimEngineerID = "", nil, 0
 	return u.emit(ctx, actor, newEvent{
 		BoardID: card.BoardID, CardID: card.ID, Type: EventCardReleased,
 		Payload: cardPayload(card, map[string]any{"agent": agent, "why": why}),

@@ -38,9 +38,8 @@ type CardStorer interface {
 }
 
 // CreateCard 在看板里创建一张卡片，放在目标列的末尾。人和 agent 都可以创建：
-// agent 只能填标题、描述、标签、分支和链接，也不能放进开启了 agent 领取的列，
-// 否则它就能自己创建卡片再自己领取，绕开由人决定做什么的约定。
-// 编号在锁住看板行的事务里递增分配，所以并发创建也不会重复。
+// agent 只能填标题、描述、标签、分支和链接，规划类字段只有人能填。
+// 各列允许 agent 做什么由列的提示词约定，这里不按列限制。编号在锁住看板行的事务里递增分配，所以并发创建也不会重复。
 func (c Core) CreateCard(ctx context.Context, actor Actor, boardID int64, in CreateCardInput) (*Card, error) {
 	if err := requireWriter(actor); err != nil {
 		return nil, err
@@ -93,6 +92,9 @@ func (u *unit) buildNewCard(ctx context.Context, actor Actor, boardID int64, in 
 		return nil, "", err
 	}
 	if _, err := patch.apply(card); err != nil {
+		return nil, "", err
+	}
+	if err := u.checkEngineerID(ctx, boardID, card.EngineerID); err != nil {
 		return nil, "", err
 	}
 	if tagsAdded {
@@ -297,6 +299,11 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 	changed, err := in.apply(card)
 	if err != nil || len(changed) == 0 {
 		return err
+	}
+	if slices.Contains(changed, "engineer_id") {
+		if err := u.checkEngineerID(ctx, card.BoardID, card.EngineerID); err != nil {
+			return err
+		}
 	}
 	if slices.Contains(changed, "waits_on") {
 		if err := u.checkWaitsOn(ctx, card.BoardID, card.ID, card.WaitsOn); err != nil {

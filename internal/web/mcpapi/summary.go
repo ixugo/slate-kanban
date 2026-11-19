@@ -18,23 +18,26 @@ const (
 // 一个看板几十张卡片全带上也会撑爆 agent 的上下文），也没有要靠整个看板才能算出来的派生状态。
 // 写入类工具的结果用它。
 type cardBrief struct {
-	ID         int64      `json:"id"`
-	Key        string     `json:"key"`
-	Title      string     `json:"title"`
-	ColumnID   int64      `json:"column_id"`
-	Priority   int        `json:"priority"`
-	Tags       []string   `json:"tags"`
-	TagIDs     []int64    `json:"tag_ids"`
-	HumanOnly  bool       `json:"human_only"`
-	ClaimedBy  string     `json:"claimed_by"`
-	WaitsOn    []int64    `json:"waits_on"`
-	DueAt      *time.Time `json:"due_at"`
-	StartedAt  *time.Time `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at"`
-	Branch     string     `json:"branch"`
-	URL        string     `json:"url"`
-	Version    int64      `json:"version"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID        int64    `json:"id"`
+	Key       string   `json:"key"`
+	Title     string   `json:"title"`
+	ColumnID  int64    `json:"column_id"`
+	Priority  int      `json:"priority"`
+	Tags      []string `json:"tags"`
+	TagIDs    []int64  `json:"tag_ids"`
+	HumanOnly bool     `json:"human_only"`
+	ClaimedBy string   `json:"claimed_by"`
+	// EngineerID 是卡片绑定或分配的研发工程师，ClaimEngineerID 是现在领取它的工程师，0 时不出现。
+	EngineerID      int64      `json:"engineer_id,omitempty"`
+	ClaimEngineerID int64      `json:"claim_engineer_id,omitempty"`
+	WaitsOn         []int64    `json:"waits_on"`
+	DueAt           *time.Time `json:"due_at"`
+	StartedAt       *time.Time `json:"started_at"`
+	FinishedAt      *time.Time `json:"finished_at"`
+	Branch          string     `json:"branch"`
+	URL             string     `json:"url"`
+	Version         int64      `json:"version"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
 // cardSummary 是卡片的摘要：cardBrief 加上所在列的名称和三个派生状态。要看全文用 get_card。
@@ -52,6 +55,7 @@ func briefOf(c *kanban.Card, tags []string) cardBrief {
 	b := cardBrief{
 		ID: c.ID, Key: c.Key, Title: c.Title, ColumnID: c.ColumnID, Priority: c.Priority,
 		Tags: tags, TagIDs: c.TagIDs, HumanOnly: c.HumanOnly, ClaimedBy: c.ClaimedBy, WaitsOn: c.WaitsOn,
+		EngineerID: c.EngineerID, ClaimEngineerID: c.ClaimEngineerID,
 		DueAt: c.DueAt, StartedAt: c.StartedAt, FinishedAt: c.FinishedAt,
 		Branch: c.Branch, URL: c.URL, Version: c.Version, UpdatedAt: c.UpdatedAt,
 	}

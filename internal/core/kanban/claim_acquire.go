@@ -32,7 +32,11 @@ func (c Core) ClaimCard(ctx context.Context, actor Actor, cardID int64, in Claim
 		if err := checkClaimable(actor, card, ix); err != nil {
 			return err
 		}
-		return u.grantClaim(ctx, actor, card, lease)
+		by, err := u.chooseEngineer(ctx, actor, card, ix.columns[card.ColumnID], in.EngineerID)
+		if err != nil {
+			return err
+		}
+		return u.grantClaim(ctx, actor, card, lease, by)
 	})
 	if err != nil {
 		return nil, err
@@ -55,7 +59,7 @@ func (c Core) NextCard(ctx context.Context, actor Actor, boardID int64, in NextC
 	var cardID int64
 	err = c.run(ctx, boardID, func(u *unit) error {
 		var err error
-		cardID, err = u.claimNext(ctx, actor, boardID, lease)
+		cardID, err = u.claimNext(ctx, actor, boardID, lease, in.EngineerID)
 		return err
 	})
 	if err != nil || cardID == 0 {
@@ -66,28 +70,81 @@ func (c Core) NextCard(ctx context.Context, actor Actor, boardID int64, in NextC
 
 // claimNext 在事务里找出下一张可领的卡片并领取，返回它的主键，没有可领的返回 0。
 // 复杂度：一次读出看板的全部卡片，逐张判断资格，每张卡的判断只和它的依赖数有关。
-func (u *unit) claimNext(ctx context.Context, actor Actor, boardID int64, lease time.Duration) (int64, error) {
+// 看板有工程师时，卡片还要有空闲的研发工程师能承担才算可领，没有就留在原处排队；
+// 租约有效的卡片只有自己接着做时才会再次取到：指定了工程师就必须是原来那一位，没指定视为接着做原来那一位。
+// 同名的多个 agent 只要各自带着自己的工程师来取，就不会互相抢卡。
+func (u *unit) claimNext(ctx context.Context, actor Actor, boardID int64, lease time.Duration, engineerID int64) (int64, error) {
 	ix, err := u.boardIndex(ctx, boardID)
 	if err != nil {
 		return 0, err
 	}
+	pool, err := u.loadEngineerPool(ctx, boardID, ix.all)
+	if err != nil {
+		return 0, err
+	}
 	var pick *Card
+	var pickBy claimBy
 	for _, card := range ix.sortCards(ix.all) {
-		if col := ix.columns[card.ColumnID]; col == nil || !col.AgentPickup || checkClaimable(actor, card, ix) != nil {
+		col := ix.columns[card.ColumnID]
+		if col == nil || !col.AgentPickup || checkClaimable(actor, card, ix) != nil {
+			continue
+		}
+		by, ok := pickEngineerFor(pool, actor, card, col, engineerID, ix.now)
+		if !ok {
 			continue
 		}
 		if card.ClaimedBy == actor.Name {
-			pick = card
+			pick, pickBy = card, by
 			break
 		}
 		if pick == nil {
-			pick = card
+			pick, pickBy = card, by
 		}
 	}
 	if pick == nil {
 		return 0, nil
 	}
-	return pick.ID, u.grantClaim(ctx, actor, pick, lease)
+	return pick.ID, u.grantClaim(ctx, actor, pick, lease, pickBy)
+}
+
+// pickEngineerFor 判断取下一张卡时这张卡能不能由工程师承担，返回承担者和是否可领。
+// 看板没有工程师时永远可领；有工程师时，租约有效的卡片只有持有者带着同一位工程师才可领。
+func pickEngineerFor(pool *engineerPool, actor Actor, card *Card, col *Column, engineerID int64, now time.Time) (claimBy, bool) {
+	if pool == nil {
+		return claimBy{}, true
+	}
+	if claimActive(card, now) {
+		if card.ClaimedBy != actor.Name || (engineerID != 0 && card.ClaimEngineerID != engineerID) {
+			return claimBy{}, false
+		}
+		engineerID = card.ClaimEngineerID
+	}
+	id, err := pool.engineerFor(card, col, engineerID)
+	if err != nil {
+		return claimBy{}, false
+	}
+	return claimBy{engineerID: id, dev: stageKind(col) == EngineerDev}, true
+}
+
+// chooseEngineer 为领取指定的卡片决定承担的工程师，并核对租约有效时的持有者。
+// 没有指定工程师而卡片正由自己持有时，视为接着做原来的工程师那一份（续租）。
+func (u *unit) chooseEngineer(ctx context.Context, actor Actor, card *Card, col *Column, requested int64) (claimBy, error) {
+	pool, err := u.loadEngineerPool(ctx, card.BoardID, nil)
+	if err != nil || pool == nil {
+		return claimBy{}, err
+	}
+	now := u.now()
+	if requested == 0 && card.ClaimedBy == actor.Name && claimActive(card, now) {
+		requested = card.ClaimEngineerID
+	}
+	id, err := pool.engineerFor(card, col, requested)
+	if err != nil {
+		return claimBy{}, err
+	}
+	if err := checkHolder(actor, card, id, now, time.Local); err != nil {
+		return claimBy{}, err
+	}
+	return claimBy{engineerID: id, dev: stageKind(col) == EngineerDev}, nil
 }
 
 // boardIndex 在事务里读出看板的全部列、标签和卡片，建好索引。
@@ -125,13 +182,23 @@ func (u *unit) claimIndex(ctx context.Context, card *Card) (*boardIndex, error) 
 	return newBoardIndex(u.now(), time.Local, cols, tags, append([]*Card{card}, deps...)), nil
 }
 
-// grantClaim 把卡片记到 agent 名下，租约从现在起算 lease 这么长，并追加 card.claimed 事件。
-// 持有者本人再次领取只是顺延到期时间，不涨版本号，因为卡片内容没有变；
+// claimBy 是一次领取承担者里和工程师有关的部分：engineerID 是承担的工程师（0 表示没有），
+// dev 表示这次是研发领取，此时卡片还没有绑定工程师就把这一位记成卡片的工程师。
+type claimBy struct {
+	engineerID int64
+	dev        bool
+}
+
+// grantClaim 把卡片记到 agent 和工程师名下，租约从现在起算 lease 这么长，并追加 card.claimed 事件。
+// 持有者本人用同一位工程师再次领取只是顺延到期时间，不涨版本号，因为卡片内容没有变；
 // 新领取或者接手别人过期的领取，版本号加一。
-func (u *unit) grantClaim(ctx context.Context, actor Actor, card *Card, lease time.Duration) error {
+func (u *unit) grantClaim(ctx context.Context, actor Actor, card *Card, lease time.Duration, by claimBy) error {
 	expires := u.now().Add(lease).UTC()
-	renewal := card.ClaimedBy == actor.Name
-	card.ClaimedBy, card.ClaimExpiresAt = actor.Name, &expires
+	renewal := card.ClaimedBy == actor.Name && card.ClaimEngineerID == by.engineerID
+	card.ClaimedBy, card.ClaimExpiresAt, card.ClaimEngineerID = actor.Name, &expires, by.engineerID
+	if by.dev && by.engineerID != 0 && card.EngineerID == 0 {
+		card.EngineerID, renewal = by.engineerID, false
+	}
 	if renewal {
 		if err := u.card.Save(ctx, card); err != nil {
 			return wrapDB("续租", err)
@@ -141,6 +208,6 @@ func (u *unit) grantClaim(ctx context.Context, actor Actor, card *Card, lease ti
 	}
 	return u.emit(ctx, actor, newEvent{
 		BoardID: card.BoardID, CardID: card.ID, Type: EventCardClaimed,
-		Payload: cardPayload(card, map[string]any{"agent": actor.Name, "expires_at": expires.Format(time.RFC3339)}),
+		Payload: cardPayload(card, map[string]any{"agent": actor.Name, "engineer_id": by.engineerID, "expires_at": expires.Format(time.RFC3339)}),
 	})
 }

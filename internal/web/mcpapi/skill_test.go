@@ -34,6 +34,9 @@ var skillErrors = []string{
 	kanban.ErrCardClaimed.GetReason(),
 	kanban.ErrCardWaiting.GetReason(),
 	kanban.ErrCardHumanOnly.GetReason(),
+	kanban.ErrEngineerBusy.GetReason(),
+	kanban.ErrNoIdleEngineer.GetReason(),
+	kanban.ErrEngineerBound.GetReason(),
 	reason.ErrServiceUnavailable.GetReason(),
 }
 

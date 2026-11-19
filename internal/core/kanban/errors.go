@@ -61,6 +61,15 @@ var (
 	// ErrCardClaimed 卡片正被另一个 agent 持有，租约还没有到期。
 	ErrCardClaimed = reason.NewError("ErrCardClaimed", "卡片已经被其他 agent 领取").WithHTTPStatus(409)
 
+	// ErrEngineerBusy 指定的工程师正在做别的卡片，一位工程师同一时间只做一张。
+	ErrEngineerBusy = reason.NewError("ErrEngineerBusy", "这位工程师正在做别的卡片").WithHTTPStatus(409)
+
+	// ErrNoIdleEngineer 同类型的工程师都在忙，没有空闲名额，要排队等。
+	ErrNoIdleEngineer = reason.NewError("ErrNoIdleEngineer", "没有空闲的工程师，请排队等待").WithHTTPStatus(409)
+
+	// ErrEngineerBound 卡片绑定了某位工程师，不能由另一位承担。
+	ErrEngineerBound = reason.NewError("ErrEngineerBound", "卡片绑定了另一位工程师").WithHTTPStatus(409)
+
 	// ErrRuleNotFound 自动化规则不存在，可能已经被删除。
 	ErrRuleNotFound = reason.NewError("ErrRuleNotFound", "规则不存在").WithHTTPStatus(404)
 

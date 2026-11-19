@@ -31,15 +31,17 @@ type CreateCardInput struct {
 	ColumnID    int64  `json:"column_id"`
 	Priority    int    `json:"priority"`
 	// Tags 按文字指定标签（agent 和脚本用）：库里没有的文字会新建一个没有颜色的标签；TagIDs 按主键指定。两者只填一个。
-	Tags       []string `json:"tags"`
-	TagIDs     []int64  `json:"tag_ids"`
-	HumanOnly  bool     `json:"human_only"`
-	WaitsOn    []int64  `json:"waits_on"`
-	DueAt      string   `json:"due_at"`
-	StartedAt  string   `json:"started_at"`
-	FinishedAt string   `json:"finished_at"`
-	Branch     string   `json:"branch"`
-	URL        string   `json:"url"`
+	Tags      []string `json:"tags"`
+	TagIDs    []int64  `json:"tag_ids"`
+	HumanOnly bool     `json:"human_only"`
+	// EngineerID 绑定一位研发类工程师，0 表示不绑定，领取时随机分配；只有人能填。
+	EngineerID int64   `json:"engineer_id"`
+	WaitsOn    []int64 `json:"waits_on"`
+	DueAt      string  `json:"due_at"`
+	StartedAt  string  `json:"started_at"`
+	FinishedAt string  `json:"finished_at"`
+	Branch     string  `json:"branch"`
+	URL        string  `json:"url"`
 	// Top 为真表示新卡片放到所在列的最顶部，不填（默认）放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
 	Top bool `json:"-"`
 }
@@ -55,6 +57,7 @@ type UpdateCardInput struct {
 	Tags        *[]string `json:"tags"`
 	TagIDs      *[]int64  `json:"tag_ids"`
 	HumanOnly   *bool     `json:"human_only"`
+	EngineerID  *int64    `json:"engineer_id"`
 	WaitsOn     *[]int64  `json:"waits_on"`
 	DueAt       *string   `json:"due_at"`
 	StartedAt   *string   `json:"started_at"`
@@ -89,6 +92,7 @@ func (in CreateCardInput) asPatch(agent bool) UpdateCardInput {
 	}
 	if !agent {
 		patch.Priority, patch.HumanOnly, patch.WaitsOn = &in.Priority, &in.HumanOnly, &in.WaitsOn
+		patch.EngineerID = &in.EngineerID
 		patch.DueAt, patch.StartedAt, patch.FinishedAt = &in.DueAt, &in.StartedAt, &in.FinishedAt
 	}
 	return patch
@@ -96,14 +100,14 @@ func (in CreateCardInput) asPatch(agent bool) UpdateCardInput {
 
 // planningSet 判断创建入参里有没有填规划类字段。
 func (in CreateCardInput) planningSet() bool {
-	return in.Priority != 0 || in.HumanOnly || len(in.WaitsOn) > 0 ||
+	return in.Priority != 0 || in.HumanOnly || in.EngineerID != 0 || len(in.WaitsOn) > 0 ||
 		in.DueAt != "" || in.StartedAt != "" || in.FinishedAt != ""
 }
 
-// touchesPlanning 判断这次修改有没有出现规划类字段：优先级、HumanOnly、依赖、到期、开始、完成时间。
+// touchesPlanning 判断这次修改有没有出现规划类字段：优先级、HumanOnly、绑定的工程师、依赖、到期、开始、完成时间。
 // 这些是人对工作的安排，agent 不能改。只看字段是否出现，不看值有没有变，规则才简单可预期。
 func (in UpdateCardInput) touchesPlanning() bool {
-	return in.Priority != nil || in.HumanOnly != nil || in.WaitsOn != nil ||
+	return in.Priority != nil || in.HumanOnly != nil || in.EngineerID != nil || in.WaitsOn != nil ||
 		in.DueAt != nil || in.StartedAt != nil || in.FinishedAt != nil
 }
 
@@ -163,7 +167,7 @@ func (in UpdateCardInput) applyTexts(c *Card) ([]string, error) {
 	return changed, nil
 }
 
-// applyFlags 处理优先级和 HumanOnly。
+// applyFlags 处理优先级、HumanOnly 和绑定的工程师（是否属于这个看板由调用方在事务里检查）。
 func (in UpdateCardInput) applyFlags(c *Card) ([]string, error) {
 	var changed []string
 	if in.Priority != nil {
@@ -173,6 +177,10 @@ func (in UpdateCardInput) applyFlags(c *Card) ([]string, error) {
 		assign(&c.Priority, in.Priority, "priority", &changed)
 	}
 	assign(&c.HumanOnly, in.HumanOnly, "human_only", &changed)
+	if in.EngineerID != nil && *in.EngineerID < 0 {
+		return nil, invalidf("工程师编号不合法")
+	}
+	assign(&c.EngineerID, in.EngineerID, "engineer_id", &changed)
 	return changed, nil
 }
 

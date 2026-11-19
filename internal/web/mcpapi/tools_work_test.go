@@ -355,3 +355,47 @@ func inputsOf(tags []*kanban.Tag) []kanban.TagInput {
 	}
 	return out
 }
+
+// TestEngineerSlots 验证工程师名额：get_board 给出名册，领取按名额分配，满了排队，
+// 指定的工程师在忙或类型不对都被拒绝，卡片摘要里能看到谁在做。
+func TestEngineerSlots(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	one, two, three := s.card(t, b, b.doing, "甲"), s.card(t, b, b.doing, "乙"), s.card(t, b, b.doing, "丙")
+	sess := s.agent(t, "agent")
+
+	board := ok(t, sess, "get_board", map[string]any{"board_id": b.ID}).Data
+	engineers, _ := board["engineers"].([]any)
+	if len(engineers) != 3 {
+		t.Fatalf("get_board 应该带着 3 位起步工程师: %v", board["engineers"])
+	}
+	first, _ := engineers[0].(map[string]any)
+	review, _ := engineers[2].(map[string]any)
+	if first["kind"] != "dev" || review["kind"] != "review" || first["prompt"] == "" {
+		t.Fatalf("工程师字段不对: %v", engineers)
+	}
+
+	got := ok(t, sess, "claim_card", map[string]any{"card_id": one.ID, "engineer_id": first["id"]}).Data
+	card, _ := got["card"].(map[string]any)
+	if card == nil {
+		card = got
+	}
+	if card["claim_engineer_id"] != first["id"] {
+		t.Fatalf("应该由指定的工程师承担: %v", got)
+	}
+	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": two.ID, "engineer_id": first["id"]}), "ErrEngineerBusy")
+	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": two.ID, "engineer_id": review["id"]}), "ErrInvalidInput")
+	ok(t, sess, "claim_card", map[string]any{"card_id": two.ID})
+	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": three.ID}), "ErrNoIdleEngineer")
+
+	list := ok(t, sess, "list_cards", map[string]any{"board_id": b.ID, "query": "is:claimed"}).Data
+	cards, _ := list["cards"].([]any)
+	if len(cards) != 2 {
+		t.Fatalf("应该有两张被领取的卡: %v", list)
+	}
+	for _, c := range cards {
+		if m, _ := c.(map[string]any); m["claim_engineer_id"] == nil || m["engineer_id"] == nil {
+			t.Errorf("摘要里应该带着工程师: %v", m)
+		}
+	}
+}

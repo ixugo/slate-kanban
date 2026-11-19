@@ -3,11 +3,14 @@ package kanban
 // ClaimCardInput 是领取卡片的入参。LeaseMinutes 是租约时长（分钟），0 表示用默认值。
 type ClaimCardInput struct {
 	LeaseMinutes int `json:"lease_minutes"`
+	// EngineerID 是由哪位工程师承担这次领取，0 表示由服务端挑：卡片绑定了就用绑定的，否则随机挑一位空闲的。
+	EngineerID int64 `json:"engineer_id"`
 }
 
 // NextCardInput 是取下一张卡的入参，租约时长的含义同 ClaimCardInput。
 type NextCardInput struct {
-	LeaseMinutes int `json:"lease_minutes"`
+	LeaseMinutes int   `json:"lease_minutes"`
+	EngineerID   int64 `json:"engineer_id"`
 }
 
 // FinishCardInput 是完成交接的入参。Summary 是必填的工作总结，会作为评论写在卡片下；

@@ -9,7 +9,7 @@ import (
 	"github.com/ixugo/goddd/pkg/orm"
 )
 
-// BoardDetail 是看板连同它的列和规则（标签库在看板自己的 Tags 字段里）。内嵌 *Board，序列化成 JSON 时看板自己的字段在最外层。
+// BoardDetail 是看板连同它的列和规则（标签库和工程师名册在看板自己的 Tags、Engineers 字段里）。内嵌 *Board，序列化成 JSON 时看板自己的字段在最外层。
 type BoardDetail struct {
 	*Board
 	Columns []*Column `json:"columns"`
@@ -83,6 +83,11 @@ func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardIn
 			return err
 		}
 		b.Tags = tags
+		engineers, err := u.seedEngineers(ctx, b.ID, in.Template)
+		if err != nil {
+			return err
+		}
+		b.Engineers = engineers
 		cols, err := u.seedColumns(ctx, b.ID, in.Template, in.Locale)
 		if err != nil {
 			return err
@@ -91,6 +96,7 @@ func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardIn
 		if err != nil {
 			return err
 		}
+		b.Normalize()
 		out = &BoardDetail{Board: b, Columns: cols, Rules: rules}
 		return u.emit(ctx, actor, newEvent{
 			BoardID: b.ID, Type: EventBoardCreated,
@@ -110,7 +116,7 @@ func (c Core) ListBoards(ctx context.Context) ([]*Board, error) {
 		return nil, wrapDB("读取看板列表", err)
 	}
 	for _, b := range items {
-		if err := c.loadTags(ctx, b); err != nil {
+		if err := c.loadTagsAndEngineers(ctx, b); err != nil {
 			return nil, err
 		}
 	}
@@ -123,7 +129,7 @@ func (c Core) GetBoard(ctx context.Context, id int64) (*BoardDetail, error) {
 	if err != nil {
 		return nil, mapNotFound(err, ErrBoardNotFound, "读取看板")
 	}
-	if err := c.loadTags(ctx, b); err != nil {
+	if err := c.loadTagsAndEngineers(ctx, b); err != nil {
 		return nil, err
 	}
 	cols, err := c.store.Column().ListByBoard(ctx, id)
@@ -168,6 +174,20 @@ func (c Core) UpdateBoard(ctx context.Context, actor Actor, id int64, in UpdateB
 			return wrapDB("读取标签库", err)
 		}
 		b.Tags = tags
+		engineers, err := u.engineer.ListByBoard(ctx, id)
+		if err != nil {
+			return wrapDB("读取工程师名册", err)
+		}
+		b.Engineers = engineers
+		if in.Engineers != nil {
+			engineersChanged, err := u.applyEngineers(ctx, b, *in.Engineers)
+			if err != nil {
+				return err
+			}
+			if engineersChanged {
+				changed = append(changed, "engineers")
+			}
+		}
 		if in.Tags != nil {
 			tagsChanged, err := u.applyTags(ctx, b, *in.Tags)
 			if err != nil {
@@ -199,7 +219,7 @@ func checkBoardPatchAllowed(actor Actor, in UpdateBoardInput) error {
 	switch {
 	case actor.IsHuman():
 		return nil
-	case actor.IsAgent() && in.Name == nil && in.Description == nil && in.Tags == nil && in.ProjectPath != nil:
+	case actor.IsAgent() && in.Name == nil && in.Description == nil && in.Tags == nil && in.Engineers == nil && in.ProjectPath != nil:
 		return nil
 	}
 	return ErrHumanOnly.WithMsg("agent 只能在项目路径为空时写入项目路径，其他修改只允许人执行")
@@ -254,6 +274,7 @@ func (u *unit) deleteBoard(ctx context.Context, id int64) (string, error) {
 		{"图片记录", func() error { return u.attachment.DeleteByBoard(ctx, id) }},
 		{"卡片", func() error { return u.card.DeleteByBoard(ctx, id) }},
 		{"标签", func() error { return u.tag.DeleteByBoard(ctx, id) }},
+		{"工程师", func() error { return u.engineer.DeleteByBoard(ctx, id) }},
 		{"规则", func() error { return u.rule.DeleteByBoard(ctx, id) }},
 		{"列", func() error { return u.column.DeleteByBoard(ctx, id) }},
 		{"读取进度", func() error { return u.cursor.DeleteByBoard(ctx, id) }},
@@ -269,15 +290,14 @@ func (u *unit) deleteBoard(ctx context.Context, id int64) (string, error) {
 	return b.Slug, nil
 }
 
-// loadTags 把看板的标签库读出来放到 b.Tags 上。
-func (c Core) loadTags(ctx context.Context, b *Board) error {
+// loadTagsAndEngineers 把看板的标签库和工程师名册读出来放到 b.Tags、b.Engineers 上。
+func (c Core) loadTagsAndEngineers(ctx context.Context, b *Board) error {
 	tags, err := c.store.Tag().ListByBoard(ctx, b.ID)
 	if err != nil {
 		return wrapDB("读取标签库", err)
 	}
 	b.Tags = tags
-	b.Normalize()
-	return nil
+	return c.loadEngineers(ctx, b)
 }
 
 // emitBoardUpdates 按改了什么写事件：标签库的变化单独写 board.labels_updated，

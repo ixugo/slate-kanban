@@ -55,7 +55,7 @@ func TestClaimCard(t *testing.T) {
 	if got := e.stored(t, c.ID); got.ClaimedBy != "claude" || got.ClaimExpiresAt == nil || !got.ClaimExpiresAt.Equal(wantExpire) {
 		t.Fatalf("存储的领取状态不对: %+v", got)
 	}
-	want := `{"agent":"claude","expires_at":"2026-11-17T12:30:00Z","key":"TST-1","title":"任务"}`
+	want := `{"agent":"claude","engineer_id":0,"expires_at":"2026-11-17T12:30:00Z","key":"TST-1","title":"任务"}`
 	if ev := e.lastEvent(t); ev.Type != kanban.EventCardClaimed || ev.CardID != c.ID || ev.Actor != "claude" || ev.Payload != want {
 		t.Fatalf("事件不对: %+v，期望内容 %s", ev, want)
 	}

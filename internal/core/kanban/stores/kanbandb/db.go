@@ -61,6 +61,11 @@ func (d DB) Tag() kanban.TagStorer {
 	return Tag(d)
 }
 
+// Engineer 返回工程师名册存储。
+func (d DB) Engineer() kanban.EngineerStorer {
+	return Engineer(d)
+}
+
 // Event 返回事件日志存储。
 func (d DB) Event() kanban.EventStorer {
 	return Event(d)
@@ -79,7 +84,7 @@ func (d DB) AutoMigrate(ok bool) DB {
 	}
 	if err := d.db.AutoMigrate(
 		new(kanban.Board), new(kanban.Column), new(kanban.Card), new(kanban.Comment),
-		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor), new(kanban.Attachment), new(kanban.Tag),
+		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor), new(kanban.Attachment), new(kanban.Tag), new(kanban.Engineer),
 	); err != nil {
 		panic(err)
 	}

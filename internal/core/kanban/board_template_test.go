@@ -55,6 +55,18 @@ func TestTemplateTextsComplete(t *testing.T) {
 	}
 }
 
+// TestSeedEngineerTexts 验证起步工程师的名称（英文名）和提示词（中文）合法、名称不重名。
+func TestSeedEngineerTexts(t *testing.T) {
+	names := map[string]bool{}
+	for i, eng := range seedEngineerTexts {
+		if eng.Name == "" || eng.Prompt == "" || utf8.RuneCountInString(eng.Name) > maxEngineerNameLen ||
+			utf8.RuneCountInString(eng.Prompt) > maxEngineerPromptLen || names[strings.ToLower(eng.Name)] {
+			t.Errorf("第 %d 位起步工程师文案不合法: %+v", i, eng)
+		}
+		names[strings.ToLower(eng.Name)] = true
+	}
+}
+
 // TestTemplateColumns 验证模板结构：下一列的下标有效并且只指向右边（不会成环），
 // 有 agent 领活的列和完成列都恰好各一个，完成列是最后一列。
 func TestTemplateColumns(t *testing.T) {

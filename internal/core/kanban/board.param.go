@@ -53,6 +53,9 @@ type UpdateBoardInput struct {
 	// Tags 整体替换标签库：库里原有、入参里没有的算删除（同时从所有卡片上摘掉），
 	// 主键相同的算修改文字或颜色，入参顺序就是显示顺序。只允许人修改。
 	Tags *[]TagInput `json:"tags"`
+	// Engineers 整体替换工程师名册：名册里原有、入参里没有的算解聘（同时从所有卡片上摘掉），
+	// 主键相同的算修改，入参顺序就是显示顺序。只允许人修改。
+	Engineers *[]EngineerInput `json:"engineers"`
 }
 
 // normalize 整理并校验创建入参：去掉首尾空白，slug 转大写，模板缺省为 dev。
@@ -106,6 +109,13 @@ func (in *UpdateBoardInput) normalize() error {
 			return err
 		}
 		in.Tags = &tags
+	}
+	if in.Engineers != nil {
+		engineers, err := normalizeEngineerInputs(*in.Engineers)
+		if err != nil {
+			return err
+		}
+		in.Engineers = &engineers
 	}
 	if in.ProjectPath != nil {
 		return validateProjectPath(*in.ProjectPath)

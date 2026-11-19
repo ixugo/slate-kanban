@@ -111,7 +111,7 @@ func (u *unit) handOver(ctx context.Context, actor Actor, card *Card, from, to *
 	if err != nil {
 		return err
 	}
-	card.ClaimedBy, card.ClaimExpiresAt = "", nil
+	card.ClaimedBy, card.ClaimExpiresAt, card.ClaimEngineerID = "", nil, 0
 	card.ColumnID, card.Position = to.ID, pos
 	return u.commitMove(ctx, actor, card, from, to)
 }
