@@ -1,53 +1,51 @@
 # Slate
 
+**A kanban board for harness engineering and loop engineering.** You design the board: columns, prompts, and the engineers that set concurrency. Coding agents run the loop on it: claim a card, work in a git worktree, hand off for review, wait for the next one.
+
 [English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
 
-Slate is a local-first kanban board shared by people and AI agents. Create cards in the browser, move ready tasks into **In progress**, and let a coding agent pick them up over MCP. The agent hands its work off in **Review** so you can check it on the same board.
+## Install
 
-## Install with Docker
+1. Open the [latest release](https://github.com/ixugo/slate-kanban/releases/latest) and download the package for your system:
 
-Install Git, Docker, and Docker Compose, then run the following commands.
+| System | Package |
+|---|---|
+| macOS (Apple silicon) | `slate_<version>_darwin_arm64.tar.gz` |
+| Linux (x86-64) | `slate_<version>_linux_amd64.tar.gz` |
+| Linux (ARM64) | `slate_<version>_linux_arm64.tar.gz` |
+| Windows (x86-64) | `slate_<version>_windows_amd64.zip` |
+
+2. Extract it and run it. On Windows, unzip and run `slate.exe`.
 
 ```sh
-git clone https://github.com/ixugo/slate-kanban.git
-cd slate-kanban
-docker compose up -d --build
+tar -xzf slate_*.tar.gz
+./slate
 ```
 
-Open [http://127.0.0.1:7070](http://127.0.0.1:7070). Compose builds Slate from this checkout and keeps the SQLite database, attachments, and logs in the `slate-data` volume. To update, rerun the Compose command from the same checkout after updating it. To stop Slate and keep your data, run `docker compose down`.
+3. Open [http://127.0.0.1:7070](http://127.0.0.1:7070).
 
-For a standalone executable or local development, see [Build and run from source (简体中文)](docs/development.zh-CN.md).
+- If macOS refuses to open the file, run `xattr -d com.apple.quarantine slate` once.
+- To run Slate in the background and start it at login (macOS and Linux), use `./slate -d`. Stop it and remove the service with `./slate -stop`.
+- When a new release is out, Slate shows a notice in the browser. Choose **Update now**, then restart Slate.
 
-## Create your first project
+## Get started
 
-1. Select **New project**, enter a name, and keep the **Development** template. It gives you **Inbox → To do → In progress → Review → Done**. Choose **Blank** to set up your own columns under **Settings → Columns**.
-2. Select **New card** and describe the task and how to verify it. Add labels, a priority, a due date, or dependencies as needed.
-3. Once your agent is connected, drag the card to **In progress** when it is ready to work on. When the work reaches **Review**, check the handoff and move the card to **Done** if it passes. If it needs changes, leave a comment and move it back to **In progress**.
+1. Select **New project** and keep the **Development** template: **Inbox → To do → In progress → Review → Done**. Inbox is yours; agents manage **To do** and **In progress**.
+2. Open **Agents**, copy the one-line prompt into Claude Code, Cursor, or Codex. It installs the MCP server and the Slate skill.
+3. Add cards that say what to build and how to verify it. Move a card to **To do** when it is ready.
+4. Keep an agent running: on **Agents**, find **Run long-term**, pick your project, and paste the prompt into an agent session started in the project directory (inside `screen` or `tmux`, so it survives closing the terminal). The agent loops: wait for updates, claim from **To do**, move to **In progress**, hand off to **Review**.
+5. Check the handoff in **Review**. Move the card to **Done**, or comment and send it back to **In progress**.
 
-## Connect an AI agent
+## Shape the harness
 
-Open **Agents** in Slate and copy the one-line prompt into Claude Code, Cursor, or Codex. For a local Slate instance, you can send the prompt below.
-
-```text
-Read http://127.0.0.1:7070/install.md and follow the steps to set up Slate.
-```
-
-You can also use the **Agents** page to copy the MCP configuration and skill installation commands for your client. Give each agent its own `name` in the MCP URL. Use the worker configuration for daily work and the optional manager configuration to edit columns or automation rules.
-
-After installing both MCP and the Slate skill, open a new agent session and ask it to call `whoami`. Ask it to work on your project. When it asks which repository belongs to the project, confirm the local path so it can work in the right Git worktree.
-
-## Use the board
-
-- Change the interface language from the top bar. Slate supports English, Simplified Chinese, Traditional Chinese, Korean, and Japanese.
-- Switch between the board and the sortable list. Use search or the filter panel to find cards. For example, `is:overdue -is:done` finds unfinished cards past their due date.
-- Use **Settings → Automation** to add rules. The Development template records when cards enter **In progress** and **Done**, and clears the completion time when a card leaves **Done**.
-- Use **Settings → Export** to download your project as JSON or Markdown.
-- On localhost or HTTPS, use your browser’s install option to open Slate in its own window. Offline, you can view the last cached board snapshot.
+- **Column prompts** (**Settings → Columns**) tell agents what they may do in each column.
+- **Engineers** (**Settings → Engineers**) are concurrency slots: one engineer works one card at a time. Recruit full-stack, frontend, backend, UI, and test engineers.
+- **Automation rules** (**Settings → Automation**) move cards and set fields when something happens.
 
 ## Data and access
 
-- Native runs store data under `~/.slate-kanban/`. Back up `data.db` and the `resource/` directory together while Slate is stopped. With Docker, keep the `slate-data` volume when updating or recreating the container.
-- Slate listens on all IPv4 interfaces at `0.0.0.0:7070` by default. With the passcode unset, anyone who can reach it can read and edit every board. Before sharing access, set `Server.HTTP.Passcode`, serve Slate behind an HTTPS reverse proxy, and add the public hostname to `Server.HTTP.AllowedHosts`. See the configuration examples for [native installs](configs/config.example.toml) and [Docker](configs/config.docker.toml).
+- Data lives in `~/.slate-kanban/`. Stop Slate, then back up `data.db` and `resource/` together.
+- Slate listens on `0.0.0.0:7070`. With no passcode set, anyone who can reach it can read and edit every board. Before sharing access, set `Server.HTTP.Passcode`, put Slate behind an HTTPS reverse proxy, and add your hostname to `Server.HTTP.AllowedHosts`. See the [configuration example](configs/config.example.toml).
 
 ## License
 
