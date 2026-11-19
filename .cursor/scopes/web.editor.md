@@ -117,5 +117,5 @@ Ctrl 和 Cmd 都当作 Mod 键。
 | 命令与方言 | `lib/md/*.test.ts`（含随机输入的性质测试：任意命令后原文与光标合法） |
 | 渲染 | `render.test.ts`：每行 `textContent` 等于原文行；随机文档不变量 |
 | 控制器 | `LiveView.test.ts`、`LiveEditor.test.tsx`、`DescriptionEditor.test.tsx` |
-| 真实浏览器 | `web/e2e/editor.e2e.ts`：输入即渲染并保存原文、快捷键与撤销重做、列表 Tab/退格、输入法（CDP `Input.imeSetComposition`）、任务框点击、手机 390 宽无横向溢出且按钮够大 |
+| 真实浏览器 | `.e2e-strict` 的 `description-autosave`、`comment-toolbar`、`comment-caret-height`、`layout-phone`；输入法、列表 Tab/退格、撤销重做、任务框点击原来的真浏览器用例随旧套件删除，现在只有 `LiveEditor.test.tsx` 单元测试 |
 | 变异测试 | 对 `commands.ts` 做过逐点变异，存活的变异补了用例或证明等价 |

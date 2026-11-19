@@ -77,12 +77,6 @@ web/test: web/node_modules
 web/build: web/node_modules
 	cd web && npm run build
 
-## web/e2e: 浏览器端到端冒烟测试：先构建前端，再编译并启动临时服务，用本机 Chrome 跑用例（约 30 秒）
-.PHONY: web/e2e
-web/e2e: web/node_modules
-	cd web && npm run e2e
-
-
 ## expva/http: 监听网络请求指标
 expva/http:
 	expvarmon --ports="$${p:-8080}" -i 1s -vars="version,request,requests,responses,goroutines,panics,mem:memstats.HeapAlloc,mem:memstats.HeapSys,mem:memstats.Sys"

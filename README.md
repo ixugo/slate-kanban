@@ -216,7 +216,6 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `make run` | 启动后端（开发模式，不带前端） |
 | `make web/dev` | 启动前端开发服务器 `http://127.0.0.1:5173`，接口和 MCP 转发到本机 7070 |
 | `make web/test` | 前端类型检查、oxlint、单元测试 |
-| `make web/e2e` | 浏览器端到端冒烟测试：自动构建前端、编译并启动临时服务，用本机 Chrome 跑用例（约 30 秒；需要装 Chrome，不碰 `~/.slate-kanban` 里的真实数据） |
 | `make web/build` | 构建前端（产物进 `internal/web/spa/dist`），并检查体积预算 |
 | `make build` | 前端 + 后端，得到带前端的 `./slate` |
 | `go test ./internal/...` | 后端测试（默认 SQLite，不依赖 docker） |
@@ -248,7 +247,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 - [x] 列表视图（排序表格）、活动流（工具栏「活动」抽屉）、卡片磁贴可在新标签页打开
 - [x] PWA：可安装，离线时能查看上次缓存的看板快照
 - [x] 可选访问口令（`Server.HTTP.Passcode`）、开机自启（`./slate service`）、英文官网（入门、概念、接入已译，其余章节暂显示中文）
-- [x] PostgreSQL 存储层测试（`make test-postgres`）、浏览器端到端冒烟测试（`make web/e2e`）
+- [x] PostgreSQL 存储层测试（`make test-postgres`）、浏览器端到端验收（`web/.e2e-strict`，不提交到 git）
 - [x] 接入已在 Claude Code 和 Codex 的真实会话里走通；Cursor 只验证到 MCP 连接这一层（用它自带的命令行客户端），skill 目录和带大模型的会话还没有验证
 
 以后再做（都已记入 Slate 自己的看板）：
