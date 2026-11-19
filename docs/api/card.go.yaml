@@ -1,0 +1,939 @@
+openapi: "3.1.0"
+info:
+  title: 卡片
+  description: "卡片的读写、移动和评论。REST 接口固定以「人」的身份调用。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  "/api/v1/boards/{board_id}/cards":
+    get:
+      tags:
+        - admin/卡片
+      summary: 卡片列表
+      description: 按筛选条件列出看板里的卡片，顺序和看板上看到的一致。query 的语法和网页搜索框一致，写错返回 400 并指出是哪个词有问题。
+      operationId: listCards
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+        - name: query
+          in: query
+          required: false
+          description: 筛选条件，不填返回全部
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          description: 最多返回几张，默认 200，最大 500，负数不合法
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardList"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      tags:
+        - admin/卡片
+      summary: 创建卡片
+      description: 创建卡片。column_id 不填放到第一列，卡片放到所在列的末尾。
+      operationId: createCard
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: 标题，必填，最长 200 个字符
+                description:
+                  type: string
+                  description: 描述，Markdown 文本
+                priority:
+                  type: integer
+                  description: 优先级，0 未设置，1 低，2 中，3 高
+                tags:
+                  type: array
+                  items:
+                    type: string
+                    description: 标签文字
+                  description: 按文字指定标签；库里没有的文字会新建一个没有颜色的标签。和 tag_ids 只填一个
+                tag_ids:
+                  type: array
+                  items:
+                    type: integer
+                    description: 标签编号
+                  description: 按编号指定标签。和 tags 只填一个
+                human_only:
+                  type: boolean
+                  description: 是否只能由人处理
+                engineer_id:
+                  type: integer
+                  description: 绑定一位全栈工程师（编号来自看板的 engineers），0 表示不绑定，领取时随机分配
+                waits_on:
+                  type: array
+                  items:
+                    type: integer
+                    description: 卡片编号
+                  description: 依赖的卡片编号，最多 20 张
+                due_at:
+                  type: string
+                  description: "到期时间。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
+                started_at:
+                  type: string
+                  description: "开始时间。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
+                finished_at:
+                  type: string
+                  description: "完成时间。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
+                branch:
+                  type: string
+                  description: 关联的代码分支
+                url:
+                  type: string
+                  description: 关联的链接
+                column_id:
+                  type: integer
+                  description: 放入的列编号
+              required:
+                - title
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}":
+    get:
+      tags:
+        - admin/卡片
+      summary: 卡片详情
+      description: 返回卡片的完整信息：派生状态、所在列给 agent 的工作指令、依赖和全部评论。
+      operationId: getCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 卡片编号
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardDetail"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    patch:
+      tags:
+        - admin/卡片
+      summary: 修改卡片
+      description: 只更新请求里出现的字段。带上 version 时和当前版本比较，不一致返回 409，避免覆盖别人的修改。
+      operationId: updateCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 卡片编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: 标题，必填，最长 200 个字符
+                description:
+                  type: string
+                  description: 描述，Markdown 文本
+                priority:
+                  type: integer
+                  description: 优先级，0 未设置，1 低，2 中，3 高
+                tags:
+                  type: array
+                  items:
+                    type: string
+                    description: 标签文字
+                  description: 按文字指定标签；库里没有的文字会新建一个没有颜色的标签。和 tag_ids 只填一个
+                tag_ids:
+                  type: array
+                  items:
+                    type: integer
+                    description: 标签编号
+                  description: 按编号指定标签。和 tags 只填一个
+                human_only:
+                  type: boolean
+                  description: 是否只能由人处理
+                engineer_id:
+                  type: integer
+                  description: 绑定一位全栈工程师（编号来自看板的 engineers），0 表示不绑定，领取时随机分配
+                waits_on:
+                  type: array
+                  items:
+                    type: integer
+                    description: 卡片编号
+                  description: 依赖的卡片编号，最多 20 张
+                due_at:
+                  type: string
+                  description: "到期时间。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
+                started_at:
+                  type: string
+                  description: "开始时间。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
+                finished_at:
+                  type: string
+                  description: "完成时间。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
+                branch:
+                  type: string
+                  description: 关联的代码分支
+                url:
+                  type: string
+                  description: 关联的链接
+                version:
+                  type: integer
+                  description: 读到这张卡片时的版本号，用来做冲突检测，可选
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - admin/卡片
+      summary: 删除卡片
+      description: 删除卡片和它的评论。卡片已经不存在也返回成功。
+      operationId: deleteCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 卡片编号
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/move":
+    post:
+      tags:
+        - admin/卡片
+      summary: 移动卡片
+      description: 移动卡片到某列，或者调整同一列里的顺序。before_id、after_id 指定放到哪张卡片的前面或后面，最多填一个，都不填放到目标列末尾。
+      operationId: moveCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 卡片编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                column_id:
+                  type: integer
+                  description: 目标列编号，不填或 0 表示留在当前列，只调整顺序
+                before_id:
+                  type: integer
+                  description: 放到这张卡片的前面
+                after_id:
+                  type: integer
+                  description: 放到这张卡片的后面
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/comments":
+    post:
+      tags:
+        - admin/卡片
+      summary: 写评论
+      description: 在卡片下写一条评论。
+      operationId: addComment
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 卡片编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                body:
+                  type: string
+                  description: 评论正文，Markdown 文本，必填
+              required:
+                - body
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/comments/{comment_id}":
+    delete:
+      tags:
+        - admin/卡片
+      summary: 删除评论
+      description: 评论已经不存在也返回成功。
+      operationId: deleteComment
+      parameters:
+        - name: comment_id
+          in: path
+          required: true
+          description: 评论编号
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Card:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 卡片编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        column_id:
+          type: integer
+          description: 所在列编号
+        number:
+          type: integer
+          description: 看板内的卡片序号
+        key:
+          type: string
+          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+        title:
+          type: string
+          description: 标题
+        description:
+          type: string
+          description: 描述，Markdown 文本
+        position:
+          type: number
+          description: 列内排序位置，越小越靠上
+        priority:
+          type: integer
+          description: 优先级，0 未设置，1 低，2 中，3 高
+        tag_ids:
+          type: array
+          items:
+            type: integer
+            description: 标签编号
+          description: 标签编号列表，指向看板标签库
+        human_only:
+          type: boolean
+          description: 是否只能由人处理
+        waits_on:
+          type: array
+          items:
+            type: integer
+            description: 卡片编号
+          description: 依赖的卡片编号列表
+        due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 到期时间
+        started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 开始时间
+        finished_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 完成时间
+        claimed_by:
+          type: string
+          description: 当前持有这张卡的 agent 名称，没有则为空
+        claim_expires_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 领取的到期时间
+        engineer_id:
+          type: integer
+          description: 绑定或分配的全栈工程师编号，0 表示还没有
+        claim_engineer_id:
+          type: integer
+          description: 当前领取这张卡的工程师编号，领取放开后为 0
+        branch:
+          type: string
+          description: 关联的代码分支
+        url:
+          type: string
+          description: 关联的链接，例如合并请求
+        version:
+          type: integer
+          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+        created_by:
+          type: string
+          description: 创建者名称
+        updated_by:
+          type: string
+          description: 最后修改者名称
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+      description: 卡片本身的字段
+    CardDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 卡片编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        column_id:
+          type: integer
+          description: 所在列编号
+        number:
+          type: integer
+          description: 看板内的卡片序号
+        key:
+          type: string
+          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+        title:
+          type: string
+          description: 标题
+        description:
+          type: string
+          description: 描述，Markdown 文本
+        position:
+          type: number
+          description: 列内排序位置，越小越靠上
+        priority:
+          type: integer
+          description: 优先级，0 未设置，1 低，2 中，3 高
+        tag_ids:
+          type: array
+          items:
+            type: integer
+            description: 标签编号
+          description: 标签编号列表，指向看板标签库
+        human_only:
+          type: boolean
+          description: 是否只能由人处理
+        waits_on:
+          type: array
+          items:
+            type: integer
+            description: 卡片编号
+          description: 依赖的卡片编号列表
+        due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 到期时间
+        started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 开始时间
+        finished_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 完成时间
+        claimed_by:
+          type: string
+          description: 当前持有这张卡的 agent 名称，没有则为空
+        claim_expires_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 领取的到期时间
+        engineer_id:
+          type: integer
+          description: 绑定或分配的全栈工程师编号，0 表示还没有
+        claim_engineer_id:
+          type: integer
+          description: 当前领取这张卡的工程师编号，领取放开后为 0
+        branch:
+          type: string
+          description: 关联的代码分支
+        url:
+          type: string
+          description: 关联的链接，例如合并请求
+        version:
+          type: integer
+          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+        created_by:
+          type: string
+          description: 创建者名称
+        updated_by:
+          type: string
+          description: 最后修改者名称
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+        tags:
+          type: array
+          items:
+            type: string
+            description: 标签文字
+          description: 卡片上带文字的标签的文字，按卡片上的顺序
+        column:
+          type: string
+          description: 卡片所在列的名称
+        done:
+          type: boolean
+          description: 卡片位于完成列
+        waiting:
+          type: boolean
+          description: 卡片有还没完成的依赖
+        claim_active:
+          type: boolean
+          description: 卡片正被某个 agent 领取，并且领取还没到期
+        column_instruction:
+          type: string
+          description: 所在列给 agent 的工作指令
+        dependencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardRef"
+          description: 依赖的卡片
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+          description: 全部评论，按时间从早到晚
+      description: 卡片的完整信息
+    CardList:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardView"
+          description: 命中的卡片，顺序和看板上看到的一致
+        total:
+          type: integer
+          description: 命中的总数
+        truncated:
+          type: boolean
+          description: 命中数超过 limit，只返回了前面一部分
+    CardRef:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 卡片编号
+        key:
+          type: string
+          description: 卡片编号，例如 SLATE-12
+        title:
+          type: string
+          description: 标题
+        column:
+          type: string
+          description: 所在列名称
+        done:
+          type: boolean
+          description: 是否已完成
+      description: 依赖列表里一张卡片的概要
+    CardView:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 卡片编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        column_id:
+          type: integer
+          description: 所在列编号
+        number:
+          type: integer
+          description: 看板内的卡片序号
+        key:
+          type: string
+          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+        title:
+          type: string
+          description: 标题
+        description:
+          type: string
+          description: 描述，Markdown 文本
+        position:
+          type: number
+          description: 列内排序位置，越小越靠上
+        priority:
+          type: integer
+          description: 优先级，0 未设置，1 低，2 中，3 高
+        tag_ids:
+          type: array
+          items:
+            type: integer
+            description: 标签编号
+          description: 标签编号列表，指向看板标签库
+        human_only:
+          type: boolean
+          description: 是否只能由人处理
+        waits_on:
+          type: array
+          items:
+            type: integer
+            description: 卡片编号
+          description: 依赖的卡片编号列表
+        due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 到期时间
+        started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 开始时间
+        finished_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 完成时间
+        claimed_by:
+          type: string
+          description: 当前持有这张卡的 agent 名称，没有则为空
+        claim_expires_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 领取的到期时间
+        engineer_id:
+          type: integer
+          description: 绑定或分配的全栈工程师编号，0 表示还没有
+        claim_engineer_id:
+          type: integer
+          description: 当前领取这张卡的工程师编号，领取放开后为 0
+        branch:
+          type: string
+          description: 关联的代码分支
+        url:
+          type: string
+          description: 关联的链接，例如合并请求
+        version:
+          type: integer
+          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+        created_by:
+          type: string
+          description: 创建者名称
+        updated_by:
+          type: string
+          description: 最后修改者名称
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+        tags:
+          type: array
+          items:
+            type: string
+            description: 标签文字
+          description: 卡片上带文字的标签的文字，按卡片上的顺序
+        column:
+          type: string
+          description: 卡片所在列的名称
+        done:
+          type: boolean
+          description: 卡片位于完成列
+        waiting:
+          type: boolean
+          description: 卡片有还没完成的依赖
+        claim_active:
+          type: boolean
+          description: 卡片正被某个 agent 领取，并且领取还没到期
+      description: 卡片连同从列、依赖、领取推出来的派生状态
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 评论编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        card_id:
+          type: integer
+          description: 所属卡片编号
+        author_kind:
+          type: string
+          description: 作者类型
+          enum:
+            - human
+            - agent
+            - system
+        author:
+          type: string
+          description: 作者名称
+        body:
+          type: string
+          description: 评论正文，Markdown 文本
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+    Empty:
+      type: object
+      description: 没有内容的成功响应
+      properties: {}
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

@@ -1,0 +1,152 @@
+openapi: "3.1.0"
+info:
+  title: 实时流
+  description: 看板事件的实时推送。REST 接口固定以「人」的身份调用。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  "/api/v1/boards/{board_id}/stream":
+    get:
+      tags:
+        - admin/实时流
+      summary: 实时事件流
+      description: 用 Server-Sent Events 推送看板事件。事件名：ready（连上后的第一条，带当前最新序号 latest）、board（一条看板事件，data 是 Event，id 是事件序号）、reset（续传起点不可用，应重新读取快照）、error（流开始之后出错，例如看板被删除）。服务每 20 秒发一行保活注释；单次连接最长 10 分钟，到点服务端主动结束，客户端带着最后收到的序号重连即可。服务关闭时流直接结束，不发事件。续传起点用 after 参数或标准的 Last-Event-ID 请求头，都不带则从当前最新处开始。
+      operationId: streamBoard
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+        - name: after
+          in: query
+          required: false
+          description: 续传起点序号，只推送比它大的事件；也可以用 Last-Event-ID 请求头
+          schema:
+            type: integer
+        - name: Last-Event-ID
+          in: header
+          required: false
+          description: 浏览器自动重连时带上的最后事件序号
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 事件流
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 事件序号，在看板内单调递增
+        board_id:
+          type: integer
+          description: 所属看板编号
+        card_id:
+          type: integer
+          description: 关联的卡片编号，0 表示与卡片无关
+        type:
+          type: string
+          description: 事件类型
+          enum:
+            - board.created
+            - board.updated
+            - board.labels_updated
+            - column.created
+            - column.updated
+            - column.deleted
+            - column.reordered
+            - card.created
+            - card.updated
+            - card.tags_updated
+            - card.moved
+            - card.reordered
+            - card.deleted
+            - card.claimed
+            - card.released
+            - comment.added
+            - comment.deleted
+            - rule.created
+            - rule.updated
+            - rule.deleted
+            - automation.fired
+        actor_kind:
+          type: string
+          description: 操作者类型
+          enum:
+            - human
+            - agent
+            - system
+        actor:
+          type: string
+          description: 操作者名称
+        payload:
+          type: string
+          description: 事件内容，是一段 JSON 对象的文本，字段随事件类型而不同
+        created_at:
+          type: string
+          format: date-time
+          description: 发生时间
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

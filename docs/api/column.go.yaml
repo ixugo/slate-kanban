@@ -1,0 +1,337 @@
+openapi: "3.1.0"
+info:
+  title: 列
+  description: 看板的列管理。REST 接口固定以「人」的身份调用。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  "/api/v1/boards/{board_id}/columns":
+    post:
+      tags:
+        - admin/列
+      summary: 新增列
+      description: 在看板最右边新增一列。每个看板的列数有上限。
+      operationId: createColumn
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 列名称，同一看板内不能重名，最长 60 个字符
+                instruction:
+                  type: string
+                  description: 给 agent 的指令，说明这一列的卡片该怎么处理
+                is_done:
+                  type: boolean
+                  description: 卡片进入这一列是否算完成
+                next_column_id:
+                  type: integer
+                  description: 卡片完成交接后默认移入的下一列，0 表示没有
+              required:
+                - name
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Column"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/{board_id}/columns/order":
+    put:
+      tags:
+        - admin/列
+      summary: 调整列顺序
+      description: ids 必须是看板全部列的编号，按期望的从左到右排列；列已经变化返回 409，请刷新后重试。
+      operationId: reorderColumns
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+                    description: 列编号
+                  description: 全部列的编号，从左到右
+              required:
+                - ids
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Column"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/{board_id}/columns/{column_id}":
+    patch:
+      tags:
+        - admin/列
+      summary: 修改列
+      description: 只更新请求里出现的字段。
+      operationId: updateColumn
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+        - name: column_id
+          in: path
+          required: true
+          description: 列编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 列名称，同一看板内不能重名，最长 60 个字符
+                instruction:
+                  type: string
+                  description: 给 agent 的指令，说明这一列的卡片该怎么处理
+                is_done:
+                  type: boolean
+                  description: 卡片进入这一列是否算完成
+                next_column_id:
+                  type: integer
+                  description: 卡片完成交接后默认移入的下一列，0 表示没有
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Column"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - admin/列
+      summary: 删除列
+      description: 列里还有卡片时必须用 move_to 指定卡片搬去的列，否则返回 409。列已经不存在也返回成功。
+      operationId: deleteColumn
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+        - name: column_id
+          in: path
+          required: true
+          description: 列编号
+          schema:
+            type: integer
+        - name: move_to
+          in: query
+          required: false
+          description: 列里的卡片搬去的列编号；列是空的时可以不填
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Column:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 列编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        name:
+          type: string
+          description: 列名称
+        instruction:
+          type: string
+          description: 给 agent 的指令，说明这一列的卡片该怎么处理
+        is_done:
+          type: boolean
+          description: 卡片进入这一列是否算完成
+        next_column_id:
+          type: integer
+          description: 卡片完成交接后默认移入的下一列，0 表示没有
+        sort:
+          type: integer
+          description: 排序值，越小越靠左
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+    Empty:
+      type: object
+      description: 没有内容的成功响应
+      properties: {}
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

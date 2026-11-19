@@ -1,0 +1,155 @@
+openapi: "3.1.0"
+info:
+  title: 图片
+  description: Markdown 里用的图片上传和读取。REST 接口固定以「人」的身份调用。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  "/api/v1/boards/{board_id}/attachments":
+    post:
+      tags:
+        - admin/图片
+      summary: 上传图片
+      description: 表单字段 file 是图片文件，最大 5 MiB，类型按内容判断，只接受常见的图片格式。
+      operationId: uploadAttachment
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 图片文件
+              required:
+                - file
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Attachment"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "413":
+          description: 图片超过大小上限
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/attachments/{token}":
+    get:
+      tags:
+        - admin/图片
+      summary: 读取图片
+      description: 直接返回图片字节。响应头禁止类型嗅探并带上禁用脚本的内容安全策略，图片内容永不改变，可以长期缓存。
+      operationId: getAttachment
+      parameters:
+        - name: token
+          in: path
+          required: true
+          description: 图片的公开编号
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 图片内容
+          content:
+            "image/*":
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Attachment:
+      type: object
+      properties:
+        token:
+          type: string
+          description: 图片的随机公开编号
+        url:
+          type: string
+          description: 图片地址，可以直接写进 Markdown 的图片语法
+        content_type:
+          type: string
+          description: 图片类型，由内容判断
+        size:
+          type: integer
+          description: 字节数
+      description: 上传成功的图片
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

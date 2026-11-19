@@ -1,0 +1,143 @@
+openapi: "3.1.0"
+info:
+  title: 运行状态
+  description: 健康检查和运行统计，路径不在 /api/v1 下。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  /health:
+    get:
+      tags:
+        - admin/运行状态
+      summary: 健康检查
+      description: 返回服务版本和启动时间，不要求认证。任何 HTTP 方法都可以访问，这里只列出 GET。
+      operationId: getHealth
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+      security:
+        - {}
+  /app/metrics/api:
+    get:
+      tags:
+        - admin/运行状态
+      summary: 接口统计
+      description: 返回请求数、状态码分布、协程数和内存占用。
+      operationId: getMetricsAPI
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Metrics"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+    Health:
+      type: object
+      properties:
+        version:
+          type: string
+          description: 服务版本
+        start_at:
+          type: string
+          format: date-time
+          description: 服务启动时间
+        git_branch:
+          type: string
+          description: 构建时的分支
+        git_hash:
+          type: string
+          description: 构建时的提交
+    KV:
+      type: object
+      properties:
+        Key:
+          type: string
+          description: 名称
+        Value:
+          type: integer
+          description: 数量
+      description: 排行里的一项
+    Metrics:
+      type: object
+      properties:
+        real_time_requests:
+          type: integer
+          description: 实时请求数
+        total_requests:
+          type: integer
+          description: 总请求数
+        total_responses:
+          type: integer
+          description: 总响应数
+        request_top:
+          type: array
+          items:
+            $ref: "#/components/schemas/KV"
+          description: 请求最多的路径
+        status_code_top:
+          type: array
+          items:
+            $ref: "#/components/schemas/KV"
+          description: 出现最多的状态码
+        goroutines:
+          type: integer
+          description: 协程数量
+        num_gc:
+          type: integer
+          description: 垃圾回收次数
+        sys_alloc:
+          type: integer
+          description: 内存占用，字节
+        start_at:
+          type: string
+          description: 服务已运行的时长
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

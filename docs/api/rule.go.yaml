@@ -1,0 +1,317 @@
+openapi: "3.1.0"
+info:
+  title: 自动化规则
+  description: 看板的自动化规则管理。REST 接口固定以「人」的身份调用。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  "/api/v1/boards/{board_id}/rules":
+    post:
+      tags:
+        - admin/规则
+      summary: 新增规则
+      description: 新增一条自动化规则。读取规则请用看板详情或快照，没有单独的列表接口。每个看板的规则数有上限。
+      operationId: createRule
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 规则名称，最长 100 个字符
+                enabled:
+                  type: boolean
+                  description: 是否启用，创建时不填默认启用
+                trigger:
+                  type: string
+                  description: 触发类型
+                  enum:
+                    - card_created
+                    - card_entered
+                    - card_left
+                column_id:
+                  type: integer
+                  description: 触发所在的列，0 表示任意列
+                condition:
+                  type: string
+                  description: 条件，使用卡片筛选语法，空表示无条件
+                actions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/RuleAction"
+                  description: 动作列表，按顺序执行
+              required:
+                - name
+                - trigger
+                - actions
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rule"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/rules/{rule_id}":
+    patch:
+      tags:
+        - admin/规则
+      summary: 修改规则
+      description: 只更新请求里出现的字段。
+      operationId: updateRule
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          description: 规则编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: 规则名称，最长 100 个字符
+                enabled:
+                  type: boolean
+                  description: 是否启用，创建时不填默认启用
+                trigger:
+                  type: string
+                  description: 触发类型
+                  enum:
+                    - card_created
+                    - card_entered
+                    - card_left
+                column_id:
+                  type: integer
+                  description: 触发所在的列，0 表示任意列
+                condition:
+                  type: string
+                  description: 条件，使用卡片筛选语法，空表示无条件
+                actions:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/RuleAction"
+                  description: 动作列表，按顺序执行
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rule"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - admin/规则
+      summary: 删除规则
+      description: 规则已经不存在也返回成功。
+      operationId: deleteRule
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          description: 规则编号
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Empty:
+      type: object
+      description: 没有内容的成功响应
+      properties: {}
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+    Rule:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 规则编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        name:
+          type: string
+          description: 规则名称
+        enabled:
+          type: boolean
+          description: 是否启用
+        trigger:
+          type: string
+          description: 触发类型
+          enum:
+            - card_created
+            - card_entered
+            - card_left
+        column_id:
+          type: integer
+          description: 触发所在的列，0 表示任意列
+        condition:
+          type: string
+          description: 条件，使用卡片筛选语法，空表示无条件
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleAction"
+          description: 动作列表，按顺序执行
+        sort:
+          type: integer
+          description: 排序值，越小越先执行
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+    RuleAction:
+      type: object
+      properties:
+        type:
+          type: string
+          description: 动作类型
+          enum:
+            - set_started_at
+            - set_finished_at
+            - clear_started_at
+            - clear_finished_at
+            - set_due
+            - clear_due
+            - set_priority
+            - add_tag
+            - remove_tag
+            - set_human_only
+            - add_comment
+            - move_to_column
+        mode:
+          type: string
+          description: set_started_at、set_finished_at 的写入模式：if_empty（默认）只在时间为空时写入，always 总是覆盖
+          enum:
+            - if_empty
+            - always
+        tag:
+          type: string
+          description: add_tag、remove_tag 使用的标签文字
+        text:
+          type: string
+          description: add_comment 使用的评论内容
+        column_id:
+          type: integer
+          description: move_to_column 使用的目标列编号
+        days:
+          type: integer
+          description: set_due 使用的天数
+        priority:
+          type: integer
+          description: set_priority 使用的优先级，1 低、2 中、3 高
+        flag:
+          type: boolean
+          description: set_human_only 使用的开关值
+      description: 自动化规则的一个动作，只有当前动作类型用到的字段才有意义
+      required:
+        - type
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

@@ -1,0 +1,488 @@
+openapi: "3.1.0"
+info:
+  title: 领取
+  description: agent 领取卡片的相关动作。领取、取下一张和完成交接是给 agent 用的动作；REST 固定以人的身份调用，所以对 agent 专用的接口会返回 403，网页上的人直接拖动卡片来分配工作。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  "/api/v1/boards/{board_id}/cards/next":
+    post:
+      tags:
+        - admin/领取
+      summary: 取下一张卡片
+      description: 为 agent 挑选并领取看板里下一张该做的卡片。没有可做的卡片不是错误，此时 card 为 null。领取、取下一张和完成交接是给 agent 用的动作；REST 固定以人的身份调用，所以对 agent 专用的接口会返回 403，网页上的人直接拖动卡片来分配工作。
+      operationId: nextCard
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [column_id]
+              properties:
+                column_id:
+                  type: integer
+                  description: 按列提示词选择要领取任务的列编号
+                lease_minutes:
+                  type: integer
+                  description: 领取的时长（分钟），不填默认 30，最长 1440
+                engineer_id:
+                  type: integer
+                  description: 由哪位工程师承担：不填则卡片绑定的优先，否则随机挑一位空闲的；指定的工程师在忙返回 409 ErrEngineerBusy，同类型的工程师都在忙返回 409 ErrNoIdleEngineer，和卡片绑定的不一致返回 409 ErrEngineerBound
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NextCardResult"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: 没有权限或违反规则
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/claim":
+    post:
+      tags:
+        - admin/领取
+      summary: 领取卡片
+      description: 让 agent 领取指定的卡片，已经由自己持有时只是续租。领取、取下一张和完成交接是给 agent 用的动作；REST 固定以人的身份调用，所以对 agent 专用的接口会返回 403，网页上的人直接拖动卡片来分配工作。
+      operationId: claimCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 卡片编号
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lease_minutes:
+                  type: integer
+                  description: 领取的时长（分钟），不填默认 30，最长 1440
+                engineer_id:
+                  type: integer
+                  description: 由哪位工程师承担：不填则卡片绑定的优先，否则随机挑一位空闲的；指定的工程师在忙返回 409 ErrEngineerBusy，同类型的工程师都在忙返回 409 ErrNoIdleEngineer，和卡片绑定的不一致返回 409 ErrEngineerBound
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardDetail"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: 没有权限或违反规则
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/release":
+    post:
+      tags:
+        - admin/领取
+      summary: 释放领取
+      description: 释放卡片上的领取。agent 只能释放自己的，人可以收回任何一张；卡片已经没有领取也返回成功。
+      operationId: releaseCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 卡片编号
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/finish":
+    post:
+      tags:
+        - admin/领取
+      summary: 完成交接
+      description: 写总结、记录分支和链接、把卡片移到下一列并清除领取。column_id 不填就移入当前列设置的下一列。领取、取下一张和完成交接是给 agent 用的动作；REST 固定以人的身份调用，所以对 agent 专用的接口会返回 403，网页上的人直接拖动卡片来分配工作。
+      operationId: finishCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 卡片编号
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                summary:
+                  type: string
+                  description: 交接总结，会作为评论写在卡片下，必填
+                branch:
+                  type: string
+                  description: 关联的代码分支
+                url:
+                  type: string
+                  description: 关联的链接
+                column_id:
+                  type: integer
+                  description: 移入的列编号，不填用当前列设置的下一列
+                before_id:
+                  type: integer
+                  description: 放到这张卡片的前面
+                after_id:
+                  type: integer
+                  description: 放到这张卡片的后面
+              required:
+                - summary
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardDetail"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: 没有权限或违反规则
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    CardDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 卡片编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        column_id:
+          type: integer
+          description: 所在列编号
+        number:
+          type: integer
+          description: 看板内的卡片序号
+        key:
+          type: string
+          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+        title:
+          type: string
+          description: 标题
+        description:
+          type: string
+          description: 描述，Markdown 文本
+        position:
+          type: number
+          description: 列内排序位置，越小越靠上
+        priority:
+          type: integer
+          description: 优先级，0 未设置，1 低，2 中，3 高
+        tag_ids:
+          type: array
+          items:
+            type: integer
+            description: 标签编号
+          description: 标签编号列表，指向看板标签库
+        human_only:
+          type: boolean
+          description: 是否只能由人处理
+        waits_on:
+          type: array
+          items:
+            type: integer
+            description: 卡片编号
+          description: 依赖的卡片编号列表
+        due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 到期时间
+        started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 开始时间
+        finished_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 完成时间
+        claimed_by:
+          type: string
+          description: 当前持有这张卡的 agent 名称，没有则为空
+        claim_expires_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 领取的到期时间
+        engineer_id:
+          type: integer
+          description: 绑定或分配的全栈工程师编号，0 表示还没有
+        claim_engineer_id:
+          type: integer
+          description: 当前领取这张卡的工程师编号，领取放开后为 0
+        branch:
+          type: string
+          description: 关联的代码分支
+        url:
+          type: string
+          description: 关联的链接，例如合并请求
+        version:
+          type: integer
+          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+        created_by:
+          type: string
+          description: 创建者名称
+        updated_by:
+          type: string
+          description: 最后修改者名称
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+        tags:
+          type: array
+          items:
+            type: string
+            description: 标签文字
+          description: 卡片上带文字的标签的文字，按卡片上的顺序
+        column:
+          type: string
+          description: 卡片所在列的名称
+        done:
+          type: boolean
+          description: 卡片位于完成列
+        waiting:
+          type: boolean
+          description: 卡片有还没完成的依赖
+        claim_active:
+          type: boolean
+          description: 卡片正被某个 agent 领取，并且领取还没到期
+        column_instruction:
+          type: string
+          description: 所在列给 agent 的工作指令
+        dependencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardRef"
+          description: 依赖的卡片
+        comments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+          description: 全部评论，按时间从早到晚
+      description: 卡片的完整信息
+    CardRef:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 卡片编号
+        key:
+          type: string
+          description: 卡片编号，例如 SLATE-12
+        title:
+          type: string
+          description: 标题
+        column:
+          type: string
+          description: 所在列名称
+        done:
+          type: boolean
+          description: 是否已完成
+      description: 依赖列表里一张卡片的概要
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 评论编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        card_id:
+          type: integer
+          description: 所属卡片编号
+        author_kind:
+          type: string
+          description: 作者类型
+          enum:
+            - human
+            - agent
+            - system
+        author:
+          type: string
+          description: 作者名称
+        body:
+          type: string
+          description: 评论正文，Markdown 文本
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+    Empty:
+      type: object
+      description: 没有内容的成功响应
+      properties: {}
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+    NextCardResult:
+      type: object
+      properties:
+        card:
+          anyOf:
+            - $ref: "#/components/schemas/CardDetail"
+            - type: "null"
+          description: 领到的卡片；没有可做的卡片时为 null
+      description: 取下一张卡片的结果
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

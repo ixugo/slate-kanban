@@ -1,0 +1,162 @@
+openapi: "3.1.0"
+info:
+  title: 接入说明
+  description: agent 接入说明：安装说明页、skill 下载和 JSON 结构化指南，均不要求认证。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  /install.md:
+    get:
+      tags:
+        - admin/接入说明
+      summary: 安装说明
+      description: Markdown 形式的安装说明，不要求认证（agent 装好 MCP 之前就要读它）。地址按请求算出来，禁止缓存；Host 不合法返回 400。
+      operationId: getInstallDoc
+      responses:
+        "200":
+          description: 安装说明
+          content:
+            text/markdown:
+              schema:
+                type: string
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - {}
+  /skills/slate-kanban/SKILL.md:
+    get:
+      tags:
+        - admin/接入说明
+      summary: 下载 skill
+      description: 返回 skill 全文，就是编译进服务的那一份，随服务升级而变，使用前向服务确认是否最新。不要求认证。
+      operationId: getSkillDoc
+      responses:
+        "200":
+          description: skill 全文
+          content:
+            text/markdown:
+              schema:
+                type: string
+      security:
+        - {}
+  /api/v1/connect:
+    get:
+      tags:
+        - admin/接入说明
+      summary: 结构化接入说明
+      description: JSON 形式的接入说明，网页的“连接 Agent”用它渲染带复制按钮的命令。Host 不合法返回 400。
+      operationId: getConnect
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Guide"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      security:
+        - {}
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+    Guide:
+      type: object
+      properties:
+        base_url:
+          type: string
+          description: 服务地址，按请求的 Host 算出
+        mcp_url:
+          type: string
+          description: MCP 服务地址
+        install_url:
+          type: string
+          description: Markdown 安装说明的地址
+        skill_url:
+          type: string
+          description: skill 下载地址
+        hosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Host"
+          description: 各个 agent 宿主的接入步骤
+    Host:
+      type: object
+      properties:
+        id:
+          type: string
+          description: agent 宿主的标识，例如 claude-code、cursor、codex
+        name:
+          type: string
+          description: agent 宿主的名称
+        mcp:
+          type: array
+          items:
+            $ref: "#/components/schemas/Snippet"
+          description: 安装 MCP 的命令或配置
+        skill:
+          type: array
+          items:
+            $ref: "#/components/schemas/Snippet"
+          description: 安装 skill 的命令或配置
+    Snippet:
+      type: object
+      properties:
+        kind:
+          type: string
+          description: 片段类型
+        title:
+          type: string
+          description: 片段标题
+        lang:
+          type: string
+          description: 代码块语言
+        code:
+          type: string
+          description: 可以直接复制的内容
+      description: 接入说明里的一段可复制内容
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。

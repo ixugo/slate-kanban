@@ -1,0 +1,811 @@
+openapi: "3.1.0"
+info:
+  title: 事件与更新
+  description: 看板的快照、事件、活动流和 agent 拉取更新。REST 接口固定以「人」的身份调用。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  "/api/v1/boards/{board_id}/snapshot":
+    get:
+      tags:
+        - admin/事件
+      summary: 看板快照
+      description: 一次返回整块看板：看板、列、规则、全部卡片，以及读取之前的最新事件序号 seq。网页加载和断线重连后用它对齐状态。
+      operationId: getSnapshot
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Snapshot"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/{board_id}/events":
+    get:
+      tags:
+        - admin/事件
+      summary: 事件列表
+      description: 返回起点序号之后的事件，不做过滤，用于断线补发。truncated 为 true 表示起点之后有事件已被清理，应该重新读取快照。
+      operationId: listEvents
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+        - name: after
+          in: query
+          required: false
+          description: 起点序号，只返回比它大的事件，默认 0
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          description: 最多返回几条，默认 200，最大 1000
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPage"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/{board_id}/activity":
+    get:
+      tags:
+        - admin/事件
+      summary: 活动流
+      description: 从新到旧返回看板的事件，可以按事件类型、操作者和卡片筛选。types 和 exclude_types 里出现空项（比如多写了逗号）或不认识的类型，返回 400。
+      operationId: listActivity
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+        - name: before
+          in: query
+          required: false
+          description: 翻页起点，只看序号比它小的事件；翻下一页时传上一页最后一条的序号，默认从最新开始
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          description: 一页最多几条，默认 50，最大 200
+          schema:
+            type: integer
+        - name: types
+          in: query
+          required: false
+          description: 只看这些事件类型，用逗号分隔
+          schema:
+            type: string
+        - name: exclude_types
+          in: query
+          required: false
+          description: 不要这些事件类型，用逗号分隔
+          schema:
+            type: string
+        - name: actor_kind
+          in: query
+          required: false
+          description: 操作者类型
+          schema:
+            type: string
+            enum:
+              - human
+              - agent
+              - system
+        - name: actor
+          in: query
+          required: false
+          description: 操作者名称
+          schema:
+            type: string
+        - name: card_id
+          in: query
+          required: false
+          description: 只看某张卡片的事件
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityPage"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/{board_id}/updates/pull":
+    post:
+      tags:
+        - admin/事件
+      summary: 拉取更新
+      description: 返回 agent 还没看过的更新，并按 since 确认上一批。拉取更新是给 agent 用的；REST 固定以人的身份调用，所以会返回 403。
+      operationId: pullUpdates
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                since:
+                  type: integer
+                  description: 已经处理完的事件序号，一般填上一次返回的 cursor；不填表示不确认任何东西，从服务端记着的进度继续读
+                limit:
+                  type: integer
+                  description: 一次最多返回多少条，不填取默认值，超过上限取上限
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Updates"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: 没有权限或违反规则
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/{board_id}/updates/wait":
+    post:
+      tags:
+        - admin/事件
+      summary: 等待更新
+      description: 和拉取更新一样，但没有新更新时会等到有更新或超时，超时时 timed_out 为 true。等待期间服务开始关闭会返回 503，稍后重试即可。拉取更新是给 agent 用的；REST 固定以人的身份调用，所以会返回 403。
+      operationId: waitUpdates
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                since:
+                  type: integer
+                  description: 已经处理完的事件序号，一般填上一次返回的 cursor；不填表示不确认任何东西，从服务端记着的进度继续读
+                limit:
+                  type: integer
+                  description: 一次最多返回多少条，不填取默认值，超过上限取上限
+                timeout_seconds:
+                  type: integer
+                  description: 最长等待的秒数，不填默认 30，最大 50
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Updates"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: 没有权限或违反规则
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 目标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: 服务正在关闭，请稍后重试
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    ActivityActor:
+      type: object
+      properties:
+        kind:
+          type: string
+          description: 操作者类型
+          enum:
+            - human
+            - agent
+            - system
+        name:
+          type: string
+          description: 操作者名称
+    ActivityPage:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+          description: 满足条件的事件，最新的在前
+        has_more:
+          type: boolean
+          description: 这一页之后还有更早的、满足条件的事件
+        latest:
+          type: integer
+          description: 看板当前最新的事件序号，不受筛选条件影响
+        actors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityActor"
+          description: 这个看板的事件里出现过的全部操作者，不受筛选条件影响
+    CardView:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 卡片编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        column_id:
+          type: integer
+          description: 所在列编号
+        number:
+          type: integer
+          description: 看板内的卡片序号
+        key:
+          type: string
+          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+        title:
+          type: string
+          description: 标题
+        description:
+          type: string
+          description: 描述，Markdown 文本
+        position:
+          type: number
+          description: 列内排序位置，越小越靠上
+        priority:
+          type: integer
+          description: 优先级，0 未设置，1 低，2 中，3 高
+        tag_ids:
+          type: array
+          items:
+            type: integer
+            description: 标签编号
+          description: 标签编号列表，指向看板标签库
+        human_only:
+          type: boolean
+          description: 是否只能由人处理
+        waits_on:
+          type: array
+          items:
+            type: integer
+            description: 卡片编号
+          description: 依赖的卡片编号列表
+        due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 到期时间
+        started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 开始时间
+        finished_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 完成时间
+        claimed_by:
+          type: string
+          description: 当前持有这张卡的 agent 名称，没有则为空
+        claim_expires_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: 领取的到期时间
+        engineer_id:
+          type: integer
+          description: 绑定或分配的全栈工程师编号，0 表示还没有
+        claim_engineer_id:
+          type: integer
+          description: 当前领取这张卡的工程师编号，领取放开后为 0
+        branch:
+          type: string
+          description: 关联的代码分支
+        url:
+          type: string
+          description: 关联的链接，例如合并请求
+        version:
+          type: integer
+          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+        created_by:
+          type: string
+          description: 创建者名称
+        updated_by:
+          type: string
+          description: 最后修改者名称
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+        tags:
+          type: array
+          items:
+            type: string
+            description: 标签文字
+          description: 卡片上带文字的标签的文字，按卡片上的顺序
+        column:
+          type: string
+          description: 卡片所在列的名称
+        done:
+          type: boolean
+          description: 卡片位于完成列
+        waiting:
+          type: boolean
+          description: 卡片有还没完成的依赖
+        claim_active:
+          type: boolean
+          description: 卡片正被某个 agent 领取，并且领取还没到期
+      description: 卡片连同从列、依赖、领取推出来的派生状态
+    Column:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 列编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        name:
+          type: string
+          description: 列名称
+        instruction:
+          type: string
+          description: 给 agent 的指令，说明这一列的卡片该怎么处理
+        is_done:
+          type: boolean
+          description: 卡片进入这一列是否算完成
+        next_column_id:
+          type: integer
+          description: 卡片完成交接后默认移入的下一列，0 表示没有
+        sort:
+          type: integer
+          description: 排序值，越小越靠左
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+    Engineer:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 工程师编号
+        name:
+          type: string
+          description: 工程师名称，同一看板内不重名，最长 30 个字符
+        kind:
+          type: string
+          enum:
+            - dev
+            - frontend
+            - backend
+            - ui
+            - review
+          description: 类型：dev 全栈，frontend 前端，backend 后端，ui UI（这四种都做研发，只是专长不同），review 测试
+        prompt:
+          type: string
+          description: 角色提示词，调度 agent 派子 agent 时使用，最长 2000 个字符
+        avatar:
+          type: string
+          description: 头像的随机种子，网页按它画头像；空表示用工程师编号
+      description: 看板工程师名册里的一位工程师，每位是一个并发名额
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+          description: 请求追踪编号，排查问题时提供给维护者
+        reason:
+          type: string
+          description: 错误码，例如 ErrInvalidInput、ErrCardNotFound
+        msg:
+          type: string
+          description: 错误说明，可以直接展示给用户
+        details:
+          type: array
+          items:
+            type: string
+            description: 补充信息
+          description: 附加信息，生产模式下不返回
+      description: 所有失败响应的统一结构
+      required:
+        - reason
+        - msg
+    Event:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 事件序号，在看板内单调递增
+        board_id:
+          type: integer
+          description: 所属看板编号
+        card_id:
+          type: integer
+          description: 关联的卡片编号，0 表示与卡片无关
+        type:
+          type: string
+          description: 事件类型
+          enum:
+            - board.created
+            - board.updated
+            - board.labels_updated
+            - column.created
+            - column.updated
+            - column.deleted
+            - column.reordered
+            - card.created
+            - card.updated
+            - card.tags_updated
+            - card.moved
+            - card.reordered
+            - card.deleted
+            - card.claimed
+            - card.released
+            - comment.added
+            - comment.deleted
+            - rule.created
+            - rule.updated
+            - rule.deleted
+            - automation.fired
+        actor_kind:
+          type: string
+          description: 操作者类型
+          enum:
+            - human
+            - agent
+            - system
+        actor:
+          type: string
+          description: 操作者名称
+        payload:
+          type: string
+          description: 事件内容，是一段 JSON 对象的文本，字段随事件类型而不同
+        created_at:
+          type: string
+          format: date-time
+          description: 发生时间
+    EventPage:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+          description: 起点之后的事件，按序号升序
+        latest:
+          type: integer
+          description: 看板当前最新的事件序号
+        has_more:
+          type: boolean
+          description: 这一页之后还有事件
+        truncated:
+          type: boolean
+          description: 起点之后有事件已被清理，应该重新读取整块看板
+    Rule:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 规则编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        name:
+          type: string
+          description: 规则名称
+        enabled:
+          type: boolean
+          description: 是否启用
+        trigger:
+          type: string
+          description: 触发类型
+          enum:
+            - card_created
+            - card_entered
+            - card_left
+        column_id:
+          type: integer
+          description: 触发所在的列，0 表示任意列
+        condition:
+          type: string
+          description: 条件，使用卡片筛选语法，空表示无条件
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleAction"
+          description: 动作列表，按顺序执行
+        sort:
+          type: integer
+          description: 排序值，越小越先执行
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+    RuleAction:
+      type: object
+      properties:
+        type:
+          type: string
+          description: 动作类型
+          enum:
+            - set_started_at
+            - set_finished_at
+            - clear_started_at
+            - clear_finished_at
+            - set_due
+            - clear_due
+            - set_priority
+            - add_tag
+            - remove_tag
+            - set_human_only
+            - add_comment
+            - move_to_column
+        mode:
+          type: string
+          description: set_started_at、set_finished_at 的写入模式：if_empty（默认）只在时间为空时写入，always 总是覆盖
+          enum:
+            - if_empty
+            - always
+        tag:
+          type: string
+          description: add_tag、remove_tag 使用的标签文字
+        text:
+          type: string
+          description: add_comment 使用的评论内容
+        column_id:
+          type: integer
+          description: move_to_column 使用的目标列编号
+        days:
+          type: integer
+          description: set_due 使用的天数
+        priority:
+          type: integer
+          description: set_priority 使用的优先级，1 低、2 中、3 高
+        flag:
+          type: boolean
+          description: set_human_only 使用的开关值
+      description: 自动化规则的一个动作，只有当前动作类型用到的字段才有意义
+      required:
+        - type
+    Snapshot:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 看板编号
+        name:
+          type: string
+          description: 看板名称
+        slug:
+          type: string
+          description: 看板短标识，卡片编号的前缀，创建后不可修改
+        description:
+          type: string
+          description: 看板说明
+        project_path:
+          type: string
+          description: 看板关联的本地项目路径
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tag"
+          description: 标签库
+        engineers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Engineer"
+          description: 工程师名册，每位是一个并发名额
+        created_at:
+          type: string
+          format: date-time
+          description: 创建时间
+        updated_at:
+          type: string
+          format: date-time
+          description: 更新时间
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Column"
+          description: 看板的列，从左到右
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/Rule"
+          description: 看板的自动化规则，按执行顺序
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardView"
+          description: 看板里的全部卡片，先按列从左到右，同一列里按位置
+        seq:
+          type: integer
+          description: 读取数据之前看板的最新事件序号，从它之后接收事件不会漏
+      description: 整块看板的当前状态
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 标签编号
+        text:
+          type: string
+          description: 标签文字，可以为空
+        color:
+          type: string
+          description: 标签颜色，形如 green-2，空表示默认灰色
+      description: 看板标签库里的一个标签
+    Updates:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+          description: agent 需要看的事件，按序号升序，自己做的操作和排序类事件已被过滤
+        cursor:
+          type: integer
+          description: 这一批读到的最后一个序号，下一次把它填进 since 表示这一批已处理完
+        latest:
+          type: integer
+          description: 看板当前最新的事件序号
+        has_more:
+          type: boolean
+          description: 这一批之后还有事件，应该立刻再拉一次
+        first:
+          type: boolean
+          description: 这是这个 agent 第一次读这个看板，不补发历史
+        truncated:
+          type: boolean
+          description: 离线太久，中间有事件已被清理，需要重新读看板快照
+        timed_out:
+          type: boolean
+          description: 等待超时仍没有新事件，只出现在 wait 接口里
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: 访问口令。只有服务设置了访问口令时才需要；网页登录后也可以只靠会话 cookie。
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session
+      description: 网页登录后种下的会话 cookie。
