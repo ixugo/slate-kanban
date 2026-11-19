@@ -17,4 +17,9 @@ type FinishCardInput struct {
 	Branch   string `json:"branch"`
 	URL      string `json:"url"`
 	ColumnID int64  `json:"column_id"`
+	// BeforeID、AfterID 指定卡片在目标列里放到哪张卡的前面或后面，最多填一个。
+	BeforeID int64 `json:"before_id"`
+	AfterID  int64 `json:"after_id"`
+	// Top 为真且没有指定 BeforeID、AfterID 时放到目标列最顶部，否则放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
+	Top bool `json:"-"`
 }

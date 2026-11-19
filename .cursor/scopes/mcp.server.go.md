@@ -40,11 +40,11 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 | next_card | 有 | — | NextCard | 从"agent 领取列"里领下一张该做的卡，没有时 `card` 为 null |
 | claim_card | 有 | — | ClaimCard | 领取或续租指定的卡 |
 | release_card | 有 | 有 | ReleaseCard | agent 释放自己的；人可以收回任何一张 |
-| finish_card | 有 | 有 | FinishCard | 写总结并交接到下一列（通常是"审查"） |
+| finish_card | 有 | 有 | FinishCard | 写总结并交接到下一列（通常是"审查"），默认放到目标列最顶部，可用 before_id / after_id 指定位置 |
 | comment_card | 有 | 有 | AddComment | 写评论 |
-| create_card | 有 | 有 | CreateCard | agent 版没有规划类字段 |
+| create_card | 有 | 有 | CreateCard | agent 版没有规划类字段；新卡片放在所在列最顶部 |
 | update_card | 有 | 有 | UpdateCard | agent 版没有规划类字段，只能改自己持有的卡 |
-| move_card | 有 | 有 | MoveCard | agent 只能移自己持有的卡，且不能放进"agent 领取列" |
+| move_card | 有 | 有 | MoveCard | agent 只能移自己持有的卡，且不能放进"agent 领取列"；不带 before_id / after_id 时放到目标列最顶部（最新的在最上面）|
 | set_project_path | 有 | — | UpdateBoard | 项目路径为空时写入；已有值时返回 `ErrProjectPathLocked` |
 | list_events | — | 有 | ListEvents | 看板的活动流水 |
 | create_board | 有 | 有 | CreateBoard | 新建项目；agent 只在用户明确要求时才用（说明和 skill 里都这样写）。自动化规则不能建 |

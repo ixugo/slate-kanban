@@ -40,6 +40,15 @@ func computePosition(cards []*Card, beforeID, afterID int64) (float64, int, erro
 	return pos, idx, err
 }
 
+// topRef 决定放置时参照哪张卡片：要求放顶部（top）而且调用方没有指定位置时，参照列里的第一张卡，
+// 也就是放到列头；其余情况原样返回调用方给的 beforeID。cards 的含义同 computePosition。
+func topRef(cards []*Card, top bool, beforeID, afterID int64) int64 {
+	if top && beforeID == 0 && afterID == 0 && len(cards) > 0 {
+		return cards[0].ID
+	}
+	return beforeID
+}
+
 // appendPosition 读出某一列当前最大的位置，返回放到这一列末尾的位置，空列是第一个间距。
 func (u *unit) appendPosition(ctx context.Context, columnID int64) (float64, error) {
 	maxPos, err := u.card.MaxPosition(ctx, columnID)
