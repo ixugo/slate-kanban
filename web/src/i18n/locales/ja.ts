@@ -647,5 +647,6 @@ export const ja: Messages = {
     ErrProjectPathLocked: 'プロジェクトのパスはすでに設定されています。変更できるのは人だけです。',
     ErrAttachmentTooLarge: '画像が大きすぎます。上限は 5 MB です。',
     ErrAttachmentNotFound: 'この画像はすでに存在しません。',
+    ErrResourcesDisabled: 'サーバーに画像の保存先が設定されていません。',
   },
 }

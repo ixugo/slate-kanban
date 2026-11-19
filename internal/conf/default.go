@@ -22,6 +22,7 @@ func DefaultConfig(dir string) Bootstrap {
 			},
 		},
 		Data: Data{
+			ResourceDir: filepath.Join(dir, "resource"),
 			Database: Database{
 				Dsn:             filepath.Join(dir, "data.db"),
 				MaxIdleConns:    10,

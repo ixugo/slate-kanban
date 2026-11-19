@@ -59,7 +59,18 @@ func run(m *testing.M) int {
 
 	bc := &conf.Bootstrap{Server: conf.Server{HTTP: conf.ServerHTTP{Passcode: passcode}}}
 	bc.Runtime.BuildVersion = "passcodeflow-test"
-	kcore := api.NewKanbanCore(db)
+	confDir, err := os.MkdirTemp("", "slate-api-test-*")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "创建临时配置目录失败:", err)
+		return 1
+	}
+	defer func() { _ = os.RemoveAll(confDir) }()
+	bc.Runtime.ConfigDir = confDir
+	kcore, err := api.NewKanbanCore(db, bc)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "创建看板领域失败:", err)
+		return 1
+	}
 	mcpAPI, stopMCP := api.NewMCP(bc, kcore)
 	defer stopMCP()
 	uc := &api.Usecase{

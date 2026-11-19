@@ -641,5 +641,6 @@ export const zhCN: Messages = {
     ErrProjectPathLocked: '项目路径已经设置，只有人可以修改。',
     ErrAttachmentTooLarge: '图片太大，上限是 5 MB。',
     ErrAttachmentNotFound: '这张图片已经不存在。',
+    ErrResourcesDisabled: '服务器尚未配置图片存储目录。',
   },
 }

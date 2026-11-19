@@ -645,6 +645,7 @@ export const en = {
     ErrProjectPathLocked: 'The project path is already set. Only people can change it.',
     ErrAttachmentTooLarge: 'Image is too large. The limit is 5 MB.',
     ErrAttachmentNotFound: 'The image no longer exists.',
+    ErrResourcesDisabled: 'Image storage is not configured on the server.',
   },
 }
 

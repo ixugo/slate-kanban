@@ -646,5 +646,6 @@ export const ko: Messages = {
     ErrProjectPathLocked: '프로젝트 경로가 이미 설정되어 있습니다. 사람만 변경할 수 있습니다.',
     ErrAttachmentTooLarge: '이미지가 너무 큽니다. 한도는 5 MB입니다.',
     ErrAttachmentNotFound: '이미지가 더 이상 존재하지 않습니다.',
+    ErrResourcesDisabled: '서버에 이미지 저장 위치가 설정되어 있지 않습니다.',
   },
 }

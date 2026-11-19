@@ -642,5 +642,6 @@ export const zhTW: Messages = {
     ErrProjectPathLocked: '專案路徑已經設定，只有人可以修改。',
     ErrAttachmentTooLarge: '圖片太大，上限是 5 MB。',
     ErrAttachmentNotFound: '這張圖片已經不存在。',
+    ErrResourcesDisabled: '伺服器尚未設定圖片儲存目錄。',
   },
 }

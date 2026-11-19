@@ -17,6 +17,8 @@
       AccessIps = ['::1', '127.0.0.1']
 
 [Data]
+  # 图片等资源文件，按项目分子目录，和数据库一样放在 /data 卷里
+  ResourceDir = '/data/resource'
   [Data.Database]
     # 放在 /data，由 compose 的命名卷保存
     Dsn = '/data/slate.db'

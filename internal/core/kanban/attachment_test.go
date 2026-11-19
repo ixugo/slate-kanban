@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"slate-kanban/internal/core/kanban"
+	"slate-kanban/internal/core/kanban/stores/blobfs"
 )
 
 // pngBytes 返回以 PNG 文件头开头的假图片，类型嗅探只看文件头。
@@ -27,9 +30,12 @@ func TestSaveAttachment(t *testing.T) {
 	if len(got.Token) != 32 || got.ContentType != "image/png" || got.Size != int64(len(data)) || got.BoardID != e.board.ID {
 		t.Fatalf("记录不对: %+v", got)
 	}
-	read, err := e.core.GetAttachment(ctx, got.Token)
-	if err != nil || !bytes.Equal(read.Data, data) || read.ContentType != "image/png" {
+	read, body, err := e.core.GetAttachment(ctx, got.Token)
+	if err != nil || !bytes.Equal(body, data) || read.ContentType != "image/png" {
 		t.Fatalf("读回不对: %+v %v", read, err)
+	}
+	if want := e.board.Slug + "/" + got.Token + ".png"; got.Path != want {
+		t.Fatalf("文件路径应该是 %q，实际 %q", want, got.Path)
 	}
 	other, err := e.core.SaveAttachment(ctx, testAgent, e.board.ID, data)
 	if err != nil || other.Token == got.Token {
@@ -68,7 +74,7 @@ func TestSaveAttachmentRejects(t *testing.T) {
 func TestGetAttachmentBadToken(t *testing.T) {
 	e := newCardEnv(t)
 	for _, token := range []string{"", "abc", "../../etc/passwd", "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ", "00000000000000000000000000000000"} {
-		if _, err := e.core.GetAttachment(context.Background(), token); !errors.Is(err, kanban.ErrAttachmentNotFound) {
+		if _, _, err := e.core.GetAttachment(context.Background(), token); !errors.Is(err, kanban.ErrAttachmentNotFound) {
 			t.Errorf("%q：期望不存在，实际 %v", token, err)
 		}
 	}
@@ -91,10 +97,59 @@ func TestDeleteBoardRemovesAttachments(t *testing.T) {
 	if err := e.core.DeleteBoard(ctx, testActor, e.board.ID); err != nil {
 		t.Fatalf("删除失败: %v", err)
 	}
-	if _, err := e.core.GetAttachment(ctx, mine.Token); !errors.Is(err, kanban.ErrAttachmentNotFound) {
+	if _, _, err := e.core.GetAttachment(ctx, mine.Token); !errors.Is(err, kanban.ErrAttachmentNotFound) {
 		t.Fatalf("图片应该被删除: %v", err)
 	}
-	if _, err := e.core.GetAttachment(ctx, theirs.Token); err != nil {
+	if _, _, err := e.core.GetAttachment(ctx, theirs.Token); err != nil {
 		t.Fatalf("别的看板的图片不应该被删: %v", err)
+	}
+}
+
+// TestAttachmentFilesLiveOnDisk 验证图片字节只存在资源目录的文件里：路径按看板 slug 分子目录，
+// 删除看板连子目录一起删除，别的看板的子目录保留；文件丢了读取按"不存在"处理。
+func TestAttachmentFilesLiveOnDisk(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	e := newCardEnv(t, kanban.WithResources(blobfs.New(root)))
+	other := newCardEnvOn(t, e.core, e.db, "OTH")
+	mine, err := e.core.SaveAttachment(ctx, testActor, e.board.ID, pngBytes(10))
+	if err != nil {
+		t.Fatal(err)
+	}
+	theirs, err := e.core.SaveAttachment(ctx, testActor, other.board.ID, pngBytes(10))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "TST", mine.Token+".png")); err != nil {
+		t.Fatalf("图片文件应该在看板子目录里: %v", err)
+	}
+
+	if err := os.Remove(filepath.Join(root, "OTH", theirs.Token+".png")); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.core.GetAttachment(ctx, theirs.Token); !errors.Is(err, kanban.ErrAttachmentNotFound) {
+		t.Fatalf("文件丢了应该按不存在处理: %v", err)
+	}
+
+	if err := e.core.DeleteBoard(ctx, testActor, e.board.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "TST")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("看板的资源子目录应该被删除: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "OTH")); err != nil {
+		t.Fatalf("别的看板的子目录不应该被删: %v", err)
+	}
+}
+
+// TestAttachmentWithoutResources 没配置资源存储时，上传和读取都明确报错，而不是 panic。
+func TestAttachmentWithoutResources(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t, kanban.WithResources(nil))
+	if _, err := e.core.SaveAttachment(ctx, testActor, e.board.ID, pngBytes(10)); !errors.Is(err, kanban.ErrResourcesDisabled) {
+		t.Fatalf("上传应该报未配置资源目录: %v", err)
+	}
+	if _, _, err := e.core.GetAttachment(ctx, "00000000000000000000000000000000"); !errors.Is(err, kanban.ErrResourcesDisabled) {
+		t.Fatalf("读取应该报未配置资源目录: %v", err)
 	}
 }

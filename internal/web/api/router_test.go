@@ -60,7 +60,18 @@ func runWithSharedRouter(m *testing.M) int {
 
 	bc := &conf.Bootstrap{}
 	bc.Runtime.BuildVersion = testBuildVersion
-	kcore := NewKanbanCore(db)
+	confDir, err := os.MkdirTemp("", "slate-api-test-*")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "创建临时配置目录失败:", err)
+		return 1
+	}
+	defer func() { _ = os.RemoveAll(confDir) }()
+	bc.Runtime.ConfigDir = confDir
+	kcore, err := NewKanbanCore(db, bc)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "创建看板领域失败:", err)
+		return 1
+	}
 	mcpAPI, stopMCP := NewMCP(bc, kcore)
 	defer stopMCP()
 	uc := &Usecase{

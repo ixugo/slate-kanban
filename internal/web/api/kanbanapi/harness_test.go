@@ -47,7 +47,7 @@ func newStackWith(t *testing.T, tune func(kanbanapi.API) kanbanapi.API) *stack {
 		}
 	})
 	v1 := engine.Group("/api/v1", restactor.Middleware())
-	kanbanapi.Register(v1, tune(kanbanapi.New(kanban.NewCore(db))))
+	kanbanapi.Register(v1, tune(kanbanapi.New(kanban.NewCore(db, kanbantest.Resources(t)))))
 	s.Client = apitest.Client{Engine: engine}
 	return s
 }

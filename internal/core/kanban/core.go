@@ -28,9 +28,10 @@ type Storer interface {
 type Core struct {
 	store      Storer
 	now        func() time.Time
-	hub        *Hub  // 按指针共享，Core 被复制后仍然是同一个唤醒器
-	keepEvents int   // 每个看板保留的事件条数
-	pruneEvery int64 // 事件序号是它的整数倍时顺带清理旧事件
+	hub        *Hub           // 按指针共享，Core 被复制后仍然是同一个唤醒器
+	keepEvents int            // 每个看板保留的事件条数
+	pruneEvery int64          // 事件序号是它的整数倍时顺带清理旧事件
+	resources  ResourceStorer // 图片等资源文件的存放处，没配置时不能上传图片
 }
 
 // Option 修改 Core 的可选行为。
@@ -39,6 +40,11 @@ type Option func(*Core)
 // WithClock 替换 Core 使用的时钟。测试里用它固定时间，生产环境不需要设置。
 func WithClock(now func() time.Time) Option {
 	return func(c *Core) { c.now = now }
+}
+
+// WithResources 设置图片等资源文件的存放处。不设置时上传和读取图片都会报错。
+func WithResources(r ResourceStorer) Option {
+	return func(c *Core) { c.resources = r }
 }
 
 // NewCore 创建看板领域的业务入口，默认使用系统时钟。

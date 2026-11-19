@@ -93,7 +93,7 @@ func readUploadedFile(c *gin.Context) ([]byte, error) {
 // 响应头把图片锁死成"只能当图片看"：禁止类型嗅探，并带上禁用一切脚本的内容安全策略；
 // 编号是随机且不可改的，内容永远不变，所以可以长期缓存。
 func (a API) getAttachment(c *gin.Context) {
-	item, err := a.core.GetAttachment(c.Request.Context(), c.Param("token"))
+	item, data, err := a.core.GetAttachment(c.Request.Context(), c.Param("token"))
 	if err != nil {
 		web.Fail(c, err)
 		return
@@ -102,5 +102,5 @@ func (a API) getAttachment(c *gin.Context) {
 	c.Header("Content-Security-Policy", "default-src 'none'; sandbox")
 	c.Header("Cache-Control", "private, max-age=31536000, immutable")
 	c.Header("Content-Disposition", "inline")
-	c.Data(http.StatusOK, item.ContentType, item.Data)
+	c.Data(http.StatusOK, item.ContentType, data)
 }

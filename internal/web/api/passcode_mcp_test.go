@@ -27,7 +27,11 @@ func TestMCPPasscodeRequired(t *testing.T) {
 	})
 	bc := &conf.Bootstrap{Server: conf.Server{HTTP: conf.ServerHTTP{Passcode: testPasscode}}}
 	bc.Runtime.BuildVersion = testBuildVersion
-	kcore := NewKanbanCore(db)
+	bc.Runtime.ConfigDir = t.TempDir()
+	kcore, err := NewKanbanCore(db, bc)
+	if err != nil {
+		t.Fatal(err)
+	}
 	mcpAPI, stopMCP := NewMCP(bc, kcore)
 	t.Cleanup(stopMCP)
 

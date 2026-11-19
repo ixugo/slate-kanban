@@ -3,6 +3,7 @@ package kanban
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"slices"
 
 	"github.com/ixugo/goddd/pkg/orm"
@@ -212,28 +213,45 @@ func (c Core) DeleteBoard(ctx context.Context, actor Actor, id int64) error {
 	if err := requireHuman(actor); err != nil {
 		return err
 	}
+	var slug string
 	err := c.run(ctx, id, func(u *unit) error {
-		return u.deleteBoard(ctx, id)
+		var err error
+		slug, err = u.deleteBoard(ctx, id)
+		return err
 	})
 	if errors.Is(err, ErrBoardNotFound) {
 		return nil
 	}
+	if err == nil {
+		c.removeResourceDir(slug)
+	}
 	return err
 }
 
-// deleteBoard 在事务里按依赖顺序删除看板的全部数据，最后删看板自己，并标记要广播。
+// removeResourceDir 在看板删除提交后清理它的资源子目录。数据库已经删干净了，
+// 这里失败只留下无人引用的文件，所以只记警告，不让删除看板失败。
+func (c Core) removeResourceDir(slug string) {
+	if c.resources == nil || slug == "" {
+		return
+	}
+	if err := c.resources.RemoveDir(slug); err != nil {
+		slog.Warn("清理看板资源目录失败", "slug", slug, "err", err)
+	}
+}
+
+// deleteBoard 在事务里按依赖顺序删除看板的全部数据，最后删看板自己，并标记要广播，返回被删看板的 slug。
 // 一个看板的卡片数量预期在几千张以内，每类数据一条删除语句，所以是常数条语句。
-func (u *unit) deleteBoard(ctx context.Context, id int64) error {
+func (u *unit) deleteBoard(ctx context.Context, id int64) (string, error) {
 	b, err := u.board.GetByID(ctx, id)
 	if err != nil {
-		return mapNotFound(err, ErrBoardNotFound, "读取看板")
+		return "", mapNotFound(err, ErrBoardNotFound, "读取看板")
 	}
 	steps := []struct {
 		what string
 		del  func() error
 	}{
 		{"评论", func() error { return u.comment.DeleteByBoard(ctx, id) }},
-		{"图片", func() error { return u.attachment.DeleteByBoard(ctx, id) }},
+		{"图片记录", func() error { return u.attachment.DeleteByBoard(ctx, id) }},
 		{"卡片", func() error { return u.card.DeleteByBoard(ctx, id) }},
 		{"标签", func() error { return u.tag.DeleteByBoard(ctx, id) }},
 		{"规则", func() error { return u.rule.DeleteByBoard(ctx, id) }},
@@ -244,11 +262,11 @@ func (u *unit) deleteBoard(ctx context.Context, id int64) error {
 	}
 	for _, s := range steps {
 		if err := s.del(); err != nil {
-			return wrapDB("删除看板的"+s.what, err)
+			return "", wrapDB("删除看板的"+s.what, err)
 		}
 	}
 	u.touch(id)
-	return nil
+	return b.Slug, nil
 }
 
 // loadTags 把看板的标签库读出来放到 b.Tags 上。

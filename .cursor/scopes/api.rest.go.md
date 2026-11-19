@@ -126,12 +126,12 @@ agent 通过 MCP 接入，身份由 `GET/POST /mcp?name=...&role=worker|manager`
 
 ## 图片附件
 
-粘贴进 Markdown 的图片存在数据库表 `attachments`（`Data` 字段是图片字节），不依赖文件目录，随数据库一起备份。
+粘贴进 Markdown 的图片以文件形式存在资源目录（`Data.ResourceDir`，默认 `~/.slate-kanban/resource`），按看板 slug 分子目录，文件名是 `<token>.<扩展名>`；数据库表 `attachments` 只存相对路径（`path`，如 `SLATE/xxxx.png`）、类型和大小，不存图片字节。备份时要同时备份数据库和资源目录。旧版存在 `attachments.data` 里的图片，启动时由 `kanbandb.MigrateAttachmentFiles` 搬成文件并删掉 `data` 列，可重复执行。文件读写封装在 `stores/blobfs`（拒绝绝对路径和 `..`，先写临时文件再改名）。
 
 - 上传 `POST /boards/:board_id/attachments`：表单字段 `file`。`guard.go` 对这条路由放开「只收 JSON」和 1 MiB 上限（`uploadRoute`、`uploadBodyLimit`），请求体限制在 5 MB + 1 MB 后才解析。类型由 `http.DetectContentType` 按内容判断，只收 PNG、JPEG、GIF、WebP；**不收 SVG**（SVG 能带脚本）。超过 5 MB 返回 413 `ErrAttachmentTooLarge`，类型不对或字段缺失返回 400 `ErrInvalidInput`，看板不存在 404。
 - 读取 `GET /attachments/:token`：`token` 是随机的 32 位小写十六进制，格式不对直接 404。响应头带 `X-Content-Type-Options: nosniff`、`Content-Security-Policy: default-src 'none'; sandbox`、`Content-Disposition: inline`，内容不变所以 `Cache-Control: private, max-age=31536000, immutable`。
 - Markdown 里写 `![说明](/api/v1/attachments/<token>)`，网页只渲染这种本服务的附件图片，外部图片地址当文字显示，不会去加载。
-- 删除看板时图片一起删除；删除卡片不删（图片可能被别处引用）。整板导出的 JSON/Markdown 只保留图片地址，不内嵌图片字节。
+- 删除看板时图片记录和它的资源子目录一起删除（记录在事务里删，子目录在提交后清理，清理失败只记警告）；删除卡片不删（图片可能被别处引用）。整板导出的 JSON/Markdown 只保留图片地址，不内嵌图片字节。
 - 没有访问口令时和其他接口一样免登录；设了口令后图片地址也要带会话 cookie（`<img>` 同源请求会自动带上）。
 
 ## 实时流

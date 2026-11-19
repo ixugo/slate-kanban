@@ -22,7 +22,7 @@ make build   # 安装前端依赖（第一次）、构建前端、编译成带�
 ./slate      # 启动，浏览器打开 http://127.0.0.1:7070
 ```
 
-首次启动会在用户主目录下生成 `~/.slate-kanban/config.toml`（默认配置）和 `~/.slate-kanban/data.db`（数据库），日志写在 `~/.slate-kanban/logs/`；整个 `~/.slate-kanban` 就是配置目录，从哪个目录启动、以进程还是服务方式启动都用同一份，数据不会丢。
+首次启动会在用户主目录下生成 `~/.slate-kanban/config.toml`（默认配置）和 `~/.slate-kanban/data.db`（数据库），日志写在 `~/.slate-kanban/logs/`，粘贴的图片以文件形式放在 `~/.slate-kanban/resource/`（按项目分子目录，数据库只记路径，备份时和数据库一起备份）；整个 `~/.slate-kanban` 就是配置目录，从哪个目录启动、以进程还是服务方式启动都用同一份，数据不会丢。
 想换配置目录：`./slate -conf /path/to/dir`（数据库默认放在这个目录里；配置里的相对路径以启动目录为基准）。
 
 从旧版本升级：旧版的配置和数据在启动目录的 `configs/` 下。先停掉服务，把 `configs/config.toml`、`configs/data.db`（含 `-wal`、`-shm`）复制到 `~/.slate-kanban/`，再把 `config.toml` 里的 `Dsn` 和 `Log.Dir` 改成 `~/.slate-kanban` 下的绝对路径（`data.db`、`logs`）；或者继续用旧目录：`./slate -conf ./configs`。
@@ -169,6 +169,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `Server.HTTP.Port` | `7070` | 端口 |
 | `Server.HTTP.AllowedHosts` | `[]` | 额外允许的 Host（不含端口）；IP、`localhost`、`*.localhost` 始终允许。通过域名访问时必须写进来 |
 | `Server.HTTP.Passcode` | `''`（空） | 可选访问口令，空表示不启用。只能是可打印 ASCII（不含空格），最长 128 位，不合规启动失败；非空时 REST、`/mcp`、`/app` 要带 `Authorization: Bearer <口令>`，网页则先登录 |
+| `Data.ResourceDir` | `~/.slate-kanban/resource`（首次生成时写成绝对路径） | 图片等资源文件的目录，按项目分子目录；留空则用配置目录下的 `resource` |
 | `Data.Database.Dsn` | `~/.slate-kanban/data.db`（首次生成时写成绝对路径） | SQLite 文件路径；以 `postgres` 开头则按 PostgreSQL 连接 |
 | `Log.*` | `~/.slate-kanban/logs`（绝对路径）、`info` | 日志目录、级别、保留天数、分割大小 |
 
