@@ -8,7 +8,6 @@ import { useTranslation } from '@/i18n/react'
 import type { CardView } from '@/lib/api/types'
 import { describeError } from '@/lib/errors'
 import { ActivityFilterBar } from './ActivityFilterBar'
-import { isHiddenEvent } from './describeEvent'
 import { ActivityItem } from './ActivityItem'
 import { NO_FILTERS, countFilters, type ActivityFilters } from './filters'
 import { useActivity } from './useActivity'
@@ -25,7 +24,7 @@ export function ActivityPanel({ boardId, cardsById, onOpenCard }: ActivityPanelP
   const { t } = useTranslation()
   const [filters, setFilters] = useState<ActivityFilters>(NO_FILTERS)
   const query = useActivity(boardId, filters)
-  const events = useMemo(() => query.data?.pages.flatMap((page) => page.events).filter((event) => !isHiddenEvent(event)) ?? [], [query.data])
+  const events = useMemo(() => query.data?.pages.flatMap((page) => page.events) ?? [], [query.data])
   const actors = query.data?.pages[0]?.actors ?? []
   const filtered = countFilters(filters) > 0
 

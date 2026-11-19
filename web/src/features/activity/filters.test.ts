@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { EVENT_GROUPS, EVENT_GROUP_ORDER, NO_FILTERS, countFilters, isSameActor, toQuery, toggleGroup } from './filters'
+import { EVENT_GROUPS, HIDDEN_EVENT_TYPES, EVENT_GROUP_ORDER, NO_FILTERS, countFilters, isSameActor, toQuery, toggleGroup } from './filters'
 
 // 后端定义的全部事件类型，直接从 Go 源码里读，后端加了新类型这里会测试失败，提醒给它安排一个分组
 const eventSource = readFileSync(path.resolve(import.meta.dirname, '../../../../internal/core/kanban/event.go'), 'utf8')
-const serverTypes = [...eventSource.matchAll(/^\s*Event\w+\s*=\s*"([a-z]+\.[a-z]+)"/gm)].map((m) => m[1])
+const serverTypes = [...eventSource.matchAll(/^\s*Event\w+\s*=\s*"([a-z_]+\.[a-z_]+)"/gm)].map((m) => m[1])
 
 describe('事件分组', () => {
   it('后端的每个事件类型恰好属于一个分组，没有多出来的类型', () => {
@@ -38,13 +38,14 @@ describe('toggleGroup', () => {
 
 describe('toQuery', () => {
   it('什么都没选就什么参数都不传', () => {
-    expect(toQuery(NO_FILTERS)).toEqual({ types: undefined, actor_kind: undefined, actor: undefined })
+    expect(toQuery(NO_FILTERS)).toEqual({ types: undefined, exclude_types: HIDDEN_EVENT_TYPES, actor_kind: undefined, actor: undefined })
   })
 
   it('选中分组里的类型合在一起，操作者拆成类型和名称', () => {
     const filters = { groups: ['move', 'comment'] as const, actor: { kind: 'agent' as const, name: 'codex' } }
     expect(toQuery(filters)).toEqual({
       types: ['card.moved', 'card.reordered', 'comment.added', 'comment.deleted'],
+      exclude_types: HIDDEN_EVENT_TYPES,
       actor_kind: 'agent',
       actor: 'codex',
     })

@@ -33,12 +33,14 @@ Event 的 JSON 序列化会把它直接输出成 JSON 对象，不再套一层�
 |------|----------|-------------|
 | board.created | 创建看板 | name, slug |
 | board.updated | 修改看板名称、说明或项目路径 | fields |
+| board.labels_updated | 修改看板标签库（名称、颜色、增删） | fields（固定 `["labels"]`） |
 | column.created | 新增列 | column_id, name |
 | column.updated | 修改列 | column_id, name, fields |
 | column.deleted | 删除列 | column_id, name, moved_to_id, moved_cards |
 | column.reordered | 调整列顺序 | ids |
 | card.created | 创建卡片 | key, title, column_id, column |
-| card.updated | 修改卡片字段 | key, title, fields |
+| card.updated | 修改卡片字段（不含标签） | key, title, fields（真正变化的字段名，如 title、priority、due_at） |
+| card.tags_updated | 修改卡片上的标签 | key, title, fields（固定 `["tags"]`） |
 | card.moved | 卡片换列 | key, title, from_id, from, to_id, to |
 | card.reordered | 卡片在同一列内调整顺序 | key, column_id |
 | card.deleted | 删除卡片 | key, title |
@@ -165,8 +167,9 @@ limit 默认 200、最大 1000。起点早于保留范围时同样标记 truncat
 `ListActivity(boardID, ActivityQuery)` 给网页的活动抽屉用，人和 agent 都能读。和 `ListEvents` 的区别有三点：
 顺序是从新到旧；可以按条件筛选；翻页用 `before`（只看序号比它小的事件），不用 `after`。
 
-- 筛选条件有四个，都可以不填，同时填表示都要满足：`types`（事件类型，取并集）、`actor_kind`（human、agent、system 之一）、`actor`（操作者名称，名称首尾空白会被去掉）、`card_id`（只看和这张卡片有关的事件，卡片详情的「评论和活动」用；负数返回 400）。
-- 事件类型必须是上面列出的已知类型，不认识的返回 400，而不是悄悄返回一个永远为空的列表。类型重复写多次会被合并，保证查询里的 IN 列表最多 19 项。
+- 筛选条件有五个，都可以不填，同时填表示都要满足：`types`（事件类型，取并集）、`exclude_types`（不要这些类型的事件，和 `types` 重叠时以排除为准，网页用它把标签类事件挡掉）、`actor_kind`（human、agent、system 之一）、`actor`（操作者名称，名称首尾空白会被去掉）、`card_id`（只看和这张卡片有关的事件，卡片详情的「评论和活动」用；负数返回 400）。
+- 事件类型（`types` 和 `exclude_types` 都一样）必须是上面列出的已知类型，不认识的返回 400，而不是悄悄返回一个永远为空的列表。类型重复写多次会被合并，保证查询里的 IN / NOT IN 列表最多 21 项。
+- 改标签单独成 `card.tags_updated`、改标签库单独成 `board.labels_updated`：同一次修改既改标签又改别的字段时，两条事件都会写（先 `card.updated` 后 `card.tags_updated`）。拆开的目的是标签变化琐碎，网页读活动流时用 `exclude_types` 整条排除，而实时广播和 agent 的更新拉取仍然能收到。
 - 筛选发生在数据库里，再翻页。所以每一页都是满的，不会出现「翻了一页却全被过滤掉」。每个看板最多保留 10000 条事件，筛选条件很少命中时最坏也只扫这么多行。
 - 多读一条来判断 `has_more`：读 `limit + 1` 条，多出来的那条只用来说明后面还有，不返回。`limit` 默认 50，最大 200。
 - 返回里的 `latest` 是看板当前最新的事件序号，`actors` 是这个看板的事件里出现过的所有操作者（类型加名称，按类型再按名称排序）。这两个值都不受筛选条件影响，网页靠它们判断「有没有新事件」和生成操作者下拉。

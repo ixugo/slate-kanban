@@ -5,13 +5,14 @@ import type { ActivityActor, ActivityQuery } from '@/lib/api/types'
 /** 事件分组：每一组对应服务端的若干个事件类型，完整的类型清单见 .cursor/scopes/kanban.event.go.md */
 export const EVENT_GROUPS = {
   move: ['card.moved', 'card.reordered'],
-  card: ['card.created', 'card.updated', 'card.deleted'],
+  card: ['card.created', 'card.updated', 'card.tags_updated', 'card.deleted'],
   claim: ['card.claimed', 'card.released'],
   comment: ['comment.added', 'comment.deleted'],
   automation: ['automation.fired'],
   setup: [
     'board.created',
     'board.updated',
+    'board.labels_updated',
     'column.created',
     'column.updated',
     'column.deleted',
@@ -26,6 +27,9 @@ export type EventGroup = keyof typeof EVENT_GROUPS
 
 /** 分组在界面上的显示顺序，也是筛选条件里分组的规范顺序 */
 export const EVENT_GROUP_ORDER = Object.keys(EVENT_GROUPS) as EventGroup[]
+
+/** 活动流默认不要的事件：设置标签很琐碎，服务端照常记录和广播，只是网页读活动流时用 exclude_types 把它们挡掉 */
+export const HIDDEN_EVENT_TYPES = ['card.tags_updated', 'board.labels_updated'] as const
 
 /** 活动流的筛选条件 */
 export interface ActivityFilters {
@@ -56,11 +60,12 @@ export function countFilters(filters: ActivityFilters): number {
   return (filters.groups.length > 0 ? 1 : 0) + (filters.actor === null ? 0 : 1)
 }
 
-/** 换算成服务端的查询参数：选中分组里的类型合在一起，没选就不传 */
-export function toQuery(filters: ActivityFilters): Pick<ActivityQuery, 'types' | 'actor_kind' | 'actor'> {
+/** 换算成服务端的查询参数：选中分组里的类型合在一起，没选就不传；设置标签的事件永远排除 */
+export function toQuery(filters: ActivityFilters): Pick<ActivityQuery, 'types' | 'exclude_types' | 'actor_kind' | 'actor'> {
   const types: string[] = filters.groups.flatMap((g) => EVENT_GROUPS[g])
   return {
     types: types.length > 0 ? types : undefined,
+    exclude_types: HIDDEN_EVENT_TYPES,
     actor_kind: filters.actor?.kind,
     actor: filters.actor?.name,
   }

@@ -41,13 +41,13 @@ flowchart TD
 | 分组 | 包含的事件类型 |
 |------|---------------|
 | 移动 | card.moved, card.reordered |
-| 卡片 | card.created, card.updated, card.deleted |
+| 卡片 | card.created, card.updated, card.tags_updated, card.deleted |
 | 领取 | card.claimed, card.released |
 | 评论 | comment.added, comment.deleted |
 | 规则触发 | automation.fired |
-| 项目设置 | board.created, board.updated, column.*, rule.* |
+| 项目设置 | board.created, board.updated, board.labels_updated, column.*, rule.* |
 
-**修改事件的文字**：`card.updated` 按载荷里的 `fields` 写明改了什么，例如“修改了卡片（标题、优先级）”，字段名复用卡片详情里各属性的名称；旧事件没有字段清单时退回成笼统的“修改了卡片”。设置标签太琐碎，不展示：只改了标签的 `card.updated`（`fields` 只有 `tags`）和只改了标签库的 `board.updated`（`fields` 只有 `labels`）在活动抽屉和卡片的「评论和活动」里被隐藏（`isHiddenEvent`），句子里也不列标签；事件本身照常写入和广播，实时刷新不受影响。
+**修改事件的文字**：`card.updated` 按载荷里的 `fields` 写明改了哪些属性，例如“修改了优先级、截止时间”（时间类字段用更完整的叫法，其余复用卡片详情里的属性名）；旧事件没有字段清单时退回成笼统的“修改了卡片”。设置标签太琐碎：服务端把它记成独立的 `card.tags_updated` / `board.labels_updated`，网页读活动流和卡片「评论和活动」时固定带 `exclude_types=card.tags_updated,board.labels_updated`（常量 `HIDDEN_EVENT_TYPES`）把它们挡掉；它们仍然会实时广播，所以别的窗口里的标签照样即时刷新。
 
 后端新增事件类型时，`filters.test.ts` 会读取 `internal/core/kanban/event.go` 核对：每个类型必须恰好属于一个分组，否则测试失败，提醒给新类型安排分组和句子。
 

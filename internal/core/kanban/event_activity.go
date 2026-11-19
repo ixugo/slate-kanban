@@ -17,9 +17,9 @@ const (
 // knownEventTypes 是活动流允许按类型筛选的全部事件类型。
 // 只放行这些值，免得把任意字符串带进查询条件，也让拼错的类型直接得到 400 而不是一个永远为空的列表。
 var knownEventTypes = []string{
-	EventBoardCreated, EventBoardUpdated,
+	EventBoardCreated, EventBoardUpdated, EventBoardLabelsUpdated,
 	EventColumnCreated, EventColumnUpdated, EventColumnDeleted, EventColumnReordered,
-	EventCardCreated, EventCardUpdated, EventCardMoved, EventCardReordered, EventCardDeleted,
+	EventCardCreated, EventCardUpdated, EventCardTagsUpdated, EventCardMoved, EventCardReordered, EventCardDeleted,
 	EventCardClaimed, EventCardReleased,
 	EventCommentAdded, EventCommentDeleted,
 	EventRuleCreated, EventRuleUpdated, EventRuleDeleted,
@@ -30,6 +30,8 @@ var knownEventTypes = []string{
 type ActivityFilter struct {
 	// Types 只看这些类型的事件，取值必须在 knownEventTypes 里。
 	Types []string
+	// ExcludeTypes 不要这些类型的事件，取值必须在 knownEventTypes 里；和 Types 同时出现时以排除为准。
+	ExcludeTypes []string
 	// ActorKind 只看这一类操作者（人、agent、系统）的事件。
 	ActorKind ActorKind
 	// Actor 只看这个名字的操作者的事件。
@@ -64,6 +66,20 @@ type ActivityPage struct {
 	Actors []ActivityActor `json:"actors"`
 }
 
+// normalizeEventTypes 检查事件类型都是已知类型，并去掉重复项，保持传入的顺序。
+func normalizeEventTypes(in []string) ([]string, error) {
+	var out []string
+	for _, t := range in {
+		if !slices.Contains(knownEventTypes, t) {
+			return nil, invalidf("不认识的事件类型 %q", t)
+		}
+		if !slices.Contains(out, t) {
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}
+
 // normalizeActivityFilter 校验并整理筛选条件：类型必须是已知类型，重复的去掉；
 // 操作者类型必须是三种之一；操作者名称去掉首尾空白，长度不超过名称上限；卡片编号不能是负数。
 func normalizeActivityFilter(f ActivityFilter) (ActivityFilter, error) {
@@ -71,13 +87,12 @@ func normalizeActivityFilter(f ActivityFilter) (ActivityFilter, error) {
 	if out.CardID < 0 {
 		return out, invalidf("card_id 不能是负数")
 	}
-	for _, t := range f.Types {
-		if !slices.Contains(knownEventTypes, t) {
-			return out, invalidf("不认识的事件类型 %q", t)
-		}
-		if !slices.Contains(out.Types, t) {
-			out.Types = append(out.Types, t)
-		}
+	var err error
+	if out.Types, err = normalizeEventTypes(f.Types); err != nil {
+		return out, err
+	}
+	if out.ExcludeTypes, err = normalizeEventTypes(f.ExcludeTypes); err != nil {
+		return out, err
 	}
 	switch out.ActorKind {
 	case "", ActorHuman, ActorAgent, ActorSystem:

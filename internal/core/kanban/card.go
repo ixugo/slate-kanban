@@ -280,5 +280,26 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 		}
 	}
 	u.renewLease(actor, card)
-	return u.saveCardChange(ctx, actor, card, EventCardUpdated, map[string]any{"fields": changed})
+	if err := u.saveCard(ctx, actor, card); err != nil {
+		return err
+	}
+	return u.emitCardUpdates(ctx, actor, card, changed)
+}
+
+// emitCardUpdates 按改了什么写事件：标签的变化单独写 card.tags_updated，
+// 其余字段写 card.updated，同时改了两类就两条都写。
+// 标签变化很琐碎，拆成独立类型后，网页的活动流可以用 exclude_types 把它整条排除，而实时广播照常有。
+func (u *unit) emitCardUpdates(ctx context.Context, actor Actor, card *Card, changed []string) error {
+	rest := slices.DeleteFunc(slices.Clone(changed), func(f string) bool { return f == "tags" })
+	if len(rest) > 0 {
+		ev := newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardUpdated, Payload: cardPayload(card, map[string]any{"fields": rest})}
+		if err := u.emit(ctx, actor, ev); err != nil {
+			return err
+		}
+	}
+	if len(rest) == len(changed) {
+		return nil
+	}
+	ev := newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardTagsUpdated, Payload: cardPayload(card, map[string]any{"fields": []string{"tags"}})}
+	return u.emit(ctx, actor, ev)
 }

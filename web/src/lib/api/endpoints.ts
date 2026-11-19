@@ -67,9 +67,13 @@ export function listEvents(boardId: number, after: number, limit: number, signal
 
 /** 读活动流：事件从新到旧，可按事件类型和操作者筛选，before 是翻页起点 */
 export function listActivity(boardId: number, query: ActivityQuery, signal?: Signal): Promise<ActivityPage> {
-  const { types, ...rest } = query
+  const { types, exclude_types, ...rest } = query
   return request<ActivityPage>(`/boards/${boardId}/activity`, {
-    query: { ...rest, types: types && types.length > 0 ? types.join(',') : undefined },
+    query: {
+      ...rest,
+      types: types && types.length > 0 ? types.join(',') : undefined,
+      exclude_types: exclude_types && exclude_types.length > 0 ? exclude_types.join(',') : undefined,
+    },
     signal,
   })
 }

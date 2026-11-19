@@ -346,9 +346,41 @@ func TestUpdateCardByHuman(t *testing.T) {
 		stored.DueAt == nil || stored.Branch != "feat/a" || stored.URL != "https://example.com/1" || stored.Version != 2 {
 		t.Fatalf("读出来的卡片不对: %+v", stored)
 	}
-	want := `{"fields":["title","description","branch","url","priority","tags","due_at"],"key":"TST-1","title":"新标题"}`
-	if ev := e.lastEvent(t); ev.Type != kanban.EventCardUpdated || ev.CardID != c.ID || ev.Payload != want {
-		t.Fatalf("事件不对: %+v，期望内容 %s", ev, want)
+	// 同时改了标签和别的字段：别的字段一条 card.updated（不含 tags），标签另写一条 card.tags_updated
+	want := `{"fields":["title","description","branch","url","priority","due_at"],"key":"TST-1","title":"新标题"}`
+	events := e.events(t)
+	updated, tagged := events[len(events)-2], events[len(events)-1]
+	if updated.Type != kanban.EventCardUpdated || updated.CardID != c.ID || updated.Payload != want {
+		t.Fatalf("事件不对: %+v，期望内容 %s", updated, want)
+	}
+	wantTags := `{"fields":["tags"],"key":"TST-1","title":"新标题"}`
+	if tagged.Type != kanban.EventCardTagsUpdated || tagged.CardID != c.ID || tagged.Payload != wantTags {
+		t.Fatalf("标签事件不对: %+v，期望内容 %s", tagged, wantTags)
+	}
+}
+
+// TestUpdateCardTagsOnlyEvent 验证只改标签时只写 card.tags_updated，不写 card.updated；
+// 只改别的字段时不写标签事件。
+func TestUpdateCardTagsOnlyEvent(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	c := e.card(t, colTodo, "标签事件")
+	from := len(e.events(t))
+
+	tags := []string{"x"}
+	if _, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{Tags: &tags}); err != nil {
+		t.Fatalf("改标签失败: %v", err)
+	}
+	if got := strings.Join(e.eventTypes(t, from), ","); got != kanban.EventCardTagsUpdated {
+		t.Fatalf("只改标签应该只写标签事件，实际: %s", got)
+	}
+
+	from = len(e.events(t))
+	if _, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{Priority: intPtr(3)}); err != nil {
+		t.Fatalf("改优先级失败: %v", err)
+	}
+	if got := strings.Join(e.eventTypes(t, from), ","); got != kanban.EventCardUpdated {
+		t.Fatalf("只改优先级不应该写标签事件，实际: %s", got)
 	}
 }
 

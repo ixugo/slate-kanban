@@ -37,13 +37,14 @@ function defaultEvents(): BoardEvent[] {
 function activityHandler(events: BoardEvent[]) {
   return (call: FakeCall) => {
     const types = call.query.get('types')?.split(',')
+    const excluded = call.query.get('exclude_types')?.split(',') ?? []
     const kind = call.query.get('actor_kind')
     const actor = call.query.get('actor')
     const before = Number(call.query.get('before') ?? 0)
     const limit = Number(call.query.get('limit') ?? 50)
     const matched = [...events]
       .sort((a, b) => b.id - a.id)
-      .filter((e) => (!types || types.includes(e.type)) && (!kind || e.actor_kind === kind) && (!actor || e.actor === actor))
+      .filter((e) => !excluded.includes(e.type) && (!types || types.includes(e.type)) && (!kind || e.actor_kind === kind) && (!actor || e.actor === actor))
       .filter((e) => before === 0 || e.id < before)
     const actors: ActivityActor[] = []
     for (const e of events) {
@@ -116,6 +117,7 @@ describe('活动抽屉', () => {
     await screen.findByText(/moved the card/)
     const call = lastActivityCall(api)
     expect(call.query.get('limit')).toBe(String(ACTIVITY_PAGE_SIZE))
+    expect(call.query.get('exclude_types')).toBe('card.tags_updated,board.labels_updated')
     for (const key of ['before', 'types', 'actor_kind', 'actor']) expect(call.query.has(key), key).toBe(false)
   })
 

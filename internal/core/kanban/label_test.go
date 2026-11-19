@@ -75,8 +75,8 @@ func TestRenameLabelUpdatesCards(t *testing.T) {
 	if e.stored(t, other.ID).Version != otherVersion {
 		t.Fatalf("没有这个标签的卡片不应该被改")
 	}
-	if last := e.lastEvent(t); last.Type != kanban.EventBoardUpdated || !strings.Contains(string(last.Payload), "labels") {
-		t.Fatalf("应该写 board.updated 事件并带上 labels: %+v", last)
+	if last := e.lastEvent(t); last.Type != kanban.EventBoardLabelsUpdated || !strings.Contains(string(last.Payload), "labels") {
+		t.Fatalf("应该写 board.labels_updated 事件并带上 labels: %+v", last)
 	}
 
 	e.setLabels(t, []kanban.LabelInput{{ID: id, Name: "缺陷", Color: "green-1"}})

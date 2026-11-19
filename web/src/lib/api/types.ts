@@ -235,6 +235,8 @@ export interface ActivityQuery {
   limit?: number
   /** 事件类型，多个取并集 */
   types?: readonly string[]
+  /** 不要这些类型的事件；和 types 重叠时以排除为准 */
+  exclude_types?: readonly string[]
   actor_kind?: ActorKind
   actor?: string
   /** 只看这张卡片的事件 */

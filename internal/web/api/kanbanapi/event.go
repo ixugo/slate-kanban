@@ -34,15 +34,16 @@ type listEventsInput struct {
 }
 
 // activityInput 是读活动流的请求。before 是翻页起点（只看比它更早的事件），limit 是一页最多几条；
-// types 是用逗号分隔的事件类型，actor_kind 和 actor 是操作者类型和名称，card_id 只看某张卡片的事件，不填都表示不限。
+// types 是用逗号分隔的事件类型，exclude_types 是不要返回的事件类型（同样用逗号分隔），actor_kind 和 actor 是操作者类型和名称，card_id 只看某张卡片的事件，不填都表示不限。
 type activityInput struct {
 	boardPath
-	Before    int64  `form:"before" json:"-"`
-	Limit     int    `form:"limit" json:"-"`
-	Types     string `form:"types" json:"-"`
-	ActorKind string `form:"actor_kind" json:"-"`
-	Actor     string `form:"actor" json:"-"`
-	CardID    int64  `form:"card_id" json:"-"`
+	Before       int64  `form:"before" json:"-"`
+	Limit        int    `form:"limit" json:"-"`
+	Types        string `form:"types" json:"-"`
+	ExcludeTypes string `form:"exclude_types" json:"-"`
+	ActorKind    string `form:"actor_kind" json:"-"`
+	Actor        string `form:"actor" json:"-"`
+	CardID       int64  `form:"card_id" json:"-"`
 }
 
 // pullUpdatesInput 是 agent 拉取更新的请求。
@@ -69,7 +70,7 @@ func (a API) listEvents(ctx context.Context, _ kanban.Actor, in *listEventsInput
 }
 
 // activity 返回看板的活动流：从新到旧，可按事件类型、操作者和卡片筛选，网页的活动抽屉和卡片详情用。
-// types 里出现空项（比如多写了逗号）会被当成不认识的类型，返回 400。
+// types 和 exclude_types 里出现空项（比如多写了逗号）会被当成不认识的类型，返回 400。
 func (a API) activity(ctx context.Context, _ kanban.Actor, in *activityInput) (*kanban.ActivityPage, error) {
 	q := kanban.ActivityQuery{Before: in.Before, Limit: in.Limit, ActivityFilter: kanban.ActivityFilter{
 		ActorKind: kanban.ActorKind(in.ActorKind),
@@ -78,6 +79,9 @@ func (a API) activity(ctx context.Context, _ kanban.Actor, in *activityInput) (*
 	}}
 	if in.Types != "" {
 		q.Types = strings.Split(in.Types, ",")
+	}
+	if in.ExcludeTypes != "" {
+		q.ExcludeTypes = strings.Split(in.ExcludeTypes, ",")
 	}
 	return a.core.ListActivity(ctx, in.BoardID, q)
 }
