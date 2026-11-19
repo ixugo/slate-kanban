@@ -357,7 +357,7 @@ func inputsOf(tags []*kanban.Tag) []kanban.TagInput {
 }
 
 // TestEngineerSlots 验证工程师名额：get_board 给出名册，领取按名额分配，满了排队，
-// 指定的工程师在忙或类型不对都被拒绝，卡片摘要里能看到谁在做。
+// 指定的工程师在忙或不在名册里都被拒绝，卡片摘要里能看到谁在做。
 func TestEngineerSlots(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
@@ -384,7 +384,7 @@ func TestEngineerSlots(t *testing.T) {
 		t.Fatalf("应该由指定的工程师承担: %v", got)
 	}
 	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": two.ID, "engineer_id": first["id"]}), "ErrEngineerBusy")
-	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": two.ID, "engineer_id": review["id"]}), "ErrInvalidInput")
+	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": two.ID, "engineer_id": 9999}), "ErrInvalidInput")
 	ok(t, sess, "claim_card", map[string]any{"card_id": two.ID})
 	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": three.ID}), "ErrNoIdleEngineer")
 

@@ -342,7 +342,7 @@ func TestEngineerAvatar(t *testing.T) {
 }
 
 // TestDevKindsShareStage 验证前端、后端、UI 和全栈同属研发阶段：都能被卡片绑定、都在研发列领取、互相占名额；
-// 测试仍然只干审查阶段，不能绑定，也不能领研发列的卡。
+// 测试仍然只干审查阶段，不能绑定；领取时由 agent 显式指定，服务端不从列推断。
 func TestDevKindsShareStage(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -369,8 +369,12 @@ func TestDevKindsShareStage(t *testing.T) {
 	if _, err := e.core.UpdateCard(ctx, testActor, a.ID, kanban.UpdateCardInput{EngineerID: &tid}); !errors.Is(err, kanban.ErrInvalidInput) {
 		t.Fatalf("绑定测试应该返回 ErrInvalidInput，实际 %v", err)
 	}
-	if _, err := e.core.ClaimCard(ctx, claude, a.ID, kanban.ClaimCardInput{EngineerID: tid}); !errors.Is(err, kanban.ErrInvalidInput) {
-		t.Fatalf("研发列指定测试应该返回 ErrInvalidInput，实际 %v", err)
+	// 服务端不从列推断角色：agent 按列提示词指定了测试，就由测试承担；释放后不指定再领，用卡片绑定的前端。
+	if dt, err := e.core.ClaimCard(ctx, claude, a.ID, kanban.ClaimCardInput{EngineerID: tid}); err != nil || dt.ClaimEngineerID != tid {
+		t.Fatalf("显式指定测试应该由测试承担: %+v %v", dt, err)
+	}
+	if err := e.core.ReleaseCard(ctx, claude, a.ID); err != nil {
+		t.Fatalf("释放失败: %v", err)
 	}
 	da, err := e.core.ClaimCard(ctx, claude, a.ID, kanban.ClaimCardInput{})
 	if err != nil || da.ClaimEngineerID != front.ID {
