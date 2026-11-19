@@ -1,0 +1,68 @@
+// 选择依赖卡片：只能选同看板其他卡，不能依赖自己。
+
+import { useTranslation } from '@/i18n/react'
+import type { CardRef } from '@/lib/api/types'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { XIcon } from 'lucide-react'
+import { CARD_DEPS_MAX } from '@/lib/limits'
+import { displayKey } from '@/lib/cardKey'
+
+interface DependencyPickerProps {
+  cardId: number
+  selected: number[]
+  options: CardRef[]
+  onChange: (ids: number[]) => void
+}
+
+/** 多选依赖 */
+export function DependencyPicker({ cardId, selected, options, onChange }: DependencyPickerProps) {
+  const { t } = useTranslation()
+  const deps = selected ?? []
+  const available = options.filter((c) => c.id !== cardId && !deps.includes(c.id))
+
+  const add = (id: string) => {
+    const num = Number(id)
+    if (deps.length >= CARD_DEPS_MAX) return
+    onChange([...deps, num])
+  }
+
+  const remove = (id: number) => onChange(deps.filter((x) => x !== id))
+
+  const labelOf = (id: number) => options.find((c) => c.id === id)
+
+  return (
+    <div className="space-y-2">
+      {deps.length === 0 && <p className="text-ui text-muted-foreground">{t('card.depEmpty')}</p>}
+      <ul className="space-y-1">
+        {deps.map((id) => {
+          const ref = labelOf(id)
+          if (!ref) return null
+          return (
+            <li key={id} className="flex items-center gap-2 text-sm">
+              <span className="font-mono text-xs text-muted-foreground">{displayKey(ref.key)}</span>
+              <span className={ref.done ? 'text-muted-foreground line-through' : ''}>{ref.title}</span>
+              <Button type="button" variant="ghost" size="icon-xs" aria-label={t('common.delete')} onClick={() => remove(id)}>
+                <XIcon />
+              </Button>
+            </li>
+          )
+        })}
+      </ul>
+      {available.length > 0 && deps.length < CARD_DEPS_MAX && (
+        <Select onValueChange={add}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={t('card.depAdd')} />
+          </SelectTrigger>
+          <SelectContent>
+            {available.map((c) => (
+              <SelectItem key={c.id} value={String(c.id)}>
+                <span className="font-mono text-xs">{displayKey(c.key)}</span> {c.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  )
+}

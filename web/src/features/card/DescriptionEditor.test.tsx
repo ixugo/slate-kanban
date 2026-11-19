@@ -1,0 +1,52 @@
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+import { en } from '@/i18n/locales/en'
+import { DescriptionEditor } from './DescriptionEditor'
+
+describe('DescriptionEditor', () => {
+  it('没有描述时显示占位按钮，点一下进入编辑', async () => {
+    render(<DescriptionEditor boardId={1} value="" onSave={() => {}} />)
+    await userEvent.click(screen.getByRole('button', { name: en.card.descPlaceholder }))
+    expect(await screen.findByRole('textbox', { name: en.card.field.description })).toBeInTheDocument()
+  })
+
+  it('点渲染好的描述进入编辑，Esc 放弃修改', async () => {
+    const onSave = vi.fn()
+    render(<DescriptionEditor boardId={1} value="**粗**" onSave={onSave} />)
+    await userEvent.click(screen.getByText('粗'))
+    const editor = await screen.findByRole('textbox', { name: en.card.field.description })
+    expect(editor).toHaveTextContent('**粗**')
+    fireEvent.keyDown(editor, { key: 'Escape', code: 'Escape' })
+    expect(onSave).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox', { name: en.card.field.description })).toBeNull()
+  })
+
+  it('没有保存按钮；焦点离开时，没改动不发请求，改了才保存原文', async () => {
+    const onSave = vi.fn()
+    render(<DescriptionEditor boardId={1} value="a" onSave={onSave} />)
+    await userEvent.click(screen.getByRole('button', { name: en.card.descEdit }))
+    const editor = await screen.findByRole('textbox', { name: en.card.field.description })
+    expect(screen.queryByRole('button', { name: en.common.save })).toBeNull()
+    fireEvent.focusOut(editor)
+    expect(onSave).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox', { name: en.card.field.description })).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: en.card.descEdit }))
+    const again = await screen.findByRole('textbox', { name: en.card.field.description })
+    expect(again).not.toBe(editor)
+    again.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: 'b', cancelable: true, bubbles: true }))
+    await act(async () => {})
+    fireEvent.focusOut(again)
+    expect(onSave).toHaveBeenCalledWith('ab')
+  })
+
+  it('查看状态下点任务框直接保存改过的原文，点链接不进入编辑', async () => {
+    const onSave = vi.fn()
+    render(<DescriptionEditor boardId={1} value={'- [ ] 写文档\n\n[官网](https://a.com)'} onSave={onSave} />)
+    await userEvent.click(screen.getByRole('checkbox'))
+    expect(onSave).toHaveBeenCalledWith('- [x] 写文档\n\n[官网](https://a.com)')
+    await userEvent.click(screen.getByRole('link', { name: '官网' }))
+    expect(screen.queryByRole('textbox', { name: en.card.field.description })).toBeNull()
+  })
+})

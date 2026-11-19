@@ -1,0 +1,333 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* 字体：不下载网页字体，直接用系统字体（苹果设备上就是 SF），页面更小、首屏更快；汉字和假名、谚文按语言挑各自正确的字形 */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "PingFang SC", "Microsoft YaHei", monospace;
+  --font-heading: var(--font-sans);
+
+  /* 字号：控件 13px，正文 15px，标题逐级放大；大字收紧字距和行距，小字保持宽松 */
+  --text-ui: 0.8125rem;
+  --text-ui--line-height: 1.25rem;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem;
+  --text-title: 1.25rem;
+  --text-title--line-height: 1.6rem;
+  --text-title--letter-spacing: -0.014em;
+  --text-display: 1.75rem;
+  --text-display--line-height: 2.1rem;
+  --text-display--letter-spacing: -0.02em;
+
+  /* 动效曲线：弹簧用 linear() 近似。默认用临界阻尼（没有回弹），只有"被甩出去落下"这类带惯性的场合才用回弹 */
+  --ease-spring: linear(0, 0.0241, 0.0827, 0.1602, 0.2459, 0.3329, 0.4168, 0.495, 0.5663, 0.6299, 0.6861, 0.735, 0.7773, 0.8135, 0.8444, 0.8706, 0.8926, 0.9111, 0.9266, 0.9395, 0.9503, 0.9591, 0.9665, 0.9726, 0.9776, 0.9817, 0.9851, 0.9878, 0.9901, 0.992, 0.9935, 0.9947, 0.9957, 0.9965, 0.9972, 0.9977, 0.9982, 0.9985, 0.9988, 0.999, 1);
+  --ease-spring-bounce: linear(0, 0.0331, 0.1153, 0.2256, 0.3479, 0.4706, 0.5861, 0.6895, 0.7783, 0.8519, 0.9106, 0.9556, 0.9887, 1.0117, 1.0264, 1.0347, 1.0381, 1.038, 1.0356, 1.0318, 1.0272, 1.0225, 1.0179, 1.0137, 1.01, 1.0069, 1.0044, 1.0024, 1.001, 0.9999, 0.9992, 0.9988, 0.9986, 0.9985, 0.9986, 0.9987, 0.9989, 0.9991, 0.9992, 0.9994, 1);
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+html:lang(zh-TW) {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+    "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", sans-serif;
+}
+
+html:lang(ja) {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN",
+    "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans CJK JP", sans-serif;
+}
+
+html:lang(ko) {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+    "Malgun Gothic", "Noto Sans CJK KR", "Noto Sans KR", sans-serif;
+}
+
+@theme inline {
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-field: var(--field);
+  --color-column: var(--column);
+  --color-success: var(--success);
+  --color-signal: var(--signal);
+  --color-signal-foreground: var(--signal-foreground);
+  --color-agent: var(--agent);
+  --color-human: var(--human);
+  --color-p-high: var(--p-high);
+  --color-p-mid: var(--p-mid);
+  --color-p-low: var(--p-low);
+  --shadow-card: var(--elev-card);
+  --shadow-card-hover: var(--elev-card-hover);
+  --shadow-float: var(--elev-float);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* 浅色：苹果式的浅灰底配纯白卡片；主按钮用近黑（深色下用近白）的中性色，蓝色只留给焦点环和拖放落点，橙色只用来提醒"需要注意" */
+:root {
+  --background: oklch(0.972 0.002 264);
+  --foreground: oklch(0.225 0.004 270);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.225 0.004 270);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.225 0.004 270);
+  --primary: oklch(0.225 0.004 270);
+  --primary-foreground: oklch(0.985 0.002 90);
+  --secondary: oklch(0.94 0.003 264);
+  --secondary-foreground: oklch(0.225 0.004 270);
+  --muted: oklch(0.955 0.002 264);
+  --muted-foreground: oklch(0.5 0.006 264);
+  --accent: oklch(0.935 0.006 258);
+  --accent-foreground: oklch(0.225 0.004 270);
+  --destructive: oklch(0.585 0.22 27);
+  --border: oklch(0 0 0 / 0.09);
+  --input: oklch(0 0 0 / 0.14);
+  --ring: oklch(0.574 0.19 256);
+  --field: oklch(1 0 0);
+  --column: oklch(0 0 0 / 0.045);
+  --success: oklch(0.74 0.2 150);
+  --signal: oklch(0.72 0.17 60);
+  --signal-foreground: oklch(0.32 0.07 60);
+  --agent: oklch(0.56 0.1 200);
+  --human: oklch(0.52 0.19 278);
+  --p-high: oklch(0.62 0.23 27);
+  --p-mid: oklch(0.75 0.17 62);
+  --p-low: oklch(0.62 0.04 264);
+  --chart-1: oklch(0.72 0.17 60);
+  --chart-2: oklch(0.56 0.1 200);
+  --chart-3: oklch(0.52 0.19 278);
+  --chart-4: oklch(0.62 0.23 27);
+  --chart-5: oklch(0.62 0.04 264);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.972 0.002 264);
+  --sidebar-foreground: oklch(0.225 0.004 270);
+  --sidebar-primary: oklch(0.225 0.004 270);
+  --sidebar-primary-foreground: oklch(0.985 0.002 90);
+  --sidebar-accent: oklch(0.935 0.006 258);
+  --sidebar-accent-foreground: oklch(0.225 0.004 270);
+  --sidebar-border: oklch(0 0 0 / 0.09);
+  --sidebar-ring: oklch(0.574 0.19 256);
+
+  /* 阴影：贴地的卡片用很淡的两层，悬浮的面板更深更散；高光边模拟材质受光 */
+  --elev-card: 0 0.5px 1px oklch(0 0 0 / 0.08), 0 1px 3px oklch(0 0 0 / 0.06);
+  --elev-card-hover: 0 1px 2px oklch(0 0 0 / 0.08), 0 6px 16px oklch(0 0 0 / 0.1);
+  --elev-float: 0 0 0 0.5px oklch(0 0 0 / 0.1), 0 8px 24px oklch(0 0 0 / 0.12), 0 24px 64px -8px oklch(0 0 0 / 0.2);
+  --glass-highlight: oklch(1 0 0 / 0.7);
+}
+
+/* 深色：近黑的底配比底色略亮的卡片，不用纯黑；蓝色换成深色下更亮的那一档 */
+.dark {
+  --background: oklch(0.165 0.004 270);
+  --foreground: oklch(0.965 0.003 90);
+  --card: oklch(0.255 0.005 270);
+  --card-foreground: oklch(0.965 0.003 90);
+  --popover: oklch(0.27 0.006 270);
+  --popover-foreground: oklch(0.965 0.003 90);
+  --primary: oklch(0.965 0.003 90);
+  --primary-foreground: oklch(0.2 0.004 270);
+  --secondary: oklch(0.3 0.006 270);
+  --secondary-foreground: oklch(0.965 0.003 90);
+  --muted: oklch(0.255 0.005 270);
+  --muted-foreground: oklch(0.72 0.01 270);
+  --accent: oklch(0.32 0.012 262);
+  --accent-foreground: oklch(0.965 0.003 90);
+  --destructive: oklch(0.7 0.19 25);
+  --border: oklch(1 0 0 / 0.1);
+  --input: oklch(1 0 0 / 0.16);
+  --ring: oklch(0.7 0.16 256);
+  --field: oklch(1 0 0 / 0.07);
+  --column: oklch(1 0 0 / 0.05);
+  --success: oklch(0.76 0.19 150);
+  --signal: oklch(0.8 0.15 70);
+  --signal-foreground: oklch(0.28 0.06 65);
+  --agent: oklch(0.8 0.1 200);
+  --human: oklch(0.76 0.13 280);
+  --p-high: oklch(0.7 0.2 25);
+  --p-mid: oklch(0.8 0.15 70);
+  --p-low: oklch(0.7 0.03 270);
+  --chart-1: oklch(0.8 0.15 70);
+  --chart-2: oklch(0.8 0.1 200);
+  --chart-3: oklch(0.76 0.13 280);
+  --chart-4: oklch(0.7 0.2 25);
+  --chart-5: oklch(0.7 0.03 270);
+  --sidebar: oklch(0.2 0.004 270);
+  --sidebar-foreground: oklch(0.965 0.003 90);
+  --sidebar-primary: oklch(0.965 0.003 90);
+  --sidebar-primary-foreground: oklch(0.2 0.004 270);
+  --sidebar-accent: oklch(0.32 0.012 262);
+  --sidebar-accent-foreground: oklch(0.965 0.003 90);
+  --sidebar-border: oklch(1 0 0 / 0.1);
+  --sidebar-ring: oklch(0.7 0.16 256);
+
+  --elev-card: 0 0 0 0.5px oklch(1 0 0 / 0.08), 0 1px 2px oklch(0 0 0 / 0.4);
+  --elev-card-hover: 0 0 0 0.5px oklch(1 0 0 / 0.14), 0 8px 20px oklch(0 0 0 / 0.5);
+  --elev-float: 0 0 0 0.5px oklch(1 0 0 / 0.14), 0 8px 24px oklch(0 0 0 / 0.4), 0 24px 64px -8px oklch(0 0 0 / 0.6);
+  --glass-highlight: oklch(1 0 0 / 0.12);
+}
+
+/*
+ * 材质：半透明加模糊，表达"浮在内容上面"的层级。
+ * 薄材质给顶栏和工具栏（内容可以从下面滚过），厚材质给菜单、弹出层和对话框（更模糊、更深的阴影）。
+ * 用户在系统里选了"降低透明度"或"提高对比度"，或者浏览器不支持模糊时，一律退回实色。
+ */
+@utility material-bar {
+  background-color: color-mix(in oklab, var(--background) 72%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+
+@utility material-panel {
+  background-color: color-mix(in oklab, var(--popover) 80%, transparent);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(40px) saturate(180%);
+  box-shadow: var(--elev-float), inset 0 0.5px 0 var(--glass-highlight);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .material-bar {
+    background-color: var(--background);
+  }
+  .material-panel {
+    background-color: var(--popover);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .material-bar,
+  .material-panel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .material-bar {
+    background-color: var(--background);
+  }
+  .material-panel {
+    background-color: var(--popover);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .material-bar,
+  .material-panel {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: 1px solid var(--foreground);
+  }
+  .material-bar {
+    background-color: var(--background);
+    border-width: 0 0 1px;
+  }
+  .material-panel {
+    background-color: var(--popover);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 28%, transparent) transparent;
+  }
+  html {
+    @apply font-sans antialiased;
+    -webkit-text-size-adjust: 100%;
+    font-optical-sizing: auto;
+  }
+  body {
+    @apply bg-background text-foreground text-body;
+    text-rendering: optimizeLegibility;
+    /* 深浅主题切换时颜色平滑过渡，避免闪一下 */
+    transition: background-color 250ms var(--ease-sheet), color 250ms var(--ease-sheet);
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 30%, transparent);
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  /* 去掉移动端点按钮时的灰色高亮和 300ms 的双击缩放等待，按下立刻有反馈 */
+  button,
+  [role="button"],
+  a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+/* agent 正在处理这张卡片时的呼吸圆点 */
+@keyframes signal-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--agent) 60%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.signal-dot {
+  animation: signal-pulse 2s ease-out infinite;
+}
+
+/*
+ * 减少动态效果：不取消反馈，只把位移、缩放和弹性换成短暂的淡入淡出。
+ * 弹出层的进入/退出动画用的是 tw-animate-css 的变量，把位移和缩放清零就只剩透明度变化。
+ */
+@media (prefers-reduced-motion: reduce) {
+  .signal-dot {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    --tw-enter-scale: 1;
+    --tw-exit-scale: 1;
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
+    scroll-behavior: auto !important;
+    transition-duration: 120ms !important;
+    transition-timing-function: ease !important;
+    animation-duration: 120ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
