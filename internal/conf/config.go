@@ -21,7 +21,7 @@ type Server struct {
 }
 
 type ServerHTTP struct {
-	Host         string      `comment:"监听地址，默认只监听本机；对外开放请改为 0.0.0.0，并建议放在反向代理之后"`                     // 监听地址
+	Host         string      `comment:"监听地址，默认 0.0.0.0（所有 IPv4 网卡），端口默认 7070"`                        // 监听地址
 	Port         int         `comment:"http 端口"`                                                      // 服务器端口号
 	Timeout      Duration    `comment:"请求超时时间"`                                                       // 请求超时时间
 	AllowedHosts []string    `comment:"额外允许的 Host 白名单（不含端口）；IP、localhost 和 *.localhost 始终允许"`         // Host 白名单
