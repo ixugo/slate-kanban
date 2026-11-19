@@ -33,14 +33,14 @@ Event 的 JSON 序列化会把它直接输出成 JSON 对象，不再套一层�
 |------|----------|-------------|
 | board.created | 创建看板 | name, slug |
 | board.updated | 修改看板名称、说明或项目路径 | fields |
-| board.labels_updated | 修改看板标签库（名称、颜色、增删） | fields（固定 `["labels"]`） |
+| board.labels_updated | 修改看板标签库（文字、颜色、增删；卡片按文字自动新建标签也记这条） | fields（固定 `["tags"]`） |
 | column.created | 新增列 | column_id, name |
 | column.updated | 修改列 | column_id, name, fields |
 | column.deleted | 删除列 | column_id, name, moved_to_id, moved_cards |
 | column.reordered | 调整列顺序 | ids |
 | card.created | 创建卡片 | key, title, column_id, column |
 | card.updated | 修改卡片字段（不含标签） | key, title, fields（真正变化的字段名，如 title、priority、due_at） |
-| card.tags_updated | 修改卡片上的标签 | key, title, fields（固定 `["tags"]`） |
+| card.tags_updated | 修改卡片上的标签（`tag_ids` 变化） | key, title, fields（固定 `["tag_ids"]`） |
 | card.moved | 卡片换列 | key, title, from_id, from, to_id, to |
 | card.reordered | 卡片在同一列内调整顺序 | key, column_id |
 | card.deleted | 删除卡片 | key, title |

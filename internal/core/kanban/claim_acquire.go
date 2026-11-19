@@ -90,17 +90,21 @@ func (u *unit) claimNext(ctx context.Context, actor Actor, boardID int64, lease 
 	return pick.ID, u.grantClaim(ctx, actor, pick, lease)
 }
 
-// boardIndex 在事务里读出看板的全部列和卡片，建好索引。
+// boardIndex 在事务里读出看板的全部列、标签和卡片，建好索引。
 func (u *unit) boardIndex(ctx context.Context, boardID int64) (*boardIndex, error) {
 	cols, err := u.column.ListByBoard(ctx, boardID)
 	if err != nil {
 		return nil, wrapDB("读取列", err)
 	}
+	tags, err := u.tag.ListByBoard(ctx, boardID)
+	if err != nil {
+		return nil, wrapDB("读取标签库", err)
+	}
 	cards, err := u.card.ListByBoard(ctx, boardID)
 	if err != nil {
 		return nil, wrapDB("读取卡片", err)
 	}
-	return newBoardIndex(u.now(), time.Local, cols, cards), nil
+	return newBoardIndex(u.now(), time.Local, cols, tags, cards), nil
 }
 
 // claimIndex 为判断单张卡片的领取资格建一个小索引：看板的列，加上这张卡片和它依赖的卡片，
@@ -110,11 +114,15 @@ func (u *unit) claimIndex(ctx context.Context, card *Card) (*boardIndex, error) 
 	if err != nil {
 		return nil, wrapDB("读取列", err)
 	}
+	tags, err := u.tag.ListByBoard(ctx, card.BoardID)
+	if err != nil {
+		return nil, wrapDB("读取标签库", err)
+	}
 	deps, err := loadDependencies(ctx, u.card, card)
 	if err != nil {
 		return nil, err
 	}
-	return newBoardIndex(u.now(), time.Local, cols, append([]*Card{card}, deps...)), nil
+	return newBoardIndex(u.now(), time.Local, cols, tags, append([]*Card{card}, deps...)), nil
 }
 
 // grantClaim 把卡片记到 agent 名下，租约从现在起算 lease 这么长，并追加 card.claimed 事件。

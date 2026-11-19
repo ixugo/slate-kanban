@@ -97,14 +97,14 @@ func TestCreateCardDefaults(t *testing.T) {
 	}
 	if a.Key != "TST-1" || a.Number != 1 || a.Title != "第一张" || a.ColumnID != e.col(colIdea) ||
 		a.Position != 1024 || a.Version != 1 || a.CreatedBy != "admin" || a.UpdatedBy != "admin" ||
-		!a.CreatedAt.Equal(fixed) || a.Tags == nil || a.WaitsOn == nil || a.ClaimedBy != "" {
+		!a.CreatedAt.Equal(fixed) || a.TagIDs == nil || a.WaitsOn == nil || a.ClaimedBy != "" {
 		t.Fatalf("第一张卡片的字段不对: %+v", a)
 	}
 	b := e.card(t, colIdea, "第二张")
 	if b.Key != "TST-2" || b.Position != 2048 {
 		t.Fatalf("第二张的编号或位置不对: %+v", b)
 	}
-	if got := e.stored(t, a.ID); got.Key != "TST-1" || len(got.Tags) != 0 {
+	if got := e.stored(t, a.ID); got.Key != "TST-1" || len(got.TagIDs) != 0 {
 		t.Fatalf("读出来的卡片不对: %+v", got)
 	}
 
@@ -139,7 +139,7 @@ func TestCreateCardAllFields(t *testing.T) {
 	}
 	got := e.stored(t, c.ID)
 	if got.Description != "描述" || got.Priority != 3 || !got.HumanOnly || got.Branch != "feat/x" || got.URL != "https://example.com/pr/1" ||
-		strings.Join(got.Tags, ",") != "Bug,后端" || len(got.WaitsOn) != 1 || got.WaitsOn[0] != dep.ID {
+		strings.Join(e.names(t, got), ",") != "Bug,后端" || len(got.WaitsOn) != 1 || got.WaitsOn[0] != dep.ID {
 		t.Fatalf("字段不对: %+v", got)
 	}
 	if got.DueAt == nil || !got.DueAt.Equal(time.Date(2026, 12, 1, 1, 30, 0, 0, time.UTC)) || got.DueAt.Location() != time.UTC {
@@ -342,7 +342,7 @@ func TestUpdateCardByHuman(t *testing.T) {
 		t.Fatalf("返回的卡片不对: %+v", got)
 	}
 	stored := e.stored(t, c.ID)
-	if stored.Title != "新标题" || stored.Description != "说明" || strings.Join(stored.Tags, ",") != "a,b" ||
+	if stored.Title != "新标题" || stored.Description != "说明" || strings.Join(e.names(t, stored), ",") != "a,b" ||
 		stored.DueAt == nil || stored.Branch != "feat/a" || stored.URL != "https://example.com/1" || stored.Version != 2 {
 		t.Fatalf("读出来的卡片不对: %+v", stored)
 	}
@@ -353,7 +353,7 @@ func TestUpdateCardByHuman(t *testing.T) {
 	if updated.Type != kanban.EventCardUpdated || updated.CardID != c.ID || updated.Payload != want {
 		t.Fatalf("事件不对: %+v，期望内容 %s", updated, want)
 	}
-	wantTags := `{"fields":["tags"],"key":"TST-1","title":"新标题"}`
+	wantTags := `{"fields":["tag_ids"],"key":"TST-1","title":"新标题"}`
 	if tagged.Type != kanban.EventCardTagsUpdated || tagged.CardID != c.ID || tagged.Payload != wantTags {
 		t.Fatalf("标签事件不对: %+v，期望内容 %s", tagged, wantTags)
 	}
@@ -367,7 +367,7 @@ func TestUpdateCardTagsOnlyEvent(t *testing.T) {
 	c := e.card(t, colTodo, "标签事件")
 	from := len(e.events(t))
 
-	tags := []string{"x"}
+	tags := []string{"Bug"}
 	if _, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{Tags: &tags}); err != nil {
 		t.Fatalf("改标签失败: %v", err)
 	}
@@ -402,7 +402,7 @@ func TestUpdateCardClearsFields(t *testing.T) {
 		t.Fatalf("清空失败: %v", err)
 	}
 	got := e.stored(t, c.ID)
-	if len(got.Tags) != 0 || len(got.WaitsOn) != 0 || got.DueAt != nil || got.HumanOnly || got.Priority != 0 {
+	if len(got.TagIDs) != 0 || len(got.WaitsOn) != 0 || got.DueAt != nil || got.HumanOnly || got.Priority != 0 {
 		t.Fatalf("字段应该都被清掉: %+v", got)
 	}
 }

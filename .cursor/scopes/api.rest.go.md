@@ -43,7 +43,7 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 | GET /boards | ListBoards | 全部 | — | 看板数组 |
 | POST /boards | CreateBoard | 人 | CreateBoardInput | BoardDetail |
 | GET /boards/:board_id | GetBoard | 全部 | — | BoardDetail（含列和规则） |
-| PATCH /boards/:board_id | UpdateBoard | 人；agent 只能在项目路径为空时写项目路径，不能改标签库 | UpdateBoardInput（含 labels，见 kanban.board.go.md「标签库」） | Board（含 labels） |
+| PATCH /boards/:board_id | UpdateBoard | 人；agent 只能在项目路径为空时写项目路径，不能改标签库（`tags`） | UpdateBoardInput（含 tags，见 kanban.board.go.md「标签库」） | Board（含 tags） |
 | DELETE /boards/:board_id | DeleteBoard | 人 | — | `{}` |
 | GET /boards/:board_id/snapshot | BoardSnapshot | 全部 | — | Snapshot（看板、列、规则、全部卡片、seq） |
 | GET /boards/:board_id/export | ExportBoard | 全部 | 查询 format=json\|md，默认 json | JSON 信封或 Markdown 附件（见 kanban.board.go.md） |

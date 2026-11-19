@@ -197,16 +197,16 @@ func containsFold(s, lowerNeedle string) bool {
 // textTerm 普通文字：标题、描述、编号、标签里任何一处包含它就算命中，不区分大小写。
 func textTerm(needle string) testFunc {
 	needle = strings.ToLower(needle)
-	return func(c *Card, _ *boardIndex) bool {
+	return func(c *Card, ix *boardIndex) bool {
 		return containsFold(c.Title, needle) || containsFold(c.Description, needle) || containsFold(c.Key, needle) ||
-			slices.ContainsFunc(c.Tags, func(tag string) bool { return containsFold(tag, needle) })
+			slices.ContainsFunc(ix.tagNames(c), func(tag string) bool { return containsFold(tag, needle) })
 	}
 }
 
 // buildTag 解析 tag:xxx，卡片带有这个标签（不区分大小写）。
 func buildTag(_, value string) (testFunc, error) {
-	return func(c *Card, _ *boardIndex) bool {
-		return slices.ContainsFunc(c.Tags, func(tag string) bool { return strings.EqualFold(tag, value) })
+	return func(c *Card, ix *boardIndex) bool {
+		return slices.ContainsFunc(ix.tagNames(c), func(tag string) bool { return strings.EqualFold(tag, value) })
 	}, nil
 }
 

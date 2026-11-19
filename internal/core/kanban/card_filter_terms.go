@@ -36,7 +36,7 @@ var hasTests = []namedTest{
 	{"due", func(c *Card, _ *boardIndex) bool { return c.DueAt != nil }},
 	{"branch", func(c *Card, _ *boardIndex) bool { return c.Branch != "" }},
 	{"url", func(c *Card, _ *boardIndex) bool { return c.URL != "" }},
-	{"tags", func(c *Card, _ *boardIndex) bool { return len(c.Tags) > 0 }},
+	{"tags", func(c *Card, _ *boardIndex) bool { return len(c.TagIDs) > 0 }},
 	{"desc", func(c *Card, _ *boardIndex) bool { return c.Description != "" }},
 	{"deps", func(c *Card, _ *boardIndex) bool { return len(c.WaitsOn) > 0 }},
 }

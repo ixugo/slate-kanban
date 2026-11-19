@@ -36,6 +36,10 @@ func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, err
 	if err != nil {
 		return nil, wrapDB("读取列", err)
 	}
+	tags, err := c.store.Tag().ListByBoard(ctx, card.BoardID)
+	if err != nil {
+		return nil, wrapDB("读取标签库", err)
+	}
 	deps, err := loadDependencies(ctx, c.store.Card(), card)
 	if err != nil {
 		return nil, err
@@ -44,7 +48,7 @@ func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, err
 	if err != nil {
 		return nil, wrapDB("读取评论", err)
 	}
-	ix := newBoardIndex(c.now(), time.Local, cols, append([]*Card{card}, deps...))
+	ix := newBoardIndex(c.now(), time.Local, cols, tags, append([]*Card{card}, deps...))
 	detail := &CardDetail{
 		CardView: ix.view(card), Dependencies: make([]*CardRef, 0, len(deps)),
 		Comments: comments,

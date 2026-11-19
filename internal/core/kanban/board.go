@@ -8,7 +8,7 @@ import (
 	"github.com/ixugo/goddd/pkg/orm"
 )
 
-// BoardDetail 是看板连同它的列和规则。内嵌 *Board，序列化成 JSON 时看板自己的字段在最外层。
+// BoardDetail 是看板连同它的列和规则（标签库在看板自己的 Tags 字段里）。内嵌 *Board，序列化成 JSON 时看板自己的字段在最外层。
 type BoardDetail struct {
 	*Board
 	Columns []*Column `json:"columns"`
@@ -77,6 +77,11 @@ func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardIn
 			}
 			return wrapDB("创建看板", err)
 		}
+		tags, err := u.seedTags(ctx, b.ID, in.Template, in.Locale)
+		if err != nil {
+			return err
+		}
+		b.Tags = tags
 		cols, err := u.seedColumns(ctx, b.ID, in.Template, in.Locale)
 		if err != nil {
 			return err
@@ -103,6 +108,11 @@ func (c Core) ListBoards(ctx context.Context) ([]*Board, error) {
 	if err != nil {
 		return nil, wrapDB("读取看板列表", err)
 	}
+	for _, b := range items {
+		if err := c.loadTags(ctx, b); err != nil {
+			return nil, err
+		}
+	}
 	return items, nil
 }
 
@@ -111,6 +121,9 @@ func (c Core) GetBoard(ctx context.Context, id int64) (*BoardDetail, error) {
 	b, err := c.store.Board().GetByID(ctx, id)
 	if err != nil {
 		return nil, mapNotFound(err, ErrBoardNotFound, "读取看板")
+	}
+	if err := c.loadTags(ctx, b); err != nil {
+		return nil, err
 	}
 	cols, err := c.store.Column().ListByBoard(ctx, id)
 	if err != nil {
@@ -149,13 +162,18 @@ func (c Core) UpdateBoard(ctx context.Context, actor Actor, id int64, in UpdateB
 		}
 		out = b
 		changed := in.apply(b)
-		if in.Labels != nil {
-			labelsChanged, err := u.applyLabels(ctx, b, *in.Labels)
+		tags, err := u.tag.ListByBoard(ctx, id)
+		if err != nil {
+			return wrapDB("读取标签库", err)
+		}
+		b.Tags = tags
+		if in.Tags != nil {
+			tagsChanged, err := u.applyTags(ctx, b, *in.Tags)
 			if err != nil {
 				return err
 			}
-			if labelsChanged {
-				changed = append(changed, "labels")
+			if tagsChanged {
+				changed = append(changed, "tags")
 			}
 		}
 		if len(changed) == 0 {
@@ -180,7 +198,7 @@ func checkBoardPatchAllowed(actor Actor, in UpdateBoardInput) error {
 	switch {
 	case actor.IsHuman():
 		return nil
-	case actor.IsAgent() && in.Name == nil && in.Description == nil && in.Labels == nil && in.ProjectPath != nil:
+	case actor.IsAgent() && in.Name == nil && in.Description == nil && in.Tags == nil && in.ProjectPath != nil:
 		return nil
 	}
 	return ErrHumanOnly.WithMsg("agent 只能在项目路径为空时写入项目路径，其他修改只允许人执行")
@@ -217,6 +235,7 @@ func (u *unit) deleteBoard(ctx context.Context, id int64) error {
 		{"评论", func() error { return u.comment.DeleteByBoard(ctx, id) }},
 		{"图片", func() error { return u.attachment.DeleteByBoard(ctx, id) }},
 		{"卡片", func() error { return u.card.DeleteByBoard(ctx, id) }},
+		{"标签", func() error { return u.tag.DeleteByBoard(ctx, id) }},
 		{"规则", func() error { return u.rule.DeleteByBoard(ctx, id) }},
 		{"列", func() error { return u.column.DeleteByBoard(ctx, id) }},
 		{"读取进度", func() error { return u.cursor.DeleteByBoard(ctx, id) }},
@@ -232,10 +251,21 @@ func (u *unit) deleteBoard(ctx context.Context, id int64) error {
 	return nil
 }
 
+// loadTags 把看板的标签库读出来放到 b.Tags 上。
+func (c Core) loadTags(ctx context.Context, b *Board) error {
+	tags, err := c.store.Tag().ListByBoard(ctx, b.ID)
+	if err != nil {
+		return wrapDB("读取标签库", err)
+	}
+	b.Tags = tags
+	b.Normalize()
+	return nil
+}
+
 // emitBoardUpdates 按改了什么写事件：标签库的变化单独写 board.labels_updated，
 // 其余字段写 board.updated，同时改了两类就两条都写。原因同 emitCardUpdates。
 func (u *unit) emitBoardUpdates(ctx context.Context, actor Actor, boardID int64, changed []string) error {
-	rest := slices.DeleteFunc(slices.Clone(changed), func(f string) bool { return f == "labels" })
+	rest := slices.DeleteFunc(slices.Clone(changed), func(f string) bool { return f == "tags" })
 	if len(rest) > 0 {
 		if err := u.emit(ctx, actor, newEvent{BoardID: boardID, Type: EventBoardUpdated, Payload: map[string]any{"fields": rest}}); err != nil {
 			return err
@@ -244,5 +274,5 @@ func (u *unit) emitBoardUpdates(ctx context.Context, actor Actor, boardID int64,
 	if len(rest) == len(changed) {
 		return nil
 	}
-	return u.emit(ctx, actor, newEvent{BoardID: boardID, Type: EventBoardLabelsUpdated, Payload: map[string]any{"fields": []string{"labels"}}})
+	return u.emitTagsUpdated(ctx, actor, boardID)
 }

@@ -117,7 +117,7 @@ type (
 		Slug        string           `json:"slug"`
 		Description string           `json:"description"`
 		ProjectPath string           `json:"project_path"`
-		Labels      []map[string]any `json:"labels"`
+		Tags        []map[string]any `json:"tags"`
 		Columns     []column         `json:"columns"`
 		Rules       []map[string]any `json:"rules"`
 	}
@@ -129,6 +129,7 @@ type (
 		Description string   `json:"description"`
 		Priority    int      `json:"priority"`
 		Tags        []string `json:"tags"`
+		TagIDs      []int64  `json:"tag_ids"`
 		ClaimedBy   string   `json:"claimed_by"`
 		Version     int64    `json:"version"`
 	}

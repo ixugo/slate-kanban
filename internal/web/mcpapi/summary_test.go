@@ -54,7 +54,7 @@ func TestSummarize(t *testing.T) {
 // TestBriefOf 验证写入结果的卡片字段：不含描述，也不含要靠整个看板才能算出的派生状态，
 // 标签和依赖永远是数组，版本号和编号都在。
 func TestBriefOf(t *testing.T) {
-	raw, err := json.Marshal(briefOf(&kanban.Card{ID: 7, Key: "SLATE-7", Title: "做登录", Description: "secret-description", Version: 4}))
+	raw, err := json.Marshal(briefOf(&kanban.Card{ID: 7, Key: "SLATE-7", Title: "做登录", Description: "secret-description", Version: 4}, nil))
 	if err != nil {
 		t.Fatalf("序列化失败: %v", err)
 	}

@@ -24,6 +24,7 @@ type cardBrief struct {
 	ColumnID   int64      `json:"column_id"`
 	Priority   int        `json:"priority"`
 	Tags       []string   `json:"tags"`
+	TagIDs     []int64    `json:"tag_ids"`
 	HumanOnly  bool       `json:"human_only"`
 	ClaimedBy  string     `json:"claimed_by"`
 	WaitsOn    []int64    `json:"waits_on"`
@@ -45,16 +46,20 @@ type cardSummary struct {
 	ClaimActive bool   `json:"claim_active"`
 }
 
-// briefOf 取出一张卡片的简要字段。标签和依赖保证是数组而不是 null，agent 不用到处判空。
-func briefOf(c *kanban.Card) cardBrief {
+// briefOf 取出一张卡片的简要字段。tags 是卡片上带文字的标签的文字（由调用方算好传入），
+// tag_ids 是全部标签的主键（含没有文字的）。标签和依赖保证是数组而不是 null，agent 不用到处判空。
+func briefOf(c *kanban.Card, tags []string) cardBrief {
 	b := cardBrief{
 		ID: c.ID, Key: c.Key, Title: c.Title, ColumnID: c.ColumnID, Priority: c.Priority,
-		Tags: c.Tags, HumanOnly: c.HumanOnly, ClaimedBy: c.ClaimedBy, WaitsOn: c.WaitsOn,
+		Tags: tags, TagIDs: c.TagIDs, HumanOnly: c.HumanOnly, ClaimedBy: c.ClaimedBy, WaitsOn: c.WaitsOn,
 		DueAt: c.DueAt, StartedAt: c.StartedAt, FinishedAt: c.FinishedAt,
 		Branch: c.Branch, URL: c.URL, Version: c.Version, UpdatedAt: c.UpdatedAt,
 	}
 	if b.Tags == nil {
 		b.Tags = []string{}
+	}
+	if b.TagIDs == nil {
+		b.TagIDs = []int64{}
 	}
 	if b.WaitsOn == nil {
 		b.WaitsOn = []int64{}
@@ -64,7 +69,7 @@ func briefOf(c *kanban.Card) cardBrief {
 
 // summarize 把一张卡片的视图缩成摘要。
 func summarize(v *kanban.CardView) cardSummary {
-	return cardSummary{cardBrief: briefOf(v.Card), Column: v.Column, Done: v.Done, Waiting: v.Waiting, ClaimActive: v.ClaimActive}
+	return cardSummary{cardBrief: briefOf(v.Card, v.Tags), Column: v.Column, Done: v.Done, Waiting: v.Waiting, ClaimActive: v.ClaimActive}
 }
 
 // summarizeAll 把一组卡片视图缩成摘要，保持顺序；没有卡片时返回空切片而不是 nil。

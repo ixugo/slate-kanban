@@ -315,3 +315,39 @@ func TestWriteInputsAreChecked(t *testing.T) {
 		}
 	}
 }
+
+// TestMCPTagsByNameAndID 验证 agent 既可以按文字也可以按主键设置标签：写入结果和读取结果都带 tags（文字）和 tag_ids，
+// 没有文字的标签只出现在 tag_ids 里；两种都填会被拒绝。
+func TestMCPTagsByNameAndID(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "TAG")
+	sess := s.agent(t, "claude")
+	tags := append(inputsOf(b.Tags), kanban.TagInput{Color: "green-3"})
+	updated, err := s.core.UpdateBoard(t.Context(), humanActor, b.ID, kanban.UpdateBoardInput{Tags: &tags})
+	if err != nil {
+		t.Fatalf("加一个没有文字的标签失败: %v", err)
+	}
+	blank := updated.Tags[len(updated.Tags)-1].ID
+
+	made := ok(t, sess, "create_card", map[string]any{"board_id": b.ID, "title": "按文字", "tags": []string{"Bug", "全新"}}).Data
+	if fmt.Sprint(made["tags"]) != "[Bug 全新]" || len(made["tag_ids"].([]any)) != 2 {
+		t.Fatalf("写入结果应该同时带文字和主键: %v", made)
+	}
+	byID := ok(t, sess, "create_card", map[string]any{"board_id": b.ID, "title": "按主键", "tag_ids": []int64{blank}}).Data
+	if fmt.Sprint(byID["tags"]) != "[]" || len(byID["tag_ids"].([]any)) != 1 {
+		t.Fatalf("没有文字的标签只应该出现在 tag_ids 里: %v", byID)
+	}
+	res := call(t, sess, "create_card", map[string]any{"board_id": b.ID, "title": "两种都填", "tags": []string{"x"}, "tag_ids": []int64{blank}})
+	if !res.IsError {
+		t.Fatalf("tags 和 tag_ids 同时填应该被拒绝: %+v", res)
+	}
+}
+
+// inputsOf 把标签库转成修改标签库的入参，保持原有标签不变。
+func inputsOf(tags []*kanban.Tag) []kanban.TagInput {
+	out := make([]kanban.TagInput, len(tags))
+	for i, t := range tags {
+		out[i] = kanban.TagInput{ID: t.ID, Text: t.Text, Color: t.Color}
+	}
+	return out
+}

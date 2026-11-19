@@ -54,7 +54,7 @@ func TestCardRoundTrip(t *testing.T) {
 	due := time.Date(2026, 12, 1, 8, 30, 0, 0, time.UTC)
 	in := &kanban.Card{
 		BoardID: 1, ColumnID: 2, Number: 1, Key: "SLATE-1", Title: "写设计文档",
-		Tags: []string{"docs", "backend"}, WaitsOn: []int64{7, 9}, DueAt: &due, Version: 1,
+		TagIDs: []int64{3, 4}, WaitsOn: []int64{7, 9}, DueAt: &due, Version: 1,
 	}
 	if err := db.Create(in).Error; err != nil {
 		t.Fatalf("创建卡片失败: %v", err)
@@ -65,8 +65,8 @@ func TestCardRoundTrip(t *testing.T) {
 		t.Fatalf("读取卡片失败: %v", err)
 	}
 	got.Normalize()
-	if !slices.Equal(got.Tags, in.Tags) || !slices.Equal(got.WaitsOn, in.WaitsOn) {
-		t.Errorf("JSON 字段不一致: tags=%v waits_on=%v", got.Tags, got.WaitsOn)
+	if !slices.Equal(got.TagIDs, in.TagIDs) || !slices.Equal(got.WaitsOn, in.WaitsOn) {
+		t.Errorf("JSON 字段不一致: tag_ids=%v waits_on=%v", got.TagIDs, got.WaitsOn)
 	}
 	if got.DueAt == nil || !got.DueAt.Equal(due) {
 		t.Errorf("到期时间不一致: %v", got.DueAt)
@@ -89,8 +89,8 @@ func TestCardNormalizeNilSlices(t *testing.T) {
 		t.Fatalf("读取卡片失败: %v", err)
 	}
 	got.Normalize()
-	if got.Tags == nil || got.WaitsOn == nil {
-		t.Errorf("Normalize 之后不应该是 nil: tags=%v waits_on=%v", got.Tags, got.WaitsOn)
+	if got.TagIDs == nil || got.WaitsOn == nil {
+		t.Errorf("Normalize 之后不应该是 nil: tag_ids=%v waits_on=%v", got.TagIDs, got.WaitsOn)
 	}
 }
 

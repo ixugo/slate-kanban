@@ -32,7 +32,7 @@ func (c Core) BoardSnapshot(ctx context.Context, boardID int64) (*Snapshot, erro
 	if err != nil {
 		return nil, wrapDB("读取卡片", err)
 	}
-	ix := newBoardIndex(c.now(), time.Local, detail.Columns, cards)
+	ix := newBoardIndex(c.now(), time.Local, detail.Columns, detail.Tags, cards)
 	sorted := ix.sortCards(ix.all)
 	views := make([]*CardView, len(sorted))
 	for i, card := range sorted {

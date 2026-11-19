@@ -11,7 +11,7 @@ type Board struct {
 	Slug        string    `gorm:"column:slug;size:10;notNull;default:'';uniqueIndex:uq_boards_slug;comment:看板短标识，卡片编号的前缀，创建后不可修改" json:"slug"`
 	Description string    `gorm:"column:description;type:text;notNull;default:'';comment:看板说明" json:"description"`
 	ProjectPath string    `gorm:"column:project_path;size:512;notNull;default:'';comment:看板关联的本地项目路径" json:"project_path"`
-	Labels      []Label   `gorm:"column:labels;type:text;serializer:json;comment:标签库，JSON 数组：给标签起名字和配颜色，卡片按名称引用" json:"labels"`
+	Tags        []*Tag    `gorm:"-" json:"tags"` // 标签库，存在 tags 表里，由 Core 读出看板时填入
 	CardSeq     int64     `gorm:"column:card_seq;notNull;default:0;comment:已经分配到的最后一个卡片编号" json:"-"`
 	CreatedAt   time.Time `gorm:"column:created_at;notNull;default:CURRENT_TIMESTAMP;comment:创建时间" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"column:updated_at;notNull;default:CURRENT_TIMESTAMP;comment:更新时间" json:"updated_at"`
@@ -25,7 +25,7 @@ func (*Board) TableName() string {
 // Normalize 把空的标签库统一成空切片，保证 JSON 里是 [] 而不是 null。
 // 存储层每次读出或写入看板时都要调用它。
 func (b *Board) Normalize() {
-	if b.Labels == nil {
-		b.Labels = []Label{}
+	if b.Tags == nil {
+		b.Tags = []*Tag{}
 	}
 }

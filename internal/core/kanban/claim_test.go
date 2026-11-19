@@ -34,7 +34,7 @@ func claimFixture() (*boardIndex, map[string]*Card) {
 	for _, c := range cards {
 		list = append(list, c)
 	}
-	return newBoardIndex(now, time.UTC, cols, list), cards
+	return newBoardIndex(now, time.UTC, cols, nil, list), cards
 }
 
 // TestCheckClaimable 验证领取资格：按固定顺序判断，每种不满足都得到对应的错误，提示里带着有用的细节。
@@ -93,7 +93,7 @@ func TestCheckClaimableOrder(t *testing.T) {
 
 // TestNotPickupErrorWithoutPickupColumns 验证看板里没有任何领活列时，提示让人先去列设置里开启。
 func TestNotPickupErrorWithoutPickupColumns(t *testing.T) {
-	ix := newBoardIndex(time.Now(), time.UTC, []*Column{{ID: 1, Name: "待办"}}, nil)
+	ix := newBoardIndex(time.Now(), time.UTC, []*Column{{ID: 1, Name: "待办"}}, nil, nil)
 	card := &Card{ID: 1, ColumnID: 1}
 	err := checkClaimable(Actor{Kind: ActorAgent, Name: "claude"}, card, ix)
 	if !errors.Is(err, ErrColumnNotPickup) || !strings.Contains(err.Error(), "列设置") {

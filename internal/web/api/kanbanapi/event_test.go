@@ -205,7 +205,7 @@ func TestActivityExcludeTypes(t *testing.T) {
 	s := newStack(t)
 	b := s.newBoard(t, "EXC")
 	c := s.newCard(t, b, b.Columns[1].ID, "标签事件")
-	s.human(t, http.MethodPatch, "/cards/"+id(c.ID), map[string]any{"tags": []string{"x"}})
+	s.human(t, http.MethodPatch, "/cards/"+id(c.ID), map[string]any{"tags": []string{"Bug"}})
 	s.human(t, http.MethodPatch, "/cards/"+id(c.ID), map[string]any{"priority": 2})
 	base := "/boards/" + id(b.ID) + "/activity"
 

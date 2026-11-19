@@ -33,7 +33,7 @@ func TestPostgresJSONRoundTripSpecialChars(t *testing.T) {
 		store := db.Card()
 		c := &kanban.Card{
 			BoardID: 1, ColumnID: 1, Key: "PG-JSON-1", Title: `标题含 "引号"`, Version: 1,
-			Tags:    []string{`标签「中文」`, `带"引号"`, "BACKEND"},
+			TagIDs:  []int64{3, 1, 2},
 			WaitsOn: []int64{99, 100},
 		}
 		if err := store.Create(ctx, c); err != nil {
@@ -43,8 +43,8 @@ func TestPostgresJSONRoundTripSpecialChars(t *testing.T) {
 		if err != nil {
 			t.Fatalf("读取失败: %v", err)
 		}
-		if !slices.Equal(got.Tags, c.Tags) || !slices.Equal(got.WaitsOn, c.WaitsOn) {
-			t.Fatalf("JSON 往返不一致: tags=%v waits_on=%v", got.Tags, got.WaitsOn)
+		if !slices.Equal(got.TagIDs, c.TagIDs) || !slices.Equal(got.WaitsOn, c.WaitsOn) {
+			t.Fatalf("JSON 往返不一致: tag_ids=%v waits_on=%v", got.TagIDs, got.WaitsOn)
 		}
 	})
 }
