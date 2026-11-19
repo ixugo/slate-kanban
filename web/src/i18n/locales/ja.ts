@@ -35,6 +35,14 @@ export const ja: Messages = {
     allBoards: 'すべてのプロジェクト',
     switchBoard: 'プロジェクトを切り替え',
     skipToContent: '本文へスキップ',
+    about: 'このアプリについて',
+  },
+  about: {
+    title: 'Slate について',
+    intro: 'Slate は人と AI エージェントが共用するカンバンです。人はウェブでカードを動かして要件を書き、エージェントは MCP でボードを読み、タスクを引き受けて作業し、終わったらカードを「レビュー」列に渡します。',
+    version: 'バージョン',
+    versionUnknown: '不明',
+    project: 'プロジェクト',
   },
   theme: {
     label: 'テーマ',

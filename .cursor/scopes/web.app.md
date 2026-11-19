@@ -233,6 +233,10 @@ vendored shadcn 组件（`button`、`dialog`、`tabs` 等）。**不要求**每�
 
 仓库内亦可：`cd web && npm run dev|build|test|lint|typecheck|size`。
 
+## 关于弹窗
+
+顶栏有「关于」图标按钮（`app/AboutButton.tsx`），点开才懒加载 `app/AboutDialog.tsx`，不占首屏体积。弹窗显示一句话介绍（`about.intro`）、版本号（弹窗打开时请求 `GET /api/v1/version` 的 `version`，失败显示「未知」）和项目地址 `PROJECT_URL`（`https://github.com/ixugo/slate-kanban`，新窗口打开、带 `noopener`）。版本号来自构建时注入的 `main.buildVersion`，Makefile 按最近的 git tag 推算：提交正好在 `v0.1.0` 标签上就是 `v0.1.0`，之后每多一个提交修订号加一。测试：`AboutDialog.test.tsx`；e2e-strict 的 `about-dialog` 用例。
+
 ## 验证门禁
 
 | 项 | 命令 |

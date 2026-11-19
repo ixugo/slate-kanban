@@ -35,6 +35,14 @@ export const ko: Messages = {
     allBoards: '모든 프로젝트',
     switchBoard: '프로젝트 전환',
     skipToContent: '본문으로 건너뛰기',
+    about: '정보',
+  },
+  about: {
+    title: 'Slate 정보',
+    intro: 'Slate는 사람과 AI 에이전트가 함께 쓰는 칸반 보드입니다. 사람은 웹에서 카드를 옮기고 요구사항을 쓰고, 에이전트는 MCP로 보드를 읽고 작업을 맡아 처리한 뒤 카드를 \'검토\' 열로 넘깁니다.',
+    version: '버전',
+    versionUnknown: '알 수 없음',
+    project: '프로젝트',
   },
   theme: {
     label: '테마',

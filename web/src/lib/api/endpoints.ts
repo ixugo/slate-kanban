@@ -27,6 +27,7 @@ import type {
   UpdateCardInput,
   UpdateColumnInput,
   UpdateRuleInput,
+  VersionInfo,
 } from './types'
 
 /** 取消请求用的信号，查询函数把 TanStack Query 给的 signal 传进来 */
@@ -164,6 +165,11 @@ export function deleteRule(ruleId: number): Promise<Empty> {
 /** 接入说明：MCP 地址、skill 地址，以及各 agent 宿主的安装命令（工作视图和管理视图各一条） */
 export function getConnectGuide(signal?: Signal): Promise<ConnectGuide> {
   return request<ConnectGuide>('/connect', { signal })
+}
+
+/** 服务端的构建版本，「关于」弹窗里显示 */
+export function getVersion(signal?: Signal): Promise<VersionInfo> {
+  return request<VersionInfo>('/version', { signal })
 }
 
 /** 访问口令状态：服务端是否启用、当前浏览器是否已通过；这个接口本身不要求口令 */

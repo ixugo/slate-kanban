@@ -13,6 +13,8 @@ export const queryKeys = {
   cardActivity: (boardId: number, cardId: number) => ['board', boardId, 'card-activity', cardId] as const,
   /** 一张卡片的详情；不带编号表示全部卡片详情，用来整体失效 */
   card: (cardId?: number) => (cardId === undefined ? (['card'] as const) : (['card', cardId] as const)),
+  /** 服务端版本信息 */
+  version: ['version'] as const,
   /** 接入说明 */
   connect: ['connect'] as const,
 }

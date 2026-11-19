@@ -1,4 +1,4 @@
-// 所有页面共用的外框：顶栏（标志、看板切换、agent、语言、主题、退出）加页面内容区。
+// 所有页面共用的外框：顶栏（标志、看板切换、agent、关于、语言、主题、退出）加页面内容区。
 
 import { BotIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
@@ -6,6 +6,7 @@ import { Link, Outlet, useMatch } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { LogoutButton } from '@/features/auth/LogoutButton'
 import { cn } from '@/lib/utils'
+import { AboutButton } from './AboutButton'
 import { BoardSwitcher } from './BoardSwitcher'
 import { LanguageMenu } from './LanguageMenu'
 import { Logo } from './Logo'
@@ -39,6 +40,7 @@ export function AppShell() {
               <span className="hidden md:inline">{t('nav.agents')}</span>
             </Link>
           </Button>
+          <AboutButton />
           <LanguageMenu />
           <ThemeMenu />
           <LogoutButton />

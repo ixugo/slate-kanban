@@ -38,6 +38,14 @@ export const en = {
     allBoards: 'All projects',
     switchBoard: 'Switch project',
     skipToContent: 'Skip to content',
+    about: 'About',
+  },
+  about: {
+    title: 'About Slate',
+    intro: 'Slate is a kanban board shared by people and AI agents: people drag cards and write requirements on the web, agents read the board, claim tasks and do the work over MCP, then hand the card to the Review column.',
+    version: 'Version',
+    versionUnknown: 'Unknown',
+    project: 'Project',
   },
   theme: {
     label: 'Theme',

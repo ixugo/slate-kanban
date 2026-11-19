@@ -35,6 +35,14 @@ export const zhCN: Messages = {
     allBoards: '全部项目',
     switchBoard: '切换项目',
     skipToContent: '跳到正文',
+    about: '关于',
+  },
+  about: {
+    title: '关于 Slate',
+    intro: 'Slate 是人和 AI agent 共用的看板：人在网页上拖卡片、写需求，agent 通过 MCP 读看板、领任务、干活，做完把卡片交到「审查」列等人检查。',
+    version: '版本',
+    versionUnknown: '未知',
+    project: '项目地址',
   },
   theme: {
     label: '主题',

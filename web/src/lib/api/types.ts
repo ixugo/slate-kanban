@@ -382,6 +382,12 @@ export interface ErrorBody {
   trace_id?: string
 }
 
+/** 服务端版本信息：version 是构建版本号（例如 v0.1.0），remark 是分支、提交和日期 */
+export interface VersionInfo {
+  version: string
+  remark: string
+}
+
 /** 访问口令的状态：required 表示服务端启用了口令；authenticated 表示当前浏览器是否已通过 */
 export interface AuthStatus {
   required: boolean
