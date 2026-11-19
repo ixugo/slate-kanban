@@ -5,19 +5,19 @@
 /** 操作者类型：人、agent、系统（自动化规则） */
 export type ActorKind = 'human' | 'agent' | 'system'
 
-/** 看板标签库里的一项：卡片上存的是标签名，颜色靠名称到标签库里查 */
-export interface Label {
-  id: string
-  name: string
-  /** 色相-深浅（1 最深，3 最浅），例如 green-2；空串表示没有颜色 */
+/** 看板标签库里的一项：一个颜色加一段文字，各自可改；文字可以为空，表示只有颜色。卡片靠主键引用标签 */
+export interface Tag {
+  id: number
+  text: string
+  /** 色相-深浅（1 最深，3 最浅），例如 green-2；空串表示默认灰色 */
   color: string
 }
 
 export interface Board {
   id: number
   name: string
-  /** 标签库：给标签起名字、配颜色；名称不在库里的标签照常使用，只是没有颜色 */
-  labels: Label[]
+  /** 标签库：新看板自带 6 个标准色标签，可以改、可以加 */
+  tags: Tag[]
   /** 卡片编号的前缀，创建后不能改 */
   slug: string
   description: string
@@ -113,7 +113,8 @@ export interface Card {
   position: number
   /** 0 未设置，1 低，2 中，3 高 */
   priority: number
-  tags: string[]
+  /** 卡片上的标签主键，指向看板的标签库（含没有文字的标签） */
+  tag_ids: number[]
   human_only: boolean
   /** 依赖的卡片主键 */
   waits_on: number[]
@@ -135,6 +136,8 @@ export interface Card {
 
 /** 卡片加上服务端从列、依赖、租约推出来的只读信息 */
 export interface CardView extends Card {
+  /** 卡片上带文字的标签的文字，给筛选选项和无障碍名称用；要颜色请用 tag_ids 查标签库 */
+  tags: string[]
   /** 所在列的名称 */
   column: string
   /** 在完成列里 */
@@ -282,16 +285,18 @@ export interface CreateBoardInput {
 }
 
 /** 修改标签库的一项：id 为空表示新增；整体替换，库里有而入参没有的算删除 */
-export interface LabelInput {
-  id?: string
-  name: string
+export interface TagInput {
+  /** 不填表示新增，由服务端分配 */
+  id?: number
+  text: string
   color: string
 }
 
 export interface UpdateBoardInput {
   name?: string
   description?: string
-  labels?: LabelInput[]
+  /** 整体替换标签库：库里原有、这里没有的算删除，顺序就是显示顺序 */
+  tags?: TagInput[]
 }
 
 export interface CreateColumnInput {
@@ -318,7 +323,7 @@ export interface CreateCardInput {
   description?: string
   column_id?: number
   priority?: number
-  tags?: string[]
+  tag_ids?: number[]
   human_only?: boolean
   waits_on?: number[]
   due_at?: string
@@ -333,7 +338,7 @@ export interface UpdateCardInput {
   title?: string
   description?: string
   priority?: number
-  tags?: string[]
+  tag_ids?: number[]
   human_only?: boolean
   waits_on?: number[]
   due_at?: string

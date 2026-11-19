@@ -226,6 +226,8 @@ export const zhTW: Messages = {
     removeColor: '移除顏色',
     back: '返回',
     empty: '沒有符合的標籤',
+    blank: '無文字',
+    namePlaceholder: '留空表示只有顏色',
     colorName: '{{hue}}（{{shade}}）',
     hues: {
       green: '綠',

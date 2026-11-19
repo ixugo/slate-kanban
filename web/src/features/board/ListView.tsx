@@ -183,12 +183,12 @@ export default function ListView({
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-wrap items-center gap-1">
-                        {card.tags.slice(0, TAGS_VISIBLE).map((tag) => (
-                          <TagBadge key={tag} name={tag} className="max-w-[6rem]" />
+                        {(card.tag_ids ?? []).slice(0, TAGS_VISIBLE).map((id) => (
+                          <TagBadge key={id} id={id} className="max-w-[6rem]" />
                         ))}
-                        {card.tags.length > TAGS_VISIBLE && (
+                        {(card.tag_ids ?? []).length > TAGS_VISIBLE && (
                           <span className="text-[0.6875rem] text-muted-foreground">
-                            +{card.tags.length - TAGS_VISIBLE}
+                            +{(card.tag_ids ?? []).length - TAGS_VISIBLE}
                           </span>
                         )}
                       </div>

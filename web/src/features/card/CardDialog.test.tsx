@@ -9,9 +9,10 @@ import { renderApp } from '@/test/renderApp'
 import { installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from '@/features/board/BoardPage'
 import { CARD_TAGS_MAX } from '@/lib/limits'
+import type { Tag, TagInput } from '@/lib/api/types'
 
 const baseDetail = {
-  ...makeCard({ id: 1, title: '详情卡', version: 2, tags: ['bug'] }),
+  ...makeCard({ id: 1, title: '详情卡', version: 2, tag_ids: [1], tags: ['bug'] }),
   column_instruction: 'do work',
   dependencies: [],
   comments: [],
@@ -34,11 +35,11 @@ function patchBody(calls: FakeCall[]): unknown {
   return calls.find((c) => c.method === 'PATCH')?.body
 }
 
-function openBoardWithCard(detail: typeof baseDetail, events: object[] = []) {
+function openBoardWithCard(detail: typeof baseDetail, events: object[] = [], library: Tag[] = []) {
   installFakeEventSource()
   let current = { ...detail }
   const api = installFakeApi({
-    'GET /api/v1/boards/:id/snapshot': makeSnapshot({ cards: [makeCard({ id: 1 })] }),
+    'GET /api/v1/boards/:id/snapshot': makeSnapshot({ tags: library, cards: [makeCard({ id: 1 })] }),
     'GET /api/v1/cards/:id': () => ({ body: current }),
     'PATCH /api/v1/cards/:id': (call: FakeCall) => {
       current = {
@@ -47,11 +48,14 @@ function openBoardWithCard(detail: typeof baseDetail, events: object[] = []) {
         version: current.version + 1,
         dependencies: current.dependencies ?? [],
         comments: current.comments ?? [],
-        tags: (call.body as { tags?: string[] }).tags ?? current.tags ?? [],
+        tag_ids: (call.body as { tag_ids?: number[] }).tag_ids ?? current.tag_ids ?? [],
         waits_on: (call.body as { waits_on?: number[] }).waits_on ?? current.waits_on ?? [],
       }
       return { body: current }
     },
+    'PATCH /api/v1/boards/:id': (call: FakeCall) => ({
+      body: { id: 1, tags: (call.body as { tags: TagInput[] }).tags.map((tag, i) => ({ ...tag, id: tag.id ?? 100 + i })) },
+    }),
     'POST /api/v1/cards/:id/release': { body: {} },
     'GET /api/v1/boards/:id/activity': { events, has_more: false, latest: 0, actors: [] },
   })
@@ -104,8 +108,9 @@ describe('CardDialog', () => {
     expect(title).toHaveValue('保留')
   })
 
-  it('标签可添加，重复标签不重复提交', async () => {
-    const api = openBoardWithCard({ ...baseDetail, tags: [] })
+  it('标签按编号提交；输入已有标签的文字不重复新建', async () => {
+    const library = [{ id: 1, text: 'bug', color: 'red-2' }]
+    const api = openBoardWithCard({ ...baseDetail, tag_ids: [], tags: [] }, [], library)
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByLabelText(en.card.field.title)
@@ -113,17 +118,17 @@ describe('CardDialog', () => {
     const input = await screen.findByLabelText(en.card.field.tags)
     await user.type(input, 'alpha{Enter}')
     await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(1))
-    await user.type(input, 'ALPHA{Enter}')
-    await waitFor(() => {
-      const patches = api.calls.filter((c) => c.method === 'PATCH')
-      const last = patches[patches.length - 1]?.body as { tags?: string[] }
-      expect(last?.tags).toEqual(['alpha'])
-    })
+    const cardPatch = api.calls.find((c) => c.method === 'PATCH' && c.path.includes('/cards/'))
+    expect((cardPatch?.body as { tag_ids?: number[] } | undefined)?.tag_ids).toEqual([101])
+    await user.type(input, 'BUG{Enter}')
+    await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(2))
+    expect(api.count('PATCH /api/v1/boards/:id')).toBe(1)
   })
 
   it('标签达到上限时内联提示', async () => {
-    const full = Array.from({ length: CARD_TAGS_MAX }, (_, i) => `t${i}`)
-    openBoardWithCard({ ...baseDetail, tags: full })
+    const library = Array.from({ length: CARD_TAGS_MAX }, (_, i) => ({ id: i + 1, text: `t${i}`, color: '' }))
+    const full = library.map((tag) => tag.id)
+    openBoardWithCard({ ...baseDetail, tag_ids: full, tags: library.map((tag) => tag.text) }, [], library)
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByLabelText(en.card.field.title)

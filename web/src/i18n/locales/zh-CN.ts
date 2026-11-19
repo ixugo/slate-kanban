@@ -226,6 +226,8 @@ export const zhCN: Messages = {
     removeColor: '移除颜色',
     back: '返回',
     empty: '没有匹配的标签',
+    blank: '无文字',
+    namePlaceholder: '留空表示只有颜色',
     colorName: '{{hue}}（{{shade}}）',
     hues: {
       green: '绿',

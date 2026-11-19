@@ -116,6 +116,7 @@ describe('SettingsPage', () => {
           description: '',
           position: 1024,
           priority: 0,
+          tag_ids: [],
           tags: [],
           human_only: false,
           waits_on: [],

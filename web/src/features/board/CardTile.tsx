@@ -32,6 +32,7 @@ function TileBody({ card }: { card: CardView }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const overdue = card.due_at && !card.done && isPast(card.due_at)
+  const tagIds = card.tag_ids ?? []
 
   const cover = coverSrc(card.description)
 
@@ -48,12 +49,12 @@ function TileBody({ card }: { card: CardView }) {
         <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{displayKey(card.key)}</span>
       </div>
       <p className="line-clamp-3 text-[0.9375rem] leading-snug font-medium tracking-[-0.005em]">{card.title}</p>
-      {(card.tags.length > 0 || card.due_at || card.human_only || card.waiting || card.claim_active) && (
+      {(tagIds.length > 0 || card.due_at || card.human_only || card.waiting || card.claim_active) && (
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-          {card.tags.slice(0, 3).map((tag) => (
-            <TagBadge key={tag} name={tag} />
+          {tagIds.slice(0, 3).map((id) => (
+            <TagBadge key={id} id={id} />
           ))}
-          {card.tags.length > 3 && <span className="text-[0.6875rem] text-muted-foreground">+{card.tags.length - 3}</span>}
+          {tagIds.length > 3 && <span className="text-[0.6875rem] text-muted-foreground">+{tagIds.length - 3}</span>}
           {card.due_at && (
             <span className={cn('text-[0.6875rem]', overdue ? 'font-medium text-destructive' : 'text-muted-foreground')}>
               {formatDate(card.due_at, lang)}

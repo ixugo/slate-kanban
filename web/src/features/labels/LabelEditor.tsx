@@ -1,4 +1,4 @@
-// 编辑或新建一个标签：预览、标题、30 种颜色、移除颜色、保存和删除。
+// 编辑或新建一个标签：预览、文字（可以留空）、30 种颜色、移除颜色、保存和删除。
 
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react'
@@ -9,44 +9,39 @@ import { Label as FieldLabel } from '@/components/ui/label'
 import { CARD_TAG_MAX } from '@/lib/limits'
 import { LABEL_HUES, LABEL_SHADES, labelStyle } from '@/lib/labelColors'
 import { cn } from '@/lib/utils'
-import type { LabelOption } from './useLabels'
+import type { Tag } from '@/lib/api/types'
+import { colorName } from './tagName'
 
-/** 编辑中的标签：id 为空且 name 为空表示新建；id 为空但 name 不空表示给只在卡片上用过的标签登记颜色 */
+/** 编辑中的标签：id 为 0 表示新建；text 可以为空，表示只有颜色 */
 export interface LabelDraft {
-  id: string
-  name: string
+  id: number
+  text: string
   color: string
 }
 
 interface LabelEditorProps {
   /** 被编辑的标签；null 表示新建 */
-  option: LabelOption | null
+  tag: Tag | null
   busy: boolean
   onBack: () => void
   onSave: (draft: LabelDraft) => void
-  /** 只有已登记进库的标签才能删除 */
-  onDelete: (id: string) => void
+  onDelete: (id: number) => void
 }
 
 /** 标签编辑页 */
-export function LabelEditor({ option, busy, onBack, onSave, onDelete }: LabelEditorProps) {
+export function LabelEditor({ tag, busy, onBack, onSave, onDelete }: LabelEditorProps) {
   const { t } = useTranslation()
-  const [name, setName] = useState(option?.name ?? '')
-  const [color, setColor] = useState(option?.color ?? '')
-  const registered = Boolean(option?.id)
-  // 没登记进库的标签在别的卡片上也用着，改名只会改到这一张，所以只允许给它配颜色
-  const nameLocked = Boolean(option) && !registered
-  const trimmed = name.trim()
+  const [text, setText] = useState(tag?.text ?? '')
+  const [color, setColor] = useState(tag?.color ?? '')
+  const trimmed = text.trim()
   const nameRef = useRef<HTMLInputElement>(null)
 
-  // 新建时直接聚焦标题；不用 autoFocus，因为它会把弹层滚到输入框，顶上的标题栏和返回按钮就看不见了
+  // 直接聚焦文字框；不用 autoFocus，因为它会把弹层滚到输入框，顶上的标题栏和返回按钮就看不见了
   useEffect(() => {
-    if (!nameLocked) nameRef.current?.focus({ preventScroll: true })
-  }, [nameLocked])
+    nameRef.current?.focus({ preventScroll: true })
+  }, [])
 
-  const submit = () => {
-    if (trimmed) onSave({ id: option?.id ?? '', name: trimmed, color })
-  }
+  const submit = () => onSave({ id: tag?.id ?? 0, text: trimmed, color })
 
   return (
     <div className="flex flex-col gap-3">
@@ -54,7 +49,7 @@ export function LabelEditor({ option, busy, onBack, onSave, onDelete }: LabelEdi
         <Button type="button" variant="ghost" size="icon-xs" className="absolute left-0" aria-label={t('label.back')} onClick={onBack}>
           <ArrowLeftIcon />
         </Button>
-        <h4 className="text-ui font-semibold">{option ? t('label.editTitle') : t('label.createTitle')}</h4>
+        <h4 className="text-ui font-semibold">{tag ? t('label.editTitle') : t('label.createTitle')}</h4>
       </div>
       <div className="flex items-center justify-center rounded-xl bg-secondary/60 p-2.5">
         <span
@@ -71,10 +66,10 @@ export function LabelEditor({ option, busy, onBack, onSave, onDelete }: LabelEdi
         <Input
           id="label-name"
           ref={nameRef}
-          value={name}
+          value={text}
           maxLength={CARD_TAG_MAX}
-          readOnly={nameLocked}
-          onChange={(e) => setName(e.target.value)}
+          placeholder={t('label.namePlaceholder')}
+          onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
         />
       </div>
@@ -84,7 +79,7 @@ export function LabelEditor({ option, busy, onBack, onSave, onDelete }: LabelEdi
           {LABEL_SHADES.flatMap((shade) =>
             LABEL_HUES.map((hue) => {
               const id = `${hue}-${shade}`
-              const name = t('label.colorName', { hue: t(`label.hues.${hue}`), shade: t(`label.shades.${shade === 1 ? 'dark' : shade === 2 ? 'medium' : 'light'}`) })
+              const name = colorName(id, t)
               return (
                 <button
                   key={id}
@@ -109,11 +104,11 @@ export function LabelEditor({ option, busy, onBack, onSave, onDelete }: LabelEdi
         </Button>
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-        <Button type="button" size="sm" disabled={busy || !trimmed} onClick={submit}>
+        <Button type="button" size="sm" disabled={busy} onClick={submit}>
           {t('common.save')}
         </Button>
-        {registered && (
-          <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => onDelete(option!.id)}>
+        {tag && (
+          <Button type="button" size="sm" variant="destructive" disabled={busy} onClick={() => onDelete(tag.id)}>
             {t('common.delete')}
           </Button>
         )}

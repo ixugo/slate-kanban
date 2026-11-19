@@ -226,6 +226,8 @@ export const ko: Messages = {
     removeColor: '색상 제거',
     back: '뒤로',
     empty: '일치하는 라벨이 없습니다',
+    blank: '텍스트 없음',
+    namePlaceholder: '비워 두면 색만 있는 라벨',
     colorName: '{{hue}} ({{shade}})',
     hues: {
       green: '초록',

@@ -1,93 +1,103 @@
 // 卡片的标签选择器（Trello 式）：搜索框、带颜色的标签列表（勾选即加到卡片上）、每项的编辑按钮、新建标签。
-// 搜索框里直接回车会把输入的文字当普通标签加到卡片上（不进标签库，没有颜色，之后可以给它配颜色）。
+// 标签库里每个标签是一个颜色加一段文字（文字可以为空）；卡片按主键引用标签。
+// 搜索框里输入文字后回车：库里有同文字的标签就勾选它，没有就新建一个无颜色的标签并加到卡片上。
 
 import { useState, type KeyboardEvent } from 'react'
 import { CheckIcon, PencilIcon, PlusIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { CARD_TAG_MAX, CARD_TAGS_MAX } from '@/lib/limits'
+import type { Tag, TagInput } from '@/lib/api/types'
+import { CARD_TAGS_MAX } from '@/lib/limits'
 import { labelStyle } from '@/lib/labelColors'
 import { cn } from '@/lib/utils'
-import { applyTag, removeTag } from '@/features/card/tagList'
 import { LabelEditor, type LabelDraft } from './LabelEditor'
-import { useLabels, type LabelOption } from './useLabels'
+import { tagName } from './tagName'
+import { useLabels } from './useLabels'
 import { useSaveLabels } from './useSaveLabels'
 
 interface LabelPickerProps {
-  /** 这张卡片现有的标签 */
-  tags: string[]
-  onChange: (tags: string[]) => void
+  /** 这张卡片现有的标签主键 */
+  tagIds: number[]
+  onChange: (tagIds: number[]) => void
 }
 
-type View = { kind: 'list' } | { kind: 'edit'; option: LabelOption | null }
+type View = { kind: 'list' } | { kind: 'edit'; tag: Tag | null }
+
+/** 标签库的一项转成保存入参 */
+const toInput = (tag: Tag): TagInput => ({ id: tag.id, text: tag.text, color: tag.color })
 
 /** 标签选择器：列表页和编辑页两个视图 */
-export function LabelPicker({ tags, onChange }: LabelPickerProps) {
+export function LabelPicker({ tagIds, onChange }: LabelPickerProps) {
   const { t } = useTranslation()
-  const { boardId, labels, options } = useLabels()
+  const { boardId, tags } = useLabels()
   const save = useSaveLabels(boardId)
   const [view, setView] = useState<View>({ kind: 'list' })
   const [query, setQuery] = useState('')
   const [hint, setHint] = useState('')
 
-  // 卡片上有、但标签库和别的卡片都没有的标签（刚用回车加的）也要能在列表里看到并取消
-  const known = new Set(options.map((o) => o.name.toLowerCase()))
-  const shown = [...options, ...tags.filter((x) => !known.has(x.toLowerCase())).map((name) => ({ id: '', name, color: '' }))]
   const needle = query.trim().toLowerCase()
-  const visible = needle ? shown.filter((o) => o.name.toLowerCase().includes(needle)) : shown
-  const has = (name: string) => tags.some((x) => x.toLowerCase() === name.toLowerCase())
+  const visible = needle ? tags.filter((tag) => tag.text.toLowerCase().includes(needle)) : tags
+  const has = (id: number) => tagIds.includes(id)
 
-  const add = (raw: string) => {
-    const result = applyTag(tags, raw)
-    if (!result.ok) {
-      if (result.reason === 'limit') setHint(t('card.tagLimit', { max: String(CARD_TAGS_MAX) }))
-      else if (result.reason === 'tooLong') setHint(t('card.tagTooLong', { max: String(CARD_TAG_MAX) }))
-      else setHint('')
-      return false
+  /** 勾选或取消一个标签；卡片已经满了就提示 */
+  const toggle = (id: number) => {
+    if (has(id)) {
+      setHint('')
+      onChange(tagIds.filter((x) => x !== id))
+    } else if (tagIds.length >= CARD_TAGS_MAX) {
+      setHint(t('card.tagLimit', { max: String(CARD_TAGS_MAX) }))
+    } else {
+      setHint('')
+      onChange([...tagIds, id])
     }
-    setHint('')
-    onChange(result.tags)
-    return true
   }
 
-  const toggle = (name: string) => {
-    if (has(name)) {
-      setHint('')
-      onChange(removeTag(tags, tags.find((x) => x.toLowerCase() === name.toLowerCase()) ?? name))
-    } else add(name)
+  /** 把一个标签追加进标签库（颜色可为空）并加到这张卡片上；保存成功后回到列表 */
+  const createAndAttach = (text: string, color: string, onDone?: () => void) => {
+    if (tagIds.length >= CARD_TAGS_MAX) {
+      setHint(t('card.tagLimit', { max: String(CARD_TAGS_MAX) }))
+      return
+    }
+    save.mutate([...tags.map(toInput), { text, color }], {
+      onSuccess: (board) => {
+        const created = board.tags.find((tag) => !tags.some((old) => old.id === tag.id))
+        if (created) onChange([...tagIds, created.id])
+        onDone?.()
+      },
+    })
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter' && e.key !== ',') return
     e.preventDefault()
-    if (add(query)) setQuery('')
+    const text = query.trim()
+    if (!text) return
+    const same = tags.find((tag) => tag.text.toLowerCase() === text.toLowerCase())
+    if (same) {
+      if (!has(same.id)) toggle(same.id)
+      setQuery('')
+    } else {
+      createAndAttach(text, '', () => setQuery(''))
+    }
   }
 
-  const toInputs = (list: typeof labels) => list.map((l) => ({ id: l.id, name: l.name, color: l.color }))
-
-  /** 保存编辑页：新建或登记颜色就追加/更新库，已登记的按编号改名改色；新建的标签顺手加到这张卡片上 */
+  /** 保存编辑页：新建的追加到库并加到这张卡片上，已有的按主键改文字和颜色 */
   const onSave = (draft: LabelDraft) => {
-    const registered = draft.id !== ''
-    const current = toInputs(labels)
-    const next = registered
-      ? current.map((l) => (l.id === draft.id ? { ...l, name: draft.name, color: draft.color } : l))
-      : [...current.filter((l) => l.name.toLowerCase() !== draft.name.toLowerCase()), { name: draft.name, color: draft.color }]
-    const creating = view.kind === 'edit' && view.option === null
-    save.mutate(next, {
-      onSuccess: () => {
-        if (creating && !has(draft.name)) add(draft.name)
-        setView({ kind: 'list' })
-      },
-    })
+    if (draft.id === 0) {
+      createAndAttach(draft.text, draft.color, () => setView({ kind: 'list' }))
+      return
+    }
+    const next = tags.map((tag) => (tag.id === draft.id ? { ...toInput(tag), text: draft.text, color: draft.color } : toInput(tag)))
+    save.mutate(next, { onSuccess: () => setView({ kind: 'list' }) })
   }
 
-  const onDelete = (id: string) => {
-    save.mutate(toInputs(labels).filter((l) => l.id !== id), { onSuccess: () => setView({ kind: 'list' }) })
+  const onDelete = (id: number) => {
+    save.mutate(tags.filter((tag) => tag.id !== id).map(toInput), { onSuccess: () => setView({ kind: 'list' }) })
   }
 
   if (view.kind === 'edit') {
-    return <LabelEditor option={view.option} busy={save.isPending} onBack={() => setView({ kind: 'list' })} onSave={onSave} onDelete={onDelete} />
+    return <LabelEditor tag={view.tag} busy={save.isPending} onBack={() => setView({ kind: 'list' })} onSave={onSave} onDelete={onDelete} />
   }
 
   return (
@@ -107,35 +117,36 @@ export function LabelPicker({ tags, onChange }: LabelPickerProps) {
       )}
       <ul className="flex max-h-64 flex-col gap-1.5 overflow-y-auto">
         {visible.length === 0 && <li className="px-1 py-2 text-center text-xs text-muted-foreground">{t('label.empty')}</li>}
-        {visible.map((option) => (
-          <li key={option.id || option.name} className="flex items-center gap-1.5">
+        {visible.map((tag) => (
+          <li key={tag.id} className="flex items-center gap-1.5">
             <button
               type="button"
               role="checkbox"
-              aria-checked={has(option.name)}
-              style={labelStyle(option.color)}
+              aria-checked={has(tag.id)}
+              aria-label={tagName(tag, t)}
+              style={labelStyle(tag.color)}
               className={cn(
                 'flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2.5 text-left text-ui font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 pointer-coarse:h-10',
-                !option.color && 'bg-secondary text-foreground',
+                !tag.color && 'bg-secondary text-foreground',
               )}
-              onClick={() => toggle(option.name)}
+              onClick={() => toggle(tag.id)}
             >
-              <span className="min-w-0 flex-1 truncate">{option.name}</span>
-              {has(option.name) && <CheckIcon className="size-4 shrink-0" aria-hidden />}
+              <span className="min-w-0 flex-1 truncate">{tag.text}</span>
+              {has(tag.id) && <CheckIcon className="size-4 shrink-0" aria-hidden />}
             </button>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={t('label.edit', { name: option.name })}
-              onClick={() => setView({ kind: 'edit', option })}
+              aria-label={t('label.edit', { name: tagName(tag, t) })}
+              onClick={() => setView({ kind: 'edit', tag })}
             >
               <PencilIcon />
             </Button>
           </li>
         ))}
       </ul>
-      <Button type="button" variant="secondary" size="sm" onClick={() => setView({ kind: 'edit', option: null })}>
+      <Button type="button" variant="secondary" size="sm" onClick={() => setView({ kind: 'edit', tag: null })}>
         <PlusIcon />
         {t('label.create')}
       </Button>

@@ -47,7 +47,7 @@ test('筛选弹层：点选标签和优先级，条件显示在工具栏下面�
   await openBoardWithCards(page, request)
 
   await page.getByRole('button', { name: 'Filter' }).click()
-  await page.getByRole('group', { name: 'Tags' }).getByRole('button', { name: /^bug/ }).click()
+  await page.getByRole('group', { name: 'Tags' }).getByRole('button', { name: /^bug/i }).click()
   await expect(tile(page, 'Fix login bug')).toBeVisible()
   await expect(tile(page, 'Export crashes')).toBeVisible()
   await expect(tile(page, 'Write docs')).toBeHidden()

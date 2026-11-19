@@ -229,6 +229,8 @@ export const en = {
     removeColor: 'Remove color',
     back: 'Back',
     empty: 'No matching labels',
+    blank: 'No text',
+    namePlaceholder: 'Leave empty for a color-only label',
     colorName: '{{hue}}, {{shade}}',
     hues: {
       green: 'Green',

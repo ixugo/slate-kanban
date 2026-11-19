@@ -3,7 +3,7 @@
 
 import { randomBytes } from 'node:crypto'
 import type { APIRequestContext, APIResponse } from '@playwright/test'
-import type { BoardDetail, Card, Rule, RuleAction } from '../src/lib/api/types'
+import type { BoardDetail, Card, CardView, Rule, RuleAction } from '../src/lib/api/types'
 
 /** 项目模板：dev 五列，simple 三列（未着手、进行中、完成），empty 没有列 */
 export type Template = 'dev' | 'simple' | 'empty'
@@ -67,8 +67,8 @@ export async function moveCard(request: APIRequestContext, cardId: number, targe
 }
 
 /** 读出卡片当前在服务端的样子 */
-export async function getCard(request: APIRequestContext, cardId: number): Promise<Card> {
-  return json<Card>(await request.get(`/api/v1/cards/${cardId}`))
+export async function getCard(request: APIRequestContext, cardId: number): Promise<CardView> {
+  return json<CardView>(await request.get(`/api/v1/cards/${cardId}`))
 }
 
 /** 上传一张图片附件，返回能写进 Markdown 的地址 */

@@ -226,6 +226,8 @@ export const ja: Messages = {
     removeColor: '色を削除',
     back: '戻る',
     empty: '一致するラベルがありません',
+    blank: 'テキストなし',
+    namePlaceholder: '空欄なら色だけのラベル',
     colorName: '{{hue}}（{{shade}}）',
     hues: {
       green: '緑',
