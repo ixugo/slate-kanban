@@ -193,10 +193,6 @@ func TestClaimCardConcurrently(t *testing.T) {
 func TestNextCardOrder(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
-	on := true
-	if _, err := e.core.UpdateColumn(ctx, testActor, e.board.ID, e.col(colReview), kanban.UpdateColumnInput{AgentPickup: &on}); err != nil {
-		t.Fatalf("开启审查列领取失败: %v", err)
-	}
 	todo := e.card(t, colTodo, "没做完的前置")
 	blocked := e.card(t, colDoing, "被依赖卡住")
 	deps := []int64{todo.ID}
@@ -216,21 +212,24 @@ func TestNextCardOrder(t *testing.T) {
 	}
 	review := e.card(t, colReview, "审查列的卡")
 
-	d, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{})
+	d, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)})
 	if err != nil || d == nil || d.ID != first.ID || d.ClaimedBy != "claude" || !d.ClaimActive {
 		t.Fatalf("应该取到进行中第一张可领的: %+v %v", d, err)
 	}
-	again, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{})
+	again, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)})
 	if err != nil || again == nil || again.ID != first.ID || again.Version != d.Version {
 		t.Fatalf("再取应该返回自己持有的同一张并续租，不涨版本: %+v %v", again, err)
 	}
-	other, err := e.core.NextCard(ctx, codex, e.board.ID, kanban.NextCardInput{})
+	other, err := e.core.NextCard(ctx, codex, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)})
 	if err != nil || other == nil || other.ID != second.ID {
 		t.Fatalf("别的 agent 应该取到下一张，不管优先级: %+v %v", other, err)
 	}
-	third, err := e.core.NextCard(ctx, kanban.Actor{Kind: kanban.ActorAgent, Name: "gemini"}, e.board.ID, kanban.NextCardInput{})
+	if remaining, err := e.core.NextCard(ctx, codex, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)}); err != nil || remaining == nil || remaining.ID != second.ID {
+		t.Fatalf("只能续领所选列内的卡片，不可跳到审查列: %+v %v", remaining, err)
+	}
+	third, err := e.core.NextCard(ctx, kanban.Actor{Kind: kanban.ActorAgent, Name: "gemini"}, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colReview)})
 	if err != nil || third == nil || third.ID != review.ID {
-		t.Fatalf("进行中取空以后应该轮到右边的领活列: %+v %v", third, err)
+		t.Fatalf("显式选择审查列应取到该列的卡片: %+v %v", third, err)
 	}
 }
 
@@ -243,7 +242,7 @@ func TestNextCardPrefersOwnHeldCard(t *testing.T) {
 	mine := e.card(t, colDoing, "我持有的")
 	e.holdUntil(t, mine.ID, "claude", claimNow.Add(-time.Hour)) // 租约过期了也算自己的
 
-	d, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{LeaseMinutes: 10})
+	d, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing), LeaseMinutes: 10})
 	if err != nil || d == nil || d.ID != mine.ID || !d.ClaimActive {
 		t.Fatalf("应该先返回自己持有的并续租: %+v %v", d, err)
 	}
@@ -256,7 +255,7 @@ func TestNextCardNothingToDo(t *testing.T) {
 	e.card(t, colTodo, "只有待办的卡")
 	events := len(e.events(t))
 
-	d, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{})
+	d, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)})
 	if err != nil || d != nil {
 		t.Fatalf("没有可做的卡应该返回 nil, nil，实际 %+v %v", d, err)
 	}
@@ -275,10 +274,13 @@ func TestNextCardRejects(t *testing.T) {
 		in    kanban.NextCardInput
 		want  error
 	}{
-		"人":     {testActor, e.board.ID, kanban.NextCardInput{}, kanban.ErrAgentOnly},
-		"身份无效":  {kanban.Actor{}, e.board.ID, kanban.NextCardInput{}, kanban.ErrInvalidActor},
-		"看板不存在": {testAgent, 9999, kanban.NextCardInput{}, kanban.ErrBoardNotFound},
-		"租约不合法": {testAgent, e.board.ID, kanban.NextCardInput{LeaseMinutes: 2000}, kanban.ErrInvalidInput},
+		"未选择列":  {testAgent, e.board.ID, kanban.NextCardInput{}, kanban.ErrInvalidInput},
+		"列不存在":  {testAgent, e.board.ID, kanban.NextCardInput{ColumnID: 99999}, kanban.ErrInvalidInput},
+		"完成列":   {testAgent, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDone)}, kanban.ErrInvalidInput},
+		"人":     {testActor, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)}, kanban.ErrAgentOnly},
+		"身份无效":  {kanban.Actor{}, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)}, kanban.ErrInvalidActor},
+		"看板不存在": {testAgent, 9999, kanban.NextCardInput{ColumnID: e.col(colDoing)}, kanban.ErrBoardNotFound},
+		"租约不合法": {testAgent, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing), LeaseMinutes: 2000}, kanban.ErrInvalidInput},
 	} {
 		if _, err := e.core.NextCard(ctx, tc.actor, tc.board, tc.in); !errors.Is(err, tc.want) {
 			t.Errorf("%s：期望 %v，实际 %v", name, tc.want, err)
@@ -303,7 +305,7 @@ func TestNextCardConcurrently(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			actor := kanban.Actor{Kind: kanban.ActorAgent, Name: fmt.Sprintf("agent-%d", i)}
-			got[i], errs[i] = e.core.NextCard(ctx, actor, e.board.ID, kanban.NextCardInput{})
+			got[i], errs[i] = e.core.NextCard(ctx, actor, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)})
 		}()
 	}
 	wg.Wait()

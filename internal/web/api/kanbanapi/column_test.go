@@ -23,14 +23,14 @@ func TestColumnLifecycle(t *testing.T) {
 	base := "/boards/" + id(b.ID) + "/columns"
 
 	made := decode[map[string]any](t, s.human(t, http.MethodPost, base,
-		map[string]any{"name": "灰度", "description": "小范围验证", "instruction": "只做验证"}))
+		map[string]any{"name": "灰度", "instruction": "只做验证"}))
 	colID := int64(made["id"].(float64))
 	if made["name"] != "灰度" || made["instruction"] != "只做验证" {
 		t.Fatalf("新增的列不对: %v", made)
 	}
 
 	patched := decode[map[string]any](t, s.human(t, http.MethodPatch, base+"/"+id(colID), map[string]string{"name": "灰度发布"}))
-	if patched["name"] != "灰度发布" || patched["description"] != "小范围验证" {
+	if patched["name"] != "灰度发布" {
 		t.Fatalf("只应该改名称，说明保持不变: %v", patched)
 	}
 

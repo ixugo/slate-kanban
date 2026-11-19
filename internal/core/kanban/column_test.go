@@ -49,13 +49,13 @@ func TestCreateColumn(t *testing.T) {
 	core, db, d := newEmptyBoard(t)
 
 	first, err := core.CreateColumn(ctx, testActor, d.ID, kanban.CreateColumnInput{
-		Name: "  待办  ", Description: "说明", Instruction: "指令", AgentPickup: true,
+		Name: "  待办  ", Instruction: "指令",
 	})
 	if err != nil {
 		t.Fatalf("新增失败: %v", err)
 	}
-	if first.Name != "待办" || first.Description != "说明" || first.Instruction != "指令" ||
-		!first.AgentPickup || first.IsDone || first.BoardID != d.ID || first.Sort != 1024 {
+	if first.Name != "待办" || first.Instruction != "指令" ||
+		first.IsDone || first.BoardID != d.ID || first.Sort != 1024 {
 		t.Fatalf("第一列的字段不对: %+v", first)
 	}
 	second, err := core.CreateColumn(ctx, testActor, d.ID, kanban.CreateColumnInput{
@@ -99,7 +99,6 @@ func TestCreateColumnRejects(t *testing.T) {
 		{"名称为空", testActor, d.ID, kanban.CreateColumnInput{Name: "  "}, kanban.ErrInvalidInput},
 		{"名称有换行", testActor, d.ID, kanban.CreateColumnInput{Name: "a\nb"}, kanban.ErrInvalidInput},
 		{"名称太长", testActor, d.ID, kanban.CreateColumnInput{Name: strings.Repeat("长", 61)}, kanban.ErrInvalidInput},
-		{"说明太长", testActor, d.ID, kanban.CreateColumnInput{Name: "A", Description: strings.Repeat("长", 501)}, kanban.ErrInvalidInput},
 		{"指令太长", testActor, d.ID, kanban.CreateColumnInput{Name: "A", Instruction: strings.Repeat("长", 4001)}, kanban.ErrInvalidInput},
 		{"agent", testAgent, d.ID, kanban.CreateColumnInput{Name: "A"}, kanban.ErrHumanOnly},
 		{"看板不存在", testActor, 9999, kanban.CreateColumnInput{Name: "A"}, kanban.ErrBoardNotFound},
@@ -159,15 +158,15 @@ func TestUpdateColumn(t *testing.T) {
 	core, db, d := newEmptyBoard(t)
 	a := mustCreateColumn(t, core, d.ID, "todo")
 	b := mustCreateColumn(t, core, d.ID, "doing")
-	yes, nextID := true, b.ID
+	nextID := b.ID
 
 	got, err := core.UpdateColumn(ctx, testActor, d.ID, a.ID, kanban.UpdateColumnInput{
-		Name: strPtr("Todo"), Instruction: strPtr("新指令"), AgentPickup: &yes, NextColumnID: &nextID,
+		Name: strPtr("Todo"), Instruction: strPtr("新指令"), NextColumnID: &nextID,
 	})
 	if err != nil {
 		t.Fatalf("修改失败: %v", err)
 	}
-	if got.Name != "Todo" || got.Instruction != "新指令" || !got.AgentPickup || got.NextColumnID != b.ID || got.Description != "" {
+	if got.Name != "Todo" || got.Instruction != "新指令" || got.NextColumnID != b.ID {
 		t.Fatalf("字段不对: %+v", got)
 	}
 	read := boardColumns(t, core, d.ID)[0]
@@ -176,7 +175,7 @@ func TestUpdateColumn(t *testing.T) {
 	}
 	events := boardEvents(t, db, d.ID)
 	last := events[len(events)-1]
-	wantPayload := fmt.Sprintf(`{"column_id":%d,"fields":["name","instruction","agent_pickup","next_column_id"],"name":"Todo"}`, a.ID)
+	wantPayload := fmt.Sprintf(`{"column_id":%d,"fields":["name","instruction","next_column_id"],"name":"Todo"}`, a.ID)
 	if last.Type != kanban.EventColumnUpdated || last.Payload != wantPayload {
 		t.Fatalf("事件不对: %+v，期望内容 %s", last, wantPayload)
 	}
@@ -194,9 +193,8 @@ func TestUpdateColumnNoChange(t *testing.T) {
 	core, db, d := newEmptyBoard(t)
 	col := mustCreateColumn(t, core, d.ID, "待办")
 	before := len(boardEvents(t, db, d.ID))
-	no := false
 
-	for _, in := range []kanban.UpdateColumnInput{{}, {Name: strPtr("待办")}, {AgentPickup: &no}} {
+	for _, in := range []kanban.UpdateColumnInput{{}, {Name: strPtr("待办")}} {
 		if _, err := core.UpdateColumn(ctx, testActor, d.ID, col.ID, in); err != nil {
 			t.Fatalf("没有变化也应该成功: %v", err)
 		}

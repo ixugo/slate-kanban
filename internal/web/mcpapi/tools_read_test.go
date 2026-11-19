@@ -45,7 +45,7 @@ func TestGetBoard(t *testing.T) {
 		t.Fatalf("应该有 5 列和默认规则: %v", got)
 	}
 	doing := cols[2]
-	if doing["name"] != "进行中" || doing["agent_pickup"] != true || !strings.Contains(fmt.Sprint(doing["instruction"]), "finish_card") {
+	if doing["name"] != "进行中" || !strings.Contains(fmt.Sprint(doing["instruction"]), "finish_card") {
 		t.Errorf("进行中列应该是 agent 领取列并带着指令: %v", doing)
 	}
 	missing := call(t, sess, "get_board", map[string]any{"board_id": 9999})

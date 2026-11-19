@@ -15,14 +15,6 @@ type engineerPool struct {
 	busy map[int64]int64 // 工程师主键 → 他正在持有的卡片主键（租约还有效的）
 }
 
-// stageKind 返回一张卡片所在的列需要哪个阶段的工程师：agent 取卡列（进行中）要研发类，其他列（审查等）要测试。
-func stageKind(col *Column) string {
-	if col != nil && col.AgentPickup {
-		return EngineerDev
-	}
-	return EngineerReview
-}
-
 // newEngineerPool 用名册和看板的全部卡片建快照，名册为空返回 nil。
 // 复杂度 O(卡片数)，只在领取时算一次。
 func newEngineerPool(all []*Engineer, cards []*Card, now time.Time) *engineerPool {
@@ -72,14 +64,19 @@ func (p *engineerPool) free(id, cardID int64) bool {
 
 // engineerFor 决定这次领取由哪位工程师承担，返回他的主键；0 表示不涉及工程师。
 // 优先级：调用方指定的 requested → 卡片上已绑定的研发工程师（研发时）→ 随机一位空闲的同类型工程师。
-// 指定的工程师必须在名册里、类型对得上、没有在做别的卡；绑定了别人的卡不能指定另一位；
+// 指定工程师的类型由 agent 按列提示词选择，服务端不从列推断；他必须在名册且空闲，研发领取还要符合卡片绑定；
 // 同类型的工程师全在忙时返回 ErrNoIdleEngineer，调用方应当排队等一等。
 // 看板里没有这种类型的工程师（例如简单模板没有测试）时不要求工程师。
-func (p *engineerPool) engineerFor(card *Card, col *Column, requested int64) (int64, error) {
+func (p *engineerPool) engineerFor(card *Card, requested int64) (int64, error) {
 	if p == nil {
 		return 0, nil
 	}
-	kind := stageKind(col)
+	kind := EngineerDev
+	if requested != 0 {
+		if engineer := p.find(requested); engineer != nil {
+			kind = stageOf(engineer.Kind)
+		}
+	}
 	bound := int64(0)
 	if kind == EngineerDev && card.EngineerID != 0 && p.find(card.EngineerID) != nil {
 		bound = card.EngineerID

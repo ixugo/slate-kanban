@@ -60,8 +60,8 @@ func TestCreateBoardDevTemplate(t *testing.T) {
 		if c.BoardID != d.ID || c.Sort != int64(i+1)*1024 || c.Instruction == "" {
 			t.Errorf("第 %d 列的归属、排序或指令不对: %+v", i, c)
 		}
-		if c.AgentPickup != (i == 2) || c.IsDone != (i == 4) {
-			t.Errorf("第 %d 列的开关不对: pickup=%v done=%v", i, c.AgentPickup, c.IsDone)
+		if c.IsDone != (i == 4) {
+			t.Errorf("第 %d 列的开关不对: done=%v", i, c.IsDone)
 		}
 		wantNext := int64(0)
 		if i < 4 {
@@ -89,7 +89,7 @@ func TestCreateBoardOtherTemplates(t *testing.T) {
 	if got, want := columnNames(simple.Columns), []string{"To do", "In progress", "Done"}; !slices.Equal(got, want) {
 		t.Fatalf("simple 的列名应该是 %v，实际 %v", want, got)
 	}
-	if !simple.Columns[1].AgentPickup || simple.Columns[1].NextColumnID != simple.Columns[2].ID {
+	if simple.Columns[1].NextColumnID != simple.Columns[2].ID {
 		t.Fatalf("simple 的进行中应该领活并指向完成: %+v", simple.Columns[1])
 	}
 

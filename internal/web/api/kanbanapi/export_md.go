@@ -25,10 +25,6 @@ func renderBoardMarkdown(data *kanban.BoardExport) []byte {
 	byColumn := cardsByColumn(data.Cards)
 	for _, col := range data.Columns {
 		fmt.Fprintf(&buf, "## %s\n\n", col.Name)
-		if strings.TrimSpace(col.Description) != "" {
-			writeBlockquote(&buf, col.Description)
-			buf.WriteByte('\n')
-		}
 		if strings.TrimSpace(col.Instruction) != "" {
 			writeBlockquote(&buf, col.Instruction)
 			buf.WriteByte('\n')

@@ -32,7 +32,7 @@ func (c Core) ClaimCard(ctx context.Context, actor Actor, cardID int64, in Claim
 		if err := checkClaimable(actor, card, ix); err != nil {
 			return err
 		}
-		by, err := u.chooseEngineer(ctx, actor, card, ix.columns[card.ColumnID], in.EngineerID)
+		by, err := u.chooseEngineer(ctx, actor, card, in.EngineerID)
 		if err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func (c Core) ClaimCard(ctx context.Context, actor Actor, cardID int64, in Claim
 }
 
 // NextCard 给 agent 取下一张该做的卡片并领取。取卡在锁住看板行的事务里完成，
-// 所以多个 agent 同时取也不会拿到同一张。顺序完全由人决定：领活列从左到右，同一列从上到下，
+// 所以多个 agent 同时取也不会拿到同一张。顺序完全由人决定：agent 按提示词选定一列，该列从上到下，
 // 优先级只是展示，不参与排序。自己已经持有的可领卡片优先，这样 agent 重启后能接着做原来的活。
 // 没有可做的卡片不是错误，返回 nil，由 agent 决定是等待还是结束。
 func (c Core) NextCard(ctx context.Context, actor Actor, boardID int64, in NextCardInput) (*CardDetail, error) {
@@ -59,7 +59,7 @@ func (c Core) NextCard(ctx context.Context, actor Actor, boardID int64, in NextC
 	var cardID int64
 	err = c.run(ctx, boardID, func(u *unit) error {
 		var err error
-		cardID, err = u.claimNext(ctx, actor, boardID, lease, in.EngineerID)
+		cardID, err = u.claimNext(ctx, actor, boardID, in.ColumnID, lease, in.EngineerID)
 		return err
 	})
 	if err != nil || cardID == 0 {
@@ -70,13 +70,20 @@ func (c Core) NextCard(ctx context.Context, actor Actor, boardID int64, in NextC
 
 // claimNext 在事务里找出下一张可领的卡片并领取，返回它的主键，没有可领的返回 0。
 // 复杂度：一次读出看板的全部卡片，逐张判断资格，每张卡的判断只和它的依赖数有关。
-// 看板有工程师时，卡片还要有空闲的研发工程师能承担才算可领，没有就留在原处排队；
+// 看板有工程师时，卡片还要有空闲的所选类型工程师能承担才算可领，没有就留在原处排队；
 // 租约有效的卡片只有自己接着做时才会再次取到：指定了工程师就必须是原来那一位，没指定视为接着做原来那一位。
 // 同名的多个 agent 只要各自带着自己的工程师来取，就不会互相抢卡。
-func (u *unit) claimNext(ctx context.Context, actor Actor, boardID int64, lease time.Duration, engineerID int64) (int64, error) {
+func (u *unit) claimNext(ctx context.Context, actor Actor, boardID, columnID int64, lease time.Duration, engineerID int64) (int64, error) {
 	ix, err := u.boardIndex(ctx, boardID)
 	if err != nil {
 		return 0, err
+	}
+	col := ix.columns[columnID]
+	if col == nil {
+		return 0, invalidf("必须指定本看板的 column_id，并按该列提示词选择任务")
+	}
+	if col.IsDone {
+		return 0, invalidf("不能从完成列领取下一张卡片")
 	}
 	pool, err := u.loadEngineerPool(ctx, boardID, ix.all)
 	if err != nil {
@@ -85,11 +92,10 @@ func (u *unit) claimNext(ctx context.Context, actor Actor, boardID int64, lease 
 	var pick *Card
 	var pickBy claimBy
 	for _, card := range ix.sortCards(ix.all) {
-		col := ix.columns[card.ColumnID]
-		if col == nil || !col.AgentPickup || checkClaimable(actor, card, ix) != nil {
+		if card.ColumnID != columnID || checkClaimable(actor, card, ix) != nil {
 			continue
 		}
-		by, ok := pickEngineerFor(pool, actor, card, col, engineerID, ix.now)
+		by, ok := pickEngineerFor(pool, actor, card, engineerID, ix.now)
 		if !ok {
 			continue
 		}
@@ -109,7 +115,7 @@ func (u *unit) claimNext(ctx context.Context, actor Actor, boardID int64, lease 
 
 // pickEngineerFor 判断取下一张卡时这张卡能不能由工程师承担，返回承担者和是否可领。
 // 看板没有工程师时永远可领；有工程师时，租约有效的卡片只有持有者带着同一位工程师才可领。
-func pickEngineerFor(pool *engineerPool, actor Actor, card *Card, col *Column, engineerID int64, now time.Time) (claimBy, bool) {
+func pickEngineerFor(pool *engineerPool, actor Actor, card *Card, engineerID int64, now time.Time) (claimBy, bool) {
 	if pool == nil {
 		return claimBy{}, true
 	}
@@ -119,16 +125,16 @@ func pickEngineerFor(pool *engineerPool, actor Actor, card *Card, col *Column, e
 		}
 		engineerID = card.ClaimEngineerID
 	}
-	id, err := pool.engineerFor(card, col, engineerID)
+	id, err := pool.engineerFor(card, engineerID)
 	if err != nil {
 		return claimBy{}, false
 	}
-	return claimBy{engineerID: id, dev: stageKind(col) == EngineerDev}, true
+	return claimBy{engineerID: id, dev: id != 0 && stageOf(pool.find(id).Kind) == EngineerDev}, true
 }
 
 // chooseEngineer 为领取指定的卡片决定承担的工程师，并核对租约有效时的持有者。
 // 没有指定工程师而卡片正由自己持有时，视为接着做原来的工程师那一份（续租）。
-func (u *unit) chooseEngineer(ctx context.Context, actor Actor, card *Card, col *Column, requested int64) (claimBy, error) {
+func (u *unit) chooseEngineer(ctx context.Context, actor Actor, card *Card, requested int64) (claimBy, error) {
 	pool, err := u.loadEngineerPool(ctx, card.BoardID, nil)
 	if err != nil || pool == nil {
 		return claimBy{}, err
@@ -137,14 +143,14 @@ func (u *unit) chooseEngineer(ctx context.Context, actor Actor, card *Card, col 
 	if requested == 0 && card.ClaimedBy == actor.Name && claimActive(card, now) {
 		requested = card.ClaimEngineerID
 	}
-	id, err := pool.engineerFor(card, col, requested)
+	id, err := pool.engineerFor(card, requested)
 	if err != nil {
 		return claimBy{}, err
 	}
 	if err := checkHolder(actor, card, id, now, time.Local); err != nil {
 		return claimBy{}, err
 	}
-	return claimBy{engineerID: id, dev: stageKind(col) == EngineerDev}, nil
+	return claimBy{engineerID: id, dev: id != 0 && stageOf(pool.find(id).Kind) == EngineerDev}, nil
 }
 
 // boardIndex 在事务里读出看板的全部列、标签和卡片，建好索引。

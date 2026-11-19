@@ -55,8 +55,8 @@ func (c Core) CreateColumn(ctx context.Context, actor Actor, boardID int64, in C
 		}
 		now := u.now()
 		col := &Column{
-			BoardID: boardID, Name: in.Name, Description: in.Description, Instruction: in.Instruction,
-			AgentPickup: in.AgentPickup, IsDone: in.IsDone, NextColumnID: in.NextColumnID,
+			BoardID: boardID, Name: in.Name, Instruction: in.Instruction,
+			IsDone: in.IsDone, NextColumnID: in.NextColumnID,
 			Sort: nextColumnSort(cols), CreatedAt: now, UpdatedAt: now,
 		}
 		if err := u.column.Create(ctx, col); err != nil {

@@ -214,8 +214,11 @@ func TestClaimEngineerRules(t *testing.T) {
 	a, b := e.card(t, colDoing, "甲"), e.card(t, colDoing, "乙")
 	claude := agentNamed("claude")
 
-	if _, err := e.core.ClaimCard(ctx, claude, a.ID, kanban.ClaimCardInput{EngineerID: rev.ID}); !errors.Is(err, kanban.ErrInvalidInput) {
-		t.Fatalf("研发列指定测试应该返回 ErrInvalidInput，实际 %v", err)
+	if _, err := e.core.ClaimCard(ctx, claude, a.ID, kanban.ClaimCardInput{EngineerID: rev.ID}); err != nil {
+		t.Fatalf("提示词决定角色，显式选择测试工程师应允许领取: %v", err)
+	}
+	if err := e.core.ReleaseCard(ctx, claude, a.ID); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := e.core.ClaimCard(ctx, claude, a.ID, kanban.ClaimCardInput{EngineerID: 9999}); !errors.Is(err, kanban.ErrInvalidInput) {
 		t.Fatalf("指定不存在的工程师应该返回 ErrInvalidInput，实际 %v", err)
@@ -253,10 +256,10 @@ func TestClaimHolderByEngineer(t *testing.T) {
 	if _, err := e.core.ClaimCard(ctx, other, a.ID, kanban.ClaimCardInput{EngineerID: dev2.ID}); !errors.Is(err, kanban.ErrEngineerBound) {
 		t.Fatalf("同名但换了工程师应该被拒绝，实际 %v", err)
 	}
-	if _, err := e.core.NextCard(ctx, other, e.board.ID, kanban.NextCardInput{EngineerID: dev2.ID}); err != nil {
+	if _, err := e.core.NextCard(ctx, other, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing), EngineerID: dev2.ID}); err != nil {
 		t.Fatalf("另一位工程师取下一张不该出错: %v", err)
 	}
-	if d, err := e.core.NextCard(ctx, other, e.board.ID, kanban.NextCardInput{EngineerID: dev2.ID}); err != nil || d != nil {
+	if d, err := e.core.NextCard(ctx, other, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing), EngineerID: dev2.ID}); err != nil || d != nil {
 		t.Fatalf("只有一张卡且被别人占着，应该取不到: %+v %v", d, err)
 	}
 	if d, err := e.core.ClaimCard(ctx, one, a.ID, kanban.ClaimCardInput{}); err != nil || d.ClaimEngineerID != dev1.ID {
@@ -274,7 +277,7 @@ func TestClaimReviewEngineer(t *testing.T) {
 	if _, err := e.core.UpdateCard(ctx, testActor, c.ID, kanban.UpdateCardInput{EngineerID: &bound}); err != nil {
 		t.Fatalf("绑定失败: %v", err)
 	}
-	d, err := e.core.ClaimCard(ctx, agentNamed("reviewer"), c.ID, kanban.ClaimCardInput{})
+	d, err := e.core.ClaimCard(ctx, agentNamed("reviewer"), c.ID, kanban.ClaimCardInput{EngineerID: rev.ID})
 	if err != nil || d.ClaimEngineerID != rev.ID || d.EngineerID != dev1.ID {
 		t.Fatalf("审查应该用测试工程师并保留绑定: %+v %v", d, err)
 	}
@@ -282,8 +285,8 @@ func TestClaimReviewEngineer(t *testing.T) {
 	if err := e.core.ReleaseCard(ctx, agentNamed("reviewer"), c.ID); err != nil {
 		t.Fatalf("释放失败: %v", err)
 	}
-	if d, err := e.core.ClaimCard(ctx, agentNamed("reviewer"), c.ID, kanban.ClaimCardInput{}); err != nil || d.ClaimEngineerID != 0 {
-		t.Fatalf("没有测试工程师时不要求工程师: %+v %v", d, err)
+	if d, err := e.core.ClaimCard(ctx, agentNamed("reviewer"), c.ID, kanban.ClaimCardInput{EngineerID: rev.ID}); !errors.Is(err, kanban.ErrInvalidInput) {
+		t.Fatalf("已解聘的测试工程师不能领取: %+v %v", d, err)
 	}
 }
 
@@ -298,17 +301,17 @@ func TestNextCardWithEngineers(t *testing.T) {
 	if _, err := e.core.UpdateCard(ctx, testActor, a.ID, kanban.UpdateCardInput{EngineerID: &bound}); err != nil {
 		t.Fatalf("绑定失败: %v", err)
 	}
-	d, err := e.core.NextCard(ctx, agentNamed("w1"), e.board.ID, kanban.NextCardInput{EngineerID: dev1.ID})
+	d, err := e.core.NextCard(ctx, agentNamed("w1"), e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing), EngineerID: dev1.ID})
 	if err != nil || d == nil || d.ID != b.ID || d.ClaimEngineerID != dev1.ID {
 		t.Fatalf("全栈一号应该跳过绑定给二号的甲，拿到乙: %+v %v", d, err)
 	}
-	if d, err := e.core.NextCard(ctx, agentNamed("w1"), e.board.ID, kanban.NextCardInput{EngineerID: dev1.ID}); err != nil || d == nil || d.ID != b.ID {
+	if d, err := e.core.NextCard(ctx, agentNamed("w1"), e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing), EngineerID: dev1.ID}); err != nil || d == nil || d.ID != b.ID {
 		t.Fatalf("同一位再取应该接着做乙: %+v %v", d, err)
 	}
-	if d, err := e.core.NextCard(ctx, agentNamed("w2"), e.board.ID, kanban.NextCardInput{}); err != nil || d == nil || d.ID != a.ID || d.ClaimEngineerID != dev2.ID {
+	if d, err := e.core.NextCard(ctx, agentNamed("w2"), e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)}); err != nil || d == nil || d.ID != a.ID || d.ClaimEngineerID != dev2.ID {
 		t.Fatalf("没指定工程师时，甲应该按绑定给二号: %+v %v", d, err)
 	}
-	if d, err := e.core.NextCard(ctx, agentNamed("w3"), e.board.ID, kanban.NextCardInput{}); err != nil || d != nil {
+	if d, err := e.core.NextCard(ctx, agentNamed("w3"), e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)}); err != nil || d != nil {
 		t.Fatalf("名额满了应该取不到卡: %+v %v", d, err)
 	}
 }

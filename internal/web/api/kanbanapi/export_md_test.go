@@ -14,7 +14,7 @@ func TestRenderBoardMarkdownGolden(t *testing.T) {
 		BoardDetail: &kanban.BoardDetail{
 			Board: &kanban.Board{Name: "示例看板", Slug: "DEMO", Description: "看板说明一行"},
 			Columns: []*kanban.Column{
-				{ID: 1, Name: "待办", Description: "列说明", Instruction: "给 agent 的指令"},
+				{ID: 1, Name: "待办", Instruction: "给 agent 的指令"},
 			},
 			Rules: []*kanban.Rule{},
 		},
@@ -42,8 +42,6 @@ func TestRenderBoardMarkdownGolden(t *testing.T) {
 看板说明一行
 
 ## 待办
-
-> 列说明
 
 > 给 agent 的指令
 

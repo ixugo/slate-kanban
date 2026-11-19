@@ -51,7 +51,7 @@ func TestAgentWorkLoop(t *testing.T) {
 	c := s.card(t, b, b.doing, "写文档")
 	sess := s.agent(t, "claude")
 
-	next := ok(t, sess, "next_card", map[string]any{"board_id": b.ID}).Data
+	next := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data
 	detail, _ := next["card"].(map[string]any)
 	if detail == nil || detail["id"] != float64(c.ID) || detail["claimed_by"] != "claude" || detail["claim_active"] != true {
 		t.Fatalf("应该领到刚建的卡片: %v", next)
@@ -78,7 +78,7 @@ func TestAgentWorkLoop(t *testing.T) {
 		t.Errorf("总结应该写成最后一条评论: %v", full["comments"])
 	}
 
-	again := ok(t, sess, "next_card", map[string]any{"board_id": b.ID}).Data
+	again := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data
 	if card, has := again["card"]; !has || card != nil {
 		t.Errorf("队列空了应该返回 card 为 null: %v", again)
 	}
@@ -93,7 +93,7 @@ func TestNextCardSkipsHumanOnly(t *testing.T) {
 		t.Fatalf("创建卡片失败: %v", err)
 	}
 	sess := s.agent(t, "claude")
-	if got := ok(t, sess, "next_card", map[string]any{"board_id": b.ID}).Data; got["card"] != nil {
+	if got := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data; got["card"] != nil {
 		t.Errorf("只能由人处理的卡片不应该被领走: %v", got)
 	}
 	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": mine.ID}), "ErrCardHumanOnly")
@@ -310,7 +310,7 @@ func TestWriteInputsAreChecked(t *testing.T) {
 		"评论为空":    call(t, sess, "comment_card", map[string]any{"card_id": c.ID, "body": " "}),
 		"总结为空":    call(t, sess, "finish_card", map[string]any{"card_id": c.ID, "summary": ""}),
 		"租约太长":    call(t, sess, "claim_card", map[string]any{"card_id": c.ID, "lease_minutes": 100000}),
-		"租约是负数":   call(t, sess, "next_card", map[string]any{"board_id": b.ID, "lease_minutes": -1}),
+		"租约是负数":   call(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing, "lease_minutes": -1}),
 		"移到不存在的列": call(t, sess, "move_card", map[string]any{"card_id": c.ID, "column_id": 9999}),
 	}
 	for name, got := range cases {

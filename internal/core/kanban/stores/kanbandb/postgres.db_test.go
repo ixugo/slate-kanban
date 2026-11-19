@@ -105,13 +105,13 @@ func TestPostgresConcurrentClaimOneWinner(t *testing.T) {
 	}
 	var doingID int64
 	for _, col := range detail.Columns {
-		if col.AgentPickup {
+		if col.Name == "进行中" {
 			doingID = col.ID
 			break
 		}
 	}
 	if doingID == 0 {
-		t.Fatal("dev 模板里应该有 AgentPickup 列")
+		t.Fatal("dev 模板里应该有 进行中列")
 	}
 	card, err := core.CreateCard(ctx, human, detail.ID, kanban.CreateCardInput{Title: "争用", ColumnID: doingID})
 	if err != nil {

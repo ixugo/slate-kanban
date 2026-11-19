@@ -9,6 +9,7 @@ type ClaimCardInput struct {
 
 // NextCardInput 是取下一张卡的入参，租约时长的含义同 ClaimCardInput。
 type NextCardInput struct {
+	ColumnID     int64 `json:"column_id"` // 必填；agent 阅读列提示词后选择处理的列。
 	LeaseMinutes int   `json:"lease_minutes"`
 	EngineerID   int64 `json:"engineer_id"`
 }

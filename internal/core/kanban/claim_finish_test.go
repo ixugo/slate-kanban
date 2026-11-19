@@ -78,10 +78,7 @@ func TestFinishCardByHuman(t *testing.T) {
 func TestFinishCardTargetColumn(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
-	on, next := true, e.col(colReview)
-	if _, err := e.core.UpdateColumn(ctx, testActor, e.board.ID, e.col(colReview), kanban.UpdateColumnInput{AgentPickup: &on}); err != nil {
-		t.Fatalf("开启审查列领取失败: %v", err)
-	}
+	next := e.col(colReview)
 	if _, err := e.core.UpdateColumn(ctx, testActor, e.board.ID, e.col(colDoing), kanban.UpdateColumnInput{NextColumnID: &next}); err != nil {
 		t.Fatalf("设置下一列失败: %v", err)
 	}

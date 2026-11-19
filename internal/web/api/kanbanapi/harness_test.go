@@ -106,10 +106,9 @@ func wantEmptyObject(t *testing.T, name string, resp apitest.Response) {
 
 type (
 	column struct {
-		ID          int64  `json:"id"`
-		Name        string `json:"name"`
-		AgentPickup bool   `json:"agent_pickup"`
-		IsDone      bool   `json:"is_done"`
+		ID     int64  `json:"id"`
+		Name   string `json:"name"`
+		IsDone bool   `json:"is_done"`
 	}
 	board struct {
 		ID          int64            `json:"id"`
@@ -155,7 +154,7 @@ func (s *stack) newBoard(t *testing.T, slug string) board {
 func (b board) pickup(t *testing.T) column {
 	t.Helper()
 	for _, col := range b.Columns {
-		if col.AgentPickup {
+		if col.Name == "进行中" {
 			return col
 		}
 	}

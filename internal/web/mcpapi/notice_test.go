@@ -40,11 +40,11 @@ func TestNextCardNotice(t *testing.T) {
 	s.card(t, b, b.doing, "写文档")
 	sess := s.agent(t, "claude")
 
-	got := ok(t, sess, "next_card", map[string]any{"board_id": b.ID}).Data
+	got := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data
 	if noticeOf(got) == "" {
 		t.Errorf("领到卡片时应该带提示: %v", got)
 	}
-	empty := ok(t, s.agent(t, "other"), "next_card", map[string]any{"board_id": b.ID}).Data
+	empty := ok(t, s.agent(t, "other"), "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data
 	if empty["card"] != nil || noticeOf(empty) != "" {
 		t.Errorf("没有卡片时 card 为 null 且没有提示: %v", empty)
 	}
@@ -69,13 +69,13 @@ func TestUnclearTaskReturnsToTodo(t *testing.T) {
 	c := s.card(t, b, b.doing, "需求不清楚的卡")
 	sess := s.agent(t, "claude")
 
-	ok(t, sess, "next_card", map[string]any{"board_id": b.ID})
+	ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing})
 	ok(t, sess, "comment_card", map[string]any{"card_id": c.ID, "body": "验收标准是什么？我的理解是……"})
 	moved := ok(t, sess, "move_card", map[string]any{"card_id": c.ID, "column_id": b.todo}).Data
 	if moved["column_id"] != float64(b.todo) {
 		t.Fatalf("卡片应该回到待办: %v", moved)
 	}
-	if next := ok(t, sess, "next_card", map[string]any{"board_id": b.ID}).Data; next["card"] != nil {
+	if next := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data; next["card"] != nil {
 		t.Errorf("卡片已经移出领取列，不应该再被领到: %v", next)
 	}
 }
@@ -87,9 +87,9 @@ func TestReleaseOnlyLoopsBack(t *testing.T) {
 	c := s.card(t, b, b.doing, "需求不清楚的卡")
 	sess := s.agent(t, "claude")
 
-	ok(t, sess, "next_card", map[string]any{"board_id": b.ID})
+	ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing})
 	ok(t, sess, "release_card", map[string]any{"card_id": c.ID})
-	again := ok(t, sess, "next_card", map[string]any{"board_id": b.ID}).Data
+	again := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data
 	if card, _ := again["card"].(map[string]any); card == nil || card["id"] != float64(c.ID) {
 		t.Errorf("只放手的话应该又领到同一张卡: %v", again)
 	}

@@ -65,12 +65,12 @@ func TestColumnSaveWritesZeroValues(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
 		ctx := context.Background()
 		store := db.Column()
-		c := &kanban.Column{BoardID: 1, Name: "进行中", AgentPickup: true, IsDone: true, NextColumnID: 9, Sort: 1}
+		c := &kanban.Column{BoardID: 1, Name: "进行中", IsDone: true, NextColumnID: 9, Sort: 1}
 		if err := store.Create(ctx, c); err != nil {
 			t.Fatalf("创建列失败: %v", err)
 		}
 
-		c.AgentPickup, c.IsDone, c.NextColumnID = false, false, 0
+		c.IsDone, c.NextColumnID = false, 0
 		if err := store.Save(ctx, c); err != nil {
 			t.Fatalf("保存失败: %v", err)
 		}
@@ -78,7 +78,7 @@ func TestColumnSaveWritesZeroValues(t *testing.T) {
 		if err != nil {
 			t.Fatalf("读取失败: %v", err)
 		}
-		if got.AgentPickup || got.IsDone || got.NextColumnID != 0 {
+		if got.IsDone || got.NextColumnID != 0 {
 			t.Fatalf("零值没有写回去: %+v", got)
 		}
 	})

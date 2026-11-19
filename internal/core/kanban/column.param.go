@@ -5,8 +5,6 @@ import "strings"
 const (
 	// maxColumnNameLen 列名称的最大字符数，和数据库列长度一致。
 	maxColumnNameLen = 60
-	// maxColumnDescLen 列说明的最大字符数，和数据库列长度一致。
-	maxColumnDescLen = 500
 	// maxColumnInstructionLen 给 agent 的列指令的最大字符数。指令会进入 agent 的上下文，所以不能无限长。
 	maxColumnInstructionLen = 4000
 	// maxColumnsPerBoard 单个看板最多有几列。列太多会塞满页面和 agent 的上下文。
@@ -16,9 +14,7 @@ const (
 // CreateColumnInput 是新增列的入参。新列总是加在最右边。
 type CreateColumnInput struct {
 	Name         string `json:"name"`
-	Description  string `json:"description"`
 	Instruction  string `json:"instruction"`
-	AgentPickup  bool   `json:"agent_pickup"`
 	IsDone       bool   `json:"is_done"`
 	NextColumnID int64  `json:"next_column_id"` // 0 表示没有下一列
 }
@@ -26,9 +22,7 @@ type CreateColumnInput struct {
 // UpdateColumnInput 是修改列的入参。指针字段为 nil 表示不修改；NextColumnID 填 0 表示清除。
 type UpdateColumnInput struct {
 	Name         *string `json:"name"`
-	Description  *string `json:"description"`
 	Instruction  *string `json:"instruction"`
-	AgentPickup  *bool   `json:"agent_pickup"`
 	IsDone       *bool   `json:"is_done"`
 	NextColumnID *int64  `json:"next_column_id"`
 }
@@ -37,9 +31,6 @@ type UpdateColumnInput struct {
 func (in *CreateColumnInput) normalize() error {
 	in.Name = strings.TrimSpace(in.Name)
 	if err := checkLine("列名称", in.Name, 1, maxColumnNameLen); err != nil {
-		return err
-	}
-	if err := checkText("列说明", in.Description, 0, maxColumnDescLen); err != nil {
 		return err
 	}
 	return checkText("agent 指令", in.Instruction, 0, maxColumnInstructionLen)
@@ -54,11 +45,7 @@ func (in *UpdateColumnInput) normalize() error {
 			return err
 		}
 	}
-	if in.Description != nil {
-		if err := checkText("列说明", *in.Description, 0, maxColumnDescLen); err != nil {
-			return err
-		}
-	}
+
 	if in.Instruction != nil {
 		return checkText("agent 指令", *in.Instruction, 0, maxColumnInstructionLen)
 	}
@@ -73,17 +60,9 @@ func (in UpdateColumnInput) apply(c *Column) []string {
 		c.Name = *in.Name
 		changed = append(changed, "name")
 	}
-	if in.Description != nil && *in.Description != c.Description {
-		c.Description = *in.Description
-		changed = append(changed, "description")
-	}
 	if in.Instruction != nil && *in.Instruction != c.Instruction {
 		c.Instruction = *in.Instruction
 		changed = append(changed, "instruction")
-	}
-	if in.AgentPickup != nil && *in.AgentPickup != c.AgentPickup {
-		c.AgentPickup = *in.AgentPickup
-		changed = append(changed, "agent_pickup")
 	}
 	if in.IsDone != nil && *in.IsDone != c.IsDone {
 		c.IsDone = *in.IsDone

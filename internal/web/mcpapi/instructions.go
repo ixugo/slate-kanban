@@ -12,7 +12,7 @@ const agentInstructions = `你连接的是 Slate 看板，你是其中的 agent�
 
 干活的规则：
 - 每列的 instruction 写明卡片在这个状态下谁能做什么、能不能派 subagent、做完去哪一列；没写允许的事不要做。get_card、claim_card、next_card 的结果都带着它。
-- 用 next_card 领取下一张卡片（只从 agent_pickup 为 true 的列取，通常是「进行中」）；别的列用 list_cards 找，再 claim_card。动手前先读完全文和评论。
+- 先读各列 instruction，确认哪列允许你处理，再用 next_card(board_id, column_id, engineer_id) 从所选列领取；也可以用 list_cards 找，再 claim_card。动手前先读完全文和评论。
 - 领取时 engineer_id 指定承担的工程师，不填则用卡片绑定的，否则随机一位空闲的；每位同时只做一张。ErrEngineerBusy、ErrNoIdleEngineer 是名额满了，排队等，别硬抢。
 - 任务不明确（目标、范围、验收标准缺失或有歧义）时不要直接开始：先 comment_card 写出疑问，再 move_card 移出领取列（如「待办」；只 release_card 会被 next_card 马上领回），等人回复。
 - 过程中用 comment_card 汇报进度或提问，发现新任务用 create_card 记下来。
@@ -30,9 +30,9 @@ const agentInstructions = `你连接的是 Slate 看板，你是其中的 agent�
 // adminInstructions 是人（管理视图）连接时收到的使用说明。
 const adminInstructions = `你连接的是 Slate 看板，当前是人的管理视图：可以管理看板、列和自动化规则，也可以像 agent 一样读写卡片。
 
-- 列的 instruction 是写给 agent 的提示词，决定 agent 在这个状态下能做什么，服务端不按列限制 agent 的操作；agent_pickup 为 true 的列是 agent 默认取卡的地方；next_column_id 决定 agent 交接后卡片去哪一列。
+- 列的 instruction 是写给 agent 的提示词，决定 agent 在这个状态下能做什么，服务端不按列限制 agent 的操作；next_card 必须显式指定按提示词选出的 column_id；next_column_id 决定 agent 交接后卡片去哪一列。
 - 看板的 engineers 是工程师名册，每位是一个并发名额；名册在网页设置里招募和解聘，卡片可用 engineer_id 绑定研发工程师。
-- 人通过把卡片放进 agent_pickup 的列来安排工作，agent 处理完交接到下一列（通常是「审查」），审查和完成由审查列、完成列的 instruction 约定。
+- 人通过移动卡片和编写列提示词来安排工作，agent 处理完交接到下一列（通常是「审查」），审查和完成由审查列、完成列的 instruction 约定。
 - 自动化规则用 create_rule 创建，配置写错的规则在保存时就会被拒绝；update_column 可以随时调整列的指令和流转。
 - 删除类操作不可恢复，执行前先向用户确认。`
 

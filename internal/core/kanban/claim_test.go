@@ -13,7 +13,7 @@ func claimFixture() (*boardIndex, map[string]*Card) {
 	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
 	cols := []*Column{
 		{ID: 10, Name: "待办"},
-		{ID: 20, Name: "进行中", AgentPickup: true},
+		{ID: 20, Name: "进行中"},
 		{ID: 25, Name: "审查"},
 		{ID: 30, Name: "完成", IsDone: true},
 	}

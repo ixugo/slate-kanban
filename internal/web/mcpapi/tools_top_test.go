@@ -35,7 +35,7 @@ func TestAgentPlacementDefaultsToTop(t *testing.T) {
 	if created.Data["column_id"] != float64(b.todo) {
 		t.Fatalf("新建的卡片应该在待办列: %v", created.Data)
 	}
-	ok(t, sess, "next_card", map[string]any{"board_id": b.ID})
+	ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing})
 	ok(t, sess, "finish_card", map[string]any{"card_id": mine.ID, "summary": "做完了"})
 	if got := s.titles(t, b.ID, b.review); got != "我的,旧一,旧二" {
 		t.Fatalf("交接应该放到审查列最顶部，实际: %s", got)
@@ -54,7 +54,7 @@ func TestAgentFinishWithPosition(t *testing.T) {
 	s.card(t, b, b.doing, "我的")
 	sess := s.agent(t, "claude")
 
-	next := ok(t, sess, "next_card", map[string]any{"board_id": b.ID}).Data
+	next := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data
 	id := next["card"].(map[string]any)["id"]
 	ok(t, sess, "finish_card", map[string]any{"card_id": id, "summary": "做完了", "after_id": first.ID})
 	if got := s.titles(t, b.ID, b.review); !strings.HasPrefix(got, "旧一,我的") {

@@ -65,8 +65,8 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 	}, a.listBoards)
 	register(s, spec{
 		name: "get_board", kind: kindRead,
-		desc: "读取一个看板的详情：全部列、自动化规则和工程师名册 engineers（每位是一个并发名额：id、name、kind 是 dev 全栈、frontend 前端、backend 后端、ui UI（这四种都做研发）或 review 测试、prompt 是角色提示词）。每一列有 description（给人看的说明）、" +
-			"instruction（人写给 agent 的提示词，写明这个状态下谁能做什么，必须遵守）、agent_pickup（为 true 表示 next_card 从这类列里取卡）、" +
+		desc: "读取一个看板的详情：全部列、自动化规则和工程师名册 engineers（每位是一个并发名额：id、name、kind 是 dev 全栈、frontend 前端、backend 后端、ui UI（这四种都做研发）或 review 测试、prompt 是角色提示词）。每一列有 " +
+			"instruction（人写给 agent 的提示词，写明这个状态下谁能做什么，必须遵守）、" +
 			"is_done（完成列）、next_column_id（交接后卡片去的下一列）。开始工作前先读一遍。",
 	}, a.getBoard)
 	register(s, spec{

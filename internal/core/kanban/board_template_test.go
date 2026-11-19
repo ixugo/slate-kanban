@@ -34,10 +34,10 @@ func TestTemplateTextsComplete(t *testing.T) {
 		}
 		seen := map[string]bool{}
 		for kind, c := range texts.Columns {
-			if c.Name == "" || c.Description == "" || c.Instruction == "" {
+			if c.Name == "" || c.Instruction == "" {
 				t.Errorf("%s 第 %d 段列文案有空字段: %+v", locale, kind, c)
 			}
-			if utf8.RuneCountInString(c.Name) > 60 || utf8.RuneCountInString(c.Description) > 500 ||
+			if utf8.RuneCountInString(c.Name) > 60 ||
 				utf8.RuneCountInString(c.Instruction) > 4000 {
 				t.Errorf("%s 第 %d 段列文案超过长度上限", locale, kind)
 			}
@@ -80,7 +80,7 @@ func TestTemplateColumns(t *testing.T) {
 			if s.Next >= len(specs) || (s.Next >= 0 && s.Next <= i) {
 				t.Errorf("%s 第 %d 列的下一列下标不合法: %d", name, i, s.Next)
 			}
-			if s.AgentPickup {
+			if s.Text == textDoing {
 				pickups++
 			}
 			if s.IsDone {
@@ -109,9 +109,12 @@ func TestDefaultRulesValid(t *testing.T) {
 		specs := templateColumns[template]
 		cols := make([]*Column, len(specs))
 		for i, s := range specs {
-			cols[i] = &Column{ID: int64(i + 1), AgentPickup: s.AgentPickup, IsDone: s.IsDone}
+			cols[i] = &Column{ID: int64(i + 1), Name: textsFor("en").Columns[s.Text].Name, IsDone: s.IsDone}
 		}
 		for _, locale := range supportedLocales {
+			for i, spec := range specs {
+				cols[i].Name = textsFor(locale).Columns[spec.Text].Name
+			}
 			rules := defaultRules(textsFor(locale), cols)
 			if len(rules) != 3 {
 				t.Fatalf("%s/%s 应该有 3 条起步规则，实际 %d", template, locale, len(rules))
@@ -131,7 +134,7 @@ func TestDefaultRulesValid(t *testing.T) {
 // TestDefaultRulesDoNotNeedBothColumns 验证只有领活列或只有完成列时，只生成对应的规则，不会因为缺列而出错。
 func TestDefaultRulesDoNotNeedBothColumns(t *testing.T) {
 	texts := textsFor("en")
-	onlyDoing := defaultRules(texts, []*Column{{ID: 1, AgentPickup: true}})
+	onlyDoing := defaultRules(texts, []*Column{{ID: 1, Name: texts.Columns[textDoing].Name}})
 	if len(onlyDoing) != 1 || onlyDoing[0].Name != texts.RuleStart || onlyDoing[0].ColumnID != 1 {
 		t.Fatalf("只有领活列应该只生成开始计时: %+v", onlyDoing)
 	}

@@ -105,20 +105,20 @@ func TestColumnTools(t *testing.T) {
 	human := s.human(t)
 
 	col := ok(t, human, "create_column", map[string]any{
-		"board_id": b.ID, "name": "测试中", "instruction": "跑完全部测试", "agent_pickup": true,
+		"board_id": b.ID, "name": "测试中", "instruction": "跑完全部测试",
 	}).Data
 	colID := idOf(t, col)
-	if col["name"] != "测试中" || col["agent_pickup"] != true || col["instruction"] != "跑完全部测试" {
+	if col["name"] != "测试中" || col["instruction"] != "跑完全部测试" {
 		t.Fatalf("新列不对: %v", col)
 	}
 	fails(t, call(t, human, "create_column", map[string]any{"board_id": b.ID, "name": "测试中"}), "ErrColumnNameTaken")
 
 	upd := ok(t, human, "update_column", map[string]any{"board_id": b.ID, "column_id": colID, "name": "验证中", "next_column_id": b.review}).Data
-	if upd["name"] != "验证中" || upd["next_column_id"] != float64(b.review) || upd["agent_pickup"] != true {
+	if upd["name"] != "验证中" || upd["next_column_id"] != float64(b.review) {
 		t.Errorf("应该只改填写的字段: %v", upd)
 	}
-	cleared := ok(t, human, "update_column", map[string]any{"board_id": b.ID, "column_id": colID, "next_column_id": 0, "agent_pickup": false}).Data
-	if cleared["next_column_id"] != float64(0) || cleared["agent_pickup"] != false {
+	cleared := ok(t, human, "update_column", map[string]any{"board_id": b.ID, "column_id": colID, "next_column_id": 0}).Data
+	if cleared["next_column_id"] != float64(0) {
 		t.Errorf("下一列填 0 应该清除，布尔字段填 false 应该生效: %v", cleared)
 	}
 

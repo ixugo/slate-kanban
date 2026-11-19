@@ -14,7 +14,7 @@ func tsQuote(s string) string {
 	return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(s) + "'"
 }
 
-// TestWebTemplateTextMatches 保证服务端起步模板的列名、说明和规则名都出现在网页的对照表里；
+// TestWebTemplateTextMatches 保证服务端起步模板的列名和规则名都出现在网页的对照表里；
 // 改了这里的文案却忘了同步网页，网页就认不出旧看板里的文字，不会换语言。
 func TestWebTemplateTextMatches(t *testing.T) {
 	raw, err := os.ReadFile(webTemplateTextFile)
@@ -25,7 +25,7 @@ func TestWebTemplateTextMatches(t *testing.T) {
 	for locale, texts := range templateTexts {
 		var want []string
 		for _, c := range texts.Columns {
-			want = append(want, c.Name, c.Description)
+			want = append(want, c.Name)
 		}
 		want = append(want, texts.RuleStart, texts.RuleFinish, texts.RuleReopen)
 		for _, s := range want {
