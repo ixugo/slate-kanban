@@ -39,7 +39,7 @@ func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary 
 	if err := checkCardWritable(actor, card); err != nil {
 		return err
 	}
-	from, to, err := u.finishTarget(ctx, actor, card, in.ColumnID)
+	from, to, err := u.finishTarget(ctx, card, in.ColumnID)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary 
 
 // finishTarget 确定交接后卡片去哪一列，同时返回卡片当前所在的列。
 // 指定了目标列就用它；没指定就用当前列设置的下一列，没有设置返回 400 并提示怎么办。
-func (u *unit) finishTarget(ctx context.Context, actor Actor, card *Card, columnID int64) (from, to *Column, err error) {
+func (u *unit) finishTarget(ctx context.Context, card *Card, columnID int64) (from, to *Column, err error) {
 	cols, err := u.column.ListByBoard(ctx, card.BoardID)
 	if err != nil {
 		return nil, nil, wrapDB("读取列", err)
@@ -70,9 +70,6 @@ func (u *unit) finishTarget(ctx context.Context, actor Actor, card *Card, column
 	}
 	if to = columnByID(cols, columnID); to == nil {
 		return nil, nil, invalidf("目标列不存在，或者不属于这个看板")
-	}
-	if actor.IsAgent() && to.AgentPickup {
-		return nil, nil, ErrAgentPickupColumn
 	}
 	return from, to, nil
 }

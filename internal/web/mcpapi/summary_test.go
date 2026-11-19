@@ -87,7 +87,7 @@ func TestSummarizeAllNeverNil(t *testing.T) {
 
 // TestClampListLimit 验证列表数量：0 用默认值，超过上限压到上限，负数原样交给 Core 去拒绝。
 func TestClampListLimit(t *testing.T) {
-	for in, want := range map[int]int{0: 50, 1: 1, 50: 50, 200: 200, 201: 200, 1 << 30: 200, -1: -1} {
+	for in, want := range map[int]int{0: 10, 1: 1, 30: 30, 31: 30, 200: 30, 1 << 30: 30, -1: -1} {
 		if got := clampListLimit(in); got != want {
 			t.Errorf("clampListLimit(%d) 期望 %d，实际 %d", in, want, got)
 		}

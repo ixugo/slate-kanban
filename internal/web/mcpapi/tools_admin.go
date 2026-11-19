@@ -37,7 +37,7 @@ type createColumnIn struct {
 	Name         string `json:"name" jsonschema:"列名称，1 到 60 字，同一个看板里不能重名"`
 	Description  string `json:"description,omitempty" jsonschema:"给人看的说明，最多 500 字"`
 	Instruction  string `json:"instruction,omitempty" jsonschema:"给 agent 的做事规则，最多 4000 字；agent 领到这一列的卡片时必须遵守"`
-	AgentPickup  bool   `json:"agent_pickup,omitempty" jsonschema:"为 true 表示 agent 在这一列里领取卡片，一般只有「进行中」这类列开启"`
+	AgentPickup  bool   `json:"agent_pickup,omitempty" jsonschema:"为 true 表示 agent 的 next_card 默认从这一列取卡，一般只有「进行中」这类列开启；它不限制 agent 的操作，这一列该做什么写在 instruction 里"`
 	IsDone       bool   `json:"is_done,omitempty" jsonschema:"为 true 表示这是完成列，进入这一列的卡片算已完成"`
 	NextColumnID int64  `json:"next_column_id,omitempty" jsonschema:"agent 用 finish_card 交接后，卡片去的下一列（列编号）；不填表示没有"`
 }
@@ -49,7 +49,7 @@ type updateColumnIn struct {
 	Name         *string `json:"name,omitempty" jsonschema:"新名称；不填不改"`
 	Description  *string `json:"description,omitempty" jsonschema:"新说明；不填不改"`
 	Instruction  *string `json:"instruction,omitempty" jsonschema:"新的 agent 指令；传空字符串清除；不填不改"`
-	AgentPickup  *bool   `json:"agent_pickup,omitempty" jsonschema:"是否让 agent 在这一列里领取卡片；不填不改"`
+	AgentPickup  *bool   `json:"agent_pickup,omitempty" jsonschema:"是否让 agent 的 next_card 默认从这一列取卡（不限制 agent 的操作）；不填不改"`
 	IsDone       *bool   `json:"is_done,omitempty" jsonschema:"是否是完成列；不填不改"`
 	NextColumnID *int64  `json:"next_column_id,omitempty" jsonschema:"交接后的下一列（列编号）；传 0 清除；不填不改"`
 }
@@ -120,8 +120,8 @@ func (a API) registerBoardTools(s *mcp.Server) {
 func (a API) registerColumnTools(s *mcp.Server) {
 	register(s, spec{
 		name: "create_column", kind: kindWrite,
-		desc: "在看板的最右边新增一列。instruction 是写给 agent 的做事规则，agent 领到这一列的卡片时必须遵守；" +
-			"agent_pickup 为 true 表示 agent 会在这一列里领取卡片（一般只有「进行中」开启）；" +
+		desc: "在看板的最右边新增一列。instruction 是写给 agent 的提示词，写明卡片在这个状态下谁能做什么、能不能派 subagent、做完去哪一列，agent 必须遵守；" +
+			"agent_pickup 为 true 表示 agent 的 next_card 默认从这一列取卡（一般只有「进行中」开启），它不限制 agent 的操作；" +
 			"is_done 为 true 表示完成列；next_column_id 是 agent 用 finish_card 交接后卡片去的下一列。",
 	}, a.createColumn)
 	register(s, spec{

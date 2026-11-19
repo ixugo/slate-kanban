@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	// defaultListLimit 是 list_cards 不指定数量时返回的卡片数。摘要每张约几百字节，
-	// 50 张足够 agent 了解一个看板的概况，又不会占掉太多上下文。
-	defaultListLimit = 50
+	// defaultListLimit 是 list_cards 不指定数量时返回的卡片数。调度 agent 同时处理的任务不会太多，
+	// 每次只要一小批，用筛选条件取下一批，不占太多上下文。
+	defaultListLimit = 10
 	// maxListLimit 是 list_cards 一次最多返回的卡片数。
-	maxListLimit = 200
+	maxListLimit = 30
 )
 
 // cardBrief 是卡片自己的字段：没有描述和评论（描述最长 2 万字，刚写进去的内容不用再回显一遍，

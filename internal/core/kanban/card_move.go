@@ -3,12 +3,23 @@ package kanban
 import (
 	"context"
 	"slices"
+	"time"
 )
+
+// checkCardMovable 判断操作者能不能移动这张卡片：人可以；agent 不要求自己持有，
+// 因为审查、调度的 agent 要在别人做完之后移动卡片；但不能动正被别的 agent 有效持有的卡片，
+// 免得抢走对方正在做的活，持有者交接或释放之后才能移动。
+func checkCardMovable(actor Actor, card *Card, now time.Time) error {
+	if actor.IsAgent() && card.ClaimedBy != actor.Name && claimActive(card, now) {
+		return ErrCardClaimed.WithMsg("卡片正被 " + card.ClaimedBy + " 持有，等它交接或释放之后再移动")
+	}
+	return nil
+}
 
 // MoveCard 把卡片移到目标列的指定位置，也用来在同一列里调整顺序。
 // 入参的 ColumnID 为零表示留在当前列；BeforeID 和 AfterID 最多给一个，表示放到那张卡的前面或后面，
-// 都不给就放到目标列末尾（Top 为真时放到最顶部）。人可以移动任何卡片；agent 只能移动自己持有的卡片，
-// 并且不能把卡片放进开启了 agent 领取的列，否则它就能把卡片重新放回队列。
+// 都不给就放到目标列末尾（Top 为真时放到最顶部）。人可以移动任何卡片；agent 可以移动没有被别的 agent
+// 持有的卡片，卡片能放进哪一列、什么状态下该由谁动，由列的提示词约定，这里不按列限制。
 // 换列会清除领取并写 card.moved；同列调整顺序写 card.reordered；位置没有变化时什么都不做。
 func (c Core) MoveCard(ctx context.Context, actor Actor, cardID int64, in MoveCardInput) (*Card, error) {
 	if err := requireWriter(actor); err != nil {
@@ -35,10 +46,10 @@ func (c Core) MoveCard(ctx context.Context, actor Actor, cardID int64, in MoveCa
 
 // moveCard 在事务里完成 MoveCard：检查权限、找出原列和目标列、计算新位置，再按换列或同列分别保存。
 func (u *unit) moveCard(ctx context.Context, actor Actor, card *Card, in MoveCardInput) error {
-	if err := checkCardWritable(actor, card); err != nil {
+	if err := checkCardMovable(actor, card, u.now()); err != nil {
 		return err
 	}
-	from, to, err := u.resolveMove(ctx, actor, card, in.ColumnID)
+	from, to, err := u.resolveMove(ctx, card, in.ColumnID)
 	if err != nil {
 		return err
 	}
@@ -62,8 +73,8 @@ func (u *unit) moveCard(ctx context.Context, actor Actor, card *Card, in MoveCar
 }
 
 // resolveMove 读出看板的列，返回卡片当前所在的列和移动的目标列。
-// 目标列不属于这个看板、或者 agent 想把卡片放进领活列，都在这里拒绝。
-func (u *unit) resolveMove(ctx context.Context, actor Actor, card *Card, columnID int64) (from, to *Column, err error) {
+// 目标列不属于这个看板会在这里拒绝。
+func (u *unit) resolveMove(ctx context.Context, card *Card, columnID int64) (from, to *Column, err error) {
 	cols, err := u.column.ListByBoard(ctx, card.BoardID)
 	if err != nil {
 		return nil, nil, wrapDB("读取列", err)
@@ -76,9 +87,6 @@ func (u *unit) resolveMove(ctx context.Context, actor Actor, card *Card, columnI
 	}
 	if to = columnByID(cols, columnID); to == nil {
 		return nil, nil, invalidf("目标列不存在，或者不属于这个看板")
-	}
-	if actor.IsAgent() && to.AgentPickup {
-		return nil, nil, ErrAgentPickupColumn
 	}
 	return from, to, nil
 }

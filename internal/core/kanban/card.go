@@ -83,9 +83,6 @@ func (u *unit) buildNewCard(ctx context.Context, actor Actor, boardID int64, in 
 	if err != nil {
 		return nil, "", err
 	}
-	if actor.IsAgent() && target.AgentPickup {
-		return nil, "", ErrAgentPickupColumn
-	}
 	now := u.now()
 	card := &Card{
 		BoardID: boardID, ColumnID: target.ID, Version: 1,

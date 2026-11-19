@@ -73,8 +73,8 @@ func TestFinishCardByHuman(t *testing.T) {
 	}
 }
 
-// TestFinishCardTargetColumn 验证目标列：显式指定可以去非领活列；agent 指定领活列被拒绝，别的看板的列返回 400；
-// 默认的下一列即使是领活列也允许，因为那是人配置的流转。
+// TestFinishCardTargetColumn 验证目标列：显式指定可以去任何一列，包括领活列（退回返工由列提示词约定）；
+// 别的看板的列返回 400；不指定时用当前列设置的下一列。
 func TestFinishCardTargetColumn(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -105,10 +105,11 @@ func TestFinishCardTargetColumn(t *testing.T) {
 	if d, err := e.core.FinishCard(ctx, testAgent, id, in(e.col(colDone))); err != nil || d.Column != "完成" || !d.Done {
 		t.Fatalf("显式指定非领活列应该成功: %+v %v", d, err)
 	}
-	id = claim("想回到领活列")
-	if _, err := e.core.FinishCard(ctx, testAgent, id, in(e.col(colReview))); !errors.Is(err, kanban.ErrAgentPickupColumn) {
-		t.Fatalf("agent 显式指定领活列应该得到 ErrAgentPickupColumn，实际 %v", err)
+	id = claim("显式去领活列")
+	if d, err := e.core.FinishCard(ctx, testAgent, id, in(e.col(colReview))); err != nil || d.Column != "审查" {
+		t.Fatalf("显式指定领活列也应该允许: %+v %v", d, err)
 	}
+	id = claim("别的看板的列")
 	if _, err := e.core.FinishCard(ctx, testAgent, id, in(foreign.Columns[0].ID)); !errors.Is(err, kanban.ErrInvalidInput) {
 		t.Fatalf("别的看板的列应该得到 ErrInvalidInput，实际 %v", err)
 	}

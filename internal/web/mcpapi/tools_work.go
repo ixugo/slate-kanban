@@ -38,7 +38,7 @@ type finishCardIn struct {
 	Summary  string `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在卡片下"`
 	Branch   string `json:"branch,omitempty" jsonschema:"这次工作用的分支名；不填表示不改"`
 	URL      string `json:"url,omitempty" jsonschema:"相关链接，例如合并请求，必须以 http:// 或 https:// 开头；不填表示不改"`
-	ColumnID int64  `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；agent 不能指定 agent 领取列"`
+	ColumnID int64  `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；按各列 instruction 的约定选择"`
 	BeforeID int64  `json:"before_id,omitempty" jsonschema:"放到目标列这张卡片（数字 id）的前面；和 after_id 最多填一个；都不填放到目标列最顶部"`
 	AfterID  int64  `json:"after_id,omitempty" jsonschema:"放到目标列这张卡片（数字 id）的后面；和 before_id 最多填一个"`
 }
@@ -163,7 +163,7 @@ func (a API) registerSharedWork(s *mcp.Server) {
 	register(s, spec{
 		name: "finish_card", kind: kindWrite,
 		desc: "完成交接：把 summary 写成评论、记下分支和链接、把卡片移到下一列（通常是「审查」）并结束你的领取，全部在一次操作里完成。" +
-			"做完一张卡片就调用它，不要自己用 move_card 去拖，也不要把卡片放进完成列：是否算完成由人在审查之后决定。" +
+			"做完一张卡片就调用它，不要自己用 move_card 去拖；是否算完成由审查决定，具体按各列的 instruction。" +
 			"summary 要让审查的人不看代码也能知道做了什么、怎么验证的、有什么风险。",
 	}, a.finishCard)
 	register(s, spec{
@@ -174,7 +174,7 @@ func (a API) registerSharedWork(s *mcp.Server) {
 	register(s, spec{
 		name: "move_card", kind: kindWrite,
 		desc: "把卡片移到另一列，或在同一列里调整顺序。换列会结束领取，并触发看板上对应的自动化规则。" +
-			"agent 只能移动自己持有的卡片，而且不能放进 agent 领取列。做完一张卡片请用 finish_card，不要用它。",
+			"不能移动正被别的 agent 持有的卡片；什么状态下该动哪张卡、能放进哪一列，按卡片所在列和目标列的 instruction 来（例如审查不通过时放回「进行中」）。做完一张卡片请用 finish_card，不要用它。",
 	}, a.moveCard)
 }
 
@@ -191,13 +191,13 @@ func (a API) registerAgentWork(s *mcp.Server) {
 	}, a.nextCard)
 	register(s, spec{
 		name: "claim_card", kind: kindWrite,
-		desc: "领取指定的卡片，已经由你持有时只是续租。卡片必须在 agent_pickup 为 true 的列里，不是只能由人处理的，" +
+		desc: "领取指定的卡片，已经由你持有时只是续租。哪一列的卡片你能领，按这一列的 instruction 来（例如审查 agent 领审查列的卡）；卡片不是只能由人处理的，" +
 			"依赖已经完成，并且没有被别的 agent 持有。领到后返回卡片全文、评论、依赖和所在列的指令，以及 agent_notice 提醒（任务不明确就先评论反馈）。一般用 next_card 就够了。",
 	}, a.claimCard)
 	register(s, spec{
 		name: "create_card", kind: kindWrite,
-		desc: "创建卡片，用来记录你在工作中发现的新任务、问题或后续事项。不能放进 agent 领取列：那里放什么、先做什么由人决定，" +
-			"你把卡片建在别的列（例如「收件箱」或「待办」），人觉得合适会自己拖过去。优先级、依赖和时间是人的安排，agent 不能设置。",
+		desc: "创建卡片，用来记录你在工作中发现的新任务、问题或后续事项。放进哪一列按各列 instruction 的约定，没有约定就建在「收件箱」，" +
+			"由人决定做不做、什么时候做。优先级、依赖和时间是人的安排，agent 不能设置。",
 	}, a.createCard)
 	register(s, spec{
 		name: "update_card", kind: kindWrite,

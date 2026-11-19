@@ -88,7 +88,7 @@ func TestListCardsSummaries(t *testing.T) {
 	}
 }
 
-// TestListCardsLimit 验证数量限制：不指定时默认 50 张，指定了按指定的，并如实告诉调用方被截断了。
+// TestListCardsLimit 验证数量限制：不指定时默认 10 张、最多 30 张，指定了按指定的，并如实告诉调用方被截断了。
 func TestListCardsLimit(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
@@ -97,8 +97,12 @@ func TestListCardsLimit(t *testing.T) {
 	}
 	sess := s.agent(t, "claude")
 	def := ok(t, sess, "list_cards", map[string]any{"board_id": b.ID}).Data
-	if len(items(t, def, "cards")) != 50 || def["total"] != float64(55) || def["truncated"] != true {
-		t.Errorf("默认应该返回 50 张并标记被截断: total=%v truncated=%v", def["total"], def["truncated"])
+	if len(items(t, def, "cards")) != 10 || def["total"] != float64(55) || def["truncated"] != true {
+		t.Errorf("默认应该返回 10 张并标记被截断: total=%v truncated=%v", def["total"], def["truncated"])
+	}
+	most := ok(t, sess, "list_cards", map[string]any{"board_id": b.ID, "limit": 100}).Data
+	if len(items(t, most, "cards")) != 30 || most["truncated"] != true {
+		t.Errorf("limit 超过上限应该只返回 30 张: %v", most["truncated"])
 	}
 	few := ok(t, sess, "list_cards", map[string]any{"board_id": b.ID, "limit": 3}).Data
 	if len(items(t, few, "cards")) != 3 || few["truncated"] != true {

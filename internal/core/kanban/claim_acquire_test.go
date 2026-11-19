@@ -138,7 +138,6 @@ func TestClaimCardRejects(t *testing.T) {
 		{"身份无效", kanban.Actor{}, free.ID, kanban.ClaimCardInput{}, kanban.ErrInvalidActor},
 		{"卡片不存在", testAgent, 9999, kanban.ClaimCardInput{}, kanban.ErrCardNotFound},
 		{"只能由人处理", testAgent, humanOnly.ID, kanban.ClaimCardInput{}, kanban.ErrCardHumanOnly},
-		{"不在领活列", testAgent, todo.ID, kanban.ClaimCardInput{}, kanban.ErrColumnNotPickup},
 		{"依赖未完成", testAgent, waiting.ID, kanban.ClaimCardInput{}, kanban.ErrCardWaiting},
 		{"租约为负", testAgent, free.ID, kanban.ClaimCardInput{LeaseMinutes: -1}, kanban.ErrInvalidInput},
 		{"租约超过上限", testAgent, free.ID, kanban.ClaimCardInput{LeaseMinutes: 1441}, kanban.ErrInvalidInput},

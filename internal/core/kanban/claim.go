@@ -44,27 +44,13 @@ func claimActive(card *Card, now time.Time) bool {
 	return card.ClaimedBy != "" && card.ClaimExpiresAt != nil && card.ClaimExpiresAt.After(now)
 }
 
-// pickupColumns 返回开启了 agent 领取的列，按看板里从左到右的顺序。
-func (ix *boardIndex) pickupColumns() []*Column {
-	var out []*Column
-	for _, col := range ix.cols {
-		if col.AgentPickup {
-			out = append(out, col)
-		}
-	}
-	return out
-}
-
 // checkClaimable 按固定顺序判断 agent 能不能领取这张卡片，第一条不满足就返回对应的错误：
-// 不是只能由人处理、所在的列开启了 agent 领取、没有未完成的依赖、没有被别的 agent 持有。
-// ix 里必须有卡片所在的列，以及卡片的全部依赖。
+// 不是只能由人处理、没有未完成的依赖、没有被别的 agent 持有。哪一列的卡片该不该领，
+// 由列的提示词约定，这里不按列限制，审查 agent 才能领审查列的卡片。
+// ix 里必须有卡片的全部依赖。
 func checkClaimable(actor Actor, card *Card, ix *boardIndex) error {
 	if card.HumanOnly {
 		return ErrCardHumanOnly
-	}
-	col := ix.columns[card.ColumnID]
-	if col == nil || !col.AgentPickup {
-		return notPickupError(ix)
 	}
 	if waiting := unfinishedDeps(card, ix.cards, ix.doneCols); len(waiting) > 0 {
 		keys := make([]string, len(waiting))
@@ -78,19 +64,6 @@ func checkClaimable(actor Actor, card *Card, ix *boardIndex) error {
 			card.ClaimedBy, card.ClaimExpiresAt.In(ix.loc).Format(time.RFC3339)))
 	}
 	return nil
-}
-
-// notPickupError 生成"这一列不允许 agent 处理"的错误，并说明哪些列允许，方便 agent 和人知道该怎么办。
-func notPickupError(ix *boardIndex) error {
-	cols := ix.pickupColumns()
-	if len(cols) == 0 {
-		return ErrColumnNotPickup.WithMsg("看板里还没有任何列允许 agent 处理，请先在列设置里开启")
-	}
-	names := make([]string, len(cols))
-	for i, col := range cols {
-		names[i] = col.Name
-	}
-	return ErrColumnNotPickup.WithMsg("这一列不允许 agent 处理，允许的列有：" + strings.Join(names, "、"))
 }
 
 // clearClaim 清除卡片上的领取并追加 card.released 事件，调用方负责随后保存卡片。

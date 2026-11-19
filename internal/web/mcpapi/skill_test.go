@@ -30,8 +30,6 @@ const (
 var skillErrors = []string{
 	kanban.ErrNotHolder.GetReason(),
 	kanban.ErrCardVersionConflict.GetReason(),
-	kanban.ErrAgentPickupColumn.GetReason(),
-	kanban.ErrColumnNotPickup.GetReason(),
 	kanban.ErrProjectPathLocked.GetReason(),
 	kanban.ErrCardClaimed.GetReason(),
 	kanban.ErrCardWaiting.GetReason(),

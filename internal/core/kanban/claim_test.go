@@ -51,8 +51,8 @@ func TestCheckClaimable(t *testing.T) {
 		{"expiredOfOther", nil, nil},
 		{"heldBySelf", nil, nil},
 		{"human", ErrCardHumanOnly, nil},
-		{"todo", ErrColumnNotPickup, []string{"进行中"}},
-		{"review", ErrColumnNotPickup, []string{"进行中"}},
+		{"todo", nil, nil},
+		{"review", nil, nil},
 		{"waiting", ErrCardWaiting, []string{"K-3", "K-4"}},
 		{"heldByOther", ErrCardClaimed, []string{"codex", "2026-11-17T13:00:00Z"}},
 	}
@@ -77,7 +77,7 @@ func TestCheckClaimable(t *testing.T) {
 }
 
 // TestCheckClaimableOrder 验证判断顺序：同时有多个问题时先报前面的，
-// 例如又是只能由人处理、又不在领活列的卡，先提示只能由人处理。
+// 例如又是只能由人处理、又在等依赖的卡，先提示只能由人处理。
 func TestCheckClaimableOrder(t *testing.T) {
 	ix, _ := claimFixture()
 	me := Actor{Kind: ActorAgent, Name: "claude"}
@@ -86,18 +86,18 @@ func TestCheckClaimableOrder(t *testing.T) {
 		t.Fatalf("应该先报 ErrCardHumanOnly，实际 %v", err)
 	}
 	card.HumanOnly = false
-	if err := checkClaimable(me, card, ix); !errors.Is(err, ErrColumnNotPickup) {
-		t.Fatalf("应该先报 ErrColumnNotPickup，实际 %v", err)
+	if err := checkClaimable(me, card, ix); !errors.Is(err, ErrCardWaiting) {
+		t.Fatalf("应该接着报 ErrCardWaiting，实际 %v", err)
 	}
 }
 
-// TestNotPickupErrorWithoutPickupColumns 验证看板里没有任何领活列时，提示让人先去列设置里开启。
-func TestNotPickupErrorWithoutPickupColumns(t *testing.T) {
-	ix := newBoardIndex(time.Now(), time.UTC, []*Column{{ID: 1, Name: "待办"}}, nil, nil)
+// TestClaimableInAnyColumn 验证领取不按列限制：看板里没有任何开启领取的列，卡片照样能领，
+// 哪一列的卡该不该领由列的提示词约定。
+func TestClaimableInAnyColumn(t *testing.T) {
+	ix := newBoardIndex(time.Now(), time.UTC, []*Column{{ID: 1, Name: "审查"}}, nil, nil)
 	card := &Card{ID: 1, ColumnID: 1}
-	err := checkClaimable(Actor{Kind: ActorAgent, Name: "claude"}, card, ix)
-	if !errors.Is(err, ErrColumnNotPickup) || !strings.Contains(err.Error(), "列设置") {
-		t.Fatalf("应该提示去列设置里开启，实际 %v", err)
+	if err := checkClaimable(Actor{Kind: ActorAgent, Name: "claude"}, card, ix); err != nil {
+		t.Fatalf("不在领取列的卡片也应该能领，实际 %v", err)
 	}
 }
 

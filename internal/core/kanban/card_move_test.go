@@ -182,8 +182,8 @@ func TestMoveCardReleasesClaim(t *testing.T) {
 	}
 }
 
-// TestMoveCardByAgent 验证 agent 的权限：只能移动自己持有的卡片；可以移到非领活列，换列后领取被清除；
-// 不能换进领活列；同列调整顺序不受领活列限制。
+// TestMoveCardByAgent 验证 agent 的权限：不能动正被别的 agent 持有的卡片，其余卡片都能移动，
+// 包括没人持有的卡片和换进领活列；换列后领取被清除。哪一列该由谁动由列的提示词约定。
 func TestMoveCardByAgent(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -191,12 +191,13 @@ func TestMoveCardByAgent(t *testing.T) {
 	b := e.card(t, colDoing, "B")
 	review := kanban.MoveCardInput{ColumnID: e.col(colReview)}
 
-	if _, err := e.core.MoveCard(ctx, testAgent, a.ID, review); !errors.Is(err, kanban.ErrNotHolder) {
-		t.Fatalf("没持有应该得到 ErrNotHolder，实际 %v", err)
+	free := e.card(t, colDoing, "D")
+	if _, err := e.core.MoveCard(ctx, testAgent, free.ID, review); err != nil {
+		t.Fatalf("没人持有的卡片 agent 也应该能移动: %v", err)
 	}
 	e.hold(t, a.ID, "someone-else")
-	if _, err := e.core.MoveCard(ctx, testAgent, a.ID, review); !errors.Is(err, kanban.ErrNotHolder) {
-		t.Fatalf("被别的 agent 持有应该得到 ErrNotHolder，实际 %v", err)
+	if _, err := e.core.MoveCard(ctx, testAgent, a.ID, review); !errors.Is(err, kanban.ErrCardClaimed) {
+		t.Fatalf("被别的 agent 有效持有应该得到 ErrCardClaimed，实际 %v", err)
 	}
 
 	e.hold(t, a.ID, testAgent.Name)
@@ -218,11 +219,11 @@ func TestMoveCardByAgent(t *testing.T) {
 
 	c := e.card(t, colTodo, "C")
 	e.hold(t, c.ID, testAgent.Name)
-	if _, err := e.core.MoveCard(ctx, testAgent, c.ID, kanban.MoveCardInput{ColumnID: e.col(colDoing)}); !errors.Is(err, kanban.ErrAgentPickupColumn) {
-		t.Fatalf("agent 移进领活列应该得到 ErrAgentPickupColumn，实际 %v", err)
+	if _, err := e.core.MoveCard(ctx, testAgent, c.ID, kanban.MoveCardInput{ColumnID: e.col(colDoing)}); err != nil {
+		t.Fatalf("agent 移进领活列应该允许: %v", err)
 	}
-	if got := e.stored(t, c.ID); got.ColumnID != e.col(colTodo) || got.ClaimedBy != testAgent.Name {
-		t.Fatalf("被拒绝的移动不应该生效: %+v", got)
+	if got := e.stored(t, c.ID); got.ColumnID != e.col(colDoing) || got.ClaimedBy != "" {
+		t.Fatalf("换列后应该在领活列且领取被清除: %+v", got)
 	}
 }
 

@@ -4,7 +4,7 @@ import "time"
 
 // Column 看板的列。列由用户自己创建，所以它除了名字，还带三类信息：
 // 给人看的说明 Description，给 agent 看的指令 Instruction，
-// 以及三个驱动流程的开关：AgentPickup（agent 能否领这一列的卡）、
+// 以及三个驱动流程的开关：AgentPickup（agent 的 next_card 默认从哪些列取卡，不限制 agent 的操作）、
 // IsDone（进入这一列算完成）、NextColumnID（做完以后默认去哪一列）。
 type Column struct {
 	ID           int64     `gorm:"primaryKey" json:"id"`

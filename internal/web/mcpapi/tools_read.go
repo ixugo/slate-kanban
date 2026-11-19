@@ -22,7 +22,7 @@ type cardIn struct {
 type listCardsIn struct {
 	BoardID int64  `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	Query   string `json:"query,omitempty" jsonschema:"筛选条件，写法见工具说明；不填列出全部"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"最多返回几张，默认 50，最多 200"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"最多返回几张，默认 10，最多 30；还有更多时 truncated 为 true，收紧筛选条件再取下一批"`
 }
 
 // listEventsIn 是 list_events 的入参。
@@ -66,7 +66,7 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 	register(s, spec{
 		name: "get_board", kind: kindRead,
 		desc: "读取一个看板的详情：全部列和自动化规则。每一列有 description（给人看的说明）、" +
-			"instruction（人写给 agent 的做事规则，必须遵守）、agent_pickup（为 true 表示 agent 只在这类列里领取卡片）、" +
+			"instruction（人写给 agent 的提示词，写明这个状态下谁能做什么，必须遵守）、agent_pickup（为 true 表示 next_card 从这类列里取卡）、" +
 			"is_done（完成列）、next_column_id（交接后卡片去的下一列）。开始工作前先读一遍。",
 	}, a.getBoard)
 	register(s, spec{
@@ -78,7 +78,7 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 			"is:done、is:open、is:human、is:claimed、is:free、is:waiting、is:overdue、is:started、is:finished；" +
 			"has:due、has:branch、has:url、has:tags、has:desc、has:deps（no: 表示没有）；due:today、due:<2026-12-01（created:、updated: 同理）。" +
 			"tag、col、key、priority、claimed、is、has、no 的取值可以用竖线写成多选一，例如 tag:bug|ui、col:待办|进行中、priority:high|medium。" +
-			"例如：col:进行中 is:free -is:waiting。",
+			"例如：col:进行中 is:free -is:waiting。每次最多返回 30 张（默认 10 张），total 是命中总数，truncated 为 true 说明还有更多：用筛选条件缩小范围，不要一次要很多。",
 	}, a.listCards)
 	register(s, spec{
 		name: "get_card", kind: kindRead,
@@ -121,7 +121,7 @@ func (a API) getBoard(ctx context.Context, _ kanban.Actor, in boardIn) (any, err
 	return a.core.GetBoard(ctx, in.BoardID)
 }
 
-// listCards 按筛选条件列出卡片摘要。数量默认 50、最多 200，保护 agent 的上下文。
+// listCards 按筛选条件列出卡片摘要。数量默认 10、最多 30，保护 agent 的上下文。
 func (a API) listCards(ctx context.Context, _ kanban.Actor, in listCardsIn) (any, error) {
 	list, err := a.core.ListCards(ctx, in.BoardID, kanban.ListCardsInput{Query: in.Query, Limit: clampListLimit(in.Limit)})
 	if err != nil {

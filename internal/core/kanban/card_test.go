@@ -189,8 +189,8 @@ func TestCreateCardByAgent(t *testing.T) {
 	if ev := e.lastEvent(t); ev.ActorKind != "agent" || ev.Actor != "claude" {
 		t.Fatalf("事件应该记录 agent 为操作者: %+v", ev)
 	}
-	if _, err := e.core.CreateCard(ctx, testAgent, e.board.ID, kanban.CreateCardInput{Title: "x", ColumnID: e.col(colDoing)}); !errors.Is(err, kanban.ErrAgentPickupColumn) {
-		t.Fatalf("放进领活列应该得到 ErrAgentPickupColumn，实际 %v", err)
+	if got, err := e.core.CreateCard(ctx, testAgent, e.board.ID, kanban.CreateCardInput{Title: "x", ColumnID: e.col(colDoing)}); err != nil || got.ColumnID != e.col(colDoing) {
+		t.Fatalf("agent 放进领活列也应该允许，由列提示词约定: %+v %v", got, err)
 	}
 	for _, in := range []kanban.CreateCardInput{
 		{Title: "x", Priority: 2},

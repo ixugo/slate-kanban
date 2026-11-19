@@ -49,17 +49,11 @@ var (
 	// ErrNotHolder agent 要写的卡片当前不归它持有：没领取过、已被收回，或者被别的 agent 接手了。
 	ErrNotHolder = reason.NewError("ErrNotHolder", "你当前没有持有这张卡片，请先领取").WithHTTPStatus(409)
 
-	// ErrAgentPickupColumn agent 不能把新卡片直接放进开启了 agent 领取的列，那会绕开由人决定做什么的约定。
-	ErrAgentPickupColumn = reason.NewError("ErrAgentPickupColumn", "agent 不能把卡片直接放进由 agent 处理的列").WithHTTPStatus(403)
-
 	// ErrAgentOnly 领取、取下一张卡、拉取更新都是 agent 的概念，人在网页上直接操作，例如拖动卡片来分配工作。
 	ErrAgentOnly = reason.NewError("ErrAgentOnly", "该操作只给 agent 使用，人在网页上直接操作，例如拖动卡片来分配工作").WithHTTPStatus(403)
 
 	// ErrCardHumanOnly 卡片被标记为只能由人处理，agent 不能领取。
 	ErrCardHumanOnly = reason.NewError("ErrCardHumanOnly", "这张卡片只能由人处理").WithHTTPStatus(403)
-
-	// ErrColumnNotPickup 卡片所在的列没有开启 agent 领取。
-	ErrColumnNotPickup = reason.NewError("ErrColumnNotPickup", "这一列不允许 agent 处理").WithHTTPStatus(403)
 
 	// ErrCardWaiting 卡片依赖的卡片还没有完成，现在不能开始。
 	ErrCardWaiting = reason.NewError("ErrCardWaiting", "卡片还在等待其他卡片完成").WithHTTPStatus(409)

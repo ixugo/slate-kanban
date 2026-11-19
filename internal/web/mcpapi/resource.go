@@ -14,6 +14,9 @@ import (
 )
 
 const (
+	// maxResourceCards 是看板资源快照里最多给出的卡片摘要数，和 list_cards 的单次上限分开，
+	// 资源是订阅和整体了解看板用的，不是每次干活都读。
+	maxResourceCards = 200
 	// boardURIPrefix 是看板资源地址的固定前缀，后面跟看板编号。
 	boardURIPrefix = "slate://boards/"
 	// skillURI 是 slate-kanban skill 资源的固定地址。
@@ -100,16 +103,16 @@ func (a API) readBoard(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.
 	}}, nil
 }
 
-// boardResourceOf 把整板快照缩成资源内容：卡片换成摘要，数量最多 maxListLimit 张。
+// boardResourceOf 把整板快照缩成资源内容：卡片换成摘要，数量最多 maxResourceCards 张。
 func boardResourceOf(snap *kanban.Snapshot) boardResource {
 	cards := snap.Cards
 	total := len(cards)
-	if total > maxListLimit {
-		cards = cards[:maxListLimit]
+	if total > maxResourceCards {
+		cards = cards[:maxResourceCards]
 	}
 	return boardResource{
 		BoardDetail: snap.BoardDetail, Cards: summarizeAll(cards),
-		Total: total, Truncated: total > maxListLimit, Seq: snap.Seq,
+		Total: total, Truncated: total > maxResourceCards, Seq: snap.Seq,
 	}
 }
 

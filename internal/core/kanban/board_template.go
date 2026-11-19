@@ -90,28 +90,27 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "收件箱",
 				Description: "还没想清楚的想法和需求，由人整理后再决定要不要做。",
-				Instruction: "这一列的卡片只是想法，不要领取，也不要动手实现。需要时可以在卡片下留言补充分析。",
+				Instruction: "这一列是人收集想法的地方。agent 不要派发子 agent，不要领取、移动或修改这一列的卡片，也不要动手实现。需要时可以在卡片下留言补充分析。",
 			},
 			textTodo: {
 				Name:        "待办",
 				Description: "确定要做、正在排队的任务。",
-				Instruction: "这一列的卡片还没有开始，不要自己移动它们。由人排好优先级，再拖到下一列。",
+				Instruction: "这一列的任务已确定但还没安排开始。不要派发子 agent，不要领取，也不要自己移动卡片；由人排好优先级后拖到下一列。需要时可以留言补充分析。",
 			},
 			textDoing: {
 				Name:        "进行中",
 				Description: "正在做的任务。卡片被拖进这一列后，agent 会来领取并开始工作。",
-				Instruction: "你可以领取这一列的卡片，一次只做一张。先读完卡片的描述、评论和依赖，在独立的分支或 worktree 里完成工作。" +
-					"遇到需要人拍板的问题，在卡片下留言说明并释放卡片。做完后调用 finish_card，写一段总结并填上分支名和链接，卡片会自动进入下一列。",
+				Instruction: "这一列是研发区：只有这一列的卡片才可以派发研发子 agent 处理。你作为调度者领取卡片（next_card 或 claim_card），先读完卡片的描述、评论和依赖，把任务原文按你的理解写成角色和提示词，交给子 agent 在独立的分支或 worktree 里完成，自己不写具体代码。同时进行的卡片数不超过人告诉你的并发数（没说就是 2）。任务不明确或遇到需要人拍板的问题，先在卡片下留言写出疑问，再把卡片移回「待办」这类不领取的列等人回复，不要直接开始。做完后调用 finish_card，写一段总结并填上分支名和链接，卡片会自动进入下一列。任务是否完成不由你决定，不要把卡片移进完成列。",
 			},
 			textReview: {
 				Name:        "审查",
-				Description: "agent 已经做完、等人检查的任务。",
-				Instruction: "这一列等人检查，不要领取或移动其中的卡片。审查没通过时，人会在卡片下留言并把卡片拖回之前的列，到时按留言继续修改。",
+				Description: "agent 已经做完、等待验收的任务。",
+				Instruction: "这一列是审查区：只有这一列的卡片才可以派发审查子 agent 处理，审查只验收，不修改代码。领取卡片后读完描述、评论、研发的交接总结和分支，把任务原文按你的理解写成审查要求，派子 agent 逐条对照验收、跑测试，必要时实际运行。通过：在卡片下留言写出审查结论，再把卡片移到完成列，任务才算完成，这个决定只能由审查做出。不通过：在卡片下留言写清楚哪里不对、怎么改，再把卡片放回 agent 领取任务的那一列（通常是「进行中」），由研发返工。",
 			},
 			textDone: {
 				Name:        "完成",
 				Description: "已经做完并验收的任务。",
-				Instruction: "这一列的任务已经结束，不需要处理。",
+				Instruction: "这一列是已经完成的任务：agent 一律不要操作，包括领取、移出、修改卡片和留言，也不要派发子 agent。只有审查通过时，审查才能把卡片移进来；其他情况要移动或修改，都由人来做。",
 			},
 		},
 		RuleStart: "开始计时", RuleFinish: "完成计时", RuleReopen: "重新打开",
@@ -121,28 +120,27 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "收件匣",
 				Description: "還沒想清楚的想法與需求，由人整理後再決定要不要做。",
-				Instruction: "這一列的卡片只是想法，不要領取，也不要動手實作。需要時可以在卡片下留言補充分析。",
+				Instruction: "這一列是人收集想法的地方。agent 不要派發子 agent，不要領取、移動或修改這一列的卡片，也不要動手實作。需要時可以在卡片下留言補充分析。",
 			},
 			textTodo: {
 				Name:        "待辦",
 				Description: "確定要做、正在排隊的任務。",
-				Instruction: "這一列的卡片還沒有開始，不要自己移動它們。由人排好優先順序，再拖到下一列。",
+				Instruction: "這一列的任務已確定但還沒安排開始。不要派發子 agent，不要領取，也不要自己移動卡片；由人排好優先順序後拖到下一列。需要時可以留言補充分析。",
 			},
 			textDoing: {
 				Name:        "進行中",
 				Description: "正在做的任務。卡片被拖進這一列後，agent 會來領取並開始工作。",
-				Instruction: "你可以領取這一列的卡片，一次只做一張。先讀完卡片的描述、留言與相依項目，在獨立的分支或 worktree 裡完成工作。" +
-					"遇到需要人決定的問題，在卡片下留言說明並釋放卡片。做完後呼叫 finish_card，寫一段總結並填上分支名稱與連結，卡片會自動進入下一列。",
+				Instruction: "這一列是研發區：只有這一列的卡片才可以派發研發子 agent 處理。你作為調度者領取卡片（next_card 或 claim_card），先讀完卡片的描述、留言與相依項目，把任務原文依你的理解寫成角色與提示詞，交給子 agent 在獨立的分支或 worktree 裡完成，自己不寫具體程式碼。同時進行的卡片數不超過人告訴你的並行數（沒說就是 2）。任務不明確或遇到需要人決定的問題，先在卡片下留言寫出疑問，再把卡片移回「待辦」這類不領取的列等人回覆，不要直接開始。做完後呼叫 finish_card，寫一段總結並填上分支名稱與連結，卡片會自動進入下一列。任務是否完成不由你決定，不要把卡片移進完成列。",
 			},
 			textReview: {
 				Name:        "審查",
-				Description: "agent 已經做完、等人檢查的任務。",
-				Instruction: "這一列等人檢查，不要領取或移動其中的卡片。審查沒通過時，人會在卡片下留言並把卡片拖回之前的列，到時依留言繼續修改。",
+				Description: "agent 已經做完、等待驗收的任務。",
+				Instruction: "這一列是審查區：只有這一列的卡片才可以派發審查子 agent 處理，審查只驗收，不修改程式碼。領取卡片後讀完描述、留言、研發的交接總結與分支，把任務原文依你的理解寫成審查要求，派子 agent 逐條對照驗收、跑測試，必要時實際執行。通過：在卡片下留言寫出審查結論，再把卡片移到完成列，任務才算完成，這個決定只能由審查做出。不通過：在卡片下留言寫清楚哪裡不對、怎麼改，再把卡片放回 agent 領取任務的那一列（通常是「進行中」），由研發返工。",
 			},
 			textDone: {
 				Name:        "完成",
 				Description: "已經做完並驗收的任務。",
-				Instruction: "這一列的任務已經結束，不需要處理。",
+				Instruction: "這一列是已經完成的任務：agent 一律不要操作，包括領取、移出、修改卡片與留言，也不要派發子 agent。只有審查通過時，審查才能把卡片移進來；其他情況要移動或修改，都由人來做。",
 			},
 		},
 		RuleStart: "開始計時", RuleFinish: "完成計時", RuleReopen: "重新開啟",
@@ -152,28 +150,27 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "Inbox",
 				Description: "Rough ideas and requests that are not ready yet. A person sorts them out and decides whether to do them.",
-				Instruction: "Cards in this column are only ideas. Do not claim them and do not start implementing. You may leave a comment with extra analysis if it helps.",
+				Instruction: "This column is where people collect ideas. Do not dispatch sub-agents, and do not claim, move or edit cards here or start implementing them. You may leave a comment with extra analysis if it helps.",
 			},
 			textTodo: {
 				Name:        "To do",
 				Description: "Tasks that are confirmed and waiting in line.",
-				Instruction: "Cards in this column have not started. Do not move them yourself. A person sets the priority and drags them to the next column.",
+				Instruction: "Tasks here are confirmed but not scheduled to start. Do not dispatch sub-agents, do not claim them, and do not move cards yourself; a person sets the priority and drags them to the next column. You may leave a comment with extra analysis if it helps.",
 			},
 			textDoing: {
 				Name:        "In progress",
 				Description: "Tasks being worked on. Once a card is dragged into this column, an agent picks it up and starts working.",
-				Instruction: "You may claim cards in this column, one at a time. Read the card's description, comments and dependencies first, then do the work in a separate branch or worktree. " +
-					"If you hit a question that needs a human decision, leave a comment on the card and release it. When you are done, call finish_card with a summary plus the branch name and links; the card moves to the next column automatically.",
+				Instruction: "This is the development column: only cards here may be handed to development sub-agents. As the dispatcher, claim a card (next_card or claim_card), read its description, comments and dependencies first, then write a role and prompt from the original task as you understand it and hand it to a sub-agent that works in a separate branch or worktree; do not write the code yourself. Keep the number of cards in progress within the concurrency a person gave you (2 if none was given). If the task is unclear or needs a human decision, leave a comment with your questions first, then move the card back to a column that agents do not pick up from, such as “To do”, and wait for a reply instead of starting. When done, call finish_card with a summary plus the branch name and links; the card moves to the next column automatically. Whether the task is complete is not your call: never move a card into the Done column.",
 			},
 			textReview: {
 				Name:        "Review",
-				Description: "Tasks an agent has finished and a person needs to check.",
-				Instruction: "Cards in this column wait for a person. Do not claim or move them. If the review fails, the person leaves a comment and drags the card back to an earlier column; then continue from the comment.",
+				Description: "Tasks an agent has finished and that are waiting to be checked.",
+				Instruction: "This is the review column: only cards here may be handed to review sub-agents, and review only checks the work and never edits code. After claiming a card, read its description, comments, the developer's hand-over summary and the branch, write review requirements from the original task as you understand it, and have a sub-agent verify each point, run the tests and run the code when needed. Pass: leave a comment with the review conclusion, then move the card to the Done column; the task is complete only then, and only review may decide that. Fail: leave a comment saying what is wrong and how to fix it, then put the card back in the column where agents pick up work (usually “In progress”) for rework.",
 			},
 			textDone: {
 				Name:        "Done",
 				Description: "Tasks that are finished and accepted.",
-				Instruction: "Tasks here are finished. Nothing to do.",
+				Instruction: "This column holds finished tasks. Agents must not touch it: do not claim, move out, edit or comment on cards here, and do not dispatch sub-agents. Only review may move a card in, and only when the review passes; any other move or edit is done by a person.",
 			},
 		},
 		RuleStart: "Start timer", RuleFinish: "Finish timer", RuleReopen: "Reopen",
@@ -183,28 +180,27 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "受信トレイ",
 				Description: "まだ固まっていないアイデアや要望。人が整理して、やるかどうかを決めます。",
-				Instruction: "この列のカードはまだアイデアです。担当せず、実装も始めないでください。必要なら、カードにコメントで分析を補足できます。",
+				Instruction: "この列は人がアイデアを集める場所です。サブエージェントを割り当てず、この列のカードを担当・移動・編集せず、実装も始めないでください。必要なら、カードにコメントで分析を補足できます。",
 			},
 			textTodo: {
 				Name:        "未着手",
 				Description: "やることが決まっていて、順番待ちのタスク。",
-				Instruction: "この列のカードはまだ始まっていません。自分で動かさないでください。人が優先順位を決めて、次の列へドラッグします。",
+				Instruction: "この列のタスクは決まっていますが、まだ着手の予定がありません。サブエージェントを割り当てず、担当せず、カードを自分で動かさないでください。人が優先順位を決めて次の列へドラッグします。必要ならコメントで分析を補足できます。",
 			},
 			textDoing: {
 				Name:        "進行中",
 				Description: "作業中のタスク。カードがこの列にドラッグされると、エージェントが担当して作業を始めます。",
-				Instruction: "この列のカードは担当できます。同時に扱うのは 1 枚だけです。まずカードの説明、コメント、依存関係を読み、別のブランチか worktree で作業してください。" +
-					"人の判断が必要な問題があれば、カードにコメントで説明して担当を解除します。終わったら finish_card を呼び、要約とブランチ名、リンクを記入します。カードは自動的に次の列へ移ります。",
+				Instruction: "この列は開発用です。サブエージェントに開発を任せられるのは、この列のカードだけです。あなたは手配役としてカードを担当し（next_card または claim_card）、まず説明、コメント、依存関係を読み、タスクの原文を自分の理解で役割とプロンプトにまとめて、別のブランチか worktree で作業するサブエージェントに渡します。自分ではコードを書きません。同時に進めるカード数は、人から伝えられた並行数までです（指定がなければ 2）。タスクが不明確、または人の判断が必要なときは、先にカードへ疑問をコメントし、カードを「未着手」のような担当対象外の列へ戻して返事を待ち、勝手に始めないでください。終わったら finish_card を呼び、要約とブランチ名、リンクを記入します。カードは自動的に次の列へ移ります。タスクが完了したかどうかはあなたが決めることではないので、カードを完了列へ移さないでください。",
 			},
 			textReview: {
 				Name:        "レビュー",
-				Description: "エージェントが終えて、人の確認を待つタスク。",
-				Instruction: "この列は人の確認待ちです。担当したり動かしたりしないでください。レビューで差し戻された場合は、人がコメントを残してカードを前の列へ戻すので、そのコメントに沿って修正します。",
+				Description: "エージェントが終えて、検収を待つタスク。",
+				Instruction: "この列はレビュー用です。サブエージェントにレビューを任せられるのは、この列のカードだけで、レビューは検収のみでコードは変更しません。カードを担当したら、説明、コメント、開発側の引き継ぎ要約、ブランチを読み、タスクの原文を自分の理解でレビュー要件にまとめ、サブエージェントに 1 項目ずつ検収させ、テストを実行し、必要なら実際に動かさせます。合格：レビュー結果をカードにコメントしてから、カードを完了列へ移します。それで初めてタスク完了となり、この判断はレビューだけが行えます。不合格：どこが違うか、どう直すかをコメントしてから、エージェントが作業を担当する列（通常は「進行中」）へカードを戻し、開発側にやり直させます。",
 			},
 			textDone: {
 				Name:        "完了",
 				Description: "終わって確認も済んだタスク。",
-				Instruction: "この列のタスクは完了済みです。対応は不要です。",
+				Instruction: "この列は完了したタスクです。エージェントは一切操作しないでください。この列のカードの担当、移動、編集、コメントも、サブエージェントの割り当ても禁止です。カードを移せるのは、レビューが合格したときのレビューだけで、それ以外の移動や編集は人が行います。",
 			},
 		},
 		RuleStart: "開始時刻を記録", RuleFinish: "完了時刻を記録", RuleReopen: "再オープン",
@@ -214,28 +210,27 @@ var templateTexts = map[string]localeTexts{
 			textIdea: {
 				Name:        "받은 편지함",
 				Description: "아직 정리되지 않은 아이디어와 요청입니다. 사람이 정리한 뒤 진행할지 결정합니다.",
-				Instruction: "이 열의 카드는 아직 아이디어입니다. 맡지 말고 구현도 시작하지 마세요. 필요하면 카드에 댓글로 분석을 덧붙일 수 있습니다.",
+				Instruction: "이 열은 사람이 아이디어를 모으는 곳입니다. 하위 에이전트를 배정하지 말고, 이 열의 카드를 맡거나 옮기거나 수정하지 말며, 구현도 시작하지 마세요. 필요하면 카드에 댓글로 분석을 덧붙일 수 있습니다.",
 			},
 			textTodo: {
 				Name:        "할 일",
 				Description: "하기로 확정되어 순서를 기다리는 작업입니다.",
-				Instruction: "이 열의 카드는 아직 시작 전입니다. 직접 옮기지 마세요. 사람이 우선순위를 정하고 다음 열로 끌어다 놓습니다.",
+				Instruction: "이 열의 작업은 확정되었지만 아직 시작할 예정이 없습니다. 하위 에이전트를 배정하지 말고, 맡지 말고, 카드를 직접 옮기지 마세요. 사람이 우선순위를 정하고 다음 열로 끌어다 놓습니다. 필요하면 댓글로 분석을 덧붙일 수 있습니다.",
 			},
 			textDoing: {
 				Name:        "진행 중",
 				Description: "작업 중인 카드입니다. 카드가 이 열로 이동하면 에이전트가 맡아서 작업을 시작합니다.",
-				Instruction: "이 열의 카드를 맡을 수 있으며, 한 번에 한 장만 처리합니다. 먼저 카드의 설명, 댓글, 의존 관계를 읽고 별도의 브랜치나 worktree에서 작업하세요. " +
-					"사람의 결정이 필요한 문제가 생기면 카드에 댓글로 설명하고 맡은 카드를 놓아 주세요. 끝나면 finish_card를 호출해 요약과 브랜치 이름, 링크를 남기세요. 카드는 자동으로 다음 열로 이동합니다.",
+				Instruction: "이 열은 개발 영역입니다. 개발 하위 에이전트에게 맡길 수 있는 카드는 이 열의 카드뿐입니다. 당신은 조율자로서 카드를 맡고(next_card 또는 claim_card), 먼저 설명, 댓글, 의존 관계를 읽은 뒤, 작업 원문을 당신의 이해대로 역할과 프롬프트로 정리해 별도의 브랜치나 worktree에서 작업할 하위 에이전트에게 넘기세요. 직접 코드를 작성하지 않습니다. 동시에 진행하는 카드 수는 사람이 알려 준 동시 처리 수를 넘지 않습니다(알려 주지 않으면 2). 작업이 불명확하거나 사람의 결정이 필요하면 먼저 카드에 의문점을 댓글로 남기고, 카드를 '할 일' 같은 맡지 않는 열로 옮겨 답을 기다리며 바로 시작하지 마세요. 끝나면 finish_card를 호출해 요약과 브랜치 이름, 링크를 남기세요. 카드는 자동으로 다음 열로 이동합니다. 작업이 끝났는지는 당신이 정하지 않으므로 카드를 완료 열로 옮기지 마세요.",
 			},
 			textReview: {
 				Name:        "검토",
-				Description: "에이전트가 마치고 사람의 확인을 기다리는 작업입니다.",
-				Instruction: "이 열은 사람이 확인하는 곳입니다. 맡거나 옮기지 마세요. 검토를 통과하지 못하면 사람이 댓글을 남기고 카드를 이전 열로 되돌리며, 그 댓글에 따라 이어서 수정하면 됩니다.",
+				Description: "에이전트가 마치고 검수를 기다리는 작업입니다.",
+				Instruction: "이 열은 검토 영역입니다. 검토 하위 에이전트에게 맡길 수 있는 카드는 이 열의 카드뿐이며, 검토는 검수만 하고 코드를 수정하지 않습니다. 카드를 맡은 뒤 설명, 댓글, 개발 쪽 인수인계 요약, 브랜치를 읽고, 작업 원문을 당신의 이해대로 검토 요구 사항으로 정리해 하위 에이전트가 항목별로 검수하고 테스트를 돌리고 필요하면 실제로 실행하게 하세요. 통과: 카드에 검토 결론을 댓글로 남긴 뒤 카드를 완료 열로 옮깁니다. 그때 비로소 작업이 완료되며, 이 결정은 검토만 내릴 수 있습니다. 통과하지 못함: 무엇이 틀렸고 어떻게 고칠지 댓글로 남긴 뒤, 에이전트가 작업을 맡는 열(보통 '진행 중')로 카드를 되돌려 개발이 다시 하게 하세요.",
 			},
 			textDone: {
 				Name:        "완료",
 				Description: "끝나고 확인까지 마친 작업입니다.",
-				Instruction: "이 열의 작업은 끝났습니다. 처리할 필요가 없습니다.",
+				Instruction: "이 열은 완료된 작업입니다. 에이전트는 일절 건드리지 마세요. 이 열의 카드를 맡거나 옮기거나 수정하거나 댓글을 다는 것도, 하위 에이전트를 배정하는 것도 금지입니다. 카드를 옮겨 올 수 있는 것은 검토가 통과했을 때의 검토뿐이며, 그 밖의 이동과 수정은 사람이 합니다.",
 			},
 		},
 		RuleStart: "시작 시간 기록", RuleFinish: "완료 시간 기록", RuleReopen: "다시 열기",

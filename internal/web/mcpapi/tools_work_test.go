@@ -142,35 +142,39 @@ func TestAgentLimits(t *testing.T) {
 		return args
 	}
 
-	fails(t, call(t, sess, "create_card", map[string]any{"board_id": b.ID, "title": "插队", "column_id": b.doing}), "ErrAgentPickupColumn")
-	fails(t, call(t, sess, "claim_card", cardArg(nil)), "ErrColumnNotPickup")
 	fails(t, call(t, sess, "update_card", cardArg(map[string]any{"title": "改名"})), "ErrNotHolder")
-	fails(t, call(t, sess, "move_card", cardArg(map[string]any{"column_id": b.review})), "ErrNotHolder")
 	fails(t, call(t, sess, "finish_card", cardArg(map[string]any{"summary": "做完了"})), "ErrNotHolder")
 	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": 9999}), "ErrCardNotFound")
 
 	ok(t, sess, "comment_card", cardArg(map[string]any{"body": "没持有也能回复人的问题"}))
 }
 
-// TestAgentCannotPlace 验证 agent 持有卡片后，也不能把它放进领取列（换列和交接都一样），只能放进别的列。
-// 这里把审查列也设成领取列，才有一个"别的领取列"可以去试。
-func TestAgentCannotPlace(t *testing.T) {
+// TestAgentWorksAcrossColumns 验证服务端不按列限制 agent：审查 agent 能领审查列的卡片，
+// 通过的移到完成列，不通过的放回进行中；agent 也能把卡片建进进行中。唯一的限制是不能动正被别的 agent 持有的卡片。
+func TestAgentWorksAcrossColumns(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
-	c := s.card(t, b, b.doing, "写文档")
-	yes := true
-	if _, err := s.core.UpdateColumn(t.Context(), humanActor, b.ID, b.review, kanban.UpdateColumnInput{AgentPickup: &yes}); err != nil {
-		t.Fatalf("把审查列设成领取列失败: %v", err)
-	}
-	sess := s.agent(t, "claude")
-	ok(t, sess, "claim_card", map[string]any{"card_id": c.ID})
+	pass := s.card(t, b, b.review, "通过的卡片")
+	fail := s.card(t, b, b.review, "不通过的卡片")
+	reviewer := s.agent(t, "reviewer")
 
-	fails(t, call(t, sess, "move_card", map[string]any{"card_id": c.ID, "column_id": b.review}), "ErrAgentPickupColumn")
-	fails(t, call(t, sess, "finish_card", map[string]any{"card_id": c.ID, "summary": "做完了", "column_id": b.review}), "ErrAgentPickupColumn")
-	moved := ok(t, sess, "move_card", map[string]any{"card_id": c.ID, "column_id": b.todo}).Data
-	if moved["column_id"] != float64(b.todo) || moved["claimed_by"] != "" {
-		t.Errorf("移到待办列后应该在待办列、领取被清除: %v", moved)
+	ok(t, reviewer, "claim_card", map[string]any{"card_id": pass.ID})
+	moved := ok(t, reviewer, "move_card", map[string]any{"card_id": pass.ID, "column_id": b.done}).Data
+	if moved["column_id"] != float64(b.done) || moved["claimed_by"] != "" {
+		t.Errorf("审查通过应该能移到完成列并结束领取: %v", moved)
 	}
+	back := ok(t, reviewer, "move_card", map[string]any{"card_id": fail.ID, "column_id": b.doing}).Data
+	if back["column_id"] != float64(b.doing) {
+		t.Errorf("没有领取的卡片 agent 也应该能放回进行中: %v", back)
+	}
+	made := ok(t, reviewer, "create_card", map[string]any{"board_id": b.ID, "title": "直接建进进行中", "column_id": b.doing}).Data
+	if made["column_id"] != float64(b.doing) {
+		t.Errorf("agent 应该能把卡片建进进行中: %v", made)
+	}
+
+	held := s.card(t, b, b.review, "别人正在审的卡片")
+	ok(t, s.agent(t, "other"), "claim_card", map[string]any{"card_id": held.ID})
+	fails(t, call(t, reviewer, "move_card", map[string]any{"card_id": held.ID, "column_id": b.done}), "ErrCardClaimed")
 }
 
 // TestUpdateCardVersionConflict 验证乐观锁：带着过期的版本号修改会被拒绝，带着最新的才行。
