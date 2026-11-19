@@ -9,10 +9,10 @@ const launchdPlistName = "dev.slate.kanban.plist"
 // systemdUnitName 是 Linux 用户级 systemd 单元文件名（放在 ~/.config/systemd/user/ 下）。
 const systemdUnitName = "slate.service"
 
-// stdoutLogName 是 launchd 托管进程的标准输出日志文件名（相对 WorkDir/logs/）。
+// stdoutLogName 是 launchd 托管进程的标准输出日志文件名（在配置目录的 logs/ 下）。
 const stdoutLogName = "slate-service.stdout.log"
 
-// stderrLogName 是 launchd 托管进程的标准错误日志文件名（相对 WorkDir/logs/）。
+// stderrLogName 是 launchd 托管进程的标准错误日志文件名（在配置目录的 logs/ 下）。
 const stderrLogName = "slate-service.stderr.log"
 
 // plainPathChars 是路径里不需要加引号的字符；出现其它字符就整个路径加引号，宁可多加也不漏。

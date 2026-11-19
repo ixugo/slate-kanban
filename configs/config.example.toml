@@ -33,8 +33,8 @@
     SlowThreshold = '200ms'
 
 [Log]
-  # 日志存储目录，不能使用特殊符号
-  Dir = './logs'
+  # 日志存储目录，不能使用特殊符号（首次生成的配置里是 ~/.slate-kanban/logs 的绝对路径；相对路径以启动目录为基准）
+  Dir = '/home/you/.slate-kanban/logs'
   # 记录级别 debug/info/warn/error
   Level = 'info'
   # 保留日志多久，超过时间自动删除

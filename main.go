@@ -106,7 +106,7 @@ func warnLegacyConfigDir(useDefault bool, newConfigPath string) {
 	if _, err := os.Stat(filepath.Join("configs", "config.toml")); err != nil {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "提示：在当前目录发现旧位置的配置 ./configs，默认目录已改为 %s。\n要沿用旧数据，请先停掉服务，再把 configs/config.toml、data.db（含 -wal、-shm）复制过去，并把 config.toml 里的 Dsn 改成新的 data.db 路径。\n", filepath.Dir(newConfigPath))
+	fmt.Fprintf(os.Stderr, "提示：在当前目录发现旧位置的配置 ./configs，默认目录已改为 %s。\n要沿用旧数据，请先停掉服务，再把 configs/config.toml、data.db（含 -wal、-shm）复制过去，并把 config.toml 里的 Dsn、Log.Dir 改成新目录下 data.db、logs 的绝对路径。\n", filepath.Dir(newConfigPath))
 }
 
 // configIsNotExistWrite 配置文件不存在时，回写默认配置（数据库路径放在 dir 下）

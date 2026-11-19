@@ -25,7 +25,7 @@ func InstallService(env *Env, platform, confFlag string, dryRun bool) (targetPat
 	}
 	if platform == PlatformLaunchd {
 		// launchd 打开标准输出文件时不会替我们建目录，目录不存在会直接启动失败
-		if err = os.MkdirAll(filepath.Join(env.WorkDir, "logs"), 0o755); err != nil {
+		if err = os.MkdirAll(LogDir(env.ServiceInput(confFlag).ConfDir), 0o755); err != nil {
 			return targetPath, content, writeCreated, fmt.Errorf("创建日志目录失败: %w", err)
 		}
 	}
@@ -80,7 +80,7 @@ func UninstallService(env *Env, platform string, dryRun bool) (targetPath string
 
 // installCommands 列出安装后要在终端手工执行的命令和说明；程序本身不调用 launchctl 或 systemctl，
 // 免得未经用户同意就改动系统状态。
-func installCommands(env *Env, platform, targetPath string) string {
+func installCommands(env *Env, platform, targetPath, logDir string) string {
 	var b strings.Builder
 	switch platform {
 	case PlatformLaunchd:
@@ -89,7 +89,7 @@ func installCommands(env *Env, platform, targetPath string) string {
 		fmt.Fprintf(&b, "  launchctl kickstart -k %s/%s\n\n", gui, launchdLabel)
 		fmt.Fprintln(&b, "说明: macOS 用户级 LaunchAgent 在你登录图形会话后才会启动，不是传统意义上一通电就起的「真·开机自启」。")
 		fmt.Fprintf(&b, "查看状态: launchctl print %s/%s\n", gui, launchdLabel)
-		fmt.Fprintf(&b, "查看日志: tail -f %s\n", shellQuote(filepath.Join(env.WorkDir, "logs", stdoutLogName)))
+		fmt.Fprintf(&b, "查看日志: tail -f %s\n", shellQuote(filepath.Join(logDir, stdoutLogName)))
 	case PlatformSystemd:
 		fmt.Fprintln(&b, "  systemctl --user daemon-reload")
 		fmt.Fprintf(&b, "  systemctl --user enable --now %s\n\n", systemdUnitName)
@@ -115,7 +115,7 @@ func uninstallCommands(env *Env, platform string) string {
 }
 
 // FormatInstallFollowUp 拼装安装完成后的提示：先说文件是新写、更新还是已经是最新，再给手工命令。
-func FormatInstallFollowUp(env *Env, platform, targetPath string, wr writeResult) string {
+func FormatInstallFollowUp(env *Env, platform, targetPath, logDir string, wr writeResult) string {
 	var b strings.Builder
 	switch wr {
 	case writeUnchanged:
@@ -127,7 +127,7 @@ func FormatInstallFollowUp(env *Env, platform, targetPath string, wr writeResult
 	}
 	fmt.Fprintln(&b, "接下来请在本机终端手工执行下面的命令（Slate 不会替你执行 launchctl 或 systemctl，避免未经同意改动系统状态）：")
 	fmt.Fprintln(&b)
-	b.WriteString(installCommands(env, platform, targetPath))
+	b.WriteString(installCommands(env, platform, targetPath, logDir))
 	return b.String()
 }
 
@@ -146,7 +146,7 @@ func FormatUninstallFollowUp(env *Env, platform, targetPath string, hadFile bool
 }
 
 // FormatDryRunInstall 把 dry-run 时要写入的路径、内容和安装后的手工命令完整打印出来，并明确说没有写任何文件。
-func FormatDryRunInstall(env *Env, platform, targetPath, content string) string {
+func FormatDryRunInstall(env *Env, platform, targetPath, logDir, content string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "[dry-run] 将会写入: %s\n\n", targetPath)
 	fmt.Fprintln(&b, "--- 文件内容 ---")
@@ -155,7 +155,7 @@ func FormatDryRunInstall(env *Env, platform, targetPath, content string) string 
 	fmt.Fprintln(&b)
 	fmt.Fprintln(&b, "[dry-run] 没有写任何文件。真正安装后，需要在本机终端手工执行下面的命令：")
 	fmt.Fprintln(&b)
-	b.WriteString(installCommands(env, platform, targetPath))
+	b.WriteString(installCommands(env, platform, targetPath, logDir))
 	return b.String()
 }
 

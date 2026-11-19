@@ -108,3 +108,9 @@ func (e *Env) ContentForPlatform(platform, confFlag string) string {
 		return ""
 	}
 }
+
+// LogDir 返回配置目录下存放日志的目录；launchd 托管进程的标准输出和错误也写在这里，
+// 和程序自己的日志放在一起，换启动目录或改成服务方式都不会丢。
+func LogDir(confDir string) string {
+	return filepath.Join(confDir, "logs")
+}

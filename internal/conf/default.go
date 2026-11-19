@@ -6,7 +6,7 @@ import (
 )
 
 // DefaultConfig 返回首次生成配置文件时用的默认值：只监听本机，Host 白名单为空。
-// dir 是配置目录，SQLite 数据库默认放在它下面（data.db），写成绝对路径，和启动目录无关。
+// dir 是配置目录，SQLite 数据库（data.db）和日志（logs/）默认都放在它下面，写成绝对路径，和启动目录无关。
 func DefaultConfig(dir string) Bootstrap {
 	return Bootstrap{
 		Server: Server{
@@ -31,7 +31,7 @@ func DefaultConfig(dir string) Bootstrap {
 			},
 		},
 		Log: Log{
-			Dir:          "./logs",
+			Dir:          filepath.Join(dir, "logs"),
 			Level:        "info",
 			MaxAge:       7,
 			RotationTime: Duration(8 * time.Hour),

@@ -6,8 +6,9 @@
 写入当前用户目录下的标准位置，并打印用户须在本机手工执行的 `launchctl` / `systemctl` 步骤。
 不替用户加载或启停服务，避免未经同意改动系统状态。
 
-相对路径（配置目录、SQLite、日志）以**进程启动时的工作目录**为基准（见 `main.go`、`internal/data/provider.go`、`internal/app/app.go`），
-因此服务文件里的 `WorkingDirectory` 必须是执行 `slate service install` 时所在的目录，`-conf` 必须为绝对路径。
+默认配置目录是 `~/.slate-kanban`（`conf.DefaultDir`），配置、SQLite、程序日志、launchd 的标准输出日志都放在里面，所以进程方式和服务方式用的是同一份数据。
+配置里写的相对路径（Dsn、Log.Dir）仍以**进程启动时的工作目录**为基准（见 `main.go`、`internal/data/provider.go`、`internal/app/app.go`），
+因此服务文件里的 `WorkingDirectory` 仍是执行 `slate service install` 时所在的目录，`-conf` 一律写成绝对路径；不带 `-conf` 时取用户主目录下的 `.slate-kanban`。
 
 | 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
 |------|----------|-------------|---------|------|
@@ -19,7 +20,7 @@
 | 6 | 需要 root / 系统级服务 | 多用户机器权限复杂 | **仅用户级**：`~/Library/LaunchAgents/`、`~/.config/systemd/user/`，不需 root | 实施 |
 | 7 | 重复 install 或配置未变 | 无意义覆写、时间戳抖动 | 内容相同则跳过并提示「已经是最新」 | 实施 |
 | 8 | 在非 macOS/Linux 上开发 | 无法预览另一种平台的文件 | `print --platform launchd\|systemd` 任意系统可预览 | 实施 |
-| 9 | launchd 打开日志文件时不会替我们建目录 | `logs/` 不存在时服务一启动就失败 | 真正安装时先建好 `<WorkDir>/logs`；`--dry-run` 不建 | 实施 |
+| 9 | launchd 打开日志文件时不会替我们建目录 | `logs/` 不存在时服务一启动就失败 | 真正安装时先建好 `<配置目录>/logs`；`--dry-run` 不建 | 实施 |
 | 10 | `-conf` 里混进换行等控制字符 | 服务文件被写坏，甚至多出一行不该有的配置 | 校验 `-conf`：不能为空或全空白、最长 4096 字节、不能含控制字符，不合法时不写任何文件 | 实施 |
 | 11 | `--dry-run` 的输出让人以为已经写了文件 | 用户误判系统状态 | dry-run 的输出写明「没有写任何文件 / 没有删除任何文件」，只列会写的路径、内容和之后要手工执行的命令 | 实施 |
 
@@ -42,7 +43,7 @@ slate service uninstall [--dry-run]
 | launchd | Label / plist：`dev.slate.kanban` / `dev.slate.kanban.plist` | `~/Library/LaunchAgents/` |
 | systemd | 单元：`slate.service` | `~/.config/systemd/user/` |
 
-可执行路径：`os.Executable()` + `EvalSymlinks` + `Abs`。日志（仅 launchd）：`<WorkDir>/logs/slate-service.stdout.log` 与 `stderr.log`，`logs/` 在安装时创建。launchd 的 plist 同时设置 `RunAtLoad`（加载或登录时立刻启动）和 `KeepAlive`（退出后自动拉起）。
+可执行路径：`os.Executable()` + `EvalSymlinks` + `Abs`。日志（仅 launchd）：`<配置目录>/logs/slate-service.stdout.log` 与 `stderr.log`，`logs/` 在安装时创建。launchd 的 plist 同时设置 `RunAtLoad`（加载或登录时立刻启动）和 `KeepAlive`（退出后自动拉起）。
 
 没有验证到的部分：本机没有真的执行 `launchctl` / `systemctl`，加载、开机自启、崩溃重启的实际效果没有在真机上验收；systemd 的引号规则（`ExecStart` 加引号、`WorkingDirectory` 不加）依据 systemd 文档写成，没有在真实 systemd 上跑过。
 
@@ -93,6 +94,7 @@ main.go             os.Args[1]==service 时转 RunFromMain，不改原 flag 启�
 | `TestInstallDryRunWritesNoFiles` | dry-run 不落盘、不建日志目录、不说「已写入」 |
 | `TestUninstallDryRunKeepsFile` | uninstall 的 dry-run 不删文件、不说「已删除」 |
 | `TestInstallCreatesLogsDirForLaunchd` | 真正安装时建好日志目录 |
+| `TestInstallDefaultPutsLogsInHomeDir` | 不带 `-conf` 时日志目录和 plist 都指向 `~/.slate-kanban/logs` |
 | `TestInstallFollowUpQuotesPathsWithSpaces` | 工作目录含空格时打印的 tail 命令带单引号 |
 | `TestConfArgValidation` | `-conf` 为空、全空白、过长、含换行或控制字符都报错且不写文件 |
 | `TestUnsupportedSystem` | 不支持的系统上 install、uninstall、print 报错，指定平台后 print 可用 |

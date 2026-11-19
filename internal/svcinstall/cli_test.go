@@ -79,7 +79,7 @@ func TestInstallDryRunWritesNoFiles(t *testing.T) {
 	if _, err := os.Stat(plist); !os.IsNotExist(err) {
 		t.Fatal("dry-run 不应创建 plist")
 	}
-	if _, err := os.Stat(filepath.Join(env.WorkDir, "logs")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(env.WorkDir, "configs", "logs")); !os.IsNotExist(err) {
 		t.Fatal("dry-run 不应创建日志目录")
 	}
 }
@@ -280,24 +280,25 @@ func TestInstallCreatesLogsDirForLaunchd(t *testing.T) {
 	if _, err := RunCommand(env, []string{"install", "-conf", "./configs"}); err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(filepath.Join(env.WorkDir, "logs"))
+	info, err := os.Stat(filepath.Join(env.WorkDir, "configs", "logs"))
 	if err != nil || !info.IsDir() {
 		t.Fatalf("安装后应有日志目录: %v", err)
 	}
 }
 
-// TestInstallFollowUpQuotesPathsWithSpaces 工作目录含空格时，打印出来的 tail 命令要能直接粘贴执行。
+// TestInstallFollowUpQuotesPathsWithSpaces 配置目录含空格时，打印出来的 tail 命令要能直接粘贴执行。
 func TestInstallFollowUpQuotesPathsWithSpaces(t *testing.T) {
 	env := fixedEnv(t, tempHome(t))
 	env.WorkDir = filepath.Join(env.HomeDir, "my proj")
 	if err := os.MkdirAll(env.WorkDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	out, err := RunCommand(env, []string{"install", "-conf", "/etc/slate"})
+	confDir := filepath.Join(env.HomeDir, "my conf")
+	out, err := RunCommand(env, []string{"install", "-conf", confDir})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "tail -f '" + filepath.Join(env.WorkDir, "logs", stdoutLogName) + "'"
+	want := "tail -f '" + filepath.Join(confDir, "logs", stdoutLogName) + "'"
 	if !strings.Contains(out, want) {
 		t.Fatalf("应该用单引号包住带空格的路径，期望含 %s\n%s", want, out)
 	}
@@ -367,5 +368,25 @@ func TestPrintDefaultsConfToHomeDir(t *testing.T) {
 	want := filepath.Join(home, ".slate-kanban")
 	if !strings.Contains(out, want) {
 		t.Fatalf("print 输出应包含默认配置目录 %s:\n%s", want, out)
+	}
+}
+
+// TestInstallDefaultPutsLogsInHomeDir 不带 -conf 安装时，launchd 的日志目录建在 ~/.slate-kanban/logs，plist 也指向这里。
+func TestInstallDefaultPutsLogsInHomeDir(t *testing.T) {
+	home := tempHome(t)
+	env := fixedEnv(t, home)
+	if _, err := RunCommand(env, []string{"install"}); err != nil {
+		t.Fatal(err)
+	}
+	logDir := filepath.Join(home, ".slate-kanban", "logs")
+	if info, err := os.Stat(logDir); err != nil || !info.IsDir() {
+		t.Fatalf("应建好默认日志目录 %s: %v", logDir, err)
+	}
+	data, err := os.ReadFile(ServiceFilePath(home, PlatformLaunchd))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), filepath.Join(logDir, stdoutLogName)) {
+		t.Fatalf("plist 应把标准输出写到 %s:\n%s", logDir, data)
 	}
 }

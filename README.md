@@ -22,10 +22,10 @@ make build   # 安装前端依赖（第一次）、构建前端、编译成带�
 ./slate      # 启动，浏览器打开 http://127.0.0.1:7070
 ```
 
-首次启动会在用户主目录下生成 `~/.slate-kanban/config.toml`（默认配置）和 `~/.slate-kanban/data.db`（数据库），从哪个目录启动都用同一份；日志写在启动目录的 `logs/`。
+首次启动会在用户主目录下生成 `~/.slate-kanban/config.toml`（默认配置）和 `~/.slate-kanban/data.db`（数据库），日志写在 `~/.slate-kanban/logs/`；整个 `~/.slate-kanban` 就是配置目录，从哪个目录启动、以进程还是服务方式启动都用同一份，数据不会丢。
 想换配置目录：`./slate -conf /path/to/dir`（数据库默认放在这个目录里；配置里的相对路径以启动目录为基准）。
 
-从旧版本升级：旧版的配置和数据在启动目录的 `configs/` 下。先停掉服务，把 `configs/config.toml`、`configs/data.db`（含 `-wal`、`-shm`）复制到 `~/.slate-kanban/`，再把 `config.toml` 里的 `Dsn` 改成 `~/.slate-kanban/data.db` 的绝对路径；或者继续用旧目录：`./slate -conf ./configs`。
+从旧版本升级：旧版的配置和数据在启动目录的 `configs/` 下。先停掉服务，把 `configs/config.toml`、`configs/data.db`（含 `-wal`、`-shm`）复制到 `~/.slate-kanban/`，再把 `config.toml` 里的 `Dsn` 和 `Log.Dir` 改成 `~/.slate-kanban` 下的绝对路径（`data.db`、`logs`）；或者继续用旧目录：`./slate -conf ./configs`。
 
 ### 方式二：Docker
 
@@ -37,7 +37,7 @@ docker compose up -d --build   # 然后打开 http://127.0.0.1:7070
 
 ### 开机自启
 
-在项目目录里（要和手工 `./slate` 时同一目录，这样数据库和 `logs/` 路径一致）：
+在项目目录里执行（默认配置目录是 `~/.slate-kanban`，数据库和日志都在里面，和执行目录无关）：
 
 ```sh
 ./slate service print                    # 预览当前系统的服务文件（也可 --platform launchd|systemd）
@@ -47,7 +47,7 @@ docker compose up -d --build   # 然后打开 http://127.0.0.1:7070
 
 `install` 只会生成文件：macOS 写到 `~/Library/LaunchAgents/dev.slate.kanban.plist`，Linux 写到 `~/.config/systemd/user/slate.service`。**程序不会替你执行 `launchctl` 或 `systemctl`**，终端里会打印接下来要手工跑的命令，例如：
 
-- **macOS**：`launchctl bootstrap gui/<uid> <plist路径>`，再 `launchctl kickstart -k gui/<uid>/dev.slate.kanban`。用户级 LaunchAgent 在你**登录之后**才会拉起，不是未登录时的系统级开机自启。日志可在项目 `logs/slate-service.stdout.log` 查看。
+- **macOS**：`launchctl bootstrap gui/<uid> <plist路径>`，再 `launchctl kickstart -k gui/<uid>/dev.slate.kanban`。用户级 LaunchAgent 在你**登录之后**才会拉起，不是未登录时的系统级开机自启。日志可在 `~/.slate-kanban/logs/slate-service.stdout.log` 查看。
 - **Linux**：`systemctl --user daemon-reload`，再 `systemctl --user enable --now slate.service`。若希望**没人登录也在开机后运行**，还需一次 `loginctl enable-linger <你的用户名>`。日志用 `journalctl --user -u slate.service -f`。
 
 卸载前先按提示 `launchctl bootout` 或 `systemctl --user disable --now`，再 `./slate service uninstall`。可用 `install --dry-run` / `uninstall --dry-run` 只看会写什么、删什么。
@@ -170,7 +170,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `Server.HTTP.AllowedHosts` | `[]` | 额外允许的 Host（不含端口）；IP、`localhost`、`*.localhost` 始终允许。通过域名访问时必须写进来 |
 | `Server.HTTP.Passcode` | `''`（空） | 可选访问口令，空表示不启用。只能是可打印 ASCII（不含空格），最长 128 位，不合规启动失败；非空时 REST、`/mcp`、`/app` 要带 `Authorization: Bearer <口令>`，网页则先登录 |
 | `Data.Database.Dsn` | `~/.slate-kanban/data.db`（首次生成时写成绝对路径） | SQLite 文件路径；以 `postgres` 开头则按 PostgreSQL 连接 |
-| `Log.*` | `./logs`、`info` | 日志目录、级别、保留天数、分割大小 |
+| `Log.*` | `~/.slate-kanban/logs`（绝对路径）、`info` | 日志目录、级别、保留天数、分割大小 |
 
 ## 安全说明
 
