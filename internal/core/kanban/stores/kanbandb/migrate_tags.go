@@ -24,7 +24,7 @@ type legacyLabel struct {
 // migrateLegacyTags 把旧版存在 boards.labels（标签库）和 cards.tags（卡片上的标签文字）里的数据，
 // 搬进 tags 表和 cards.tag_ids：库里的标签按原顺序变成 tags 行，卡片上库外的文字补成没有颜色的标签，
 // 再按文字把卡片的标签换成主键。每个看板一个事务，搬完就清空旧列，所以重复执行没有副作用；
-// 旧列留在表里不删（AutoMigrate 本来就不删列），新代码不再读写它们。
+// 旧列在全部搬完以后由 dropLegacyTagColumns 删除。
 func (d DB) migrateLegacyTags() error {
 	m := d.db.Migrator()
 	hasLabels, hasTags := m.HasColumn("boards", "labels"), m.HasColumn("cards", "tags")

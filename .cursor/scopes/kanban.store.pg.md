@@ -15,6 +15,14 @@
 | 6 | JSON 标签/依赖中文与引号 | 读写字段损坏 | `TestPostgresJSONRoundTripSpecialChars` + `TestCardRoundTrip` 双后端 | 实施 |
 | 7 | 唯一约束错误类型不一致 | 业务无法映射 409 | `orm.TranslateError` + `TestBoardSlugIsUnique` / `TestCardKeyIsUnique` 双后端 | 实施 |
 
+## 表结构约定
+
+- 所有列都是 NOT NULL：字符串用空串、数字和引用用 0、JSON 数组用 `'[]'`，0 值只表示「没有」，不当作真实参数去查询或写入。
+- 只有「靠 NULL 区分有没有发生」的时间戳允许 NULL，和 `deleted_at` 同类：`cards.due_at`、`started_at`、`finished_at`、`claim_expires_at`。
+- 例外：`versions` 表来自 goddd 框架，不归本项目管。
+- `TestNoNullableColumns` 在表结构同步后扫描所有表，出现白名单之外的可空列就失败；`fillNullJSONColumns` 在升级旧库时先把 JSON 列的 NULL 补成 `[]`，再由 gorm 把列改成 NOT NULL。
+- 图片等大文件不进数据库，数据库只存相对资源目录的路径（见 `api.rest.go.md` 的「图片附件」）。
+
 ## 方案
 
 ### 测试入口

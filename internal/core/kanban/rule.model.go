@@ -13,7 +13,7 @@ type Rule struct {
 	TriggerType string       `gorm:"column:trigger_type;size:32;notNull;default:'';comment:触发类型：card_created、card_entered、card_left" json:"trigger"`
 	ColumnID    int64        `gorm:"column:column_id;notNull;default:0;comment:触发所在的列，0 表示任意列" json:"column_id"`
 	Condition   string       `gorm:"column:condition;size:500;notNull;default:'';comment:条件，使用卡片筛选语法，空表示无条件" json:"condition"`
-	Actions     []RuleAction `gorm:"column:actions;type:text;serializer:json;comment:动作列表，JSON 数组" json:"actions"`
+	Actions     []RuleAction `gorm:"column:actions;type:text;serializer:json;notNull;default:'[]';comment:动作列表，JSON 数组" json:"actions"`
 	Sort        int64        `gorm:"column:sort;notNull;default:0;index:idx_rules_board_sort,priority:2;comment:排序值，越小越先执行" json:"sort"`
 	CreatedAt   time.Time    `gorm:"column:created_at;notNull;default:CURRENT_TIMESTAMP;comment:创建时间" json:"created_at"`
 	UpdatedAt   time.Time    `gorm:"column:updated_at;notNull;default:CURRENT_TIMESTAMP;comment:更新时间" json:"updated_at"`

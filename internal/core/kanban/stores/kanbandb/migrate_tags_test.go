@@ -40,7 +40,10 @@ func TestMigrateLegacyTags(t *testing.T) {
 		if len(old) != 3 || old[0].Text != "bug" || old[0].Color != "red-2" || old[1].Text != "后端" || old[2].Text != "库外" || old[2].Color != "" {
 			t.Fatalf("看板 1 的标签库不对: %+v", old)
 		}
-		a, _ := db.Card().GetByID(ctx, 10)
+		a, err := db.Card().GetByID(ctx, 10)
+		if err != nil {
+			t.Fatalf("读卡片失败: %v", err)
+		}
 		if want := []int64{old[0].ID, old[2].ID, old[1].ID}; !slices.Equal(a.TagIDs, want) {
 			t.Fatalf("卡片 10 的标签应该是 %v，实际 %v", want, a.TagIDs)
 		}
@@ -51,10 +54,8 @@ func TestMigrateLegacyTags(t *testing.T) {
 		if len(plain) != 1 || plain[0].Text != "自由文字" {
 			t.Fatalf("没有标签库、只有卡片文字的看板应该补出标签: %+v", plain)
 		}
-		var left int64
-		raw.Table("cards").Where("tags IS NOT NULL AND tags NOT IN ('', '[]', 'null')").Count(&left)
-		if left != 0 {
-			t.Fatalf("旧的 cards.tags 应该被清空，还剩 %d 行", left)
+		if raw.Migrator().HasColumn("boards", "labels") || raw.Migrator().HasColumn("cards", "tags") {
+			t.Fatal("搬完以后旧的 boards.labels 和 cards.tags 两列应该被删掉")
 		}
 	})
 }
