@@ -35,6 +35,10 @@ const (
 // seedTagColors 是新看板起步标签的颜色，依次是绿、黄、橙、红、紫、蓝，都取最浅一档（标准标签色）。
 var seedTagColors = [seedTagCount]string{"green-3", "yellow-3", "orange-3", "red-3", "purple-3", "blue-3"}
 
+// seedTagTexts 是新看板起步标签的文字，和 seedTagColors 一一对应。只存中文：网页发现文字和这六个完全相等时，
+// 按界面语言显示译文，所以不同语言的看板共用同一份数据。网页里的译文表（label.seed.*）要和这里保持一致。
+var seedTagTexts = [seedTagCount]string{"需求", "文档", "移动端", "Bug", "服务端", "前端"}
+
 // tagHues 是标签颜色的色相，每个色相有三档深浅（1 最深，3 最浅），共 30 种，和 Trello 的配色一一对应。
 var tagHues = []string{"green", "yellow", "orange", "red", "purple", "blue", "sky", "lime", "pink", "gray"}
 
@@ -171,11 +175,11 @@ func (u *unit) untagCards(ctx context.Context, boardID int64, gone map[int64]boo
 }
 
 // seedTags 为新看板创建起步的 6 个标签：模板是 empty 时只有颜色没有文字，
-// 其他模板按界面语言带上文字，之后都是看板自己的数据，可以随意改。
-func (u *unit) seedTags(ctx context.Context, boardID int64, template, locale string) ([]*Tag, error) {
+// 其他模板带上中文文字（seedTagTexts），之后都是看板自己的数据，可以随意改。
+func (u *unit) seedTags(ctx context.Context, boardID int64, template string) ([]*Tag, error) {
 	var texts [seedTagCount]string
 	if template != TemplateEmpty {
-		texts = textsFor(locale).Tags
+		texts = seedTagTexts
 	}
 	now := u.now()
 	out := make([]*Tag, seedTagCount)

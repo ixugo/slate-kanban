@@ -34,8 +34,6 @@ type localeTexts struct {
 	Columns [textKindCount]columnText
 	// 三条默认自动化规则的名称：开始计时、完成计时、重新打开。
 	RuleStart, RuleFinish, RuleReopen string
-	// Tags 是新看板起步的 6 个标签的文字，顺序和 seedTagColors 一一对应（绿、黄、橙、红、紫、蓝）。
-	Tags [seedTagCount]string
 }
 
 // columnSpec 描述模板里的一列：用哪段文案、两个开关，以及完成后去哪一列。
@@ -117,7 +115,6 @@ var templateTexts = map[string]localeTexts{
 			},
 		},
 		RuleStart: "开始计时", RuleFinish: "完成计时", RuleReopen: "重新打开",
-		Tags: [seedTagCount]string{"需求", "文档", "移动端", "Bug", "服务端", "前端"},
 	},
 	"zh-TW": {
 		Columns: [textKindCount]columnText{
@@ -149,7 +146,6 @@ var templateTexts = map[string]localeTexts{
 			},
 		},
 		RuleStart: "開始計時", RuleFinish: "完成計時", RuleReopen: "重新開啟",
-		Tags: [seedTagCount]string{"需求", "文件", "行動端", "Bug", "伺服端", "前端"},
 	},
 	"en": {
 		Columns: [textKindCount]columnText{
@@ -181,7 +177,6 @@ var templateTexts = map[string]localeTexts{
 			},
 		},
 		RuleStart: "Start timer", RuleFinish: "Finish timer", RuleReopen: "Reopen",
-		Tags: [seedTagCount]string{"Feature", "Docs", "Mobile", "Bug", "Backend", "Frontend"},
 	},
 	"ja": {
 		Columns: [textKindCount]columnText{
@@ -213,7 +208,6 @@ var templateTexts = map[string]localeTexts{
 			},
 		},
 		RuleStart: "開始時刻を記録", RuleFinish: "完了時刻を記録", RuleReopen: "再オープン",
-		Tags: [seedTagCount]string{"要件", "ドキュメント", "モバイル", "バグ", "サーバー", "フロント"},
 	},
 	"ko": {
 		Columns: [textKindCount]columnText{
@@ -245,7 +239,6 @@ var templateTexts = map[string]localeTexts{
 			},
 		},
 		RuleStart: "시작 시간 기록", RuleFinish: "완료 시간 기록", RuleReopen: "다시 열기",
-		Tags: [seedTagCount]string{"요구사항", "문서", "모바일", "버그", "서버", "프런트엔드"},
 	},
 }
 

@@ -66,7 +66,7 @@ func TestNewBoardSeedsSixTags(t *testing.T) {
 		texts            []string
 	}{
 		"dev 中文":    {kanban.TemplateDev, "zh-CN", []string{"需求", "文档", "移动端", "Bug", "服务端", "前端"}},
-		"simple 英文": {kanban.TemplateSimple, "en", []string{"Feature", "Docs", "Mobile", "Bug", "Backend", "Frontend"}},
+		"simple 英文": {kanban.TemplateSimple, "en", []string{"需求", "文档", "移动端", "Bug", "服务端", "前端"}}, // 起步标签只存中文，网页按语言翻译
 		"empty":     {kanban.TemplateEmpty, "zh-CN", []string{"", "", "", "", "", ""}},
 	}
 	i := 0

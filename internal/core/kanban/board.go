@@ -77,7 +77,7 @@ func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardIn
 			}
 			return wrapDB("创建看板", err)
 		}
-		tags, err := u.seedTags(ctx, b.ID, in.Template, in.Locale)
+		tags, err := u.seedTags(ctx, b.ID, in.Template)
 		if err != nil {
 			return err
 		}
