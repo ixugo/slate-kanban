@@ -22,7 +22,7 @@ func TestRenderMarkdown(t *testing.T) {
 			}
 		}
 		last := -1
-		for _, heading := range []string{"## 1. ", "## 2. ", "## 3. "} {
+		for _, heading := range []string{"## 1. ", "## 2. ", "## 3. ", "## 4. "} {
 			at := strings.Index(md, heading)
 			if at <= last {
 				t.Errorf("步骤 %q 缺失或顺序不对", heading)
@@ -30,13 +30,18 @@ func TestRenderMarkdown(t *testing.T) {
 			last = at
 		}
 		for _, h := range g.Hosts {
-			if strings.Count(md, "### "+h.Name+"\n") != 2 {
-				t.Errorf("host %s 应该在安装 MCP 和安装 skill 两节各出现一次", h.Name)
+			if strings.Count(md, "### "+h.Name+"\n") != 3 {
+				t.Errorf("host %s 应该在安装 MCP、安装 skill 和长期挂着三节各出现一次", h.Name)
 			}
-			for _, sn := range slices.Concat(h.MCP, h.Skill) {
+			for _, sn := range slices.Concat(h.MCP, h.Skill, h.Watch) {
 				if !strings.Contains(md, sn.Code) || !strings.Contains(md, sn.Title) {
 					t.Errorf("host %s 的步骤没有写进说明: %s", h.Name, sn.Title)
 				}
+			}
+		}
+		for _, want := range []string{g.WatchPrompt, g.LoopPrompt, boardPlaceholder, "wait_for_updates"} {
+			if want == "" || !strings.Contains(md, want) {
+				t.Errorf("长期挂着一节缺少 %q", want)
 			}
 		}
 		assertFencesAlternate(t, md)

@@ -16,6 +16,7 @@ agent 光有 MCP 工具还不够：它得知道怎么用——项目路径问不
 | 7 | agent 连上 MCP 时还没装 skill | 不知道还有流程说明 | 连接时下发的 `instructions` 提示：没装就读取资源 `slate://skills/slate-kanban`，经用户同意后存成自己的 skill | 实施 |
 | 8 | 免认证的地址被用来做文章 | 通过 Host 头注入内容，或被缓存污染 | 只返回静态内容和从请求里算出的服务地址；Host 和转发头严格校验，不合格返回 400；说明页不缓存；里面没有任何令牌 | 实施 |
 | 9 | 多个 agent 同时连上来，不知道各自占哪个名额 | 同一张卡被重复领取，或同时做的卡超过人想要的并发 | 看板名册里每位工程师是一个名额：领取要带 `engineer_id`，服务端拒绝重复领取和忙碌的工程师；skill 把工程师的 `prompt` 当子 agent 角色设定的底稿 | 实施 |
+| 10 | 装好后不知道怎么让 agent 长期挂着守候，只会复制一句安装提示词 | agent 做完就收工，没人再接新卡片 | `/api/v1/connect` 增加 `watch_prompt`（长期守候，不收工、守候时不输出）、`loop_prompt`（单轮，配合 host 的 loop）、`watch_notes` 和每个 host 的 `watch` 片段（screen 开会话、恢复命令）；`/install.md` 第 4 节同源渲染；skill 第三节补长期运行纪律 | 实施 |
 
 ## 两条主线
 

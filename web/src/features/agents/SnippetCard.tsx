@@ -4,6 +4,7 @@ import { CopyIcon } from 'lucide-react'
 import { useRef } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
+import type { TranslationKey } from '@/i18n/types'
 import type { Snippet } from '@/lib/api/types'
 import { copyWithToast } from './copyText'
 
@@ -11,6 +12,9 @@ const KIND_TITLE: Record<string, string> = {
   worker: 'agents.snippets.worker',
   manager: 'agents.snippets.manager',
   skill: 'agents.snippets.skill',
+  watch: 'agents.snippets.watch',
+  resume: 'agents.snippets.resume',
+  loop: 'agents.snippets.loop',
 }
 
 interface Props {
@@ -22,7 +26,7 @@ interface Props {
 export function SnippetCard({ snippet, subdued }: Props) {
   const { t } = useTranslation()
   const preRef = useRef<HTMLPreElement>(null)
-  const titleKey = KIND_TITLE[snippet.kind] as 'agents.snippets.worker' | 'agents.snippets.manager' | 'agents.snippets.skill' | undefined
+  const titleKey = KIND_TITLE[snippet.kind] as TranslationKey | undefined
   const heading = titleKey ? t(titleKey) : snippet.title
 
   const onCopy = () => {

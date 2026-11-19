@@ -14,6 +14,9 @@ const guide: ConnectGuide = {
   mcp_url: 'http://127.0.0.1:7070/mcp',
   install_url: 'http://127.0.0.1:7070/install.md',
   skill_url: 'http://127.0.0.1:7070/skills/slate-kanban/SKILL.md',
+  watch_prompt: '你是看板「<看板名>」的调度 agent',
+  loop_prompt: '执行一轮「<看板名>」的调度',
+  watch_notes: [],
   hosts: [
     {
       id: 'cursor',
@@ -23,6 +26,7 @@ const guide: ConnectGuide = {
         { kind: 'manager', title: '管理', lang: 'sh', code: 'cursor mcp --role=manager' },
       ],
       skill: [{ kind: 'skill', title: 'skill', lang: 'sh', code: 'ln -s skill' }],
+      watch: [{ kind: 'loop', title: '定时', lang: 'sh', code: '/loop 5m 一轮' }],
     },
   ],
 }
@@ -35,6 +39,19 @@ describe('AgentsPage', () => {
     expect(screen.getByText(en.agents.snippets.worker)).toBeInTheDocument()
     expect(screen.getByText('cursor mcp --name=test')).toBeInTheDocument()
     expect(screen.getByText(en.agents.snippets.skill)).toBeInTheDocument()
+  })
+
+  it('长期挂着：选看板后提示词里的占位符换成看板名', async () => {
+    installFakeApi({
+      'GET /api/v1/connect': guide,
+      'GET /api/v1/boards': [{ id: 1, name: '官网改版', engineers: [], tags: [] }],
+    })
+    renderApp(<AgentsPage />, { route: '/agents' })
+    expect(await screen.findByText('你是看板「<看板名>」的调度 agent')).toBeInTheDocument()
+    expect(screen.getByText(en.agents.snippets.loop)).toBeInTheDocument()
+    await userEvent.selectOptions(await screen.findByRole('combobox', { name: en.agents.watch.board }), '官网改版')
+    expect(screen.getByText('你是看板「官网改版」的调度 agent')).toBeInTheDocument()
+    expect(screen.getByText('执行一轮「官网改版」的调度')).toBeInTheDocument()
   })
 
   it('复制失败时不抛错', async () => {

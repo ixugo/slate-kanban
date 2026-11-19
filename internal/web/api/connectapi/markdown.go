@@ -28,6 +28,8 @@ const (
 		"所以 Auth 一栏显示 `Unsupported` 是正常的（Slate 不用 OAuth）；启用口令后会显示 `Bearer token`。\n" +
 		"- Cursor：命令行版运行 `agent mcp list`，slate 那一行显示 `ready` 就是连上了。写在项目里的 `.cursor/mcp.json` 要先批准：`agent mcp enable slate`；`~/.cursor/mcp.json` 里的服务不用。" +
 		"图形界面里，按 Cursor 官方文档，改完 `mcp.json` 要重启 Cursor，再到设置的 MCP 页面确认 slate 已启用。\n\n"
+	watchIntro = "## 4. 长期挂着守候\n\n" +
+		"装好之后，要让 agent 一直盯着看板、有卡片就接，需要一个长期不退出的会话。把下面的「长期守候提示词」粘进会话（`<看板名>` 换成你的看板名），并按所用 host 的命令挂起会话。\n\n"
 	faqSection = "## 常见问题\n\n" +
 		"- 连接返回 400：检查 name 格式（小写字母数字开头，最长 64，不能用 human 或 system）。\n" +
 		"- Claude Code 添加成功时打印的地址里没有 `?name=…`，那只是提示文字省略了查询参数，配置里存的是完整地址；以 whoami 返回的名称为准。\n" +
@@ -44,6 +46,7 @@ func renderMarkdown(g Guide, passcodeRequired bool) string {
 	b.WriteString(skillIntro)
 	writeHostSteps(&b, g.Hosts, func(h Host) []Snippet { return h.Skill })
 	b.WriteString(verifyStep)
+	writeWatch(&b, g)
 	b.WriteString(faqSection)
 	if passcodeRequired {
 		b.WriteString("- 服务启用了访问口令：网页需先登录；MCP 与 curl 要在请求头带 `Authorization: Bearer <口令>`（把 `<口令>` 换成你在配置里设置的值，不要写进仓库）。\n")
@@ -65,4 +68,16 @@ func writeHostSteps(b *strings.Builder, hosts []Host, pick func(Host) []Snippet)
 			fmt.Fprintf(b, "```%s\n%s\n```\n\n", sn.Lang, sn.Code)
 		}
 	}
+}
+
+// writeWatch 写出“长期挂着守候”一节：两段提示词、几条说明，以及各 host 的启动和恢复命令。
+func writeWatch(b *strings.Builder, g Guide) {
+	b.WriteString(watchIntro)
+	b.WriteString("长期守候提示词（会话不退出，阻塞等待新卡片）：\n\n```text\n" + g.WatchPrompt + "\n```\n\n")
+	b.WriteString("单轮提示词（配合 host 自带的 loop 或定时功能，每轮做完就结束）：\n\n```text\n" + g.LoopPrompt + "\n```\n\n")
+	for _, n := range g.WatchNotes {
+		b.WriteString("- " + n + "\n")
+	}
+	b.WriteString("\n")
+	writeHostSteps(b, g.Hosts, func(h Host) []Snippet { return h.Watch })
 }

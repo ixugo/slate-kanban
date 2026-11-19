@@ -50,6 +50,8 @@ type Host struct {
 	Name  string    `json:"name"`
 	MCP   []Snippet `json:"mcp"`
 	Skill []Snippet `json:"skill"`
+	// Watch 是长期挂着的步骤：怎么在这个 host 里一直守候看板，以及断了怎么恢复。
+	Watch []Snippet `json:"watch"`
 }
 
 // Guide 是完整的接入说明。/install.md 是它的 Markdown 形式，/api/v1/connect 是它的 JSON 形式。
@@ -59,15 +61,23 @@ type Guide struct {
 	InstallURL string `json:"install_url"`
 	SkillURL   string `json:"skill_url"`
 	Hosts      []Host `json:"hosts"`
+	// WatchPrompt 是长期守候提示词，LoopPrompt 是配合 host 的 loop 功能用的单轮提示词，里面的看板名是占位符。
+	WatchPrompt string `json:"watch_prompt"`
+	LoopPrompt  string `json:"loop_prompt"`
+	// WatchNotes 是长期挂着的注意事项，和具体 host 无关。
+	WatchNotes []string `json:"watch_notes"`
 }
 
 // buildGuide 按服务地址生成接入说明；shell 里的地址加单引号，避免 IPv6 方括号被 zsh 当通配符。
 func buildGuide(base string, passcodeRequired bool) Guide {
 	g := Guide{
-		BaseURL:    base,
-		MCPURL:     base + "/mcp",
-		InstallURL: base + "/install.md",
-		SkillURL:   base + "/skills/" + skillName + "/SKILL.md",
+		BaseURL:     base,
+		MCPURL:      base + "/mcp",
+		InstallURL:  base + "/install.md",
+		SkillURL:    base + "/skills/" + skillName + "/SKILL.md",
+		WatchPrompt: watchPrompt,
+		LoopPrompt:  loopPrompt,
+		WatchNotes:  watchNotes,
 	}
 	g.Hosts = []Host{
 		claudeCodeHost(g, passcodeRequired),
@@ -123,6 +133,7 @@ func claudeCodeHost(g Guide, passcodeRequired bool) Host {
 			},
 		},
 		Skill: skillSnippets("~/.claude/skills", g),
+		Watch: claudeWatch(),
 	}
 }
 
@@ -153,6 +164,7 @@ func cursorHost(g Guide, passcodeRequired bool) Host {
 			},
 		},
 		Skill: skillSnippets("~/.cursor/skills", g),
+		Watch: cursorWatch(),
 	}
 }
 
@@ -192,6 +204,7 @@ func codexHost(g Guide, passcodeRequired bool) Host {
 			},
 		},
 		Skill: skillSnippets("~/.codex/skills", g),
+		Watch: codexWatch(),
 	}
 }
 

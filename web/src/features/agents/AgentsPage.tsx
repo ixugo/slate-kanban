@@ -1,4 +1,4 @@
-// Agent 接入页：安装 MCP、skill，并按宿主展示命令片段。
+// Agent 接入页：安装 MCP、skill，长期挂着的提示词，并按宿主展示命令片段。
 
 import { CopyIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
@@ -11,6 +11,7 @@ import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { copyWithToast } from './copyText'
 import { SnippetCard } from './SnippetCard'
 import { useConnectGuide } from './useConnectGuide'
+import { WatchSection } from './WatchSection'
 
 /** 接入页默认导出 */
 export default function AgentsPage() {
@@ -60,13 +61,8 @@ export default function AgentsPage() {
         <p className="text-ui">{prompt}</p>
         <CopyPromptButton text={prompt} label={t('common.copy')} ok={t('common.copied')} fail={t('agents.copyFailed')} />
       </section>
-      <section className="space-y-2 text-ui text-muted-foreground">
-        <p>{t('agents.nameHint')}</p>
-        <p>{t('agents.pullHint')}</p>
-        <p>{t('agents.columnHint')}</p>
-        <p>{t('agents.loopHint')}</p>
-        <p>{t('agents.waitHint')}</p>
-      </section>
+      <p className="text-ui text-muted-foreground">{t('agents.nameHint')}</p>
+      <WatchSection guide={data} />
       <Tabs defaultValue={data.hosts[0]?.id ?? 'default'}>
         <TabsList className="flex-wrap">
           {data.hosts.map((h) => (
@@ -93,6 +89,9 @@ export default function AgentsPage() {
               ))}
             {h.skill.map((s) => (
               <SnippetCard key={`${h.id}-skill`} snippet={s} />
+            ))}
+            {h.watch.map((s) => (
+              <SnippetCard key={`${h.id}-${s.kind}`} snippet={s} />
             ))}
           </TabsContent>
         ))}

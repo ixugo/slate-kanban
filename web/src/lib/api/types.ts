@@ -263,7 +263,7 @@ export interface ActivityQuery {
 
 /** 接入说明里一段可以直接复制的命令或配置 */
 export interface Snippet {
-  /** 用途：`worker`（工作视图的 MCP）、`manager`（管理视图的 MCP）、`skill`（安装 skill）；网页按它选各语言的小标题 */
+  /** 用途：`worker`（工作视图的 MCP）、`manager`（管理视图的 MCP）、`skill`（安装 skill）、`watch`（开长期会话）、`resume`（恢复会话）、`loop`（定时叫醒）；网页按它选各语言的小标题 */
   kind: string
   /** 服务端写的中文说明，网页不认识 kind 时才用它兜底 */
   title: string
@@ -276,6 +276,8 @@ export interface GuideHost {
   name: string
   mcp: Snippet[]
   skill: Snippet[]
+  /** 长期挂着：开会话的命令，以及断了怎么恢复 */
+  watch: Snippet[]
 }
 
 /** /api/v1/connect 返回的接入说明；每个 host 的 mcp 里依次是工作视图和管理视图的命令 */
@@ -285,6 +287,12 @@ export interface ConnectGuide {
   install_url: string
   skill_url: string
   hosts: GuideHost[]
+  /** 长期守候提示词；里面的 <看板名> 是占位符，网页按所选看板替换 */
+  watch_prompt: string
+  /** 配合 host 的 loop 或定时功能的单轮提示词，占位符同上 */
+  loop_prompt: string
+  /** 长期挂着的注意事项，网页用各语言自己的文案，install.md 用它 */
+  watch_notes: string[]
 }
 
 // ---- 请求入参 ----

@@ -7,8 +7,9 @@
 ## 页面结构
 
 - 路由 `/agents`
-- 三步说明 + 一句话提示词（可复制）
-- 按 `hosts` 分 Tab：worker MCP、折叠 manager MCP、skill 片段
+- 三步说明 + 一句话安装提示词（可复制）
+- 「长期挂着」一节：看板选择（填入提示词里的看板名）、长期守候和单轮两段提示词、三条注意事项
+- 按 `hosts` 分 Tab：worker MCP、折叠 manager MCP、skill 片段、长期挂着的开会话和恢复命令（`watch` 片段）
 
 ## 决策
 

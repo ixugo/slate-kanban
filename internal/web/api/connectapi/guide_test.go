@@ -165,3 +165,35 @@ func TestGuideCursorConfigIsJSON(t *testing.T) {
 		}
 	}
 }
+
+// TestWatchGuide 验证长期挂着的内容：提示词带看板占位符，并提到守候循环和不收工；
+// 每个 host 都有挂起或恢复的步骤，用 screen 的 host 同时给出恢复命令。
+func TestWatchGuide(t *testing.T) {
+	g := buildGuide(guideBases[0], false)
+	for name, p := range map[string]string{"长期": g.WatchPrompt, "单轮": g.LoopPrompt} {
+		if !strings.Contains(p, boardPlaceholder) || !strings.Contains(p, "slate-kanban skill") {
+			t.Errorf("%s提示词应该带看板占位符并指向 skill", name)
+		}
+	}
+	if !strings.Contains(g.WatchPrompt, "wait_for_updates") || !strings.Contains(g.WatchPrompt, "不要收工") {
+		t.Errorf("长期提示词应该要求持续调用 wait_for_updates 且不收工")
+	}
+	if strings.Contains(g.LoopPrompt, "不要收工") || len(g.WatchNotes) == 0 {
+		t.Errorf("单轮提示词不该要求不收工，说明不能为空")
+	}
+	for _, h := range g.Hosts {
+		if len(h.Watch) == 0 {
+			t.Errorf("host %s 缺少长期挂着的步骤", h.ID)
+		}
+	}
+	for _, id := range []string{"claude-code", "codex"} {
+		i := slices.IndexFunc(g.Hosts, func(h Host) bool { return h.ID == id })
+		if i < 0 {
+			t.Fatalf("缺少 host %s", id)
+		}
+		h := g.Hosts[i]
+		if len(h.Watch) != 2 || !strings.Contains(h.Watch[0].Code, "screen -S") || !strings.Contains(h.Watch[1].Code, "screen -r") {
+			t.Errorf("host %s 应该有开会话和恢复两段命令", id)
+		}
+	}
+}
