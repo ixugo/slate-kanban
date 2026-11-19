@@ -355,3 +355,17 @@ func TestShellQuote(t *testing.T) {
 		}
 	}
 }
+
+// TestPrintDefaultsConfToHomeDir 不带 -conf 时，服务文件指向用户主目录下的 .slate-kanban，和启动目录无关。
+func TestPrintDefaultsConfToHomeDir(t *testing.T) {
+	home := tempHome(t)
+	env := fixedEnv(t, home)
+	out, err := RunCommand(env, []string{"print", "--platform", "launchd"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(home, ".slate-kanban")
+	if !strings.Contains(out, want) {
+		t.Fatalf("print 输出应包含默认配置目录 %s:\n%s", want, out)
+	}
+}

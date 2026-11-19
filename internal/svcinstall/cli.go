@@ -154,7 +154,7 @@ type uninstallOpts struct {
 
 // parseCommonFlags 解析 -conf、--platform、--dry-run；allowPlatform 为 true 时接受 --platform。
 func parseCommonFlags(args []string, allowPlatform bool) (flagOpts, error) {
-	opts := flagOpts{conf: "./configs"}
+	opts := flagOpts{} // conf 为空表示用默认目录 ~/.slate-kanban，在 ServiceInput 里换成绝对路径
 	i := 0
 	for i < len(args) {
 		a := args[i]

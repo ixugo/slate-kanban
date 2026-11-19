@@ -22,8 +22,10 @@ make build   # 安装前端依赖（第一次）、构建前端、编译成带�
 ./slate      # 启动，浏览器打开 http://127.0.0.1:7070
 ```
 
-首次启动会在当前目录生成 `configs/config.toml`（默认配置）和 `configs/data.db`（数据库），日志写在 `logs/`。
-相对路径都以**启动时所在的目录**为基准。想换配置目录：`./slate -conf /path/to/configs`。
+首次启动会在用户主目录下生成 `~/.slate-kanban/config.toml`（默认配置）和 `~/.slate-kanban/data.db`（数据库），从哪个目录启动都用同一份；日志写在启动目录的 `logs/`。
+想换配置目录：`./slate -conf /path/to/dir`（数据库默认放在这个目录里；配置里的相对路径以启动目录为基准）。
+
+从旧版本升级：旧版的配置和数据在启动目录的 `configs/` 下。先停掉服务，把 `configs/config.toml`、`configs/data.db`（含 `-wal`、`-shm`）复制到 `~/.slate-kanban/`，再把 `config.toml` 里的 `Dsn` 改成 `~/.slate-kanban/data.db` 的绝对路径；或者继续用旧目录：`./slate -conf ./configs`。
 
 ### 方式二：Docker
 
@@ -39,7 +41,7 @@ docker compose up -d --build   # 然后打开 http://127.0.0.1:7070
 
 ```sh
 ./slate service print                    # 预览当前系统的服务文件（也可 --platform launchd|systemd）
-./slate service install [-conf ./configs]   # 写到当前用户目录，不自动加载
+./slate service install [-conf 目录]       # 写到当前用户目录，不自动加载；不带 -conf 用 ~/.slate-kanban
 ./slate service uninstall                # 只删除服务文件，不自动停服务
 ```
 
@@ -159,7 +161,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 
 ## 配置
 
-`configs/config.example.toml` 是带注释的完整样例，常用项：
+`configs/config.example.toml` 是带注释的完整样例（配置文件在 `~/.slate-kanban/config.toml`），常用项：
 
 | 配置 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -167,7 +169,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `Server.HTTP.Port` | `7070` | 端口 |
 | `Server.HTTP.AllowedHosts` | `[]` | 额外允许的 Host（不含端口）；IP、`localhost`、`*.localhost` 始终允许。通过域名访问时必须写进来 |
 | `Server.HTTP.Passcode` | `''`（空） | 可选访问口令，空表示不启用。只能是可打印 ASCII（不含空格），最长 128 位，不合规启动失败；非空时 REST、`/mcp`、`/app` 要带 `Authorization: Bearer <口令>`，网页则先登录 |
-| `Data.Database.Dsn` | `./configs/data.db` | SQLite 文件路径；以 `postgres` 开头则按 PostgreSQL 连接 |
+| `Data.Database.Dsn` | `~/.slate-kanban/data.db`（首次生成时写成绝对路径） | SQLite 文件路径；以 `postgres` 开头则按 PostgreSQL 连接 |
 | `Log.*` | `./logs`、`info` | 日志目录、级别、保留天数、分割大小 |
 
 ## 安全说明
@@ -176,7 +178,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 
 - 默认只监听 `127.0.0.1`，只有本机能访问。
 - 服务端有三道兜底：Host 白名单（防 DNS 重绑定，通过域名访问需配置 `AllowedHosts`）、写请求的 Origin 必须和 Host 一致（防跨站请求）、固定的安全响应头（禁止被嵌入 iframe 等）。
-- **可选访问口令**：在 `configs/config.toml` 里设置 `Server.HTTP.Passcode`（只能是可打印 ASCII、不含空格，建议至少 8 位，最长 128 位）。启用后 `/api/`、`/mcp`、`/app/` 都要先通过口令：
+- **可选访问口令**：在 `~/.slate-kanban/config.toml` 里设置 `Server.HTTP.Passcode`（只能是可打印 ASCII、不含空格，建议至少 8 位，最长 128 位）。启用后 `/api/`、`/mcp`、`/app/` 都要先通过口令：
   - 网页：先出现登录页，输入口令后浏览器保存 `slate_session` 会话 cookie（HttpOnly、SameSite=Strict、30 天，实时流也靠它）；顶栏有退出按钮，退出时同时清掉离线缓存；会话中途失效会自动回到登录页。
   - MCP、REST、agent：`Authorization: Bearer <口令>`。启用口令后，`/install.md` 里三个 host 的接入示例会带上口令占位。
   - 仍然公开：`/health`、`/install.md`、`/skills/…`、`/api/v1/auth/*` 和网页的静态文件（登录页本身要能打开）。
@@ -202,7 +204,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 │   └── conf/、app/、data/       配置、依赖装配（Wire）、数据库
 ├── web/                         前端：React 19 + Vite + Tailwind 4 + TanStack Query + shadcn/ui
 ├── skills/slate-kanban/         agent 用的 skill（编译进程序，也可从服务下载）
-├── configs/                     配置样例
+├── configs/                     配置样例（运行时的配置和数据在 ~/.slate-kanban）
 └── .cursor/scopes/              每个功能的设计文档和需求质量清单
 ```
 
@@ -213,7 +215,7 @@ tag:bug|ui col:待办|进行中              # 竖线表示多选一：带 bug �
 | `make run` | 启动后端（开发模式，不带前端） |
 | `make web/dev` | 启动前端开发服务器 `http://127.0.0.1:5173`，接口和 MCP 转发到本机 7070 |
 | `make web/test` | 前端类型检查、oxlint、单元测试 |
-| `make web/e2e` | 浏览器端到端冒烟测试：自动构建前端、编译并启动临时服务，用本机 Chrome 跑用例（约 30 秒；需要装 Chrome，不碰 `configs/` 里的真实数据） |
+| `make web/e2e` | 浏览器端到端冒烟测试：自动构建前端、编译并启动临时服务，用本机 Chrome 跑用例（约 30 秒；需要装 Chrome，不碰 `~/.slate-kanban` 里的真实数据） |
 | `make web/build` | 构建前端（产物进 `internal/web/spa/dist`），并检查体积预算 |
 | `make build` | 前端 + 后端，得到带前端的 `./slate` |
 | `go test ./internal/...` | 后端测试（默认 SQLite，不依赖 docker） |

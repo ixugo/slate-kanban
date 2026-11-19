@@ -1,6 +1,6 @@
 # Slate 配置样例。
-# 首次启动时，如果 configs/config.toml 不存在，程序会按默认值生成它。
-# 想手动准备配置：复制本文件为 configs/config.toml 再按需修改。
+# 首次启动时，如果 ~/.slate-kanban/config.toml 不存在，程序会按默认值生成它。
+# 想手动准备配置：复制本文件为 ~/.slate-kanban/config.toml 再按需修改（-conf 指定了目录就放那里）。
 
 [Server]
   [Server.HTTP]
@@ -25,7 +25,8 @@
 [Data]
   [Data.Database]
     # 数据库支持 sqlite 和 postgres 两种，使用 sqlite 时 dsn 应当填写文件存储路径（相对路径以启动目录为基准）
-    Dsn = './configs/data.db'
+    # 首次生成的配置里是 ~/.slate-kanban/data.db 的绝对路径；这里换成你的实际路径
+    Dsn = '/home/you/.slate-kanban/data.db'
     MaxIdleConns = 1
     MaxOpenConns = 1
     ConnMaxLifetime = '6h0m0s'

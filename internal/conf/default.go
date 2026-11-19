@@ -1,9 +1,13 @@
 package conf
 
-import "time"
+import (
+	"path/filepath"
+	"time"
+)
 
 // DefaultConfig 返回首次生成配置文件时用的默认值：只监听本机，Host 白名单为空。
-func DefaultConfig() Bootstrap {
+// dir 是配置目录，SQLite 数据库默认放在它下面（data.db），写成绝对路径，和启动目录无关。
+func DefaultConfig(dir string) Bootstrap {
 	return Bootstrap{
 		Server: Server{
 			HTTP: ServerHTTP{
@@ -19,7 +23,7 @@ func DefaultConfig() Bootstrap {
 		},
 		Data: Data{
 			Database: Database{
-				Dsn:             "./configs/data.db",
+				Dsn:             filepath.Join(dir, "data.db"),
 				MaxIdleConns:    10,
 				MaxOpenConns:    50,
 				ConnMaxLifetime: Duration(6 * time.Hour),

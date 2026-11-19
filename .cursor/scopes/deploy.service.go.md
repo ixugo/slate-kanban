@@ -50,7 +50,7 @@ slate service uninstall [--dry-run]
 
 ```mermaid
 flowchart TD
-    A[用户执行 slate service install] --> B[解析 -conf，默认 ./configs]
+    A[用户执行 slate service install] --> B[解析 -conf，默认 用户主目录/.slate-kanban]
     B --> C[Executable 绝对路径 + conf 绝对路径 + 当前 WorkDir]
     C --> D{GOOS}
     D -->|darwin| E[生成 plist RunAtLoad + KeepAlive + StandardOutPath]

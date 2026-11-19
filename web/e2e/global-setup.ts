@@ -1,5 +1,5 @@
 // 全局准备：编译带前端的 Slate 程序，在临时目录里用全新的数据库启动它；全部用例跑完后停止并清理。
-// 配置、数据库、日志和编译出的程序都放在临时目录里，不会碰 configs/ 里的真实数据，也不占本机 7070 端口。
+// 配置、数据库、日志和编译出的程序都放在临时目录里，不会碰 ~/.slate-kanban 里的真实数据，也不占本机 7070 端口。
 
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs'

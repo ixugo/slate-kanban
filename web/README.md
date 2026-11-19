@@ -71,7 +71,7 @@ Vite 8、React 19、TypeScript 7、Tailwind 4、shadcn/ui（vendored 在 `src/co
 
 `npm run e2e` 先构建前端，再编译带前端的 Slate，在系统临时目录里用全新的数据库启动它（端口 17420，可用环境变量 `E2E_PORT` 改），
 然后用本机的 Google Chrome 跑 `e2e/*.e2e.ts`：新建项目、拖动卡片、搜索筛选、规则触发、实时同步、五种语言切换。
-不碰 `configs/` 里的真实数据，也不占 7070 端口。没装 Chrome 时先运行 `npx playwright install chrome`。
+不碰 `~/.slate-kanban` 里的真实数据，也不占 7070 端口。没装 Chrome 时先运行 `npx playwright install chrome`。
 失败时的截图和 trace 在 `e2e/.results/`（已 gitignore）。
 
 更完整的设计与测试清单见 `.cursor/scopes/web.app.md`。
