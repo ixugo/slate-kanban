@@ -70,13 +70,18 @@ type AttachmentStorer interface {
 	Create(context.Context, *Attachment) error
 	// GetByToken 按公开编号读取，不存在时返回可用 orm.IsErrRecordNotFound 判断的错误。
 	GetByToken(context.Context, string) (*Attachment, error)
+	// DeleteByToken 删除一张图片的记录，记录不存在也算成功。
+	DeleteByToken(context.Context, string) error
 	// DeleteByBoard 删除看板的全部图片，用于删除看板。
 	DeleteByBoard(context.Context, int64) error
+	// IsReferenced 看板里是否还有卡片描述或评论引用这个编号。
+	IsReferenced(ctx context.Context, boardID int64, token string) (bool, error)
 }
 
-// SaveAttachment 把一张图片存进看板，返回带公开编号的记录。人和 agent 都能调用；
+// SaveAttachment 接收一张刚粘贴的图片，先放进系统临时目录，返回带公开编号的记录（还没有入库）。
+// 图片要等引用它的描述或评论保存时才会搬进资源目录并入库（见 commitImages），
+// 所以粘贴后又放弃的图片不会留在项目里。人和 agent 都能调用；
 // 类型按内容判断而不是相信上传时声明的类型，只接受 PNG、JPEG、GIF、WebP，大小不超过 5 MB。
-// 先写文件再写数据库记录，记录写失败时把刚写的文件删掉，不留孤儿文件。
 func (c Core) SaveAttachment(ctx context.Context, actor Actor, boardID int64, data []byte) (*Attachment, error) {
 	if err := requireWriter(actor); err != nil {
 		return nil, err
@@ -91,11 +96,10 @@ func (c Core) SaveAttachment(ctx context.Context, actor Actor, boardID int64, da
 	if !allowedImageTypes[kind] {
 		return nil, invalidf("只支持 PNG、JPEG、GIF、WebP 图片")
 	}
-	if c.resources == nil {
+	if c.resources == nil || c.uploads == nil {
 		return nil, ErrResourcesDisabled
 	}
-	board, err := c.store.Board().GetByID(ctx, boardID)
-	if err != nil {
+	if _, err := c.store.Board().GetByID(ctx, boardID); err != nil {
 		return nil, mapNotFound(err, ErrBoardNotFound, "读取看板")
 	}
 	raw := make([]byte, attachmentTokenBytes)
@@ -103,34 +107,35 @@ func (c Core) SaveAttachment(ctx context.Context, actor Actor, boardID int64, da
 		return nil, wrapDB("生成图片编号", err)
 	}
 	token := hex.EncodeToString(raw)
-	item := &Attachment{
-		BoardID: boardID, Token: token, ContentType: kind, Size: int64(len(data)),
-		Path: AttachmentFilePath(board.Slug, token, kind), CreatedAt: c.now(),
+	if err := c.uploads.Save(token+imageExts[kind], data); err != nil {
+		return nil, wrapDB("保存上传的图片", err)
 	}
-	if err := c.resources.Save(item.Path, data); err != nil {
-		return nil, wrapDB("保存图片文件", err)
-	}
-	if err := c.store.Attachment().Create(ctx, item); err != nil {
-		if rmErr := c.resources.Remove(item.Path); rmErr != nil {
-			slog.Warn("清理未入库的图片文件失败", "path", item.Path, "err", rmErr)
-		}
-		return nil, wrapDB("保存图片", err)
-	}
-	return item, nil
+	return &Attachment{BoardID: boardID, Token: token, ContentType: kind, Size: int64(len(data)), CreatedAt: c.now()}, nil
 }
 
-// GetAttachment 按公开编号读取图片记录和文件内容。编号格式不对直接当作不存在，不去查库；
-// 记录在但文件丢了（比如资源目录被手动清理）也按不存在处理，并记一条警告方便排查。
+// GetAttachment 按公开编号读取图片记录和文件内容。编号格式不对直接当作不存在，不去查库。
+// 先查已入库的图片；查不到再看临时目录里有没有刚上传、还没随内容保存的。
+// 记录在但文件丢了（比如资源目录被手动清理）按不存在处理，并记一条警告方便排查。
 func (c Core) GetAttachment(ctx context.Context, token string) (*Attachment, []byte, error) {
 	if !attachmentTokenRe.MatchString(token) {
 		return nil, nil, ErrAttachmentNotFound
 	}
-	if c.resources == nil {
+	if c.resources == nil || c.uploads == nil {
 		return nil, nil, ErrResourcesDisabled
 	}
 	item, err := c.store.Attachment().GetByToken(ctx, token)
+	if orm.IsErrRecordNotFound(err) {
+		item, data, found, err := c.readUpload(token)
+		if err != nil {
+			return nil, nil, wrapDB("读取上传的图片", err)
+		}
+		if !found {
+			return nil, nil, ErrAttachmentNotFound
+		}
+		return item, data, nil
+	}
 	if err != nil {
-		return nil, nil, mapNotFound(err, ErrAttachmentNotFound, "读取图片")
+		return nil, nil, wrapDB("读取图片", err)
 	}
 	data, err := c.resources.Read(item.Path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -141,4 +146,20 @@ func (c Core) GetAttachment(ctx context.Context, token string) (*Attachment, []b
 		return nil, nil, wrapDB("读取图片文件", err)
 	}
 	return item, data, nil
+}
+
+// readUpload 在临时目录里按编号找刚上传的图片：文件名是编号加扩展名，扩展名只有四种，逐个试。
+// 没找到时 found 为 false、err 为 nil；其他读取错误原样返回。
+func (c Core) readUpload(token string) (item *Attachment, data []byte, found bool, err error) {
+	for kind, ext := range imageExts {
+		data, err = c.uploads.Read(token + ext)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, nil, false, err
+		}
+		return &Attachment{Token: token, ContentType: kind, Size: int64(len(data))}, data, true, nil
+	}
+	return nil, nil, false, nil
 }

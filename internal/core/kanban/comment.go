@@ -76,6 +76,9 @@ func (u *unit) addComment(ctx context.Context, actor Actor, card *Card, body str
 	if err := u.comment.Create(ctx, comment); err != nil {
 		return nil, wrapDB("保存评论", err)
 	}
+	if err := u.commitImages(ctx, card.BoardID, body); err != nil {
+		return nil, err
+	}
 	err := u.emit(ctx, actor, newEvent{
 		BoardID: card.BoardID, CardID: card.ID, Type: EventCommentAdded,
 		Payload: map[string]any{
@@ -124,6 +127,9 @@ func (c Core) DeleteComment(ctx context.Context, actor Actor, commentID int64) e
 		}
 		if err := u.comment.Delete(ctx, current); err != nil {
 			return wrapDB("删除评论", err)
+		}
+		if err := u.releaseImages(ctx, current.BoardID, attachmentTokens(current.Body)); err != nil {
+			return err
 		}
 		return u.emit(ctx, actor, newEvent{
 			BoardID: current.BoardID, CardID: card.ID, Type: EventCommentDeleted,

@@ -38,10 +38,11 @@ func NewDB(t testing.TB) kanbandb.DB {
 	return kanbandb.NewDB(NewRawDB(t)).AutoMigrate(true)
 }
 
-// Resources 返回指向临时目录的资源存储选项，测试结束后目录自动清理，供需要上传图片的测试使用。
+// Resources 返回指向临时目录的图片存储选项（正式目录和上传临时目录各一个），
+// 测试结束后目录自动清理，供需要上传图片的测试使用。
 func Resources(t testing.TB) kanban.Option {
 	t.Helper()
-	return kanban.WithResources(blobfs.New(t.TempDir()))
+	return kanban.WithResources(blobfs.New(t.TempDir()), blobfs.New(t.TempDir()))
 }
 
 // NewCore 创建一个接好内存数据库的 Core，供业务测试使用。
