@@ -37,6 +37,7 @@ export const ja: Messages = {
     skipToContent: '本文へスキップ',
     about: 'このアプリについて',
   },
+  preferences: { general: '一般' },
   about: {
     title: 'Slate について',
     intro: 'Slate は人と AI エージェントが共用するカンバンです。人はウェブでタスクを動かして要件を書き、エージェントは MCP でボードを読み、タスクを引き受けて作業し、終わったらタスクを「レビュー」列に渡します。',

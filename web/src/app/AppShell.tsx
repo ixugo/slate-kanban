@@ -1,17 +1,14 @@
-// 所有页面共用的外框：顶栏（标志、看板切换、agent、关于、语言、主题、退出）加页面内容区。
+// 所有页面共用的外框：顶栏（标志、看板切换、Agents、设置）加页面内容区。
 
 import { BotIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Link, Outlet, useMatch } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { LogoutButton } from '@/features/auth/LogoutButton'
 import { UpdatePrompt } from '@/features/update/UpdatePrompt'
 import { cn } from '@/lib/utils'
-import { AboutButton } from './AboutButton'
+import { AppSettingsButton } from './AppSettingsButton'
 import { BoardSwitcher } from './BoardSwitcher'
-import { LanguageMenu } from './LanguageMenu'
 import { Logo } from './Logo'
-import { ThemeMenu } from './ThemeMenu'
 
 /** 外框组件；内容区高度撑满剩下的屏幕，看板页要靠它做横向滚动的画布 */
 export function AppShell() {
@@ -41,10 +38,7 @@ export function AppShell() {
               <span className="hidden md:inline">{t('nav.agents')}</span>
             </Link>
           </Button>
-          <AboutButton />
-          <LanguageMenu />
-          <ThemeMenu />
-          <LogoutButton />
+          <AppSettingsButton />
         </div>
       </header>
       <main id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col overflow-auto outline-none">

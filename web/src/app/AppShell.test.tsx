@@ -31,6 +31,11 @@ function setup(route = '/', auth = { required: false, authenticated: true }) {
   return api
 }
 
+async function openSettings() {
+  await userEvent.click(await screen.findByRole('button', { name: en.nav.settings }))
+  return within(await screen.findByRole('dialog', { name: en.nav.settings }))
+}
+
 describe('AppShell', () => {
   it('有"跳到正文"链接，正文区域可以被它聚焦', async () => {
     setup()
@@ -38,22 +43,25 @@ describe('AppShell', () => {
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main')
   })
 
-  it('启用了访问口令且已登录时，顶栏有退出按钮', async () => {
+  it('启用了访问口令且已登录时，设置里有退出按钮', async () => {
     setup('/', { required: true, authenticated: true })
-    expect(await screen.findByRole('button', { name: en.auth.logout })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: en.auth.logout })).toBeNull()
+    expect(await (await openSettings()).findByRole('button', { name: en.auth.logout })).toBeInTheDocument()
   })
 
-  it('没有启用访问口令时，顶栏没有退出按钮', async () => {
+  it('没有启用访问口令时，设置里没有退出按钮', async () => {
     const api = setup()
-    await screen.findByRole('heading', { name: en.boards.title })
+    const dialog = await openSettings()
     await waitFor(() => expect(api.count('GET /api/v1/auth/status')).toBe(1))
-    expect(screen.queryByRole('button', { name: en.auth.logout })).toBeNull()
+    expect(dialog.queryByRole('button', { name: en.auth.logout })).toBeNull()
   })
 
   it('切换语言：界面文字、<html lang>、i18n 当前语言一起变', async () => {
     setup()
-    const select = await screen.findByRole('combobox', { name: en.language.label })
+    const select = (await openSettings()).getByRole('combobox', { name: en.language.label })
     await userEvent.selectOptions(select, 'ja')
+    expect(await screen.findByRole('dialog', { name: ja.nav.settings })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
     expect(await screen.findByRole('heading', { name: ja.boards.title })).toBeInTheDocument()
     expect(document.documentElement.lang).toBe('ja')
     expect(i18n.language).toBe('ja')
@@ -61,7 +69,7 @@ describe('AppShell', () => {
 
   it('语言下拉里五种语言都用自己的文字显示', async () => {
     setup()
-    const select = await screen.findByRole('combobox', { name: en.language.label })
+    const select = (await openSettings()).getByRole('combobox', { name: en.language.label })
     const options = within(select).getAllByRole('option')
     expect(options.map((o) => o.textContent)).toEqual(['简体中文', '繁體中文', 'English', '日本語', '한국어'])
   })
@@ -69,10 +77,8 @@ describe('AppShell', () => {
   it('切换到深色主题：<html> 带上 dark 类', async () => {
     localStorage.setItem(THEME_KEY, 'light')
     setup()
-    const themeBtn = screen.getByRole('button', {
-      name: en.theme.cycleLabel.replace('{{current}}', en.theme.light).replace('{{next}}', en.theme.dark),
-    })
-    await userEvent.click(themeBtn)
+    const themeSelect = (await openSettings()).getByRole('combobox', { name: en.theme.label })
+    await userEvent.selectOptions(themeSelect, 'dark')
     await waitFor(() => expect(document.documentElement).toHaveClass('dark'))
   })
 

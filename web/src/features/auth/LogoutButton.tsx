@@ -1,4 +1,4 @@
-// 顶栏的退出按钮：只在服务端启用了访问口令、并且当前浏览器已通过时才出现。
+// 退出按钮：只在服务端启用了访问口令、并且当前浏览器已通过时才出现。
 
 import { LogOutIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
@@ -16,14 +16,13 @@ export function LogoutButton() {
   return (
     <Button
       type="button"
-      variant="ghost"
-      size="icon"
-      aria-label={t('auth.logout')}
-      title={t('auth.logout')}
+      variant="outline"
+      size="sm"
       disabled={logout.isPending}
       onClick={() => logout.mutate(undefined, { onError: toastError })}
     >
       <LogOutIcon />
+      {t('auth.logout')}
     </Button>
   )
 }

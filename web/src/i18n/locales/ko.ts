@@ -37,6 +37,7 @@ export const ko: Messages = {
     skipToContent: '본문으로 건너뛰기',
     about: '정보',
   },
+  preferences: { general: '일반' },
   about: {
     title: 'Slate 정보',
     intro: 'Slate는 사람과 AI 에이전트가 함께 쓰는 칸반 보드입니다. 사람은 웹에서 작업을 옮기고 요구사항을 쓰고, 에이전트는 MCP로 보드를 읽고 작업을 맡아 처리한 뒤 작업을 \'검토\' 열로 넘깁니다.',

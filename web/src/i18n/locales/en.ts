@@ -40,6 +40,7 @@ export const en = {
     skipToContent: 'Skip to content',
     about: 'About',
   },
+  preferences: { general: 'General' },
   about: {
     title: 'About Slate',
     intro: 'Slate is a kanban board shared by people and AI agents: people drag tasks and write requirements on the web, agents read the board, claim tasks and do the work over MCP, then hand the task to the Review column.',
