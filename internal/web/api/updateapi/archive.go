@@ -8,11 +8,18 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 )
 
 // zipMagic 是 zip 文件开头的两个字节，临时文件没有扩展名时靠它判断格式。
 var zipMagic = []byte("PK")
+
+// isEntry 判断包里的条目是不是要取的文件。新包把文件放在 slate_<tag>_<系统>_<架构>/ 目录下，
+// 旧包平铺在根目录，两种都认，所以只比较最后一段名字。
+func isEntry(entry, name string) bool {
+	return path.Base(entry) == name
+}
 
 // isZip 判断文件是不是 zip：读开头两个字节。
 func isZip(path string) bool {
@@ -48,7 +55,7 @@ func openZipEntry(path, name string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("打开 zip 包: %w", err)
 	}
 	for _, f := range zr.File {
-		if f.Name == name && !f.FileInfo().IsDir() {
+		if isEntry(f.Name, name) && !f.FileInfo().IsDir() {
 			rc, err := f.Open()
 			if err != nil {
 				return nil, errors.Join(err, zr.Close())
@@ -75,7 +82,7 @@ func openTarEntry(path, name string) (io.ReadCloser, error) {
 		if err != nil {
 			return nil, errors.Join(fmt.Errorf("包里没有 %s", name), gz.Close(), f.Close())
 		}
-		if h.Typeflag == tar.TypeReg && h.Name == name {
+		if h.Typeflag == tar.TypeReg && isEntry(h.Name, name) {
 			return readCloser{Reader: tr, closers: []io.Closer{gz, f}}, nil
 		}
 	}

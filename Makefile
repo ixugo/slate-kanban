@@ -266,6 +266,112 @@ docker/publish:
 
 
 # ==================================================================================== #
+# RELEASE
+# ==================================================================================== #
+
+# 发布包的输出目录；打包用的临时目录也放在里面，打完就删
+RELEASE_DIST := dist
+# 历史 tag：只发「压缩包根部直接放程序」的平铺包（没有 slate_<tag>_<系统>_<架构>/ 这一层目录），
+# 补包时保持原样，不额外加安装包。
+# 其余 tag 打两份：同名的平铺包（已发布的旧版自动更新器要求程序在归档根目录），
+# 以及带 _install 后缀、解压后得到一个同名目录的安装包（手动安装用）
+RELEASE_FLAT_TAGS := v0.1.0 v0.1.1
+# 没有启动脚本的历史 tag：v0.1.0 的源码和发布包里都没有 start/stop 脚本
+RELEASE_NO_SCRIPT_TAGS := v0.1.0
+# 写入 main.gitBranch 的值，必须和 main.go 里 officialBranch 的值一致：
+# 只有这样的程序才会被认作官方发布包，才会检查更新
+RELEASE_GIT_BRANCH := release
+# upx 压缩程序，只压 linux 和 windows；本机没装 upx 时传空（make release/assets TAG=... UPX_BIN=）可跳过压缩
+UPX_BIN ?= upx
+# 构建时间只取一次，四个平台的程序共用这一个值
+RELEASE_BUILD_TIME := $(shell date +%s)
+# 四个平台各一个目标，名字是 release/asset/<系统>_<架构>
+RELEASE_ASSETS := release/asset/windows_amd64 release/asset/linux_arm64 release/asset/linux_amd64 release/asset/darwin_arm64
+
+# TAG 由调用方给出（手动运行工作流时是用户填写的）。导出成环境变量后，recipe 里只用 shell 变量 $$TAG 读它，
+# 不让 make 把它拼进命令字符串，带引号、分号的恶意值也就无法变成命令。
+# make 还会把变量值里的 $(...) 当成表达式去执行，所以先看未展开的原始值（$(value) 不展开）：出现 $ 就直接报错
+ifneq ($(findstring $$,$(value TAG)),)
+$(error TAG 里不能出现 $$ 字符)
+endif
+export TAG
+
+# 校验 TAG：不能为空，必须是 v1.2.3 这样的版本号（可带 -rc.1 之类后缀）。它会变成文件名，所以必须先挡住乱写的值
+.PHONY: release/validate-tag
+release/validate-tag:
+	@if [ -z "$$TAG" ]; then echo '错误：需要 TAG，例如 make release/assets TAG=v1.2.3' >&2; exit 1; fi
+	@printf '%s\n' "$$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([-+.][0-9A-Za-z.-]+)*$$' || { echo "错误：TAG 格式不合法: $$TAG" >&2; exit 1; }
+
+# 打包一个平台，参数依次是：系统、架构、程序文件名、归档后缀、启动脚本列表。
+# 所有路径都相对当前目录（也就是被打包的源码目录），所以旧 tag 借用另一份 Makefile 时同样能用；
+# 源码哈希在这里用 git 从当前目录读取，保证记录的是真正被打包的那份源码，而不是触发工作流的提交。
+define release_package
+	set -euo pipefail; \
+	os='$(1)'; arch='$(2)'; bin='$(3)'; ext='$(4)'; \
+	name="slate_$${TAG}_$${os}_$${arch}"; \
+	package_dir="$(RELEASE_DIST)/$${name}"; \
+	mkdir -p "$${package_dir}"; \
+	source_commit=$$(git rev-parse --short=7 HEAD); \
+	ldflags="-s -w -X main.buildVersion=$${TAG} -X main.gitBranch=$(RELEASE_GIT_BRANCH) -X main.gitHash=$${source_commit} -X main.buildTime=$(RELEASE_BUILD_TIME) -X main.release=true"; \
+	CGO_ENABLED=$(CGO_ENABLED) GOOS="$${os}" GOARCH="$${arch}" go build -tags $(GO_TAGS) -trimpath -ldflags="$${ldflags}" -o "$${package_dir}/$${bin}" .; \
+	if [ "$${os}" != "darwin" ] && [ -n '$(UPX_BIN)' ]; then \
+		env -u UPX '$(UPX_BIN)' --best --lzma -q "$${package_dir}/$${bin}"; \
+		env -u UPX '$(UPX_BIN)' -t -q "$${package_dir}/$${bin}"; \
+	fi; \
+	flat=0; skip_scripts=0; \
+	for t in $(RELEASE_FLAT_TAGS); do if [ "$${t}" = "$${TAG}" ]; then flat=1; fi; done; \
+	for t in $(RELEASE_NO_SCRIPT_TAGS); do if [ "$${t}" = "$${TAG}" ]; then skip_scripts=1; fi; done; \
+	scripts=($(5)); \
+	archive_entries=("$${bin}"); \
+	if [ "$${skip_scripts}" -eq 0 ]; then \
+		cp "$${scripts[@]}" "$${package_dir}/"; \
+		archive_entries+=("$${scripts[@]}"); \
+	fi; \
+	source_dir="$${PWD}"; \
+	archive() { \
+		root="$$1"; out="$$2"; shift 2; \
+		if [ "$${ext}" = ".zip" ]; then \
+			( cd "$${root}" && zip -qr "$${source_dir}/$(RELEASE_DIST)/$${out}.zip" "$$@" ); \
+		else \
+			tar -C "$${root}" -czf "$(RELEASE_DIST)/$${out}.tar.gz" "$$@"; \
+		fi; \
+	}; \
+	archive "$${package_dir}" "$${name}" "$${archive_entries[@]}"; \
+	if [ "$${flat}" -eq 0 ]; then archive "$(RELEASE_DIST)" "$${name}_install" "$${name}"; fi; \
+	rm -rf "$${package_dir}"
+endef
+
+# windows/amd64：产出 .zip，程序是 slate.exe，脚本是 bat
+.PHONY: release/asset/windows_amd64
+release/asset/windows_amd64: release/validate-tag web/build
+	@$(call release_package,windows,amd64,slate.exe,.zip,start.bat stop.bat)
+
+# linux/arm64：产出 .tar.gz，脚本是 sh；upx 压缩后体积小很多
+.PHONY: release/asset/linux_arm64
+release/asset/linux_arm64: release/validate-tag web/build
+	@$(call release_package,linux,arm64,slate,.tar.gz,start.sh stop.sh)
+
+# linux/amd64：和 arm64 相同，覆盖最常见的服务器架构
+.PHONY: release/asset/linux_amd64
+release/asset/linux_amd64: release/validate-tag web/build
+	@$(call release_package,linux,amd64,slate,.tar.gz,start.sh stop.sh)
+
+# darwin/arm64：Apple 芯片的程序不用 upx 压缩（压缩会破坏代码签名，支持也不稳定）
+.PHONY: release/asset/darwin_arm64
+release/asset/darwin_arm64: release/validate-tag web/build
+	@$(call release_package,darwin,arm64,slate,.tar.gz,start.sh stop.sh)
+
+## release/assets: 构建四个平台的发布包和 checksums.txt 到 dist/（TAG 必填，例：make release/assets TAG=v1.2.3）
+# 四个平台的包都打好之后，再对本次 TAG 的包生成校验和；优先用 sha256sum，没有（如 macOS）就用 shasum -a 256，两者输出格式相同
+.PHONY: release/assets
+release/assets: release/validate-tag $(RELEASE_ASSETS)
+	@set -euo pipefail; \
+	cd '$(RELEASE_DIST)'; \
+	if command -v sha256sum >/dev/null 2>&1; then sum='sha256sum'; else sum='shasum -a 256'; fi; \
+	$${sum} "slate_$${TAG}_"*.tar.gz "slate_$${TAG}_"*.zip > checksums.txt
+
+
+# ==================================================================================== #
 # PRODUCTION
 # ==================================================================================== #
 

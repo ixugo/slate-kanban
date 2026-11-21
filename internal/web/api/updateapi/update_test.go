@@ -61,11 +61,14 @@ type fakeGitHub struct {
 func newFakeGitHub(t *testing.T, tag, goos, binary string) *fakeGitHub {
 	t.Helper()
 	g := &fakeGitHub{tag: tag, goos: goos, files: map[string][]byte{}}
+	// 新版发布包把文件放在同名的目录里，测试也用这种布局；旧版平铺包另由 TestExtractBinary 覆盖
 	name := fmt.Sprintf("slate_%s_%s_amd64.tar.gz", tag, goos)
 	bin := "slate"
-	pack := tarGz(t, bin, binary)
+	pack := tarGz(t, strings.TrimSuffix(name, ".tar.gz")+"/"+bin, binary)
 	if goos == "windows" {
-		name, bin, pack = fmt.Sprintf("slate_%s_windows_amd64.zip", tag), "slate.exe", zipOf(t, "slate.exe", binary)
+		name = fmt.Sprintf("slate_%s_windows_amd64.zip", tag)
+		bin = "slate.exe"
+		pack = zipOf(t, strings.TrimSuffix(name, ".zip")+"/"+bin, binary)
 	}
 	sum := sha256.Sum256(pack)
 	g.files["/dl/"+name] = pack
@@ -136,6 +139,37 @@ func zipOf(t *testing.T, name, content string) []byte {
 		t.Fatal(err)
 	}
 	return buf.Bytes()
+}
+
+// TestExtractBinary 验证两种包布局都能取出程序：新版放在 slate_<tag>_<系统>_<架构>/ 目录里，
+// 旧版平铺在包根目录；已经发出去的旧包仍要能自动更新。
+func TestExtractBinary(t *testing.T) {
+	cases := []struct {
+		name string
+		pack []byte
+		bin  string
+	}{
+		{"tar.gz 目录包", tarGz(t, "slate_v1.2.0_linux_amd64/slate", "NEW"), "slate"},
+		{"tar.gz 平铺旧包", tarGz(t, "slate", "NEW"), "slate"},
+		{"zip 目录包", zipOf(t, "slate_v1.2.0_windows_amd64/slate.exe", "NEW"), "slate.exe"},
+		{"zip 平铺旧包", zipOf(t, "slate.exe", "NEW"), "slate.exe"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "pack")
+			if err := os.WriteFile(p, c.pack, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			got, err := extractBinary(p, c.bin, t.TempDir())
+			if err != nil {
+				t.Fatalf("取出程序失败: %v", err)
+			}
+			data, err := os.ReadFile(got)
+			if err != nil || string(data) != "NEW" {
+				t.Fatalf("程序内容不对: %q %v", data, err)
+			}
+		})
+	}
 }
 
 // newAPI 用假 GitHub 和一个临时目录里的「程序」创建接口，返回接口和程序路径。
