@@ -170,7 +170,7 @@ func (a API) registerSharedWork(s *mcp.Server) {
 	register(s, spec{
 		name: "finish_card", kind: kindWrite,
 		desc: "完成交接：把 summary 写成评论、记下分支和链接、把任务移到下一列（通常是「审查」）并结束你的领取，全部在一次操作里完成。" +
-			"做完一个任务就调用它，不要自己用 move_card 去拖；是否算完成由审查决定，具体按各列的 instruction。" +
+			"做完一个任务就调用它，不要自己用 move_card 去拖；调用前先用 update_card 在描述末尾补上「任务项」清单（- [x] 已实现，- [ ] 未做），让人看描述就知道做了什么；是否算完成由审查决定，具体按各列的 instruction。" +
 			"summary 要让审查的人不看代码也能知道做了什么、怎么验证的、有什么风险。",
 	}, a.finishCard)
 	register(s, spec{

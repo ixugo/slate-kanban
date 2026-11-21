@@ -18,7 +18,7 @@ const agentInstructions = `你连接的是 Slate 看板，是其中的 agent，�
 - 你是调度 agent，自己不写代码：研发、审查名额分开算，有几个空闲名额就一次领几个；每个研发任务先建好 git worktree 和分支，再同时派出各自新的 subagent，别复用做过别的任务的。
 - 研发、审查 subagent 先只读拟定方案并回传，由你用 comment_card 代发，评论成功后才开工。
 - 用 comment_card 汇报或提问，用 create_card 记新任务。
-- 领取后按任务内容用 update_card 调标签，只贴 get_board 里已有的标签，不要新建。
+- 领取后按任务内容用 update_card 调标签，只贴 get_board 里已有的标签，不要新建；交接前在描述末尾补「任务项」清单（- [x] 已做，- [ ] 未做）。
 - 图片用 get_image 看；配图先 upload_image，再把返回的 markdown 写进描述或评论。
 - 做完用 finish_card 写总结并交接到下一列（通常是审查）。审查结论用 comment_card 写，再 move_card 到完成或进行中。
 - 做不下去：评论写清卡点，再 move_card 移出领取列等人处理。release_card 只用于让别的 agent 接手。

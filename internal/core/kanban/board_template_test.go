@@ -114,6 +114,29 @@ func TestPlanCommentInTemplate(t *testing.T) {
 	}
 }
 
+// TestDoingInstructionTagsAndTaskItems 确认每种语言的进行中列都写明两条规则：
+// 领取后只能从看板已有的标签里挑，不新建标签；交接前要在描述里补上任务项清单。
+func TestDoingInstructionTagsAndTaskItems(t *testing.T) {
+	markers := map[string][2]string{
+		"zh-CN": {"不要新建标签", "「任务项」清单"},
+		"zh-TW": {"不要新建標籤", "「任務項」清單"},
+		"en":    {"do not create new tags", "list of task items"},
+		"ja":    {"新しいタグは作らず", "タスク項目の一覧"},
+		"ko":    {"새 태그를 만들지 말고", "작업 항목 목록"},
+	}
+	for _, locale := range supportedLocales {
+		doing := textsFor(locale).Columns[textDoing].Instruction
+		for _, m := range markers[locale] {
+			if !strings.Contains(doing, m) {
+				t.Errorf("%s 的进行中列提示词缺少 %q", locale, m)
+			}
+		}
+		if before, _, ok := strings.Cut(doing, "finish_card"); !ok || !strings.Contains(before, "update_card") {
+			t.Errorf("%s 的进行中列提示词应该先写 update_card 调标签和补任务项，再写 finish_card", locale)
+		}
+	}
+}
+
 // TestSeedEngineerTexts 验证起步工程师的名称（英文名）和提示词（中文）合法、名称不重名。
 func TestSeedEngineerTexts(t *testing.T) {
 	names := map[string]bool{}

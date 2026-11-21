@@ -69,6 +69,11 @@ func TestGetBoard(t *testing.T) {
 		!strings.Contains(prompt, "评论成功后") {
 		t.Errorf("watch_prompt 应该要求调度者先记录方案再让子 agent 开工: %q", prompt)
 	}
+	for _, want := range []string{"只能从 get_board 返回的 tags 里挑已有的标签", "不要新建标签", "「任务项」清单"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("watch_prompt 应该提醒标签只用已有的、交接前补任务项，缺少 %q: %q", want, prompt)
+		}
+	}
 	missing := call(t, sess, "get_board", map[string]any{"board_id": 9999})
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrBoardNotFound:") {
 		t.Errorf("看板不存在应该是工具错误: %+v", missing)
