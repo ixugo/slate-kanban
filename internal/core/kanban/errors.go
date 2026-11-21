@@ -25,6 +25,12 @@ var (
 	// ErrBoardSlugTaken 看板标识已经被别的看板使用。
 	ErrBoardSlugTaken = reason.NewError("ErrBoardSlugTaken", "看板标识已被使用").WithHTTPStatus(409)
 
+	// ErrProjectTemplateNotFound 自定义项目模板不存在。
+	ErrProjectTemplateNotFound = reason.NewError("ErrProjectTemplateNotFound", "项目模板不存在").WithHTTPStatus(404)
+
+	// ErrProjectTemplateNameTaken 同名自定义模板已存在且未要求覆盖。
+	ErrProjectTemplateNameTaken = reason.NewError("ErrProjectTemplateNameTaken", "已有同名项目模板").WithHTTPStatus(409)
+
 	// ErrColumnNotFound 列不存在，或者不属于请求里指定的看板。
 	ErrColumnNotFound = reason.NewError("ErrColumnNotFound", "列不存在").WithHTTPStatus(404)
 

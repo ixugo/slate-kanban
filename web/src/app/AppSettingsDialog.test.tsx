@@ -17,6 +17,8 @@ describe('AppSettingsDialog', () => {
     expect(await screen.findByRole('dialog', { name: en.nav.settings })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: en.preferences.general, selected: true })).toHaveFocus()
     await userEvent.keyboard('{ArrowDown}')
+    expect(await screen.findByRole('tab', { name: en.preferences.templates, selected: true })).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
     expect(await screen.findByRole('tab', { name: en.nav.about, selected: true })).toHaveFocus()
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -89,6 +91,29 @@ describe('AppSettingsDialog', () => {
     await userEvent.click(screen.getByRole('tab', { name: en.nav.about }))
     expect(dialog).toHaveClass('h-[min(34rem,88dvh)]')
     expect(dialog).toHaveClass('w-[min(36rem,96vw)]')
+  })
+
+  it('模板页签列出模板，重名导入时弹出覆盖确认', async () => {
+    const api = installFakeApi({
+      'GET /api/v1/templates': [{ id: 1, name: 'Mine', updated_at: '2020-01-01T00:00:00Z' }],
+    })
+    renderApp(<AppSettingsButton />)
+    await userEvent.click(screen.getByRole('button', { name: en.nav.settings }))
+    await userEvent.click(await screen.findByRole('tab', { name: en.preferences.templates }))
+    expect(await screen.findByText('Mine')).toBeInTheDocument()
+    const file = new File(
+      [JSON.stringify({ format: 'slate-project-template', version: 1, name: 'Mine', columns: [] })],
+      't.json',
+      { type: 'application/json' },
+    )
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+    expect(await screen.findByRole('dialog', { name: en.app.templates.replaceTitle })).toBeInTheDocument()
+    api.set('POST /api/v1/templates?replace=true', { id: 1, name: 'Mine', updated_at: '2020-01-02T00:00:00Z', tags: [], engineers: [], columns: [] })
+    await userEvent.click(screen.getByRole('button', { name: en.app.templates.replaceConfirm }))
+    expect(api.calls.some((c) => c.method === 'POST' && c.path === '/api/v1/templates' && c.query.get('replace') === 'true')).toBe(
+      true,
+    )
   })
 
   it('取版本失败时显示「未知」，其余内容照常显示', async () => {

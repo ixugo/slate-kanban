@@ -65,6 +65,14 @@ func (c Core) CreateBoard(ctx context.Context, actor Actor, in CreateBoardInput)
 // createBoardOnce 在一个事务里用给定的标识创建看板、起步的列和规则，并追加 board.created 事件。
 // 看板还不存在，没有行可锁，所以传 0 给 run。
 func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardInput, slug string) (*BoardDetail, error) {
+	var tplBody *ProjectTemplateBody
+	if in.ProjectTemplateID > 0 {
+		_, body, err := c.loadProjectTemplateBody(ctx, in.ProjectTemplateID)
+		if err != nil {
+			return nil, err
+		}
+		tplBody = body
+	}
 	var out *BoardDetail
 	err := c.run(ctx, 0, func(u *unit) error {
 		now := u.now()
@@ -78,23 +86,39 @@ func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardIn
 			}
 			return wrapDB("创建看板", err)
 		}
-		tags, err := u.seedTags(ctx, b.ID, in.Template)
-		if err != nil {
-			return err
-		}
-		b.Tags = tags
-		engineers, err := u.seedEngineers(ctx, b.ID, in.Template)
-		if err != nil {
-			return err
-		}
-		b.Engineers = engineers
-		cols, err := u.seedColumns(ctx, b.ID, in.Template, in.Locale)
-		if err != nil {
-			return err
-		}
-		rules, err := u.seedRules(ctx, b.ID, in.Locale, cols)
-		if err != nil {
-			return err
+		var tags []*Tag
+		var engineers []*Engineer
+		var cols []*Column
+		var rules []*Rule
+		if in.ProjectTemplateID > 0 {
+			var err error
+			tags, engineers, cols, err = u.materializeProjectTemplate(ctx, b.ID, tplBody)
+			if err != nil {
+				return err
+			}
+			b.Tags = tags
+			b.Engineers = engineers
+			rules = []*Rule{}
+		} else {
+			var err error
+			tags, err = u.seedTags(ctx, b.ID, in.Template)
+			if err != nil {
+				return err
+			}
+			b.Tags = tags
+			engineers, err = u.seedEngineers(ctx, b.ID, in.Template)
+			if err != nil {
+				return err
+			}
+			b.Engineers = engineers
+			cols, err = u.seedColumns(ctx, b.ID, in.Template, in.Locale)
+			if err != nil {
+				return err
+			}
+			rules, err = u.seedRules(ctx, b.ID, in.Locale, cols)
+			if err != nil {
+				return err
+			}
 		}
 		b.Normalize()
 		out = &BoardDetail{Board: b, Columns: cols, Rules: rules}

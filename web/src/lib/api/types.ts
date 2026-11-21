@@ -317,6 +317,22 @@ export interface CreateBoardInput {
   description?: string
   template?: BoardTemplate
   locale?: string
+  /** 非 0 时从该自定义项目模板复制结构，忽略 template */
+  project_template_id?: number
+}
+
+/** 自定义项目模板列表项 */
+export interface ProjectTemplateSummary {
+  id: number
+  name: string
+  updated_at: string
+}
+
+/** 导入模板成功后的详情 */
+export interface ProjectTemplateDetail extends ProjectTemplateSummary {
+  tags: { text: string; color: string }[]
+  engineers: { name: string; kind: EngineerKind; prompt: string; avatar?: string }[]
+  columns: { name: string; instruction: string; is_done: boolean; next_column: number }[]
 }
 
 /** 修改标签库的一项：id 为空表示新增；整体替换，库里有而入参没有的算删除 */

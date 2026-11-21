@@ -38,6 +38,18 @@ export function ExportSection({ board }: Props) {
             </Button>
           </li>
         ))}
+        <li className="flex items-center justify-between gap-4 py-3">
+          <div className="min-w-0">
+            <p className="text-ui font-medium">{t('settings.export.template')}</p>
+            <p className="text-xs text-muted-foreground">{t('settings.export.templateHint')}</p>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <a href={`${API_PREFIX}/boards/${board.id}/template-export`} download>
+              <DownloadIcon />
+              {t('settings.export.download')}
+            </a>
+          </Button>
+        </li>
       </ul>
     </div>
   )

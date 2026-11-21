@@ -46,6 +46,7 @@ describe('SettingsPage', () => {
     expect(links.map((a) => a.getAttribute('href'))).toEqual([
       '/api/v1/boards/7/export?format=json',
       '/api/v1/boards/7/export?format=md',
+      '/api/v1/boards/7/template-export',
     ])
     for (const link of links) expect(link).toHaveAttribute('download')
     expect(screen.getByText(en.settings.export.jsonHint)).toBeInTheDocument()

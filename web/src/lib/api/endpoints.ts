@@ -31,6 +31,8 @@ import type {
   UpdateApplied,
   UpdateInfo,
   VersionInfo,
+  ProjectTemplateSummary,
+  ProjectTemplateDetail,
 } from './types'
 
 /** 取消请求用的信号，查询函数把 TanStack Query 给的 signal 传进来 */
@@ -208,4 +210,23 @@ export function logout(): Promise<Empty> {
 /** 把粘贴的图片上传到看板，返回可写进 Markdown 的地址 */
 export function uploadAttachment(boardId: number, file: Blob): Promise<Attachment> {
   return upload<Attachment>(`/boards/${boardId}/attachments`, 'file', file)
+}
+
+/** 全部自定义项目模板 */
+export function listProjectTemplates(signal?: Signal): Promise<ProjectTemplateSummary[]> {
+  return request<ProjectTemplateSummary[]>('/templates', { signal })
+}
+
+/** 导入项目模板 JSON；replace 为真时覆盖同名 */
+export function importProjectTemplate(body: unknown, replace?: boolean): Promise<ProjectTemplateDetail> {
+  return request<ProjectTemplateDetail>('/templates', {
+    method: 'POST',
+    body,
+    query: replace ? { replace: true } : undefined,
+  })
+}
+
+/** 删除自定义项目模板 */
+export function deleteProjectTemplate(templateId: number): Promise<Empty> {
+  return request<Empty>(`/templates/${templateId}`, { method: 'DELETE' })
 }

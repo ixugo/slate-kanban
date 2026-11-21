@@ -36,12 +36,13 @@ const (
 
 // CreateBoardInput 是创建看板的入参。
 type CreateBoardInput struct {
-	Name        string `json:"name"`
-	Slug        string `json:"slug"` // 可选，不填就按名称生成
-	Description string `json:"description"`
-	ProjectPath string `json:"project_path"`
-	Template    string `json:"template"` // dev、simple 或 empty，不填按 dev
-	Locale      string `json:"locale"`   // 起步列文案的语言，不认识的按 en
+	Name              string `json:"name"`
+	Slug              string `json:"slug"` // 可选，不填就按名称生成
+	Description       string `json:"description"`
+	ProjectPath       string `json:"project_path"`
+	Template          string `json:"template"`            // dev、simple 或 empty，不填按 dev；有 project_template_id 时忽略
+	Locale            string `json:"locale"`              // 起步列文案的语言，不认识的按 en
+	ProjectTemplateID int64  `json:"project_template_id"` // 非 0 时从该自定义模板复制结构
 }
 
 // UpdateBoardInput 是修改看板的入参。指针字段为 nil 表示不修改，只更新请求里出现的字段。
@@ -75,6 +76,12 @@ func (in *CreateBoardInput) normalize() error {
 		if err := validateSlug(in.Slug); err != nil {
 			return err
 		}
+	}
+	if in.ProjectTemplateID < 0 {
+		return invalidf("project_template_id 不合法")
+	}
+	if in.ProjectTemplateID > 0 {
+		return nil
 	}
 	switch in.Template {
 	case TemplateDev, TemplateSimple, TemplateEmpty:

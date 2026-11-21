@@ -22,20 +22,21 @@ const (
 // unit 是一次写事务用到的全部存储和中间状态。每次调用 run 都会新建一个，
 // 事务结束就丢弃，只被一个 goroutine 使用，所以内部不需要加锁。
 type unit struct {
-	core       Core
-	board      BoardStorer
-	column     ColumnStorer
-	card       CardStorer
-	cardChange CardChangeStorer
-	comment    CommentStorer
-	rule       RuleStorer
-	event      EventStorer
-	cursor     CursorStorer
-	attachment AttachmentStorer
-	tag        TagStorer
-	engineer   EngineerStorer
-	touched    map[int64]int64 // 本事务动过的看板 → 其中最大的事件序号，提交后据此广播
-	after      []func()        // 事务提交成功后要执行的收尾动作，例如删除图片文件
+	core            Core
+	board           BoardStorer
+	column          ColumnStorer
+	card            CardStorer
+	cardChange      CardChangeStorer
+	comment         CommentStorer
+	rule            RuleStorer
+	event           EventStorer
+	cursor          CursorStorer
+	attachment      AttachmentStorer
+	tag             TagStorer
+	engineer        EngineerStorer
+	projectTemplate ProjectTemplateStorer
+	touched         map[int64]int64 // 本事务动过的看板 → 其中最大的事件序号，提交后据此广播
+	after           []func()        // 事务提交成功后要执行的收尾动作，例如删除图片文件
 }
 
 // newEvent 是追加一条事件时由调用方提供的内容，操作者、时间和序号由 emit 补全。
@@ -49,19 +50,20 @@ type newEvent struct {
 // newUnit 为一个事务创建它专用的各类存储，全部是 WithTx 副本，保证都跑在同一个事务连接上。
 func newUnit(c Core, tx orm.Tx) *unit {
 	return &unit{
-		core:       c,
-		board:      c.store.Board().WithTx(tx),
-		column:     c.store.Column().WithTx(tx),
-		card:       c.store.Card().WithTx(tx),
-		cardChange: c.store.CardChange().WithTx(tx),
-		comment:    c.store.Comment().WithTx(tx),
-		rule:       c.store.Rule().WithTx(tx),
-		event:      c.store.Event().WithTx(tx),
-		cursor:     c.store.Cursor().WithTx(tx),
-		attachment: c.store.Attachment().WithTx(tx),
-		tag:        c.store.Tag().WithTx(tx),
-		engineer:   c.store.Engineer().WithTx(tx),
-		touched:    make(map[int64]int64),
+		core:            c,
+		board:           c.store.Board().WithTx(tx),
+		column:          c.store.Column().WithTx(tx),
+		card:            c.store.Card().WithTx(tx),
+		cardChange:      c.store.CardChange().WithTx(tx),
+		comment:         c.store.Comment().WithTx(tx),
+		rule:            c.store.Rule().WithTx(tx),
+		event:           c.store.Event().WithTx(tx),
+		cursor:          c.store.Cursor().WithTx(tx),
+		attachment:      c.store.Attachment().WithTx(tx),
+		tag:             c.store.Tag().WithTx(tx),
+		engineer:        c.store.Engineer().WithTx(tx),
+		projectTemplate: c.store.ProjectTemplate().WithTx(tx),
+		touched:         make(map[int64]int64),
 	}
 }
 

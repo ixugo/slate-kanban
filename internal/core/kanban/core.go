@@ -23,6 +23,7 @@ type Storer interface {
 	Attachment() AttachmentStorer
 	Tag() TagStorer
 	Engineer() EngineerStorer
+	ProjectTemplate() ProjectTemplateStorer
 }
 
 // Core 是看板领域的业务入口，是个很小的值类型，可以直接按值传递。
