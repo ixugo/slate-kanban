@@ -626,7 +626,8 @@ export const zhCN: Messages = {
         loop: 'host 的 loop 只每隔几分钟检查这个监听还活着没有，断了就让 agent 重新挂上。',
       },
       board: '看板',
-      anyBoard: '不指定看板',
+      selectBoard: '选择看板',
+      invalidProject: '请在 URL 的 project 参数中填写已有看板的任务编号前缀，例如 ?project=SLATE。',
       loopTitle: '一行守候提示词（贴给 agent，完整内容由 MCP 的 get_board 返回）',
       notes: {
         resume: '关掉终端或会话、电脑休眠后监听会断：用「恢复会话」里的命令回来，再执行一次 loop，agent 会找回自己持有的任务并重新挂上监听。',

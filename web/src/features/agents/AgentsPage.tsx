@@ -1,23 +1,34 @@
 // Agent 接入页：一句话提示词、怎么持续监听；各宿主的 MCP、skill（可选）命令片段收在默认折叠的“手动安装”里。
 
 import { CopyIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { ConnectGuide } from '@/lib/api/types'
+import { useBoards } from '@/features/boards/useBoards'
+import type { Board, ConnectGuide } from '@/lib/api/types'
 import { describeError } from '@/lib/errors'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { copyWithToast } from './copyText'
 import { SnippetCard } from './SnippetCard'
 import { useConnectGuide } from './useConnectGuide'
+import { parseAgentsProjectParam } from '@/lib/agentsProject'
+import { bindWatchPrompt } from './watchPrompt'
 import { WatchSection } from './WatchSection'
 
 /** 接入页默认导出 */
 export default function AgentsPage() {
   const { t } = useTranslation()
   const { data, error, isPending, isError, refetch } = useConnectGuide()
+  const [params] = useSearchParams()
+  const project = parseAgentsProjectParam(params.get('project'))
+  const [selectedId, setSelectedId] = useState('')
+  const { data: boards, error: boardsError, isPending: boardsPending } = useBoards()
+  // URL 里的 project 能对应上看板就选中它并锁定下拉框；对应不上时不锁，仍可手动选。
+  const paramBoard = project === null ? undefined : boards?.find((b) => b.slug === project)
+  const board = paramBoard ?? boards?.find((b) => String(b.id) === selectedId)
   useDocumentTitle(t('agents.title'))
 
   if (isPending) {
@@ -57,20 +68,29 @@ export default function AgentsPage() {
         <p className="text-ui">{prompt}</p>
         <CopyPromptButton text={prompt} label={t('common.copy')} ok={t('common.copied')} fail={t('agents.copyFailed')} />
       </section>
-      <WatchSection guide={data} />
+      <WatchSection
+        guide={data}
+        board={board}
+        boards={boards}
+        error={boardsError}
+        isPending={boardsPending}
+        locked={paramBoard !== undefined}
+        invalidProject={project !== null && boards !== undefined && paramBoard === undefined}
+        onSelect={setSelectedId}
+      />
       <details className="space-y-4 rounded-2xl bg-card p-5 shadow-card">
         <summary className="cursor-pointer text-body font-semibold tracking-tight">{t('agents.advanced')}</summary>
         <p className="text-ui text-muted-foreground">{t('agents.advancedHint')}</p>
         <p className="text-ui text-muted-foreground">{t('agents.skillOptional')}</p>
         <p className="text-ui text-muted-foreground">{t('agents.nameHint')}</p>
-        <HostTabs guide={data} />
+        <HostTabs guide={data} board={board} />
       </details>
     </Page>
   )
 }
 
 /** 各 host 的命令片段：MCP、管理视图、skill（可选）和长期挂着的启动恢复命令，放在默认折叠的“手动安装”里 */
-function HostTabs({ guide: data }: { guide: ConnectGuide }) {
+function HostTabs({ guide: data, board }: { guide: ConnectGuide; board?: Board }) {
   const { t } = useTranslation()
   return (
     <Tabs defaultValue={data.hosts[0]?.id ?? 'default'}>
@@ -101,7 +121,10 @@ function HostTabs({ guide: data }: { guide: ConnectGuide }) {
             <SnippetCard key={`${h.id}-skill`} snippet={s} />
           ))}
           {h.watch.map((s) => (
-            <SnippetCard key={`${h.id}-${s.kind}`} snippet={s} />
+            <SnippetCard
+              key={`${h.id}-${s.kind}`}
+              snippet={board ? { ...s, code: bindWatchPrompt(s.code, board, h.id === 'codex') } : s}
+            />
           ))}
         </TabsContent>
       ))}

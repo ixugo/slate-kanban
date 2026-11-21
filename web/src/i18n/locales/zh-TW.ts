@@ -627,7 +627,8 @@ export const zhTW: Messages = {
         loop: 'host 的 loop 只每隔幾分鐘檢查這個監聽還活著沒有，斷了就讓 Agent 重新掛上。',
       },
       board: '看板',
-      anyBoard: '不指定看板',
+      selectBoard: '選擇看板',
+      invalidProject: '請在網址的 project 參數中填寫現有看板的任務編號前綴，例如 ?project=SLATE。',
       loopTitle: '一行守候提示詞（貼給 Agent，完整內容由 MCP 的 get_board 回傳）',
       notes: {
         resume: '關掉終端機或工作階段、電腦休眠後監聽會斷：用「恢復工作階段」的指令回來，再執行一次 loop，Agent 會找回自己持有的任務並重新掛上監聽。',

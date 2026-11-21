@@ -13,14 +13,42 @@ import { AppRoutes } from './AppRoutes'
 
 // 显示当前地址，用来断言跳转
 function LocationProbe() {
-  return <output data-testid="location">{useLocation().pathname}</output>
+  const { pathname, search } = useLocation()
+  return (
+    <output data-testid="location">
+      {pathname}
+      {search}
+    </output>
+  )
+}
+
+const connectStub = {
+  base_url: 'http://127.0.0.1:7070',
+  mcp_url: 'http://127.0.0.1:7070/mcp',
+  install_url: 'http://127.0.0.1:7070/install.md',
+  skill_url: 'http://127.0.0.1:7070/skills/slate-kanban/SKILL.md',
+  loop_prompt: 'loop',
+  watch_notes: [],
+  hosts: [
+    {
+      id: 'cursor',
+      name: 'Cursor',
+      mcp: [{ kind: 'worker', title: '工作', lang: 'sh', code: 'mcp' }],
+      skill: [],
+      watch: [],
+    },
+  ],
 }
 
 const boards = [makeBoard({ id: 1, name: 'Slate', slug: 'SLATE' }), makeBoard({ id: 2, name: '官网', slug: 'WEB' })]
 
 // 渲染完整应用，假服务端提供看板列表；auth 是访问口令的状态，默认没有启用口令
 function setup(route = '/', auth = { required: false, authenticated: true }) {
-  const api = installFakeApi({ 'GET /api/v1/boards': boards, 'GET /api/v1/auth/status': auth })
+  const api = installFakeApi({
+    'GET /api/v1/boards': boards,
+    'GET /api/v1/auth/status': auth,
+    'GET /api/v1/connect': connectStub,
+  })
   renderApp(
     <>
       <AppRoutes />
@@ -102,6 +130,35 @@ describe('AppShell', () => {
     setup('/agents')
     const link = await screen.findByRole('link', { name: en.nav.agents })
     expect(link).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('当前接入页链接保留 URL 绑定的看板', async () => {
+    setup('/agents?project=slate')
+    const link = await screen.findByRole('link', { name: en.nav.agents })
+    expect(link).toHaveAttribute('href', '/agents?project=slate')
+  })
+
+  it('在看板页时，agent 链接带上当前看板的 project 参数', async () => {
+    setup('/b/1')
+    await screen.findByRole('combobox', { name: en.nav.switchBoard })
+    const link = await screen.findByRole('link', { name: en.nav.agents })
+    await waitFor(() => expect(link).toHaveAttribute('href', '/agents?project=slate'))
+  })
+
+  it('在首页时，agent 链接不带 project 参数', async () => {
+    setup('/')
+    const link = await screen.findByRole('link', { name: en.nav.agents })
+    expect(link).toHaveAttribute('href', '/agents')
+  })
+
+  it('从看板页点 agent 进入带 project 且锁定看板', async () => {
+    setup('/b/1')
+    const link = await screen.findByRole('link', { name: en.nav.agents })
+    await userEvent.click(link)
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/agents?project=slate'))
+    const select = await screen.findByRole('combobox', { name: en.agents.watch.board })
+    expect(select).toBeDisabled()
+    await waitFor(() => expect(select).toHaveValue('1'))
   })
 
   it('地址不存在时显示 404 并能回到列表', async () => {

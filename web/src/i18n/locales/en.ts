@@ -630,7 +630,8 @@ export const en = {
         loop: 'The host\'s loop only checks every few minutes that this listening is still alive; if it dropped, the agent attaches again.',
       },
       board: 'Board',
-      anyBoard: 'Any board',
+      selectBoard: 'Choose a board',
+      invalidProject: 'Use an existing board’s task prefix in the project URL parameter, for example ?project=SLATE.',
       loopTitle: 'One-line watch prompt (paste it to the agent; the full prompt comes from the MCP get_board)',
       notes: {
         resume: 'Listening drops when the terminal or session closes, or the computer sleeps: come back with the commands under “Resume the session” and run the loop again; the agent will find the tasks it still holds and attach again.',

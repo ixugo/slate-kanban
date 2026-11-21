@@ -631,7 +631,8 @@ export const ko: Messages = {
         loop: 'host의 loop는 이 대기가 아직 살아 있는지 몇 분마다 확인할 뿐입니다. 끊겼다면 에이전트가 다시 대기를 겁니다.',
       },
       board: '보드',
-      anyBoard: '지정 안 함',
+      selectBoard: '보드 선택',
+      invalidProject: 'URL의 project 매개변수에 기존 보드의 작업 접두사를 입력하세요(예: ?project=SLATE).',
       loopTitle: '한 줄 감시 프롬프트(에이전트에게 붙여 넣기. 전체 내용은 MCP의 get_board가 반환)',
       notes: {
         resume: '터미널이나 세션을 닫거나 컴퓨터가 잠자기에 들어가면 대기가 끊깁니다. 「세션 재개」의 명령으로 돌아와 loop를 다시 실행하면, 맡고 있던 작업을 다시 찾고 대기도 다시 시작합니다.',

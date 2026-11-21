@@ -631,7 +631,8 @@ export const ja: Messages = {
         loop: 'host の loop は、この待ち受けがまだ生きているかを数分おきに確認するだけです。切れていればエージェントが再接続します。',
       },
       board: 'ボード',
-      anyBoard: '指定しない',
+      selectBoard: 'ボードを選択',
+      invalidProject: 'URL の project パラメーターに既存のボードのタスク接頭辞を指定してください（例：?project=SLATE）。',
       loopTitle: '1 行の見張りプロンプト（エージェントに貼り付け。全文は MCP の get_board が返す）',
       notes: {
         resume: 'ターミナルやセッションを閉じる、PC がスリープすると待ち受けが切れます。「セッションの再開」のコマンドで戻り、もう一度 loop を実行してください。保持中のタスクを見つけ直し、待ち受けを再開します。',
