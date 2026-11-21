@@ -22,7 +22,7 @@ const (
 	releaseReleased = "released"
 	// releaseRevoked 人把领取收回。
 	releaseRevoked = "revoked"
-	// releaseMoved 卡片被移动到了另一列。
+	// releaseMoved agent 把卡片移动到了另一列。人移动卡片不会放开领取。
 	releaseMoved = "moved"
 )
 
@@ -79,6 +79,16 @@ func (u *unit) clearClaim(ctx context.Context, actor Actor, card *Card, why stri
 		BoardID: card.BoardID, CardID: card.ID, Type: EventCardReleased,
 		Payload: cardPayload(card, map[string]any{"agent": agent, "why": why}),
 	})
+}
+
+// clearClaimOnMove 任务换列时决定要不要放开领取：只有 agent 移动才放开（持有者自己换列就是交接，
+// 别的 agent 只能移动租约已过期的任务）；人移动不动领取，领取留给 agent 自己放开、租约到期或人明确收回，
+// 免得人拖一下卡片，agent 手里还在做的活就被悄悄收走。调用方负责随后保存任务。
+func (u *unit) clearClaimOnMove(ctx context.Context, actor Actor, card *Card) error {
+	if !actor.IsAgent() {
+		return nil
+	}
+	return u.clearClaim(ctx, actor, card, releaseMoved)
 }
 
 // renewLease 在持有者对自己的卡片有动作（改卡、写评论）时顺延租约，返回到期时间有没有变化，

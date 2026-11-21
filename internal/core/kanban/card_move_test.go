@@ -141,27 +141,65 @@ func TestMoveCardNoChange(t *testing.T) {
 	}
 }
 
-// TestMoveCardReleasesClaim 验证换列会清除领取：先写 card.released（带上原持有者和原因），
-// 再写 card.moved；没有被领取的卡片换列不写 card.released；同列调整顺序不清除领取。
-func TestMoveCardReleasesClaim(t *testing.T) {
+// TestMoveCardByHumanKeepsClaim 验证人移动被 agent 持有的卡片：换列和同列调整都不动领取
+// （持有者、到期时间、承担的工程师都原样保留），也不写 card.released，只写 card.moved。
+// 领取只能由 agent 自己放开、租约到期或人明确收回，不能因为人拖了一下就丢掉 agent 的接管状态。
+func TestMoveCardByHumanKeepsClaim(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	a := e.card(t, colReview, "A")
+	other := e.card(t, colReview, "B")
+	e.hold(t, a.ID, "claude")
+	held := e.stored(t, a.ID)
+	held.ClaimEngineerID = 3
+	if err := e.db.Card().Save(ctx, held); err != nil {
+		t.Fatalf("写入承担的工程师失败: %v", err)
+	}
+	want := e.stored(t, a.ID)
+	events := len(e.events(t))
+
+	if _, err := e.core.MoveCard(ctx, testActor, a.ID, kanban.MoveCardInput{BeforeID: other.ID}); err != nil {
+		t.Fatalf("同列调整失败: %v", err)
+	}
+	if _, err := e.core.MoveCard(ctx, testActor, a.ID, kanban.MoveCardInput{ColumnID: e.col(colDoing)}); err != nil {
+		t.Fatalf("换列失败: %v", err)
+	}
+	got := e.stored(t, a.ID)
+	if got.ColumnID != e.col(colDoing) || got.ClaimedBy != "claude" || got.ClaimEngineerID != 3 ||
+		got.ClaimExpiresAt == nil || !got.ClaimExpiresAt.Equal(*want.ClaimExpiresAt) {
+		t.Fatalf("人移动不应该改动领取，期望沿用 %+v，实际 %+v", want, got)
+	}
+	for _, ev := range e.events(t)[events:] {
+		if ev.Type == kanban.EventCardReleased {
+			t.Fatalf("人移动不应该写 card.released: %+v", ev)
+		}
+	}
+	if last := e.lastEvent(t); last.Type != kanban.EventCardMoved || last.CardID != a.ID {
+		t.Fatalf("最后一条应该是 card.moved: %+v", last)
+	}
+}
+
+// TestMoveCardByAgentReleasesClaim 验证持有者 agent 自己换列就是主动放开：先写 card.released
+// （带上原持有者和原因），再写 card.moved；没有被领取的卡片换列不写 card.released。
+func TestMoveCardByAgentReleasesClaim(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
 	a := e.card(t, colDoing, "A")
 	other := e.card(t, colDoing, "B")
-	e.hold(t, a.ID, "claude")
+	e.hold(t, a.ID, testAgent.Name)
 
-	if _, err := e.core.MoveCard(ctx, testActor, a.ID, kanban.MoveCardInput{BeforeID: other.ID}); err != nil {
+	if _, err := e.core.MoveCard(ctx, testAgent, a.ID, kanban.MoveCardInput{BeforeID: other.ID}); err != nil {
 		t.Fatalf("同列调整失败: %v", err)
 	}
 	if got := e.stored(t, a.ID); got.ClaimedBy != "claude" || got.ClaimExpiresAt == nil {
 		t.Fatalf("同列调整不应该清除领取: %+v", got)
 	}
 
-	if _, err := e.core.MoveCard(ctx, testActor, a.ID, kanban.MoveCardInput{ColumnID: e.col(colReview)}); err != nil {
+	if _, err := e.core.MoveCard(ctx, testAgent, a.ID, kanban.MoveCardInput{ColumnID: e.col(colReview)}); err != nil {
 		t.Fatalf("换列失败: %v", err)
 	}
 	if got := e.stored(t, a.ID); got.ClaimedBy != "" || got.ClaimExpiresAt != nil {
-		t.Fatalf("换列应该清除领取: %+v", got)
+		t.Fatalf("持有者自己换列应该清除领取: %+v", got)
 	}
 	events := e.events(t)
 	released, moved := events[len(events)-2], events[len(events)-1]

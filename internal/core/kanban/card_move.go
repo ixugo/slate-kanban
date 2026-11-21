@@ -20,7 +20,8 @@ func checkCardMovable(actor Actor, card *Card, now time.Time) error {
 // 入参的 ColumnID 为零表示留在当前列；BeforeID 和 AfterID 最多给一个，表示放到那张卡的前面或后面，
 // 都不给就放到目标列末尾（Top 为真时放到最顶部）。人可以移动任何卡片；agent 可以移动没有被别的 agent
 // 持有的卡片，卡片能放进哪一列、什么状态下该由谁动，由列的提示词约定，这里不按列限制。
-// 换列会清除领取并写 card.moved；同列调整顺序写 card.reordered；位置没有变化时什么都不做。
+// 换列写 card.moved，agent 换列时同时清除领取，人换列不动领取；同列调整顺序写 card.reordered；
+// 位置没有变化时什么都不做。
 func (c Core) MoveCard(ctx context.Context, actor Actor, cardID int64, in MoveCardInput) (*Card, error) {
 	if err := requireWriter(actor); err != nil {
 		return nil, err
@@ -125,10 +126,10 @@ func (u *unit) reorderCard(ctx context.Context, actor Actor, card *Card, pos flo
 	})
 }
 
-// relocateCard 把卡片搬到另一列：先清除领取（卡片不在原来的列了，原来的领取没有意义），
+// relocateCard 把卡片搬到另一列：agent 移动时先清除领取，人移动时领取原样保留（见 clearClaimOnMove），
 // 再保存新的列和位置，最后追加 card.moved 事件。
 func (u *unit) relocateCard(ctx context.Context, actor Actor, card *Card, from, to *Column, pos float64) error {
-	if err := u.clearClaim(ctx, actor, card, releaseMoved); err != nil {
+	if err := u.clearClaimOnMove(ctx, actor, card); err != nil {
 		return err
 	}
 	card.ColumnID, card.Position = to.ID, pos

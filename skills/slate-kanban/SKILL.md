@@ -68,7 +68,8 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 - 你离线期间发生的更新，上线后第一次 `wait_for_updates` 或 `pull_updates` 就会补给你，不用自己记时间。处理完这一批，才把返回的 `cursor` 当作下一次的 `since`。
 - 你自己和你的子 agent 做的操作（包括审查子 agent 把任务放回进行中）不会作为事件推给你，要靠子 agent 返回的结果知道。事件里有 `type` 和 `card_id`。涉及你正在做的任务时：
   - `comment.added`、`card.updated`：人有新的补充。用 `get_card` 读一下，转告子 agent。
-  - `card.moved`、`card.released`：领取已经结束（被人收回或移走）。让子 agent 停下，把还没提交的成果告诉用户，不要继续改。
+  - `card.released`：领取已经结束（被人收回，或租约被别人接手）。让子 agent 停下，把还没提交的成果告诉用户，不要继续改。
+  - `card.moved`：人把任务移了列。人移动不会收回领取，所以只有 `card.moved`、没有 `card.released` 时，任务仍然归你：用 `get_card` 看新位置和新评论，转告子 agent，继续做，按任务现在所在列的提示词判断后面怎么走。
 - 订阅资源 `slate://boards/{board_id}` 可以在看板变化时收到通知，但通知只是提示，可能丢失，不能代替上面的循环。
 
 怎么守候，要看你所在的 host 允许什么：

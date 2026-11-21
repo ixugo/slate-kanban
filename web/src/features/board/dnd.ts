@@ -126,7 +126,7 @@ export function computePosition(prev?: number, next?: number): number {
 }
 
 /**
- * 在本地预测移动后的快照，用于乐观更新：换列时同步列名、完成状态，并清掉领取（服务端换列会收回领取）。
+ * 在本地预测移动后的快照，用于乐观更新：换列时同步列名、完成状态；领取原样保留（人移动任务，服务端不会收回 agent 的领取）。
  * 预测不了自动化规则的副作用，接口成功后实时流会触发重取，以服务端的结果为准。找不到卡片或列时原样返回。
  */
 export function applyMoveToSnapshot(snapshot: Snapshot, cardId: number, plan: MovePlan): Snapshot {
@@ -152,9 +152,6 @@ export function applyMoveToSnapshot(snapshot: Snapshot, cardId: number, plan: Mo
           column_id: column.id,
           column: column.name,
           done: column.is_done,
-          claimed_by: '',
-          claim_expires_at: null,
-          claim_active: false,
         }
   return { ...snapshot, cards: snapshot.cards.map((c) => (c.id === cardId ? moved : c)) }
 }

@@ -241,9 +241,14 @@ describe('applyMoveToSnapshot', () => {
     expect(moved.done).toBe(true)
   })
 
-  it('换列清掉领取，同列移动保留领取', () => {
+  it('人换列和同列移动都保留 agent 的领取', () => {
     const moved = applyMoveToSnapshot(snapshot, 3, { columnId: 1 }).cards.find((c) => c.id === 3)!
-    expect(moved).toMatchObject({ column_id: 1, claimed_by: '', claim_active: false, claim_expires_at: null })
+    expect(moved).toMatchObject({
+      column_id: 1,
+      claimed_by: 'codex',
+      claim_active: true,
+      claim_expires_at: '2026-11-18T09:00:00Z',
+    })
     const stay = applyMoveToSnapshot(snapshot, 3, { columnId: 2 }).cards.find((c) => c.id === 3)!
     expect(stay).toMatchObject({ claimed_by: 'codex', claim_active: true })
   })

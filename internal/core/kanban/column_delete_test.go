@@ -70,7 +70,7 @@ func TestDeleteColumnWithCardsNeedsTarget(t *testing.T) {
 }
 
 // TestDeleteColumnMovesCards 验证删除有卡片的列：卡片按原顺序追加到目标列末尾，版本各加一，
-// 被领取的卡片清掉领取并写 card.released，只写一条 column.deleted（不为每张卡片写 card.moved），
+// 人删列搬走的卡片保留 agent 的领取、不写 card.released，只写一条 column.deleted（不为每张卡片写 card.moved），
 // 并且不触发自动化规则。
 func TestDeleteColumnMovesCards(t *testing.T) {
 	ctx := context.Background()
@@ -90,14 +90,18 @@ func TestDeleteColumnMovesCards(t *testing.T) {
 	}
 	for _, c := range []*kanban.Card{first, second} {
 		got := e.stored(t, c.ID)
-		if got.ColumnID != e.col(colReview) || got.Version != 2 || got.Priority != 0 || got.ClaimedBy != "" {
-			t.Fatalf("搬过去的卡片不对（版本加一、不触发规则、领取清掉）: %+v", got)
+		wantClaim := ""
+		if c.ID == second.ID {
+			wantClaim = "claude"
+		}
+		if got.ColumnID != e.col(colReview) || got.Version != 2 || got.Priority != 0 || got.ClaimedBy != wantClaim {
+			t.Fatalf("搬过去的卡片不对（版本加一、不触发规则、领取原样保留）: %+v", got)
 		}
 	}
 	if got := e.stored(t, existing.ID); got.Version != 1 || got.Priority != 0 {
 		t.Fatalf("目标列原有的卡片不应该变化: %+v", got)
 	}
-	want := []string{kanban.EventCardReleased, kanban.EventColumnDeleted}
+	want := []string{kanban.EventColumnDeleted}
 	if got := e.eventTypes(t, events); !slices.Equal(got, want) {
 		t.Fatalf("事件应该是 %v，实际 %v", want, got)
 	}

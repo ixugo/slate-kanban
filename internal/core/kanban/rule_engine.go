@@ -233,8 +233,8 @@ func (r *ruleRun) removeTag(ctx context.Context, text string) (effect bool, skip
 
 // move 执行 move_to_column：把卡片移到目标列末尾，追加 card.moved 事件（操作者是 system），
 // 再以更深一层继续触发离开原列和进入目标列的规则。目标列已经不存在时跳过并说明原因，
-// 卡片本来就在目标列时什么都不做。进入规则的时候卡片一定没有领取：创建时没有，
-// 换列和完成交接已经清掉了，所以这里不用再清。
+// 卡片本来就在目标列时什么都不做。规则不动卡片的领取：agent 换列和完成交接在进入引擎前已经清掉，
+// 人换列时领取保留，规则只管列和位置，所以这里不用再清。
 func (r *ruleRun) move(ctx context.Context, rule *Rule, a RuleAction, depth int) (effect bool, skip string, err error) {
 	ix, err := r.index(ctx)
 	if err != nil {

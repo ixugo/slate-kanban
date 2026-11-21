@@ -269,7 +269,7 @@ func (u *unit) deleteColumn(ctx context.Context, actor Actor, boardID, columnID,
 }
 
 // evacuateColumn 把列里的卡片按原顺序追加到 moveTo 指定的列末尾，返回目标列的主键和搬走的张数。
-// 列是空的不需要目标列，返回 0 和 0。卡片换了列，原来的领取不再有意义，所以一并清掉。
+// 列是空的不需要目标列，返回 0 和 0。领取的处理和移动卡片一致：agent 操作时清掉，人操作时保留。
 // 复杂度是这一列的卡片数，一列的卡片数预期在几百张以内。
 func (u *unit) evacuateColumn(ctx context.Context, actor Actor, cols []*Column, col *Column, moveTo int64) (int64, int, error) {
 	cards, err := u.card.ListByColumn(ctx, col.ID)
@@ -291,7 +291,7 @@ func (u *unit) evacuateColumn(ctx context.Context, actor Actor, cols []*Column, 
 		return 0, 0, err
 	}
 	for _, card := range cards {
-		if err := u.clearClaim(ctx, actor, card, releaseMoved); err != nil {
+		if err := u.clearClaimOnMove(ctx, actor, card); err != nil {
 			return 0, 0, err
 		}
 		card.ColumnID, card.Position = target.ID, pos
