@@ -1,4 +1,4 @@
-// 卡片描述：平时是渲染好的 Markdown（点一下进入编辑，任务框可直接勾选）；
+// 卡片描述：平时是渲染好的 Markdown（双击正文进入编辑，任务框可直接勾选）；
 // 编辑时是实时渲染编辑器：没有保存按钮，焦点离开或 Ctrl/Cmd+Enter 就保存，Esc 放弃修改。
 
 import { useState, type FocusEvent, type MouseEvent } from 'react'
@@ -6,19 +6,20 @@ import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { LazyEditor } from '@/features/editor/LazyEditor'
 import { toggleTaskAt } from '@/lib/md/blocks'
-import { Markdown } from '@/lib/markdown'
+import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
 import { CARD_DESC_MAX } from '@/lib/limits'
 
 interface DescriptionEditorProps {
   value: string
   onSave: (next: string) => void
+  renderCardReference?: CardReferenceRenderer
   busy?: boolean
   /** 粘贴的图片上传到这个看板 */
   boardId: number
 }
 
 /** 描述的查看与编辑 */
-export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionEditorProps) {
+export function DescriptionEditor({ value, onSave, renderCardReference, busy, boardId }: DescriptionEditorProps) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
@@ -45,10 +46,10 @@ export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionE
     save()
   }
 
-  /** 点在链接或任务框上不进入编辑，其余地方点一下就开始编辑 */
-  const onViewClick = (e: MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('a, input, button')) return
-    if (window.getSelection()?.toString()) return
+  /** 链接、卡片引用和任务框继续接收自己的交互 */
+  const onViewDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
+    if ((e.target as Element).closest('a, input, button')) return
+    e.preventDefault()
     startEdit()
   }
 
@@ -77,17 +78,20 @@ export function DescriptionEditor({ value, onSave, busy, boardId }: DescriptionE
           />
         </div>
       ) : value ? (
-        <div className="-mx-2.5 cursor-text rounded-xl px-2.5 py-1.5 transition-colors hover:bg-secondary/50" onClick={onViewClick}>
-          <Markdown source={value} onToggleTask={busy ? undefined : (line) => onSave(toggleTaskAt(value, line))} />
+        <div className="-mx-2.5 cursor-text rounded-xl px-2.5 py-1.5 transition-colors hover:bg-secondary/50" onDoubleClick={onViewDoubleClick}>
+          <Markdown
+            source={value}
+            onToggleTask={busy ? undefined : (line) => onSave(toggleTaskAt(value, line))}
+            renderCardReference={renderCardReference}
+          />
         </div>
       ) : (
-        <button
-          type="button"
-          className="block min-h-16 w-full cursor-text rounded-xl bg-secondary/50 px-3 py-2.5 text-left text-ui text-muted-foreground transition-colors hover:bg-secondary"
-          onClick={startEdit}
+        <div
+          className="min-h-16 cursor-text rounded-xl bg-secondary/50 px-3 py-2.5 text-ui text-muted-foreground transition-colors hover:bg-secondary"
+          onDoubleClick={onViewDoubleClick}
         >
           {t('card.descPlaceholder')}
-        </button>
+        </div>
       )}
     </div>
   )

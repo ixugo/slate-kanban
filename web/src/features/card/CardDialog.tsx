@@ -1,6 +1,6 @@
-// 卡片详情弹窗：由 ?card= 控制开关，宽屏两栏布局。
+// 卡片详情弹窗：由 ?card= 打开根卡片，描述和评论的引用可在同一个弹窗里逐层打开。
 
-import { useCallback } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
@@ -9,9 +9,10 @@ import { deleteCard, releaseCard } from '@/lib/api/endpoints'
 import { describeError } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { CardDetail, Snapshot, UpdateCardInput } from '@/lib/api/types'
+import type { Card, CardDetail, Snapshot, UpdateCardInput } from '@/lib/api/types'
 import { queryKeys } from '@/lib/queryKeys'
 import { useErrorToast } from '@/lib/useErrorToast'
+import { toast } from '@/lib/toast'
 import { parseId } from '@/lib/route'
 import { fromLocalInput } from '@/lib/format'
 import { useMoveCard } from '@/features/board/useMoveCard'
@@ -21,6 +22,7 @@ import { useCardUpdate } from './useCardUpdate'
 import { useLanguage } from '@/i18n/useLanguage'
 import { CardDialogBody } from './CardDialogBody'
 import { CardHeaderBar } from './CardHeaderBar'
+import { CardReference } from './CardReference'
 
 interface CardDialogProps {
   boardId: number
@@ -34,23 +36,11 @@ function keepDialogWhenEditorCancels(e: KeyboardEvent) {
   if ((e.target as HTMLElement | null)?.closest?.('[data-escape-cancel]')) e.preventDefault()
 }
 
-/** 根据 URL 参数打开卡片弹窗 */
+/** URL 只记录用户打开的根卡片，切换根卡片时清空引用层。 */
 export default function CardDialog({ boardId }: CardDialogProps) {
-  const { t } = useTranslation()
-  const { lang } = useLanguage()
   const [params, setParams] = useSearchParams()
-  const cardParam = params.get('card')
-  const cardId = parseId(cardParam)
-  const open = cardId !== null
-  const { data: card, error, isPending } = useCardDetail(cardParam)
-  const { data: snapshot } = useBoardSnapshot(boardId)
-  const { columns } = useBoardView(snapshot)
-  const patch = useCardUpdate()
-  const move = useMoveCard(boardId)
-  const queryClient = useQueryClient()
-  const toastError = useErrorToast()
-
-  const close = useCallback(() => {
+  const rootId = parseId(params.get('card'))
+  const closeAll = useCallback(() => {
     setParams((prev) => {
       const next = new URLSearchParams(prev)
       next.delete('card')
@@ -58,10 +48,57 @@ export default function CardDialog({ boardId }: CardDialogProps) {
     })
   }, [setParams])
 
+  if (rootId === null) return null
+  return <CardDialogStack key={`${boardId}:${rootId}`} boardId={boardId} rootId={rootId} closeAll={closeAll} />
+}
+
+function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { rootId: number; closeAll: () => void }) {
+  const { t } = useTranslation()
+  const { lang } = useLanguage()
+  const [references, setReferences] = useState<number[]>([])
+  const cardId = references.at(-1) ?? rootId
+  const { data: card, error, isPending } = useCardDetail(cardId)
+  const { data: snapshot } = useBoardSnapshot(boardId)
+  const cardsByNumber = useMemo(
+    () => new Map(snapshot?.cards.map((candidate) => [candidate.number, candidate])),
+    [snapshot?.cards],
+  )
+  const { columns } = useBoardView(snapshot)
+  const patch = useCardUpdate()
+  const move = useMoveCard(boardId)
+  const queryClient = useQueryClient()
+  const toastError = useErrorToast()
+
+  const content = useRef<HTMLDivElement>(null)
+  const layer = useRef({ cardId, depth: references.length })
+  useLayoutEffect(() => {
+    layer.current = { cardId, depth: references.length }
+    content.current?.focus({ preventScroll: true })
+  }, [cardId, references.length])
+
+  const closeCard = (id: number) => {
+    if (layer.current.cardId !== id) return
+    if (layer.current.depth === 0) closeAll()
+    else setReferences((previous) => previous.at(-1) === id ? previous.slice(0, -1) : previous)
+  }
+
+  const openReference = (target: Card | undefined) => {
+    if (!target) {
+      toast.error(t('card.notFound'))
+      return
+    }
+    setReferences((previous) => (previous.at(-1) ?? rootId) === target.id ? previous : [...previous, target.id])
+  }
+
+  const renderCardReference = (number: number, label: string) => {
+    const target = cardsByNumber.get(number)
+    return <CardReference label={label} card={target} onOpen={() => openReference(target)} />
+  }
+
   const depOptions = useDepOptions(snapshot, card)
 
   const onPatch = (input: UpdateCardInput) => {
-    if (!cardId || !card) return
+    if (!card) return
     const body = { ...input, version: input.version ?? card.version }
     if (typeof body.due_at === 'string' && body.due_at !== '') {
       const iso = fromLocalInput(body.due_at)
@@ -77,18 +114,18 @@ export default function CardDialog({ boardId }: CardDialogProps) {
   }
 
   const release = useMutation({
-    mutationFn: () => releaseCard(card!.id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.card(card!.id) })
+    mutationFn: releaseCard,
+    onSuccess: (_, id) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.card(id) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
     },
     onError: toastError,
   })
 
   const remove = useMutation({
-    mutationFn: () => deleteCard(card!.id),
-    onSuccess: () => {
-      close()
+    mutationFn: deleteCard,
+    onSuccess: (_, id) => {
+      closeCard(id)
       void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
     },
     onError: toastError,
@@ -97,32 +134,42 @@ export default function CardDialog({ boardId }: CardDialogProps) {
   // 只有服务端明确说卡片不存在（404）才提示"已经没有这张卡片"；
   // 断网、服务器出错时如实说明原因，不能让人误以为卡片被删了。
   const gone = error instanceof ApiError && error.status === 404
-  const loaded = open && !isPending
+  const loaded = !isPending
   const showNotFound = loaded && (gone || (error === null && !card))
   const loadError = loaded && !card && error !== null && !gone ? describeError(error, t).message : ''
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && close()}>
+    <Dialog open onOpenChange={(open) => !open && closeCard(cardId)}>
       <DialogContent
+        ref={content}
+        tabIndex={-1}
         onEscapeKeyDown={keepDialogWhenEditorCancels}
+        onPointerDownOutside={(event) => {
+          const { target, button, ctrlKey } = event.detail.originalEvent
+          if (!(target instanceof Element) || !target.matches('[data-slot="dialog-overlay"]')) return
+          event.preventDefault()
+          if (button === 0 && !ctrlKey) closeAll()
+        }}
         className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden bg-popover! p-0 backdrop-blur-none! sm:w-full sm:max-w-4xl"
       >
-        <CardHeaderBar card={card} columns={columns} onColumn={onColumn} onDelete={() => remove.mutate()} deleteBusy={remove.isPending} />
+        <CardHeaderBar card={card} columns={columns} onColumn={onColumn} onDelete={() => remove.mutate(cardId)} deleteBusy={remove.isPending && remove.variables === cardId} />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-hidden">
           {isPending && <Skeleton className="m-6 h-40 rounded-2xl" />}
           {showNotFound && <p role="alert" className="p-6">{t('card.notFound')}</p>}
           {loadError !== '' && <p role="alert" className="p-6">{loadError}</p>}
           {card && (
             <CardDialogBody
+              key={cardId}
               card={card}
               depOptions={depOptions}
               lang={lang}
               boardId={boardId}
               onPatch={onPatch}
               onDesc={(description) => onPatch({ description, version: card.version })}
-              patchBusy={patch.isPending}
-              onRelease={() => release.mutate()}
-              releaseBusy={release.isPending}
+              renderCardReference={renderCardReference}
+              patchBusy={patch.isPending && patch.variables?.cardId === cardId}
+              onRelease={() => release.mutate(cardId)}
+              releaseBusy={release.isPending && release.variables === cardId}
             />
           )}
         </div>

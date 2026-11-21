@@ -17,7 +17,7 @@ import { displayKey } from '@/lib/cardKey'
 const PRIORITY_DOT = ['', 'bg-p-low', 'bg-p-mid', 'bg-p-high'] as const
 
 /** 磁贴的外观：链接版和拖拽时跟手的那一份共用；iOS 的长按链接预览会和长按拖拽冲突，所以关掉 */
-const TILE_CLASS =
+export const TILE_CLASS =
   'group relative flex shrink-0 flex-col gap-2 overflow-hidden rounded-[0.875rem] bg-card p-3 text-left shadow-card outline-none transition-[box-shadow,opacity,translate] duration-300 ease-spring [-webkit-touch-callout:none]'
 
 interface CardTileProps {
@@ -26,8 +26,8 @@ interface CardTileProps {
   dragDisabled?: boolean
 }
 
-/** 磁贴里的内容：编号和领取者（同一行）、标题、标签、截止日期、状态图标 */
-function TileBody({ card }: { card: CardView }) {
+/** 磁贴里的内容：编号和领取者（同一行）、标题、标签、截止日期、状态图标；引用预览也用它，保证和看板上一模一样 */
+export function TileBody({ card }: { card: CardView }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const overdue = card.due_at && !card.done && isPast(card.due_at)

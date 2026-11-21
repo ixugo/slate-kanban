@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { LazyEditor } from '@/features/editor/LazyEditor'
 import { actorLabel, describeEvent } from '@/features/activity/describeEvent'
 import { ViewChangeLink } from '@/features/activity/ViewChangeLink'
-import { Markdown } from '@/lib/markdown'
+import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
 import { COMMENT_MAX } from '@/lib/limits'
 import { queryKeys } from '@/lib/queryKeys'
 import { useErrorToast } from '@/lib/useErrorToast'
@@ -24,6 +24,7 @@ interface CardTimelineProps {
   cardId: number
   boardId: number
   comments: Comment[]
+  renderCardReference: CardReferenceRenderer
 }
 
 const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent: BotIcon, system: ZapIcon }
@@ -55,7 +56,7 @@ function EventLine({ event }: { event: BoardEvent }) {
 }
 
 /** 评论和活动 */
-export function CardTimeline({ cardId, boardId, comments }: CardTimelineProps) {
+export function CardTimeline({ cardId, boardId, comments, renderCardReference }: CardTimelineProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const [body, setBody] = useState('')
@@ -131,7 +132,7 @@ export function CardTimeline({ cardId, boardId, comments }: CardTimelineProps) {
                   {t('common.delete')}
                 </Button>
               </div>
-              <Markdown source={item.comment.body} />
+              <Markdown source={item.comment.body} renderCardReference={renderCardReference} />
             </li>
           ),
         )}

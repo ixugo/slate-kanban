@@ -2,10 +2,11 @@
 // 输出全是 React 节点，不用 dangerouslySetInnerHTML；也不接 react-markdown，避免把解析库打进首屏。
 // 解析交给 lib/md（和编辑器共用一份），这里只负责把块树和行内节点画成界面。
 
-import { useId, type ReactNode } from 'react'
+import { Fragment, useId, type ReactNode } from 'react'
 import { parseBlocks, type Block, type ListItem } from '@/lib/md/blocks'
 import { parseInline, type Inline } from '@/lib/md/inline'
 import { cn } from '@/lib/utils'
+import { parseId } from '@/lib/route'
 
 /** 各级标题的字号字重（下标就是级别，0 不用） */
 const HEADING_CLASS = [
@@ -20,19 +21,39 @@ const HEADING_CLASS = [
 
 const CODE_CLASS = 'rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[0.9em]'
 
+/** 调用方可为普通正文中的卡片编号提供交互。 */
+export type CardReferenceRenderer = (number: number, label: string) => ReactNode
+
 /** 渲染时要用到的上下文：id 前缀用来给任务项的文字起不重复的 id，onToggleTask 不为空时勾选框可点 */
 interface Ctx {
   prefix: string
   onToggleTask?: (line: number) => void
+  renderCardReference?: CardReferenceRenderer
+}
+
+/** 仅在普通正文中把独立的 #数字 连到同板卡片。 */
+function renderReferences(text: string, key: string, render: CardReferenceRenderer): ReactNode {
+  const parts: ReactNode[] = []
+  let end = 0
+  for (const match of text.matchAll(/(?<![\w#])#(\d+)(?!\w)/g)) {
+    const number = parseId(match[1])
+    if (number === null) continue
+    parts.push(
+      text.slice(end, match.index),
+      <Fragment key={`${key}.${match.index}`}>{render(number, match[0])}</Fragment>,
+    )
+    end = match.index + match[0].length
+  }
+  return end === 0 ? text : [...parts, text.slice(end)]
 }
 
 /** 把行内节点画成 React 片段；链接的协议已经在解析时筛过，这里只管画 */
-function renderInline(nodes: readonly Inline[], key: string): ReactNode[] {
+function renderInline(nodes: readonly Inline[], key: string, renderCardReference?: Ctx['renderCardReference']): ReactNode[] {
   return nodes.map((node, i) => {
     const k = `${key}.${i}`
     switch (node.kind) {
       case 'text':
-        return node.text
+        return renderCardReference ? renderReferences(node.text, k, renderCardReference) : node.text
       case 'esc':
         return node.char
       case 'code':
@@ -55,7 +76,7 @@ function renderInline(nodes: readonly Inline[], key: string): ReactNode[] {
         )
       case 'span': {
         const Tag = node.tag
-        return <Tag key={k}>{renderInline(node.children, k)}</Tag>
+        return <Tag key={k}>{renderInline(node.children, k, renderCardReference)}</Tag>
       }
     }
   })
@@ -65,7 +86,7 @@ function renderInline(nodes: readonly Inline[], key: string): ReactNode[] {
 function renderItem(item: ListItem, key: string, ctx: Ctx): ReactNode {
   const body = (
     <>
-      {renderInline(parseInline(item.text), key)}
+      {renderInline(parseInline(item.text), key, ctx.renderCardReference)}
       {item.children.length > 0 && <div className="mt-1 space-y-1">{renderBlocks(item.children, `${key}c`, ctx)}</div>}
     </>
   )
@@ -101,7 +122,7 @@ function renderBlock(block: Block, key: string, ctx: Ctx): ReactNode {
       const Tag = `h${block.level}` as 'h1'
       return (
         <Tag key={key} className={HEADING_CLASS[block.level]}>
-          {renderInline(parseInline(block.text), key)}
+          {renderInline(parseInline(block.text), key, ctx.renderCardReference)}
         </Tag>
       )
     }
@@ -128,7 +149,7 @@ function renderBlock(block: Block, key: string, ctx: Ctx): ReactNode {
     case 'p':
       return (
         <p key={key} className="whitespace-pre-wrap">
-          {renderInline(parseInline(block.text), key)}
+          {renderInline(parseInline(block.text), key, ctx.renderCardReference)}
         </p>
       )
   }
@@ -143,11 +164,16 @@ function renderBlocks(blocks: readonly Block[], key: string, ctx: Ctx): ReactNod
  * 渲染一整段 Markdown。
  * 传入 onToggleTask 时任务项的勾选框可以点，参数是它在原文里的行号（从 0 数），配合 toggleTaskAt 改写原文。
  */
-export function Markdown({ source, className, onToggleTask }: { source: string; className?: string; onToggleTask?: (line: number) => void }) {
+export function Markdown({ source, className, onToggleTask, renderCardReference }: {
+  source: string
+  className?: string
+  onToggleTask?: Ctx['onToggleTask']
+  renderCardReference?: Ctx['renderCardReference']
+}) {
   const prefix = useId()
   return (
     <div className={cn('markdown space-y-3 text-ui leading-relaxed break-words', className)}>
-      {renderBlocks(parseBlocks(source), 'md', { prefix, onToggleTask })}
+      {renderBlocks(parseBlocks(source), 'md', { prefix, onToggleTask, renderCardReference })}
     </div>
   )
 }

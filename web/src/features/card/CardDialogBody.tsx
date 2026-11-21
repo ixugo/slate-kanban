@@ -5,6 +5,7 @@
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, Engineer, UpdateCardInput } from '@/lib/api/types'
 import { useBoardSnapshot } from '@/features/board/useBoard'
+import type { CardReferenceRenderer } from '@/lib/markdown'
 import { formatDateTime } from '@/lib/format'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,7 @@ interface CardDialogBodyProps {
   boardId: number
   onPatch: (input: UpdateCardInput) => void
   onDesc: (description: string) => void
+  renderCardReference: CardReferenceRenderer
   patchBusy: boolean
   onRelease: () => void
   releaseBusy: boolean
@@ -61,7 +63,7 @@ function ClaimBanner({ card, engineers, lang, onRelease, busy }: { card: CardDet
 }
 
 /** 两栏布局主体 */
-export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDesc, patchBusy, onRelease, releaseBusy }: CardDialogBodyProps) {
+export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDesc, renderCardReference, patchBusy, onRelease, releaseBusy }: CardDialogBodyProps) {
   const { t } = useTranslation()
   const version = card.version
   const engineers = useBoardSnapshot(boardId).data?.engineers ?? NO_ENGINEERS
@@ -99,12 +101,12 @@ export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDes
         </div>
         <CardMeta card={card} depOptions={depOptions} engineers={engineers} onPatch={patch} />
         <section>
-          <DescriptionEditor key={card.version} value={card.description} onSave={onDesc} busy={patchBusy} boardId={boardId} />
+          <DescriptionEditor key={card.version} value={card.description} onSave={onDesc} renderCardReference={renderCardReference} busy={patchBusy} boardId={boardId} />
         </section>
         <CardTimeMeta card={card} lang={lang} />
       </div>
       <aside className="min-w-0 border-t border-border/60 bg-secondary/50 px-5 py-5 md:w-[21rem] md:shrink-0 md:overflow-y-auto md:border-t-0 md:border-l">
-        <CardTimeline cardId={card.id} boardId={boardId} comments={card.comments} />
+        <CardTimeline cardId={card.id} boardId={boardId} comments={card.comments} renderCardReference={renderCardReference} />
       </aside>
     </div>
   )

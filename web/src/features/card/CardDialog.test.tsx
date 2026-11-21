@@ -11,7 +11,7 @@ import { renderApp } from '@/test/renderApp'
 import { installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from '@/features/board/BoardPage'
 import { CARD_TAGS_MAX } from '@/lib/limits'
-import { formatDateTime } from '@/lib/format'
+import { formatDate, formatDateTime } from '@/lib/format'
 import type { Tag, TagInput } from '@/lib/api/types'
 
 const baseDetail = {
@@ -71,7 +71,118 @@ function openBoardWithCard(detail: typeof baseDetail, events: object[] = [], lib
   return api
 }
 
+function openCardReferences() {
+  const root = {
+    ...baseDetail,
+    title: 'First card',
+    description: 'Read #14 and #99.',
+    comments: [{
+      id: 1,
+      board_id: 1,
+      card_id: 1,
+      author_kind: 'human',
+      author: 'human',
+      body: 'Comment #25, `#38`, [link #44](https://example.com) and \\#55.',
+      created_at: '2026-11-18T10:00:00Z',
+      updated_at: '2026-11-18T10:00:00Z',
+    }],
+  }
+  const second = { ...baseDetail, id: 22, number: 14, key: 'TST-14', title: 'Second card', description: 'Read #25.', tag_ids: [7], due_at: '2026-12-01T00:00:00Z' }
+  const third = { ...baseDetail, id: 33, number: 25, title: 'Third card', description: '' }
+  const api = installFakeApi({
+    'GET /api/v1/boards/:id/snapshot': makeSnapshot({
+      tags: [{ id: 7, text: 'Urgent', color: 'red-3' }],
+      cards: [root, second, third],
+    }),
+    'GET /api/v1/cards/1': root,
+    'GET /api/v1/cards/22': second,
+    'GET /api/v1/cards/33': third,
+    'GET /api/v1/boards/:id/activity': { events: [], has_more: false, latest: 0, actors: [] },
+  })
+  renderApp(
+    <Routes>
+      <Route path="/b/:boardId" element={<BoardPage />} />
+    </Routes>,
+    { route: '/b/1?card=1' },
+  )
+  return api
+}
+
 describe('CardDialog', () => {
+  it('评论里的编号打开同板卡片，Markdown 链接、代码和转义保留', async () => {
+    const api = openCardReferences()
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByRole('link', { name: 'link #44' })).toHaveAttribute('href', 'https://example.com')
+    expect(within(dialog).queryByRole('button', { name: /^#(38|44|55)$/ })).toBeNull()
+    const reference = await within(dialog).findByRole('button', { name: '#25' })
+    expect(reference).toHaveAccessibleDescription('Third card')
+    reference.focus()
+    await user.keyboard('{Enter}')
+    expect(await within(dialog).findByDisplayValue('Third card')).toBeInTheDocument()
+    expect(api.count('GET /api/v1/cards/25')).toBe(0)
+    await user.keyboard('{Escape}')
+    expect(await within(dialog).findByDisplayValue('First card')).toBeInTheDocument()
+  })
+
+  it('描述和评论在鼠标悬浮时只对存在的同板任务显示磁贴预览', async () => {
+    openCardReferences()
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    const description = await within(dialog).findByRole('button', { name: '#14' })
+    await user.hover(description)
+    // 悬浮显示的是和看板上一样的任务磁贴：编号、标题、标签、截止时间
+    const preview = screen.getByRole('tooltip')
+    expect(preview).toHaveTextContent('14')
+    expect(preview).toHaveTextContent('Second card')
+    expect(preview).toHaveTextContent('Urgent')
+    expect(preview).toHaveTextContent(formatDate('2026-12-01T00:00:00Z', 'en'))
+    await user.hover(within(dialog).getByDisplayValue('First card'))
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    await user.hover(within(dialog).getByRole('button', { name: '#99' }))
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    const comment = within(dialog).getByRole('button', { name: '#25' })
+    await user.hover(comment)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Third card')
+    await user.click(comment)
+    expect(await within(dialog).findByDisplayValue('Third card')).toBeInTheDocument()
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('引用用同板卡号找 ID，关闭按钮和 Escape 每次返回一层', async () => {
+    const api = openCardReferences()
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await user.click(await within(dialog).findByRole('button', { name: '#14' }))
+    expect(await within(dialog).findByDisplayValue('Second card')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: '#25' }))
+    expect(await within(dialog).findByDisplayValue('Third card')).toBeInTheDocument()
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    await user.keyboard('{Escape}')
+    expect(await within(dialog).findByDisplayValue('Second card')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: en.common.close }))
+    expect(await within(dialog).findByDisplayValue('First card')).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(api.count('GET /api/v1/cards/14')).toBe(0)
+    api.expectNoUnmatched()
+  })
+
+  it('点击遮罩关掉整叠详情，找不到引用时留在原卡', async () => {
+    openCardReferences()
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await user.click(await within(dialog).findByRole('button', { name: '#99' }))
+    expect(await screen.findByText(en.card.notFound)).toBeInTheDocument()
+    expect(within(dialog).getByDisplayValue('First card')).toBeInTheDocument()
+    await user.click(within(dialog).getByRole('button', { name: '#14' }))
+    expect(await within(dialog).findByDisplayValue('Second card')).toBeInTheDocument()
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]')
+    expect(overlay).not.toBeNull()
+    await user.click(overlay as HTMLElement)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+
   it('?card= 打开后修改标题带 version', async () => {
     const api = openBoardWithCard(baseDetail)
     const user = userEvent.setup()
@@ -196,7 +307,7 @@ describe('CardDialog', () => {
     openBoardWithCard({ ...baseDetail, description: '旧描述' })
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
-    await user.click(await within(dialog).findByText('旧描述'))
+    await user.dblClick(await within(dialog).findByText('旧描述'))
     const editor = await within(dialog).findByRole('textbox', { name: en.card.field.description })
     fireEvent.keyDown(editor, { key: 'Escape', code: 'Escape' })
     await waitFor(() => expect(within(dialog).queryByRole('textbox', { name: en.card.field.description })).toBeNull())
