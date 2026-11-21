@@ -40,6 +40,15 @@ describe('忽略记录', () => {
     expect(readIgnored()).toBe('v1.2.3')
   })
 
+  it('旧标签页忽略较低版本时保留已记录的最高版本', () => {
+    saveIgnored('v1.2.3')
+    saveIgnored('v1.2.2')
+    expect(readIgnored()).toBe('v1.2.3')
+
+    saveIgnored('v1.2.4')
+    expect(readIgnored()).toBe('v1.2.4')
+  })
+
   it('存储不可用时读写都不抛错', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('denied')

@@ -34,7 +34,10 @@ export function readIgnored(): string {
 /** 记下被忽略的版本号；写不进去（隐私模式、存储已满）时只在本次页面里生效，不报错 */
 export function saveIgnored(version: string): void {
   try {
-    localStorage.setItem(IGNORED_KEY, version)
+    const ignored = readIgnored()
+    if (!parseVersion(ignored) || isNewer(version, ignored)) {
+      localStorage.setItem(IGNORED_KEY, version)
+    }
   } catch {
     // 忽略：下次打开页面会再提醒一次，不影响使用
   }
