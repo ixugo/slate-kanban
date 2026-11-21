@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/wire"
 	"github.com/ixugo/goddd/pkg/orm"
 	"github.com/ixugo/goddd/pkg/system"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	"slate-kanban/internal/conf"
@@ -54,14 +56,40 @@ func closeDB(db *gorm.DB) {
 	}
 }
 
-// getDialector 返回 dial 和 是否 sqlite；DSN 以 postgres 开头时走 PostgreSQL，
-// 默认构建不含 PostgreSQL 驱动，此时返回错误，而不是把 DSN 当成文件路径建一个怪文件。
+// 识别 DSN 种类用的前缀，不区分大小写。
+// PostgreSQL 用 URL 形式的连接串；SQLite 可以写 sqlite:// 加文件路径，也可以什么前缀都不写，直接写文件路径。
+const (
+	postgresPrefix   = "postgres://"
+	postgresqlPrefix = "postgresql://"
+	sqlitePrefix     = "sqlite://"
+)
+
+// errEmptyDSN 说明数据库 DSN 或 SQLite 文件路径是空的：空路径会让 SQLite 去打开启动目录本身，所以要提前拒绝。
+var errEmptyDSN = errors.New("数据库 DSN 不能为空（Data.Database.Dsn）：填 postgres:// 开头的连接串，或 SQLite 文件路径")
+
+// getDialector 按 DSN 的前缀选数据库，返回 dial 和是否 sqlite：
+//   - postgres:// 或 postgresql:// 开头：PostgreSQL，连接串原样交给 pgx 驱动；
+//   - sqlite:// 开头：去掉前缀，后面是 SQLite 文件路径；
+//   - 其他：整串当成 SQLite 文件路径，所以只写路径的旧配置不用改。
+//
+// 两种驱动都编译进程序，不需要构建标签，换数据库只改配置里的 DSN。
 func getDialector(dsn string) (gorm.Dialector, bool, error) {
-	if strings.HasPrefix(dsn, "postgres") {
-		dial, err := postgresDialector(dsn)
-		return dial, false, err
+	dsn = strings.TrimSpace(dsn)
+	switch {
+	case hasPrefixFold(dsn, postgresPrefix) || hasPrefixFold(dsn, postgresqlPrefix):
+		return postgres.New(postgres.Config{DriverName: "pgx", DSN: dsn}), false, nil
+	case hasPrefixFold(dsn, sqlitePrefix):
+		dsn = dsn[len(sqlitePrefix):]
+	}
+	if dsn == "" {
+		return nil, false, errEmptyDSN
 	}
 	return sqlite.Open(sqliteDSN(dsn)), true, nil
+}
+
+// hasPrefixFold 判断 s 是否以 prefix 开头，忽略大小写（scheme 本来就不区分大小写）。
+func hasPrefixFold(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
 }
 
 // sqliteDSN 把配置里的文件路径转成带参数的 sqlite DSN。

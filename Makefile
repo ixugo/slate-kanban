@@ -103,7 +103,7 @@ statsviz:
 # QUALITY CONTROL
 # ==================================================================================== #
 
-## test-postgres: 启动一次性 PostgreSQL 容器并跑看板存储层测试（需本机 docker）
+## test-postgres: 启动一次性 PostgreSQL 容器并跑看板存储层和数据库连接层测试（需本机 docker）
 .PHONY: test-postgres
 test-postgres:
 	@set -euo pipefail; \
@@ -121,7 +121,7 @@ test-postgres:
 		sleep 0.3; \
 	done; \
 	export SLATE_TEST_POSTGRES_DSN="postgres://postgres:$$PGPASS@127.0.0.1:$$PORT/postgres?sslmode=disable"; \
-	go test -race -count=1 ./internal/core/kanban/stores/kanbandb/...
+	go test -race -count=1 ./internal/core/kanban/stores/kanbandb/... ./internal/data/...
 
 ## audit: 检查代码依赖/格式化/测试
 .PHONY: audit
