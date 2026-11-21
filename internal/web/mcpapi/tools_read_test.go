@@ -57,6 +57,14 @@ func TestGetBoard(t *testing.T) {
 		!strings.Contains(prompt, "检查监听是否还活着") {
 		t.Errorf("watch_prompt 应该让 agent 用 wait_for_updates 持续监听，loop 只检查监听: %q", prompt)
 	}
+	// 调度分工：一个终端一个调度 agent，由调度者先建 worktree 和分支再派子 agent
+	if !strings.Contains(prompt, "唯一的调度 agent") || !strings.Contains(prompt, "worktree") {
+		t.Errorf("watch_prompt 应该写明调度 agent 分工和 worktree: %q", prompt)
+	}
+	// 并发名额由服务端按名册数好写进提示词：研发模板的起步名册是两位全栈加一位测试
+	if !strings.Contains(prompt, "最多同时做 2 张研发卡、同时审 1 张审查卡") || !strings.Contains(prompt, "一张卡新开一个子 agent") {
+		t.Errorf("watch_prompt 应该按名册写明并发名额，并要求一张卡一个新子 agent: %q", prompt)
+	}
 	missing := call(t, sess, "get_board", map[string]any{"board_id": 9999})
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrBoardNotFound:") {
 		t.Errorf("看板不存在应该是工具错误: %+v", missing)

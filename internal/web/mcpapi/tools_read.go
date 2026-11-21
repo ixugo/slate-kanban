@@ -123,7 +123,7 @@ func (a API) getBoard(ctx context.Context, _ kanban.Actor, in boardIn) (any, err
 	if err != nil {
 		return nil, err
 	}
-	return boardOut{BoardDetail: detail, WatchPrompt: watchPromptOf(detail.Name)}, nil
+	return boardOut{BoardDetail: detail, WatchPrompt: watchPromptOf(detail)}, nil
 }
 
 // listCards 按筛选条件列出卡片摘要。数量默认 10、最多 30，保护 agent 的上下文。

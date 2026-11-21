@@ -55,6 +55,45 @@ func TestTemplateTextsComplete(t *testing.T) {
 	}
 }
 
+// TestReviewInstructionKeepsInReview 验证简体中文模板的审查列提示词明确写了：审查的卡片直接在审查列领取，
+// 不要先移到进行中；只有研发任务才在进行中处理。
+func TestReviewInstructionKeepsInReview(t *testing.T) {
+	review := templateTexts["zh-CN"].Columns[textReview].Instruction
+	if !strings.Contains(review, "不要先移到「进行中」") {
+		t.Errorf("审查列提示词缺少“不要先移到进行中”的说明: %q", review)
+	}
+}
+
+// TestDoingInstructionRequiresWorktree 验证简体中文模板的进行中列提示词写明：调度者主动建 worktree 和分支，
+// 并发时不共用目录，成果提交到分支后才交接。
+func TestDoingInstructionRequiresWorktree(t *testing.T) {
+	doing := templateTexts["zh-CN"].Columns[textDoing].Instruction
+	for _, s := range []string{"git worktree add", "必须由你主动做", "绝不能让多张卡片共用同一个目录", "一个终端只跑一个调度 agent"} {
+		if !strings.Contains(doing, s) {
+			t.Errorf("进行中列提示词缺少 %q", s)
+		}
+	}
+}
+
+// TestDoingInstructionConcurrencyByRoster 验证简体中文模板对并发的写法：按名册里的研发工程师算，
+// 一次领满并同时派出，一张卡新开一个子 agent，审查名额另算；不能再有容易被理解成「研发加审查一共两个」的「没说就是 2」，
+// 待办列判断名额时也只数研发工程师。
+func TestDoingInstructionConcurrencyByRoster(t *testing.T) {
+	texts := templateTexts["zh-CN"].Columns
+	doing := texts[textDoing].Instruction
+	for _, s := range []string{"并发按名册算", "一次领几张研发卡、同时派出各自的子 agent", "一张卡新开一个子 agent", "审查的名额另算，不占研发名额"} {
+		if !strings.Contains(doing, s) {
+			t.Errorf("进行中列提示词缺少 %q", s)
+		}
+	}
+	if strings.Contains(doing, "没说就是 2") {
+		t.Errorf("进行中列提示词不应该再写“没说就是 2”: %q", doing)
+	}
+	if todo := texts[textTodo].Instruction; !strings.Contains(todo, "只数研发工程师，审查占用的不算") {
+		t.Errorf("待办列提示词应该写明名额只数研发工程师: %q", todo)
+	}
+}
+
 // TestSeedEngineerTexts 验证起步工程师的名称（英文名）和提示词（中文）合法、名称不重名。
 func TestSeedEngineerTexts(t *testing.T) {
 	names := map[string]bool{}
