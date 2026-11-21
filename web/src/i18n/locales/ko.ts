@@ -352,6 +352,7 @@ export const ko: Messages = {
     engineerAuto: '맡을 때 무작위 배정',
     dueClear: '마감일 지우기',
     descEdit: '편집',
+    descEditHint: '설명 영역을 더블클릭하면 편집할 수 있습니다',
     descPlaceholder: 'Markdown 지원',
     columnInstructionHint: '에이전트가 이 열의 작업을 맡을 때 읽습니다.',
     claim: {

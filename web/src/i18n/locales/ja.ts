@@ -352,6 +352,7 @@ export const ja: Messages = {
     engineerAuto: '担当時にランダム割り当て',
     dueClear: '期限をクリア',
     descEdit: '編集',
+    descEditHint: '説明エリアをダブルクリックで編集できます',
     descPlaceholder: 'Markdown 対応',
     columnInstructionHint: 'エージェントがこの列のタスクを担当するときに読みます。',
     claim: {

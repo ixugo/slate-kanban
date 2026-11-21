@@ -355,6 +355,7 @@ export const en = {
     engineerAuto: 'Assigned at random when claimed',
     dueClear: 'Clear due date',
     descEdit: 'Edit',
+    descEditHint: 'Double-click the description to edit',
     descPlaceholder: 'Markdown supported',
     columnInstructionHint: 'Agents read this when working tasks in this column.',
     claim: {

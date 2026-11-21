@@ -352,6 +352,7 @@ export const zhCN: Messages = {
     engineerAuto: '领取时随机分配',
     dueClear: '清除截止时间',
     descEdit: '编辑',
+    descEditHint: '双击描述区域可以编辑',
     descPlaceholder: '支持 Markdown',
     columnInstructionHint: 'agent 处理本列任务时会读取这段说明。',
     claim: {

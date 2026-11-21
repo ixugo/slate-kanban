@@ -352,6 +352,7 @@ export const zhTW: Messages = {
     engineerAuto: '領取時隨機分配',
     dueClear: '清除截止時間',
     descEdit: '編輯',
+    descEditHint: '雙擊描述區域可以編輯',
     descPlaceholder: '支援 Markdown',
     columnInstructionHint: 'Agent 處理本欄任務時會讀取這段說明。',
     claim: {

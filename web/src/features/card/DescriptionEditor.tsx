@@ -58,7 +58,7 @@ export function DescriptionEditor({ value, onSave, renderCardReference, busy, bo
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-body font-semibold tracking-tight">{t('card.field.description')}</h3>
         {!editing && (
-          <Button type="button" size="sm" variant="secondary" onClick={startEdit}>
+          <Button type="button" size="sm" variant="secondary" onClick={startEdit} title={t('card.descEditHint')}>
             {t('card.descEdit')}
           </Button>
         )}
