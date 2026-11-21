@@ -58,8 +58,8 @@ type createCardIn struct {
 	Title       string   `json:"title" jsonschema:"标题，1 到 200 字，单行"`
 	Description string   `json:"description,omitempty" jsonschema:"详细描述，最多 20000 字；写清要做什么和验收标准"`
 	ColumnID    int64    `json:"column_id,omitempty" jsonschema:"放进哪一列；不填放进第一列；新任务放在该列最顶部"`
-	Tags        []string `json:"tags,omitempty" jsonschema:"标签文字，最多 10 个，每个 1 到 30 字；看板标签库里没有的文字会新建一个没有颜色的标签；和 tag_ids 只填一个"`
-	TagIDs      []int64  `json:"tag_ids,omitempty" jsonschema:"标签主键，来自 get_board 的 tags；可以选没有文字的标签；和 tags 只填一个"`
+	Tags        []string `json:"tags,omitempty" jsonschema:"标签文字，最多 10 个，每个 1 到 30 字；看板标签库里没有的文字会新建一个没有颜色的标签，agent 不要这样新建，只贴已有的标签，优先用 tag_ids；和 tag_ids 只填一个"`
+	TagIDs      []int64  `json:"tag_ids,omitempty" jsonschema:"标签主键，来自 get_board 的 tags；agent 只能贴这里已有的标签；可以选没有文字的标签；和 tags 只填一个"`
 	Branch      string   `json:"branch,omitempty" jsonschema:"关联的分支名"`
 	URL         string   `json:"url,omitempty" jsonschema:"关联的链接，必须以 http:// 或 https:// 开头"`
 }
@@ -82,8 +82,8 @@ type updateCardIn struct {
 	Version     *int64    `json:"version,omitempty" jsonschema:"你上次读到的 version；带上后，任务已被别人改过就返回 ErrCardVersionConflict，而不是覆盖对方的修改"`
 	Title       *string   `json:"title,omitempty" jsonschema:"新标题；不填不改"`
 	Description *string   `json:"description,omitempty" jsonschema:"新描述，整体替换；不填不改"`
-	Tags        *[]string `json:"tags,omitempty" jsonschema:"新标签文字列表，整体替换（没有文字的标签会被去掉，要保留请用 tag_ids）；传空数组清空；不填不改；和 tag_ids 只填一个"`
-	TagIDs      *[]int64  `json:"tag_ids,omitempty" jsonschema:"新标签主键列表，来自 get_board 的 tags，整体替换；传空数组清空；不填不改；和 tags 只填一个"`
+	Tags        *[]string `json:"tags,omitempty" jsonschema:"新标签文字列表，整体替换（没有文字的标签会被去掉，要保留请用 tag_ids）；agent 不要用它新建标签，优先用 tag_ids；传空数组清空；不填不改；和 tag_ids 只填一个"`
+	TagIDs      *[]int64  `json:"tag_ids,omitempty" jsonschema:"新标签主键列表，来自 get_board 的 tags，整体替换；agent 只能贴已有的标签；传空数组清空；不填不改；和 tags 只填一个"`
 	Branch      *string   `json:"branch,omitempty" jsonschema:"分支名；传空字符串清除；不填不改"`
 	URL         *string   `json:"url,omitempty" jsonschema:"链接，必须以 http:// 或 https:// 开头；传空字符串清除；不填不改"`
 }
