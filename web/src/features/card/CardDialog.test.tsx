@@ -2,13 +2,16 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
+import i18n from '@/i18n'
 import { en } from '@/i18n/locales/en'
+import { ja } from '@/i18n/locales/ja'
 import { installFakeApi, type FakeCall } from '@/test/fakeApi'
 import { makeCard, makeSnapshot } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
 import { installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from '@/features/board/BoardPage'
 import { CARD_TAGS_MAX } from '@/lib/limits'
+import { formatDateTime } from '@/lib/format'
 import type { Tag, TagInput } from '@/lib/api/types'
 
 const baseDetail = {
@@ -179,6 +182,16 @@ describe('CardDialog', () => {
     expect((patchBody(api.calls) as { due_at: string }).due_at).toBe(new Date('2026-12-01T09:30').toISOString())
   })
 
+  it('截止编辑器用等宽字体显示已有的日期和时间', async () => {
+    const dueAt = new Date('2026-12-01T09:30').toISOString()
+    openBoardWithCard({ ...baseDetail, due_at: dueAt })
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(await within(dialog).findByRole('button', { name: formatDateTime(dueAt, 'en') }))
+    const input = await screen.findByLabelText(en.card.field.due)
+    expect(input).toHaveClass('font-mono')
+    expect(input).toHaveValue('2026-12-01T09:30')
+  })
+
   it('描述编辑时按 Esc 只放弃修改，不关掉整个弹窗', async () => {
     openBoardWithCard({ ...baseDetail, description: '旧描述' })
     const user = userEvent.setup()
@@ -212,6 +225,17 @@ describe('CardDialog', () => {
     expect(within(dialog).queryByText(en.card.field.finished)).toBeNull()
     await userEvent.click(within(dialog).getByRole('button', { name: en.card.claim.release }))
     await waitFor(() => expect(api.count('POST /api/v1/cards/:id/release')).toBe(1))
+  })
+
+  it('领取横幅只给租约时间使用等宽字体，保留日语词序', async () => {
+    await i18n.changeLanguage('ja')
+    openBoardWithCard(baseDetail)
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByRole('button', { name: ja.card.claim.release })
+    const formatted = formatDateTime(baseDetail.claim_expires_at, 'ja')
+    const expiry = within(dialog).getByText(formatted, { selector: '.font-mono' })
+    expect(expiry.parentElement).toHaveTextContent(`codex が作業中（${formatted} まで）`)
+    expect(expiry.parentElement).not.toHaveClass('font-mono')
   })
 
   it('评论里人写的显示为「我」，不出现原始的 human；agent 显示自己的名字加 Agent', async () => {

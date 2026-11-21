@@ -148,6 +148,7 @@ function DueChip({ card, onPatch }: CardMetaProps) {
       <PopoverContent align="start" className="w-64">
         <Input
           type="datetime-local"
+          className="font-mono"
           aria-label={t('card.field.due')}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

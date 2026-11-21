@@ -43,10 +43,14 @@ function ClaimBanner({ card, engineers, lang, onRelease, busy }: { card: CardDet
   const { t } = useTranslation()
   if (!card.claim_active || !card.claimed_by) return null
   const engineer = engineers.find((e) => e.id === card.claim_engineer_id)
+  // 保留每种语言自己的日期位置，只为时间插入单独的字体节点。
+  const [beforeTime, afterTime] = t('card.claim.banner', { name: card.claimed_by }).split(/\{\{\s*time\s*\}\}/)
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl bg-agent/10 px-4 py-3 text-ui sm:flex-row sm:items-center sm:justify-between">
       <span>
-        {t('card.claim.banner', { name: card.claimed_by, time: formatDateTime(card.claim_expires_at, lang) })}
+        {beforeTime}
+        <span className="font-mono">{formatDateTime(card.claim_expires_at, lang)}</span>
+        {afterTime}
         {engineer && ` · ${t('card.claim.engineer', { name: engineer.name })}`}
       </span>
       <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={onRelease}>
