@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { makeColumn } from '@/test/factories'
-import { countCardsInColumn, moveColumnDown, moveColumnUp, validateDraft } from './validation'
+import {
+  countCardsInColumn,
+  moveColumnDown,
+  moveColumnUp,
+  validateDraft,
+  validateWebhookForm,
+} from './validation'
 
 describe('列校验与排序', () => {
   const columns = [makeColumn({ id: 1, sort: 1 }), makeColumn({ id: 2, sort: 2 }), makeColumn({ id: 3, sort: 3 })]
@@ -34,5 +40,28 @@ describe('工程师校验', () => {
     const full = Array.from({ length: 20 }, (_, i) => ({ id: i + 1, name: `E${i}`, kind: 'dev' as const, prompt: 'p', avatar: '' }))
     expect(validateDraft(draft, full)).toBe('limitReached')
     expect(validateDraft(full[0], full)).toBeNull()
+  })
+})
+
+describe('webhook 表单校验', () => {
+  const base = {
+    name: '群',
+    type: 'wecom' as const,
+    url: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=x',
+    secret: '',
+    secretClear: false,
+    enabled: true,
+    eventTypes: [],
+    actorKinds: [],
+    moveColumnIds: [],
+  }
+
+  it('名称、地址为空或协议/主机不对时拒绝', () => {
+    expect(validateWebhookForm({ ...base, name: ' ' }, 'wecom').name).toBe('nameRequired')
+    expect(validateWebhookForm({ ...base, url: '' }, 'wecom').url).toBe('urlRequired')
+    expect(validateWebhookForm({ ...base, url: 'http://qyapi.weixin.qq.com/x' }, 'wecom').url).toBe('urlHttps')
+    expect(validateWebhookForm({ ...base, url: 'https://evil.com/x' }, 'wecom').url).toBe('urlHttps')
+    expect(validateWebhookForm(base, 'wecom')).toEqual({})
+    expect(validateWebhookForm({ ...base, type: 'dingtalk', url: 'https://oapi.dingtalk.com/robot/send' }, 'dingtalk')).toEqual({})
   })
 })

@@ -301,6 +301,7 @@ func (u *unit) deleteBoard(ctx context.Context, id int64) (string, error) {
 		{"标签", func() error { return u.tag.DeleteByBoard(ctx, id) }},
 		{"工程师", func() error { return u.engineer.DeleteByBoard(ctx, id) }},
 		{"规则", func() error { return u.rule.DeleteByBoard(ctx, id) }},
+		{"活动通知", func() error { return u.webhook.DeleteByBoard(ctx, id) }},
 		{"列", func() error { return u.column.DeleteByBoard(ctx, id) }},
 		{"读取进度", func() error { return u.cursor.DeleteByBoard(ctx, id) }},
 		{"事件", func() error { return u.event.DeleteByBoard(ctx, id) }},

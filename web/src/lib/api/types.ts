@@ -478,3 +478,51 @@ export interface AuthStatus {
   required: boolean
   authenticated: boolean
 }
+
+/** 群机器人 webhook 类型 */
+export type WebhookType = 'dingtalk' | 'wecom' | 'feishu'
+
+/** 活动通知 webhook（密钥已脱敏） */
+export interface WebhookView {
+  id: number
+  board_id: number
+  name: string
+  type: WebhookType
+  url: string
+  secret_set: boolean
+  secret_mask: string
+  enabled: boolean
+  event_types: string[]
+  actor_kinds: ActorKind[]
+  move_column_ids: number[]
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateWebhookInput {
+  name: string
+  type: WebhookType
+  url: string
+  secret?: string
+  enabled?: boolean
+  event_types?: string[]
+  actor_kinds?: ActorKind[]
+  move_column_ids?: number[]
+}
+
+export interface UpdateWebhookInput {
+  name?: string
+  type?: WebhookType
+  url?: string
+  secret?: string
+  secret_clear?: boolean
+  enabled?: boolean
+  event_types?: string[]
+  actor_kinds?: ActorKind[]
+  move_column_ids?: number[]
+}
+
+export interface TestWebhookResult {
+  ok: boolean
+  message: string
+}

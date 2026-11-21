@@ -53,6 +53,10 @@ const MAPPING: [keyof typeof limits, string][] = [
   ['FILTER_MAX', 'maxFilterLen'],
   ['SEARCH_LIMIT', 'maxListLimit'],
   ['PASSCODE_MAX', 'PasscodeMaxLen'],
+  ['WEBHOOK_NAME_MAX', 'MaxWebhookNameLen'],
+  ['WEBHOOK_URL_MAX', 'MaxWebhookURLLen'],
+  ['WEBHOOKS_PER_BOARD_MAX', 'MaxWebhooksPerBoard'],
+  ['WEBHOOK_SECRET_MAX', 'MaxWebhookSecretLen'],
 ]
 
 describe('输入上限和后端一致', () => {

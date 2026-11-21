@@ -21,4 +21,6 @@ export const queryKeys = {
   update: ['update'] as const,
   /** 接入说明 */
   connect: ['connect'] as const,
+  /** 看板活动 webhook 列表 */
+  webhooks: (boardId: number) => ['board', boardId, 'webhooks'] as const,
 }

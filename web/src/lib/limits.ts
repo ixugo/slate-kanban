@@ -50,3 +50,9 @@ export const SEARCH_LIMIT = 500
 
 /** 访问口令的最大长度（只允许可打印 ASCII，不含空格） */
 export const PASSCODE_MAX = 128
+
+/** 活动 webhook 名称、地址、数量与密钥长度上限 */
+export const WEBHOOK_NAME_MAX = 100
+export const WEBHOOK_URL_MAX = 512
+export const WEBHOOKS_PER_BOARD_MAX = 20
+export const WEBHOOK_SECRET_MAX = 200

@@ -6,7 +6,10 @@ import {
   COLUMN_NAME_MAX,
   COLUMNS_PER_BOARD_MAX,
   ENGINEERS_PER_BOARD_MAX,
+  WEBHOOK_NAME_MAX,
+  WEBHOOK_URL_MAX,
 } from '@/lib/limits'
+import type { WebhookType } from '@/lib/api/types'
 import type { Column, Engineer, EngineerKind } from '@/lib/api/types'
 
 /** 常规设置表单的字段 */
@@ -100,4 +103,47 @@ export function validateDraft(draft: Draft, all: Engineer[]): DraftError | null 
   if (all.some((e) => e.id !== draft.id && e.name.trim().toLowerCase() === key)) return 'nameTaken'
   if (draft.id === 0 && all.length >= ENGINEERS_PER_BOARD_MAX) return 'limitReached'
   return null
+}
+
+/** webhook 表单字段 */
+export interface WebhookFormValues {
+  name: string
+  type: WebhookType
+  url: string
+  secret: string
+  secretClear: boolean
+  enabled: boolean
+  eventTypes: string[]
+  actorKinds: string[]
+  moveColumnIds: number[]
+}
+
+export type WebhookFormErrors = Partial<Record<'name' | 'url', 'nameRequired' | 'urlRequired' | 'urlHttps'>>
+
+const WEBHOOK_HOSTS: Record<WebhookType, string[]> = {
+  dingtalk: ['oapi.dingtalk.com'],
+  wecom: ['qyapi.weixin.qq.com'],
+  feishu: ['open.feishu.cn', 'open.larksuite.com'],
+}
+
+/** webhook 表单客户端校验，与后端 URL 规则对齐 */
+export function validateWebhookForm(values: WebhookFormValues, type: WebhookType): WebhookFormErrors {
+  const errors: WebhookFormErrors = {}
+  const name = values.name.trim()
+  if (name === '' || Array.from(name).length > WEBHOOK_NAME_MAX) errors.name = 'nameRequired'
+  const url = values.url.trim()
+  if (url === '' || Array.from(url).length > WEBHOOK_URL_MAX) {
+    errors.url = 'urlRequired'
+    return errors
+  }
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+    if (parsed.protocol !== 'https:' || !WEBHOOK_HOSTS[type].includes(host)) {
+      errors.url = 'urlHttps'
+    }
+  } catch {
+    errors.url = 'urlRequired'
+  }
+  return errors
 }

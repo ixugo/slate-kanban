@@ -35,6 +35,7 @@ func Register(r gin.IRouter, a API) {
 	a.eventRoutes(r)
 	a.attachmentRoutes(r)
 	a.templateRoutes(r)
+	a.webhookRoutes(r)
 }
 
 // empty 是没有内容的成功响应，序列化成 {}。
@@ -85,4 +86,9 @@ type commentPath struct {
 // rulePath 是路径里的规则编号。
 type rulePath struct {
 	RuleID int64 `uri:"rule_id" json:"-" form:"-"`
+}
+
+// webhookPath 是路径里的 webhook 编号。
+type webhookPath struct {
+	WebhookID int64 `uri:"webhook_id" json:"-" form:"-"`
 }

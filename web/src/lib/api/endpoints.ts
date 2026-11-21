@@ -33,6 +33,10 @@ import type {
   VersionInfo,
   ProjectTemplateSummary,
   ProjectTemplateDetail,
+  WebhookView,
+  CreateWebhookInput,
+  UpdateWebhookInput,
+  TestWebhookResult,
 } from './types'
 
 /** 取消请求用的信号，查询函数把 TanStack Query 给的 signal 传进来 */
@@ -234,4 +238,29 @@ export function importProjectTemplate(body: unknown, replace?: boolean): Promise
 /** 删除自定义项目模板 */
 export function deleteProjectTemplate(templateId: number): Promise<Empty> {
   return request<Empty>(`/templates/${templateId}`, { method: 'DELETE' })
+}
+
+/** 看板的活动 webhook 列表 */
+export function listWebhooks(boardId: number, signal?: Signal): Promise<WebhookView[]> {
+  return request<WebhookView[]>(`/boards/${boardId}/webhooks`, { signal })
+}
+
+/** 新增活动 webhook */
+export function createWebhook(boardId: number, input: CreateWebhookInput): Promise<WebhookView> {
+  return request<WebhookView>(`/boards/${boardId}/webhooks`, { method: 'POST', body: input })
+}
+
+/** 修改活动 webhook */
+export function updateWebhook(webhookId: number, input: UpdateWebhookInput): Promise<WebhookView> {
+  return request<WebhookView>(`/webhooks/${webhookId}`, { method: 'PATCH', body: input })
+}
+
+/** 删除活动 webhook */
+export function deleteWebhook(webhookId: number): Promise<Empty> {
+  return request<Empty>(`/webhooks/${webhookId}`, { method: 'DELETE' })
+}
+
+/** 测试发送 webhook */
+export function testWebhook(webhookId: number): Promise<TestWebhookResult> {
+  return request<TestWebhookResult>(`/webhooks/${webhookId}/test`, { method: 'POST' })
 }

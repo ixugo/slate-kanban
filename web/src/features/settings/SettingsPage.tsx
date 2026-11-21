@@ -17,6 +17,7 @@ import { ColumnsSection } from './ColumnsSection'
 import { EngineersSection } from './EngineersSection'
 import { ExportSection } from './ExportSection'
 import { GeneralSection } from './GeneralSection'
+import { WebhooksSection } from './WebhooksSection'
 
 /** 看板设置页默认导出 */
 export default function SettingsPage() {
@@ -73,6 +74,7 @@ export default function SettingsPage() {
           <TabsTrigger value="columns">{t('settings.tabs.columns')}</TabsTrigger>
           <TabsTrigger value="engineers">{t('settings.tabs.engineers')}</TabsTrigger>
           <TabsTrigger value="automation">{t('settings.tabs.automation')}</TabsTrigger>
+          <TabsTrigger value="notifications">{t('settings.tabs.notifications')}</TabsTrigger>
           <TabsTrigger value="export">{t('settings.tabs.export')}</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
@@ -86,6 +88,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="automation">
           <AutomationSection boardId={boardId} columns={view.columns} rules={data.rules} />
+        </TabsContent>
+        <TabsContent value="notifications">
+          <WebhooksSection boardId={boardId} columns={view.columns} />
         </TabsContent>
         <TabsContent value="export">
           <ExportSection board={data} />

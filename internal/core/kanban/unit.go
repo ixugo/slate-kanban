@@ -35,7 +35,9 @@ type unit struct {
 	tag             TagStorer
 	engineer        EngineerStorer
 	projectTemplate ProjectTemplateStorer
+	webhook         WebhookStorer
 	touched         map[int64]int64 // 本事务动过的看板 → 其中最大的事件序号，提交后据此广播
+	emitted         []*Event        // 本事务追加的事件，提交后用于 webhook 推送
 	after           []func()        // 事务提交成功后要执行的收尾动作，例如删除图片文件
 }
 
@@ -63,6 +65,7 @@ func newUnit(c Core, tx orm.Tx) *unit {
 		tag:             c.store.Tag().WithTx(tx),
 		engineer:        c.store.Engineer().WithTx(tx),
 		projectTemplate: c.store.ProjectTemplate().WithTx(tx),
+		webhook:         c.store.Webhook().WithTx(tx),
 		touched:         make(map[int64]int64),
 	}
 }
@@ -112,6 +115,9 @@ func (c Core) run(ctx context.Context, boardID int64, fn func(*unit) error) erro
 	for _, fn := range u.after {
 		fn()
 	}
+	if len(u.emitted) > 0 {
+		c.scheduleWebhookNotify(ctx, u.emitted)
+	}
 	c.publish(ctx, u)
 	return nil
 }
@@ -156,6 +162,7 @@ func (u *unit) emit(ctx context.Context, actor Actor, ev newEvent) error {
 	if err := u.event.Create(ctx, e); err != nil {
 		return wrapDB("追加事件", err)
 	}
+	u.emitted = append(u.emitted, e)
 	u.touched[ev.BoardID] = max(u.touched[ev.BoardID], e.ID)
 
 	if ev.CardID != 0 && ev.Type != EventCardCreated && ev.Type != EventCardDeleted {
