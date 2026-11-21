@@ -11,6 +11,7 @@ import type { ActorKind, BoardEvent, Comment } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { LazyEditor } from '@/features/editor/LazyEditor'
 import { actorLabel, describeEvent } from '@/features/activity/describeEvent'
+import { ViewChangeLink } from '@/features/activity/ViewChangeLink'
 import { Markdown } from '@/lib/markdown'
 import { COMMENT_MAX } from '@/lib/limits'
 import { queryKeys } from '@/lib/queryKeys'
@@ -31,7 +32,7 @@ const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent
 function EventLine({ event }: { event: BoardEvent }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
-  const { text, detail } = describeEvent(event, t)
+  const { text, detail, descriptionChangeId } = describeEvent(event, t)
   const Icon = ACTOR_ICONS[event.actor_kind] ?? ZapIcon
   return (
     <li className="flex gap-2.5 px-1 text-ui">
@@ -42,6 +43,7 @@ function EventLine({ event }: { event: BoardEvent }) {
         <p className="break-words">
           <span className="font-medium">{actorLabel({ kind: event.actor_kind, name: event.actor }, t)}</span>{' '}
           <span className="text-muted-foreground">{text}</span>
+          {descriptionChangeId !== undefined && <ViewChangeLink cardId={event.card_id} changeId={descriptionChangeId} />}
         </p>
         {detail !== '' && <p className="line-clamp-2 text-xs break-words text-muted-foreground">{detail}</p>}
         <time dateTime={event.created_at} title={formatDateTime(event.created_at, lang)} className="font-mono text-[0.6875rem] text-muted-foreground">

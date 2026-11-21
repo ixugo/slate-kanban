@@ -182,6 +182,20 @@ export interface Comment {
   updated_at: string
 }
 
+/** 卡片某个字段的一次修改记录：改之前、改之后的完整内容，用来左右对比（目前只记描述） */
+export interface CardChange {
+  id: number
+  board_id: number
+  card_id: number
+  /** 被修改的字段名，目前只会是 description */
+  field: string
+  old_value: string
+  new_value: string
+  actor_kind: ActorKind
+  actor: string
+  created_at: string
+}
+
 /** 依赖列表里一张卡片的概要 */
 export interface CardRef {
   id: number

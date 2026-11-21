@@ -165,6 +165,15 @@ export const ja: Messages = {
     clearFilters: '絞り込みを解除',
     // 修改事件里时间类字段的叫法，比卡片详情里的按钮名更完整
     field: { due_at: '期限', started_at: '開始日時', finished_at: '完了日時' },
+    // 「説明を変更しました、変更を表示」：文とリンクの間の句読点、リンクの文言、比較ダイアログの文言
+    change: {
+      separator: '、',
+      link: '変更を表示',
+      title: '説明の変更',
+      before: '変更前',
+      after: '変更後',
+      identical: '変更前と変更後の内容は同じです。',
+    },
     event: {
       boardCreated: 'プロジェクトを作成しました',
       boardUpdated: 'プロジェクト設定を変更しました',
@@ -679,6 +688,7 @@ export const ja: Messages = {
     ErrColumnNotEmpty: 'この列にはまだカードがあります。移動先の列を選んでください。',
     ErrColumnOrderStale: '列が変更されています。再読み込みしてからやり直してください。',
     ErrCardNotFound: 'このカードはもう存在しません。',
+    ErrCardChangeNotFound: 'この変更履歴はもう存在しません。',
     ErrCardVersionConflict: '他の人がこのカードを変更しました。再読み込みしてからやり直してください。',
     ErrNotHolder: 'このカードを担当しているエージェントはいません。',
     ErrAgentOnly: 'この操作はエージェント専用です。',

@@ -91,6 +91,16 @@ describe('describeEvent', () => {
     expect(describeEvent(ev('card.moved', { from: 'A', to: 'B' }), tZh).text).toBe('把卡片从「A」移到「B」')
   })
 
+  it('改了描述的事件带变更记录编号，其他事件和不合法的值都没有', () => {
+    const changed = ev('card.updated', { fields: ['description'], description_change_id: 7 })
+    expect(describeEvent(changed, tEn)).toEqual({ text: 'changed Description', detail: '', descriptionChangeId: 7 })
+    expect(describeEvent(ev('card.updated', { fields: ['title'] }), tEn).descriptionChangeId).toBeUndefined()
+    for (const bad of [0, -1, 1.5, '7', null, true]) {
+      expect(describeEvent(ev('card.updated', { fields: ['description'], description_change_id: bad }), tEn).descriptionChangeId).toBeUndefined()
+    }
+    expect(describeEvent(ev('card.moved', { from: 'A', to: 'B', description_change_id: 7 }), tEn).descriptionChangeId).toBeUndefined()
+  })
+
   it('不认识的事件类型显示成通用的一句话，不报错', () => {
     expect(describeEvent(ev('card.exploded'), tEn).text).toBe('did something (card.exploded)')
   })

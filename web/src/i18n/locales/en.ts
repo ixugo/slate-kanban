@@ -168,6 +168,15 @@ export const en = {
     clearFilters: 'Clear filters',
     // 修改事件里时间类字段的叫法，比卡片详情里的按钮名更完整
     field: { due_at: 'Due date', started_at: 'Start time', finished_at: 'Finish time' },
+    // “changed Description, view changes”：句子和链接之间的标点、链接文字，以及对比弹窗里的文字
+    change: {
+      separator: ', ',
+      link: 'view changes',
+      title: 'Description changes',
+      before: 'Before',
+      after: 'After',
+      identical: 'The two versions are identical.',
+    },
     event: {
       boardCreated: 'created the project',
       boardUpdated: 'edited the project settings',
@@ -677,6 +686,7 @@ export const en = {
     ErrColumnNotEmpty: 'The column still has cards. Choose where to move them.',
     ErrColumnOrderStale: 'The columns changed in the meantime. Reload and try again.',
     ErrCardNotFound: 'That card no longer exists.',
+    ErrCardChangeNotFound: 'That change record no longer exists.',
     ErrCardVersionConflict: 'Someone else changed this card. Reload and try again.',
     ErrNotHolder: 'No agent is holding this card.',
     ErrAgentOnly: 'That action is only for agents.',

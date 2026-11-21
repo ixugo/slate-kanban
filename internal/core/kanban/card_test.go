@@ -350,8 +350,9 @@ func TestUpdateCardByHuman(t *testing.T) {
 		stored.DueAt == nil || stored.Branch != "feat/a" || stored.URL != "https://example.com/1" || stored.Version != 2 {
 		t.Fatalf("读出来的卡片不对: %+v", stored)
 	}
-	// 同时改了标签和别的字段：别的字段一条 card.updated（不含 tags），标签另写一条 card.tags_updated
-	want := `{"fields":["title","description","branch","url","priority","due_at"],"key":"TST-1","title":"新标题"}`
+	// 同时改了标签和别的字段：别的字段一条 card.updated（不含 tags），标签另写一条 card.tags_updated；
+	// 改了描述，所以 card.updated 的载荷里带着变更记录的编号（全新的库里第一条记录编号是 1）
+	want := `{"description_change_id":1,"fields":["title","description","branch","url","priority","due_at"],"key":"TST-1","title":"新标题"}`
 	events := e.events(t)
 	updated, tagged := events[len(events)-2], events[len(events)-1]
 	if updated.Type != kanban.EventCardUpdated || updated.CardID != c.ID || updated.Payload != want {

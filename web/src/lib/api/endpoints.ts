@@ -9,6 +9,7 @@ import type {
   AuthStatus,
   Board,
   BoardDetail,
+  CardChange,
   CardDetail,
   CardList,
   Card,
@@ -117,6 +118,11 @@ export function createCard(boardId: number, input: CreateCardInput): Promise<Car
 /** 一张卡片的完整信息：依赖、评论、所在列的 agent 指令 */
 export function getCardDetail(cardId: number, signal?: Signal): Promise<CardDetail> {
   return request<CardDetail>(`/cards/${cardId}`, { signal })
+}
+
+/** 卡片的一次变更记录：修改前、修改后的完整内容，活动里的「查看变更」用它左右对比 */
+export function getCardChange(cardId: number, changeId: number, signal?: Signal): Promise<CardChange> {
+  return request<CardChange>(`/cards/${cardId}/changes/${changeId}`, { signal })
 }
 
 /** 修改卡片；带 version 时服务端会检查有没有被别人先改过 */

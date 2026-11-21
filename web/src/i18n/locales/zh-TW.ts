@@ -165,6 +165,15 @@ export const zhTW: Messages = {
     clearFilters: '清除篩選',
     // 修改事件里时间类字段的叫法，比卡片详情里的按钮名更完整
     field: { due_at: '截止時間', started_at: '開始時間', finished_at: '完成時間' },
+    // 「修改了描述，查看變更」：句子和連結之間的標點、連結文字，以及對比視窗裡的文字
+    change: {
+      separator: '，',
+      link: '查看變更',
+      title: '描述的變更',
+      before: '修改前',
+      after: '修改後',
+      identical: '修改前後的內容沒有差異。',
+    },
     event: {
       boardCreated: '建立了專案',
       boardUpdated: '修改了專案設定',
@@ -674,6 +683,7 @@ export const zhTW: Messages = {
     ErrColumnNotEmpty: '這一列裡還有卡片，請選擇要移到哪一列。',
     ErrColumnOrderStale: '列已經變動，請重新載入後再調整。',
     ErrCardNotFound: '這張卡片已經不存在。',
+    ErrCardChangeNotFound: '這筆變更記錄已經不存在。',
     ErrCardVersionConflict: '別人剛修改過這張卡片，請重新載入後再試。',
     ErrNotHolder: '沒有 agent 持有這張卡片。',
     ErrAgentOnly: '這個操作只供 agent 使用。',

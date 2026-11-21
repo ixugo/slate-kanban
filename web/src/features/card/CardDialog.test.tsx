@@ -267,6 +267,42 @@ describe('CardDialog', () => {
     expect(within(dialog).getByRole('button', { name: en.card.timeline.showDetails })).toBeInTheDocument()
   })
 
+  it('「评论和活动」里改了描述的那条带「查看变更」，点开在卡片弹窗上叠一层左右对比', async () => {
+    const api = openBoardWithCard(baseDetail, [
+      {
+        id: 9,
+        board_id: 1,
+        card_id: 1,
+        type: 'card.updated',
+        actor_kind: 'human',
+        actor: 'human',
+        payload: { key: 'SLATE-1', title: '详情卡', fields: ['description'], description_change_id: 4 },
+        created_at: '2026-11-18T11:00:00Z',
+      },
+    ])
+    api.set('GET /api/v1/cards/:id/changes/:id', {
+      id: 4,
+      board_id: 1,
+      card_id: 1,
+      field: 'description',
+      old_value: '旧内容',
+      new_value: '新内容',
+      actor_kind: 'human',
+      actor: 'human',
+      created_at: '2026-11-18T11:00:00Z',
+    })
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(await within(dialog).findByRole('button', { name: en.activity.change.link }))
+    const diff = await screen.findByRole('dialog', { name: en.activity.change.title })
+    expect(await within(diff).findByText(en.activity.change.before)).toBeInTheDocument()
+    expect(api.calls.filter((c) => c.path === '/api/v1/cards/1/changes/4')).toHaveLength(1)
+
+    // Esc 只关掉最上面的对比弹窗，卡片弹窗还在
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: en.activity.change.title })).toBeNull())
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
   // 打开一个详情请求会失败的卡片，用来检查弹窗对不同失败原因的提示
   function openBoardWithBrokenDetail(detail: () => { status?: number; body?: unknown }) {
     installFakeEventSource()

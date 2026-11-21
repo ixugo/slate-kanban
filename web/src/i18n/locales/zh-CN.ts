@@ -165,6 +165,15 @@ export const zhCN: Messages = {
     clearFilters: '清除筛选',
     // 修改事件里时间类字段的叫法，比卡片详情里的按钮名更完整
     field: { due_at: '截止时间', started_at: '开始时间', finished_at: '完成时间' },
+    // 「修改了描述，查看变更」：句子和链接之间的标点、链接文字，以及对比弹窗里的文字
+    change: {
+      separator: '，',
+      link: '查看变更',
+      title: '描述的变更',
+      before: '修改前',
+      after: '修改后',
+      identical: '修改前后的内容没有区别。',
+    },
     event: {
       boardCreated: '创建了项目',
       boardUpdated: '修改了项目设置',
@@ -673,6 +682,7 @@ export const zhCN: Messages = {
     ErrColumnNotEmpty: '这一列里还有卡片，请选择把它们移到哪一列。',
     ErrColumnOrderStale: '列已经发生变化，请重新加载后再调整。',
     ErrCardNotFound: '这张卡片已经不存在。',
+    ErrCardChangeNotFound: '这条变更记录已经不存在。',
     ErrCardVersionConflict: '别人刚改过这张卡片，请重新加载后再试。',
     ErrNotHolder: '没有 agent 持有这张卡片。',
     ErrAgentOnly: '这个操作只给 agent 使用。',

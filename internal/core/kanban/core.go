@@ -15,6 +15,7 @@ type Storer interface {
 	Board() BoardStorer
 	Column() ColumnStorer
 	Card() CardStorer
+	CardChange() CardChangeStorer
 	Comment() CommentStorer
 	Rule() RuleStorer
 	Event() EventStorer

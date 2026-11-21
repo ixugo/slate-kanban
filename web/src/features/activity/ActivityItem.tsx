@@ -7,6 +7,7 @@ import { useLanguage } from '@/i18n/useLanguage'
 import type { ActorKind, BoardEvent, CardView } from '@/lib/api/types'
 import { formatDateTime, formatRelative } from '@/lib/format'
 import { actorLabel, describeEvent, eventCard } from './describeEvent'
+import { ViewChangeLink } from './ViewChangeLink'
 import { displayKey } from '@/lib/cardKey'
 
 interface ActivityItemProps {
@@ -24,7 +25,7 @@ export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const [params] = useSearchParams()
-  const { text, detail } = describeEvent(event, t)
+  const { text, detail, descriptionChangeId } = describeEvent(event, t)
   const card = eventCard(event, cardsById)
   const Icon = ACTOR_ICONS[event.actor_kind] ?? ZapIcon
   // 沿用地址里已有的其他参数，只替换 card
@@ -40,6 +41,8 @@ export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps
         <p className="text-sm leading-snug break-words">
           <span className="font-medium">{actorLabel({ kind: event.actor_kind, name: event.actor }, t)}</span>{' '}
           <span className="text-muted-foreground">{text}</span>
+          {/* 卡片已经删除时，它的变更记录也一并删除了，所以不再给「查看变更」 */}
+          {descriptionChangeId !== undefined && card?.id != null && <ViewChangeLink cardId={card.id} changeId={descriptionChangeId} />}
         </p>
         {detail !== '' && <p className="line-clamp-3 text-xs break-words text-muted-foreground">{detail}</p>}
         {card && (

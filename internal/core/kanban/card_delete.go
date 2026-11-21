@@ -32,7 +32,7 @@ func (c Core) DeleteCard(ctx context.Context, actor Actor, cardID int64) error {
 	})
 }
 
-// deleteCard 在事务里删除评论、清理依赖、删除卡片本身，最后追加 card.deleted 事件。
+// deleteCard 在事务里删除评论和变更记录、清理依赖、删除卡片本身，最后追加 card.deleted 事件。
 func (u *unit) deleteCard(ctx context.Context, actor Actor, card *Card) error {
 	texts, err := u.cardTexts(ctx, card)
 	if err != nil {
@@ -40,6 +40,9 @@ func (u *unit) deleteCard(ctx context.Context, actor Actor, card *Card) error {
 	}
 	if err := u.comment.DeleteByCard(ctx, card.ID); err != nil {
 		return wrapDB("删除卡片的评论", err)
+	}
+	if err := u.cardChange.DeleteByCard(ctx, card.ID); err != nil {
+		return wrapDB("删除卡片的变更记录", err)
 	}
 	if err := u.dropDependency(ctx, actor, card); err != nil {
 		return err

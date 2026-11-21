@@ -41,6 +41,11 @@ func (d DB) Card() kanban.CardStorer {
 	return Card(d)
 }
 
+// CardChange 返回卡片变更日志存储。
+func (d DB) CardChange() kanban.CardChangeStorer {
+	return CardChange(d)
+}
+
 // Comment 返回卡片评论存储。
 func (d DB) Comment() kanban.CommentStorer {
 	return Comment(d)
@@ -83,7 +88,7 @@ func (d DB) AutoMigrate(ok bool) DB {
 		return d
 	}
 	if err := d.db.AutoMigrate(
-		new(kanban.Board), new(kanban.Column), new(kanban.Card), new(kanban.Comment),
+		new(kanban.Board), new(kanban.Column), new(kanban.Card), new(kanban.CardChange), new(kanban.Comment),
 		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor), new(kanban.Attachment), new(kanban.Tag), new(kanban.Engineer),
 	); err != nil {
 		panic(err)

@@ -15,6 +15,7 @@ func (a API) cardRoutes(r gin.IRouter) {
 	r.GET("/cards/:card_id", route(a.getCard))
 	r.PATCH("/cards/:card_id", route(a.updateCard))
 	r.DELETE("/cards/:card_id", route(a.deleteCard))
+	r.GET("/cards/:card_id/changes/:change_id", route(a.getCardChange))
 	r.POST("/cards/:card_id/move", route(a.moveCard))
 	r.POST("/cards/:card_id/comments", route(a.addComment))
 	r.DELETE("/comments/:comment_id", route(a.deleteComment))
@@ -74,6 +75,11 @@ func (a API) updateCard(ctx context.Context, actor kanban.Actor, in *updateCardI
 // deleteCard 删除卡片，只有人能做；卡片已经不存在也返回成功。
 func (a API) deleteCard(ctx context.Context, actor kanban.Actor, in *cardPath) (empty, error) {
 	return empty{}, a.core.DeleteCard(ctx, actor, in.CardID)
+}
+
+// getCardChange 返回卡片的一次变更记录：修改前和修改后的内容，网页的「查看变更」据此左右对比两个版本。
+func (a API) getCardChange(ctx context.Context, _ kanban.Actor, in *cardChangePath) (*kanban.CardChange, error) {
+	return a.core.GetCardChange(ctx, in.CardID, in.ChangeID)
 }
 
 // moveCard 移动卡片到某列或调整同一列里的顺序。agent 只能移自己持有的卡片，由 Core 判断。

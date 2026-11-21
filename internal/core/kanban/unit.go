@@ -26,6 +26,7 @@ type unit struct {
 	board      BoardStorer
 	column     ColumnStorer
 	card       CardStorer
+	cardChange CardChangeStorer
 	comment    CommentStorer
 	rule       RuleStorer
 	event      EventStorer
@@ -52,6 +53,7 @@ func newUnit(c Core, tx orm.Tx) *unit {
 		board:      c.store.Board().WithTx(tx),
 		column:     c.store.Column().WithTx(tx),
 		card:       c.store.Card().WithTx(tx),
+		cardChange: c.store.CardChange().WithTx(tx),
 		comment:    c.store.Comment().WithTx(tx),
 		rule:       c.store.Rule().WithTx(tx),
 		event:      c.store.Event().WithTx(tx),

@@ -70,6 +70,12 @@ type cardPath struct {
 	CardID int64 `uri:"card_id" json:"-" form:"-"`
 }
 
+// cardChangePath 是路径里的卡片和变更记录编号。
+type cardChangePath struct {
+	cardPath
+	ChangeID int64 `uri:"change_id" json:"-" form:"-"`
+}
+
 // commentPath 是路径里的评论编号。
 type commentPath struct {
 	CommentID int64 `uri:"comment_id" json:"-" form:"-"`

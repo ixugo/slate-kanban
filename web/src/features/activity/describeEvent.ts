@@ -14,6 +14,8 @@ export interface EventText {
   text: string
   /** 补充说明（评论摘要、自动化执行了哪些动作），没有就是空串 */
   detail: string
+  /** 这次修改了描述时，对应的变更记录编号；界面据此在句子后面加「查看变更」。旧事件和其他类型没有 */
+  descriptionChangeId?: number
 }
 
 /** 事件涉及的卡片 */
@@ -34,6 +36,12 @@ function payloadOf(event: BoardEvent): Record<string, unknown> {
 function field(payload: Record<string, unknown>, key: string): string {
   const value = payload[key]
   return typeof value === 'string' ? value : ''
+}
+
+// 读载荷里的变更记录编号：必须是正整数，缺失或类型不对返回 undefined。
+function changeId(payload: Record<string, unknown>, key: string): number | undefined {
+  const value = payload[key]
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
 }
 
 // 读载荷里的文字数组，忽略不是文字的项。
@@ -129,7 +137,7 @@ export function describeEvent(event: BoardEvent, t: TFunction): EventText {
     case 'card.created':
       return plain(t('activity.event.cardCreated', { column: field(p, 'column') }))
     case 'card.updated':
-      return plain(cardUpdatedText(p, t))
+      return { text: cardUpdatedText(p, t), detail: '', descriptionChangeId: changeId(p, 'description_change_id') }
     case 'card.tags_updated':
       return plain(t('activity.event.cardTagsUpdated'))
     case 'card.moved':

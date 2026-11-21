@@ -43,6 +43,9 @@ var (
 	// ErrCardNotFound 卡片不存在，可能已经被删除。
 	ErrCardNotFound = reason.NewError("ErrCardNotFound", "卡片不存在").WithHTTPStatus(404)
 
+	// ErrCardChangeNotFound 变更记录不存在：编号写错、不属于这张卡片，或者卡片已经被删除。
+	ErrCardChangeNotFound = reason.NewError("ErrCardChangeNotFound", "变更记录不存在").WithHTTPStatus(404)
+
 	// ErrCardVersionConflict 带着旧版本号提交修改，说明卡片已经被别人改过，需要刷新后再改。
 	ErrCardVersionConflict = reason.NewError("ErrCardVersionConflict", "卡片已被其他人修改，请刷新后重试").WithHTTPStatus(409)
 

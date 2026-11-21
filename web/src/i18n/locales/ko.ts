@@ -165,6 +165,15 @@ export const ko: Messages = {
     clearFilters: '필터 해제',
     // 修改事件里时间类字段的叫法，比卡片详情里的按钮名更完整
     field: { due_at: '마감일', started_at: '시작 시각', finished_at: '완료 시각' },
+    // “설명을 변경했습니다, 변경 내용 보기”: 문장과 링크 사이의 문장부호, 링크 문구, 비교 창의 문구
+    change: {
+      separator: ', ',
+      link: '변경 내용 보기',
+      title: '설명 변경 내용',
+      before: '변경 전',
+      after: '변경 후',
+      identical: '변경 전후의 내용이 같습니다.',
+    },
     event: {
       boardCreated: '프로젝트를 만들었습니다',
       boardUpdated: '프로젝트 설정을 변경했습니다',
@@ -678,6 +687,7 @@ export const ko: Messages = {
     ErrColumnNotEmpty: '이 열에 아직 카드가 있습니다. 옮길 열을 선택하세요.',
     ErrColumnOrderStale: '열이 변경되었습니다. 새로고침한 뒤 다시 시도하세요.',
     ErrCardNotFound: '이 카드는 더 이상 존재하지 않습니다.',
+    ErrCardChangeNotFound: '이 변경 기록은 더 이상 존재하지 않습니다.',
     ErrCardVersionConflict: '다른 사람이 이 카드를 수정했습니다. 새로고침한 뒤 다시 시도하세요.',
     ErrNotHolder: '이 카드를 맡고 있는 에이전트가 없습니다.',
     ErrAgentOnly: '이 작업은 에이전트 전용입니다.',

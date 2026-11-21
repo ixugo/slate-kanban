@@ -314,21 +314,38 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 	if err := u.saveCard(ctx, actor, card); err != nil {
 		return err
 	}
-	if slices.Contains(changed, "description") {
+	return u.finishCardUpdate(ctx, actor, card, changed, oldDescription)
+}
+
+// finishCardUpdate 在卡片保存之后收尾：描述变了就同步图片引用，并把这次修改记进变更日志，
+// 最后按改了什么写事件，事件载荷里带着变更记录的编号。
+func (u *unit) finishCardUpdate(ctx context.Context, actor Actor, card *Card, changed []string, oldDescription string) error {
+	var descriptionChangeID int64
+	if slices.Contains(changed, CardFieldDescription) {
 		if err := u.syncImages(ctx, card.BoardID, oldDescription, card.Description); err != nil {
 			return err
 		}
+		id, err := u.recordDescriptionChange(ctx, actor, card, oldDescription)
+		if err != nil {
+			return err
+		}
+		descriptionChangeID = id
 	}
-	return u.emitCardUpdates(ctx, actor, card, changed)
+	return u.emitCardUpdates(ctx, actor, card, changed, descriptionChangeID)
 }
 
 // emitCardUpdates 按改了什么写事件：标签的变化单独写 card.tags_updated，
 // 其余字段写 card.updated，同时改了两类就两条都写。
 // 标签变化很琐碎，拆成独立类型后，网页的活动流可以用 exclude_types 把它整条排除，而实时广播照常有。
-func (u *unit) emitCardUpdates(ctx context.Context, actor Actor, card *Card, changed []string) error {
+// descriptionChangeID 大于 0 说明这次改了描述，card.updated 的载荷里带上它，网页据此显示「查看变更」。
+func (u *unit) emitCardUpdates(ctx context.Context, actor Actor, card *Card, changed []string, descriptionChangeID int64) error {
 	rest := slices.DeleteFunc(slices.Clone(changed), func(f string) bool { return f == "tag_ids" })
 	if len(rest) > 0 {
-		ev := newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardUpdated, Payload: cardPayload(card, map[string]any{"fields": rest})}
+		extra := map[string]any{"fields": rest}
+		if descriptionChangeID > 0 {
+			extra["description_change_id"] = descriptionChangeID
+		}
+		ev := newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardUpdated, Payload: cardPayload(card, extra)}
 		if err := u.emit(ctx, actor, ev); err != nil {
 			return err
 		}
