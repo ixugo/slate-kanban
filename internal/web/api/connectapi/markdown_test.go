@@ -39,7 +39,7 @@ func TestRenderMarkdown(t *testing.T) {
 				}
 			}
 		}
-		for _, want := range []string{g.WatchPrompt, g.LoopPrompt, boardPlaceholder, "wait_for_updates"} {
+		for _, want := range []string{g.LoopPrompt, boardPlaceholder, "get_board", "watch_prompt"} {
 			if want == "" || !strings.Contains(md, want) {
 				t.Errorf("长期挂着一节缺少 %q", want)
 			}
@@ -85,8 +85,10 @@ func TestRenderMarkdownVerifyAndFAQ(t *testing.T) {
 	if !ok {
 		t.Fatalf("缺少常见问题一节")
 	}
-	for _, want := range []string{"新开一个会话", "claude mcp list", "✔ Connected", "codex mcp list", "Unsupported",
-		"agent mcp list", "ready", "agent mcp enable", "重启 Cursor"} {
+	for _, want := range []string{
+		"新开一个会话", "claude mcp list", "✔ Connected", "codex mcp list", "Unsupported",
+		"agent mcp list", "ready", "agent mcp enable", "重启 Cursor",
+	} {
 		if !strings.Contains(verify, want) {
 			t.Errorf("验证一节应该有 %q", want)
 		}

@@ -67,7 +67,8 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 		name: "get_board", kind: kindRead,
 		desc: "读取一个看板的详情：全部列、自动化规则和工程师名册 engineers（每位是一个并发名额：id、name、kind 是 dev 全栈、frontend 前端、backend 后端、ui UI（这四种都做研发）或 review 测试、prompt 是角色提示词）。每一列有 " +
 			"instruction（人写给 agent 的提示词，写明这个状态下谁能做什么，必须遵守）、" +
-			"is_done（完成列）、next_column_id（交接后卡片去的下一列）。开始工作前先读一遍。",
+			"is_done（完成列）、next_column_id（交接后卡片去的下一列）。开始工作前先读一遍。" +
+			"watch_prompt 是 loop 定时叫醒时每轮要照做的守候提示词（看板名已填好）；用户让你守候这个看板时，读它并照做一轮。",
 	}, a.getBoard)
 	register(s, spec{
 		name: "list_cards", kind: kindRead,
@@ -116,9 +117,13 @@ func (a API) listBoards(ctx context.Context, _ kanban.Actor, _ struct{}) (any, e
 	return boardsOut{Boards: boards}, nil
 }
 
-// getBoard 返回看板、列和规则，列里带着给 agent 的指令。
+// getBoard 返回看板、列和规则，列里带着给 agent 的指令，并附上这个看板的守候提示词 watch_prompt。
 func (a API) getBoard(ctx context.Context, _ kanban.Actor, in boardIn) (any, error) {
-	return a.core.GetBoard(ctx, in.BoardID)
+	detail, err := a.core.GetBoard(ctx, in.BoardID)
+	if err != nil {
+		return nil, err
+	}
+	return boardOut{BoardDetail: detail, WatchPrompt: watchPromptOf(detail.Name)}, nil
 }
 
 // listCards 按筛选条件列出卡片摘要。数量默认 10、最多 30，保护 agent 的上下文。

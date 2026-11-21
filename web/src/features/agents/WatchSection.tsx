@@ -1,4 +1,4 @@
-// 长期挂着：给两段提示词（长期守候、单轮），可以选看板把看板名填进去。
+// 长期挂着：给一行守候提示词，可以选看板把看板名填进去。
 
 import { useState } from 'react'
 import { useTranslation } from '@/i18n/react'
@@ -14,7 +14,7 @@ function fillBoard(prompt: string, name: string): string {
   return name ? prompt.replaceAll(BOARD_PLACEHOLDER, name) : prompt
 }
 
-/** 长期挂着一节：看板选择、两段提示词和注意事项；看板列表读不到时选择框不出现，占位符保留 */
+/** 长期挂着一节：看板选择、一行提示词和注意事项；看板列表读不到时选择框不出现，占位符保留 */
 export function WatchSection({ guide }: { guide: ConnectGuide }) {
   const { t } = useTranslation()
   const [board, setBoard] = useState('')
@@ -44,7 +44,6 @@ export function WatchSection({ guide }: { guide: ConnectGuide }) {
           </select>
         </label>
       )}
-      <SnippetCard snippet={prompt(guide.watch_prompt, t('agents.watch.longTitle'))} />
       <SnippetCard snippet={prompt(guide.loop_prompt, t('agents.watch.loopTitle'))} />
       <ul className="list-disc space-y-1.5 pl-5 text-ui text-muted-foreground">
         <li>{t('agents.watch.notes.how')}</li>

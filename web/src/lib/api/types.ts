@@ -287,9 +287,7 @@ export interface ConnectGuide {
   install_url: string
   skill_url: string
   hosts: GuideHost[]
-  /** 长期守候提示词；里面的 <看板名> 是占位符，网页按所选看板替换 */
-  watch_prompt: string
-  /** 配合 host 的 loop 或定时功能的单轮提示词，占位符同上 */
+  /** 用户唯一要贴的一行守候提示词；里面的 <看板名> 是占位符，网页按所选看板替换 */
   loop_prompt: string
   /** 长期挂着的注意事项，网页用各语言自己的文案，install.md 用它 */
   watch_notes: string[]

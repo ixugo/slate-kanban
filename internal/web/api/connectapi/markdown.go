@@ -29,7 +29,7 @@ const (
 		"- Cursor：命令行版运行 `agent mcp list`，slate 那一行显示 `ready` 就是连上了。写在项目里的 `.cursor/mcp.json` 要先批准：`agent mcp enable slate`；`~/.cursor/mcp.json` 里的服务不用。" +
 		"图形界面里，按 Cursor 官方文档，改完 `mcp.json` 要重启 Cursor，再到设置的 MCP 页面确认 slate 已启用。\n\n"
 	watchIntro = "## 4. 长期挂着守候\n\n" +
-		"装好之后，要让 agent 一直盯着看板、有卡片就接，需要一个长期不退出的会话。把下面的「长期守候提示词」粘进会话（`<看板名>` 换成你的看板名），并按所用 host 的命令挂起会话。\n\n"
+		"装好之后，要让 agent 一直盯着看板、有卡片就接，靠 host 的 loop 定时叫醒 agent。把下面的一行提示词里的 `<看板名>` 换成你的看板名，再按所用 host 的命令执行 loop。\n\n"
 	faqSection = "## 常见问题\n\n" +
 		"- 连接返回 400：检查 name 格式（小写字母数字开头，最长 64，不能用 human 或 system）。\n" +
 		"- Claude Code 添加成功时打印的地址里没有 `?name=…`，那只是提示文字省略了查询参数，配置里存的是完整地址；以 whoami 返回的名称为准。\n" +
@@ -70,11 +70,10 @@ func writeHostSteps(b *strings.Builder, hosts []Host, pick func(Host) []Snippet)
 	}
 }
 
-// writeWatch 写出“长期挂着守候”一节：两段提示词、几条说明，以及各 host 的启动和恢复命令。
+// writeWatch 写出“长期挂着守候”一节：一行提示词、几条说明，以及各 host 的启动和恢复命令。
 func writeWatch(b *strings.Builder, g Guide) {
 	b.WriteString(watchIntro)
-	b.WriteString("长期守候提示词（会话不退出，阻塞等待新卡片）：\n\n```text\n" + g.WatchPrompt + "\n```\n\n")
-	b.WriteString("单轮提示词（配合 host 自带的 loop 或定时功能，每轮做完就结束）：\n\n```text\n" + g.LoopPrompt + "\n```\n\n")
+	b.WriteString("一行守候提示词（完整内容由 MCP 的 get_board 返回，每次 loop 叫醒时 agent 自己去读）：\n\n```text\n" + g.LoopPrompt + "\n```\n\n")
 	for _, n := range g.WatchNotes {
 		b.WriteString("- " + n + "\n")
 	}

@@ -48,6 +48,10 @@ func TestGetBoard(t *testing.T) {
 	if doing["name"] != "进行中" || !strings.Contains(fmt.Sprint(doing["instruction"]), "finish_card") {
 		t.Errorf("进行中列应该是 agent 领取列并带着指令: %v", doing)
 	}
+	prompt := fmt.Sprint(got["watch_prompt"])
+	if !strings.Contains(prompt, "「看板 SLATE」") || strings.Contains(prompt, "%s") || !strings.Contains(prompt, "slate-kanban skill") {
+		t.Errorf("watch_prompt 应该带着填好的看板名并指向 skill: %q", prompt)
+	}
 	missing := call(t, sess, "get_board", map[string]any{"board_id": 9999})
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrBoardNotFound:") {
 		t.Errorf("看板不存在应该是工具错误: %+v", missing)

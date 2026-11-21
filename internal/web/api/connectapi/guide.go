@@ -61,9 +61,8 @@ type Guide struct {
 	InstallURL string `json:"install_url"`
 	SkillURL   string `json:"skill_url"`
 	Hosts      []Host `json:"hosts"`
-	// WatchPrompt 是长期守候提示词，LoopPrompt 是配合 host 的 loop 功能用的单轮提示词，里面的看板名是占位符。
-	WatchPrompt string `json:"watch_prompt"`
-	LoopPrompt  string `json:"loop_prompt"`
+	// LoopPrompt 是用户唯一要贴的一行守候提示词，里面的看板名是占位符；完整提示词由 MCP 的 get_board 返回。
+	LoopPrompt string `json:"loop_prompt"`
 	// WatchNotes 是长期挂着的注意事项，和具体 host 无关。
 	WatchNotes []string `json:"watch_notes"`
 }
@@ -71,13 +70,12 @@ type Guide struct {
 // buildGuide 按服务地址生成接入说明；shell 里的地址加单引号，避免 IPv6 方括号被 zsh 当通配符。
 func buildGuide(base string, passcodeRequired bool) Guide {
 	g := Guide{
-		BaseURL:     base,
-		MCPURL:      base + "/mcp",
-		InstallURL:  base + "/install.md",
-		SkillURL:    base + "/skills/" + skillName + "/SKILL.md",
-		WatchPrompt: watchPrompt,
-		LoopPrompt:  loopPrompt,
-		WatchNotes:  watchNotes,
+		BaseURL:    base,
+		MCPURL:     base + "/mcp",
+		InstallURL: base + "/install.md",
+		SkillURL:   base + "/skills/" + skillName + "/SKILL.md",
+		LoopPrompt: loopPrompt,
+		WatchNotes: watchNotes,
 	}
 	g.Hosts = []Host{
 		claudeCodeHost(g, passcodeRequired),

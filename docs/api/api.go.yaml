@@ -115,12 +115,9 @@ components:
           items:
             $ref: "#/components/schemas/Host"
           description: 各个 agent 宿主的接入步骤
-        watch_prompt:
-          type: string
-          description: "长期守候提示词，里面的 <看板名> 是占位符，使用时换成真实的看板名"
         loop_prompt:
           type: string
-          description: 单轮提示词，配合宿主自带的 loop 或定时功能使用，占位符同上
+          description: "用户唯一要贴的一行守候提示词，里面的 <看板名> 是占位符，使用时换成真实的看板名；完整提示词由 MCP 的 get_board 返回（watch_prompt）"
         watch_notes:
           type: array
           items:

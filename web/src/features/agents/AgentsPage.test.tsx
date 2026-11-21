@@ -14,8 +14,7 @@ const guide: ConnectGuide = {
   mcp_url: 'http://127.0.0.1:7070/mcp',
   install_url: 'http://127.0.0.1:7070/install.md',
   skill_url: 'http://127.0.0.1:7070/skills/slate-kanban/SKILL.md',
-  watch_prompt: '你是看板「<看板名>」的调度 agent',
-  loop_prompt: '执行一轮「<看板名>」的调度',
+  loop_prompt: '守候看板「<看板名>」',
   watch_notes: [],
   hosts: [
     {
@@ -47,11 +46,10 @@ describe('AgentsPage', () => {
       'GET /api/v1/boards': [{ id: 1, name: '官网改版', engineers: [], tags: [] }],
     })
     renderApp(<AgentsPage />, { route: '/agents' })
-    expect(await screen.findByText('你是看板「<看板名>」的调度 agent')).toBeInTheDocument()
+    expect(await screen.findByText('守候看板「<看板名>」')).toBeInTheDocument()
     expect(screen.getByText(en.agents.snippets.loop)).toBeInTheDocument()
     await userEvent.selectOptions(await screen.findByRole('combobox', { name: en.agents.watch.board }), '官网改版')
-    expect(screen.getByText('你是看板「官网改版」的调度 agent')).toBeInTheDocument()
-    expect(screen.getByText('执行一轮「官网改版」的调度')).toBeInTheDocument()
+    expect(screen.getByText('守候看板「官网改版」')).toBeInTheDocument()
   })
 
   it('复制失败时不抛错', async () => {
