@@ -9,13 +9,13 @@
 
 | 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
 |------|----------|-------------|---------|------|
-| 1 | 人在网页上把卡片拖进进行中，agent 正在等待 | agent 不知道有新活，卡片在进行中放着没人做 | 事务提交后通过 Bus 通知 Hub，Hub 立刻唤醒所有等待该看板的请求；同时 MCP 层发出资源更新通知，网页 SSE 也被唤醒 | 实施 |
-| 2 | agent 的电脑关机，期间看板被改了几十次 | 上线后不知道错过了什么，会漏掉人留下的评论和新分配的卡片 | 每次变化写一条带递增序号的事件；服务端按看板加 agent 名保存游标；上线后从游标补拉 | 实施 |
+| 1 | 人在网页上把任务拖进进行中，agent 正在等待 | agent 不知道有新活，任务在进行中放着没人做 | 事务提交后通过 Bus 通知 Hub，Hub 立刻唤醒所有等待该看板的请求；同时 MCP 层发出资源更新通知，网页 SSE 也被唤醒 | 实施 |
+| 2 | agent 的电脑关机，期间看板被改了几十次 | 上线后不知道错过了什么，会漏掉人留下的评论和新分配的任务 | 每次变化写一条带递增序号的事件；服务端按看板加 agent 名保存游标；上线后从游标补拉 | 实施 |
 | 3 | 事件已写入，但进程在广播之前崩溃 | 只会丢失一次唤醒，事件本身在库里，下一次拉取一定能拿到 | 先在事务里落库，提交后再广播；广播不携带任何只此一份的数据 | 实施 |
 | 4 | agent 拿到一批事件后，处理到一半崩溃 | 如果拿到就算已读，这批事件永久丢失，人的评论没人回 | 只有下一次调用带上 since 才算确认上一批；不带 since 则从旧游标重新发送 | 实施 |
 | 5 | 网页 SSE 断线后重连 | 断线期间的变化丢失，页面一直显示旧状态 | SSE 事件的 id 就是序号；重连带 Last-Event-ID，服务端先从库里补发，再切到实时 | 实施 |
 | 6 | 两个 agent 共用同一个看板 | 一个 agent 确认进度，会把另一个 agent 的进度一起推进，对方漏事件 | 游标按（看板，agent 名）各存一份 | 实施 |
-| 7 | agent 自己的操作（发评论、移动卡片）产生的事件又唤醒自己 | 空转，严重时两个 agent 互相触发形成死循环 | 拉取时过滤掉 actor 是自己的 agent 事件，但游标照常往前走 | 实施 |
+| 7 | agent 自己的操作（发评论、移动任务）产生的事件又唤醒自己 | 空转，严重时两个 agent 互相触发形成死循环 | 拉取时过滤掉 actor 是自己的 agent 事件，但游标照常往前走 | 实施 |
 | 8 | 事件表无限增长 | 数据库越来越大，查询变慢 | 每个看板只保留最近 10000 条；序号是 500 的倍数时顺带清理；游标落后于保留范围时返回 truncated，让 agent 重新读整块看板 | 实施 |
 | 9 | 一个操作里连续改了多处（比如自动化规则连续执行多个动作） | 订阅者在事务中途被唤醒，读到半成品 | 事件在事务内写入，提交成功后一次性广播；订阅者被唤醒时数据一定已提交 | 实施 |
 | 10 | 阻塞等待的请求一直占着数据库连接 | SQLite 只有一个连接，其他所有请求都被卡死 | 等待期间不开事务、不占连接，只在被唤醒或超时后做一次短查询 | 实施 |
@@ -33,19 +33,19 @@ Event 的 JSON 序列化会把它直接输出成 JSON 对象，不再套一层�
 |------|----------|-------------|
 | board.created | 创建看板 | name, slug |
 | board.updated | 修改看板名称、说明或项目路径 | fields |
-| board.labels_updated | 修改看板标签库（文字、颜色、增删；卡片按文字自动新建标签也记这条） | fields（固定 `["tags"]`） |
+| board.labels_updated | 修改看板标签库（文字、颜色、增删；任务按文字自动新建标签也记这条） | fields（固定 `["tags"]`） |
 | column.created | 新增列 | column_id, name |
 | column.updated | 修改列 | column_id, name, fields |
 | column.deleted | 删除列 | column_id, name, moved_to_id, moved_cards |
 | column.reordered | 调整列顺序 | ids |
-| card.created | 创建卡片 | key, title, column_id, column |
-| card.updated | 修改卡片字段（不含标签） | key, title, fields（真正变化的字段名，如 title、priority、due_at） |
-| card.tags_updated | 修改卡片上的标签（`tag_ids` 变化） | key, title, fields（固定 `["tag_ids"]`） |
-| card.moved | 卡片换列 | key, title, from_id, from, to_id, to |
-| card.reordered | 卡片在同一列内调整顺序 | key, column_id |
-| card.deleted | 删除卡片 | key, title |
+| card.created | 创建任务 | key, title, column_id, column |
+| card.updated | 修改任务字段（不含标签） | key, title, fields（真正变化的字段名，如 title、priority、due_at）；改了描述时还有 description_change_id（任务变更日志的记录编号，见 kanban.cardchange.go.md） |
+| card.tags_updated | 修改任务上的标签（`tag_ids` 变化） | key, title, fields（固定 `["tag_ids"]`） |
+| card.moved | 任务换列 | key, title, from_id, from, to_id, to |
+| card.reordered | 任务在同一列内调整顺序 | key, column_id |
+| card.deleted | 删除任务 | key, title |
 | card.claimed | agent 领取或续期 | key, title, agent, expires_at |
-| card.released | 领取被释放或被收回 | key, title, agent, why；why 取 released（持有者主动释放）、revoked（人收回）、moved（卡片换列） |
+| card.released | 领取被释放或被收回 | key, title, agent, why；why 取 released（持有者主动释放）、revoked（人收回）、moved（agent 把任务换了列；人换列不写这个事件，领取保留） |
 | comment.added | 新增评论 | key, comment_id, author, author_kind, snippet |
 | comment.deleted | 删除评论 | key, comment_id |
 | rule.created / rule.updated / rule.deleted | 规则变更 | rule_id, name |
@@ -167,7 +167,7 @@ limit 默认 200、最大 1000。起点早于保留范围时同样标记 truncat
 `ListActivity(boardID, ActivityQuery)` 给网页的活动抽屉用，人和 agent 都能读。和 `ListEvents` 的区别有三点：
 顺序是从新到旧；可以按条件筛选；翻页用 `before`（只看序号比它小的事件），不用 `after`。
 
-- 筛选条件有五个，都可以不填，同时填表示都要满足：`types`（事件类型，取并集）、`exclude_types`（不要这些类型的事件，和 `types` 重叠时以排除为准，网页用它把标签类事件挡掉）、`actor_kind`（human、agent、system 之一）、`actor`（操作者名称，名称首尾空白会被去掉）、`card_id`（只看和这张卡片有关的事件，卡片详情的「评论和活动」用；负数返回 400）。
+- 筛选条件有五个，都可以不填，同时填表示都要满足：`types`（事件类型，取并集）、`exclude_types`（不要这些类型的事件，和 `types` 重叠时以排除为准，网页用它把标签类事件挡掉）、`actor_kind`（human、agent、system 之一）、`actor`（操作者名称，名称首尾空白会被去掉）、`card_id`（只看和这个任务有关的事件，任务详情的「评论和活动」用；负数返回 400）。
 - 事件类型（`types` 和 `exclude_types` 都一样）必须是上面列出的已知类型，不认识的返回 400，而不是悄悄返回一个永远为空的列表。类型重复写多次会被合并，保证查询里的 IN / NOT IN 列表最多 21 项。
 - 改标签单独成 `card.tags_updated`、改标签库单独成 `board.labels_updated`：同一次修改既改标签又改别的字段时，两条事件都会写（先 `card.updated` 后 `card.tags_updated`）。拆开的目的是标签变化琐碎，网页读活动流时用 `exclude_types` 整条排除，而实时广播和 agent 的更新拉取仍然能收到。
 - 筛选发生在数据库里，再翻页。所以每一页都是满的，不会出现「翻了一页却全被过滤掉」。每个看板最多保留 10000 条事件，筛选条件很少命中时最坏也只扫这么多行。
@@ -186,10 +186,10 @@ sequenceDiagram
     participant A as Agent
 
     Note over A: 电脑关机中
-    H->>C: 把卡片拖进进行中
-    C->>D: 事务内改卡片并追加事件 seq=41
+    H->>C: 把任务拖进进行中
+    C->>D: 事务内改任务并追加事件 seq=41
     C->>B: 提交后广播看板 7 有更新
-    H->>C: 在卡片下留言
+    H->>C: 在任务下留言
     C->>D: 事务内追加事件 seq=42
     Note over A: 电脑开机, agent 启动
     A->>C: 拉取更新, 不传 since
@@ -198,7 +198,7 @@ sequenceDiagram
     A->>C: 等待更新, since=42
     C->>D: 游标推进到 42, 之后没有新事件
     C->>B: 订阅看板 7
-    H->>C: 又拖了一张卡片
+    H->>C: 又拖了一个任务
     C->>D: 追加事件 seq=43
     C->>B: 广播看板 7 有更新
     B-->>C: 唤醒

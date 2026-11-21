@@ -6,7 +6,7 @@
 网页是纯静态资源，由 Go 服务同源提供（构建后嵌入二进制），无跨域。
 
 本文件只讲**骨架**：路由与外框、接口调用、实时同步、多语言、主题、提示、Markdown、体积预算。
-看板画布、卡片弹窗、设置、接入说明等有独立 scope（`web.board.md`、`web.settings.md`、`web.agents.md`）；视觉与动效的统一规则见 `web.design.md`。
+看板画布、任务弹窗、设置、接入说明等有独立 scope（`web.board.md`、`web.settings.md`、`web.agents.md`）；视觉与动效的统一规则见 `web.design.md`。
 
 技术栈：Vite 8、React 19、TypeScript 7、Tailwind CSS 4、**vendored shadcn/ui**（`radix-ui` 聚合包 + lucide）、TanStack Query 5、React Router 7、@dnd-kit（看板页）、Vitest + Testing Library + jsdom。包管理只用 **npm**。
 
@@ -249,6 +249,6 @@ vendored shadcn 组件（`button`、`dialog`、`tabs` 等）。**不要求**每�
 ## 限制
 
 - 无登录≠无风险：默认所有 IPv4 网卡监听 + Host 白名单 + 跨站写拦截（见 `identity.open.go.md`）。
-- 快照一次取全板卡片，规模超大时要分页（需新接口）。
+- 快照一次取全板任务，规模超大时要分页（需新接口）。
 - 每块看板一条 `EventSource`，换看板会关旧连接。
 - Radix 弹窗、部分懒加载页仍带来额外 chunk；首屏预算由 `check-size.mjs` 把关。

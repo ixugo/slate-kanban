@@ -51,6 +51,6 @@
 | 接入说明 | `go test ./internal/web/api/connectapi` |
 | 网页（单元与集成） | `cd web && npx vitest run src/features/auth src/lib/queryClient.test.ts src/pwa/clearCaches.test.ts src/app/AppShell.test.tsx`：门的各种状态、登录成功/口令不对/被限流/空口令、401 重读状态（含网关场景和不循环）、退出清缓存 |
 | 网页变异检查 | 去掉 401 处理、去掉状态码判断、去掉变更缓存的处理、去掉 `cancelRefetch: false`、去掉对状态接口自身的豁免（会死循环）、退出时不清内存、不通知 SW，对应测试都能失败 |
-| 网页真机 | 系统 Chrome 驱动启用口令的服务：首屏是登录页；错口令提示不对；对口令后进入，cookie 为 HttpOnly + SameSite=Strict，`document.cookie` 读不到；刷新仍登录；看板实时流带 cookie 返回 200；清掉 cookie 后在页面里新建卡片，不刷新就跳回登录页且地址不变，重新登录回到同一看板；退出后 `slate-*` 缓存从 3 个变成 0、cookie 消失；连续猜错 11 次出现限流提示 |
+| 网页真机 | 系统 Chrome 驱动启用口令的服务：首屏是登录页；错口令提示不对；对口令后进入，cookie 为 HttpOnly + SameSite=Strict，`document.cookie` 读不到；刷新仍登录；看板实时流带 cookie 返回 200；清掉 cookie 后在页面里新建任务，不刷新就跳回登录页且地址不变，重新登录回到同一看板；退出后 `slate-*` 缓存从 3 个变成 0、cookie 消失；连续猜错 11 次出现限流提示 |
 | 变异检查 | 逐个去掉：口令中间件、`RemoteIP`、失效 cookie 不计数、登录体限制、status 限流、有效 cookie 放行、Bearer 比较，测试都能失败 |
 | 真机 | 编译出独立二进制、启用口令后用 curl 跑完整矩阵：公开路径 200、受保护 401、`/mcp` 带 `WWW-Authenticate`、Bearer 通过、登录 cookie 通过、失效 cookie 连发 30 次仍是 401、换 `X-Forwarded-For` 猜 11 次被封 429、封锁期内有效 cookie 仍通过、日志里没有口令 |

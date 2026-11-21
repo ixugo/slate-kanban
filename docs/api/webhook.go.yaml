@@ -1,0 +1,219 @@
+openapi: "3.1.0"
+info:
+  title: 活动通知 Webhook
+  description: 看板活动事件的群机器人通知。仅供人类管理员使用，不暴露到 MCP。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  "/api/v1/boards/{board_id}/webhooks":
+    get:
+      tags:
+        - admin/webhook
+      summary: 列出 webhook
+      operationId: listWebhooks
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookView"
+    post:
+      tags:
+        - admin/webhook
+      summary: 新增 webhook
+      operationId: createWebhook
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookInput"
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookView"
+  "/api/v1/webhooks/{webhook_id}":
+    patch:
+      tags:
+        - admin/webhook
+      summary: 修改 webhook
+      operationId: updateWebhook
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWebhookInput"
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookView"
+    delete:
+      tags:
+        - admin/webhook
+      summary: 删除 webhook
+      operationId: deleteWebhook
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+  "/api/v1/webhooks/{webhook_id}/test":
+    post:
+      tags:
+        - admin/webhook
+      summary: 测试发送
+      operationId: testWebhook
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestWebhookResult"
+components:
+  schemas:
+    WebhookView:
+      type: object
+      properties:
+        id:
+          type: integer
+        board_id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [dingtalk, wecom, feishu]
+        url:
+          type: string
+        secret_set:
+          type: boolean
+        secret_mask:
+          type: string
+        enabled:
+          type: boolean
+        event_types:
+          type: array
+          items:
+            type: string
+        actor_kinds:
+          type: array
+          items:
+            type: string
+            enum: [human, agent, system]
+        move_column_ids:
+          type: array
+          items:
+            type: integer
+    CreateWebhookInput:
+      type: object
+      required: [name, type, url]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        url:
+          type: string
+        secret:
+          type: string
+        enabled:
+          type: boolean
+        event_types:
+          type: array
+          items:
+            type: string
+        actor_kinds:
+          type: array
+          items:
+            type: string
+        move_column_ids:
+          type: array
+          items:
+            type: integer
+    UpdateWebhookInput:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        url:
+          type: string
+        secret:
+          type: string
+        secret_clear:
+          type: boolean
+        enabled:
+          type: boolean
+        event_types:
+          type: array
+          items:
+            type: string
+        actor_kinds:
+          type: array
+          items:
+            type: string
+        move_column_ids:
+          type: array
+          items:
+            type: integer
+    TestWebhookResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session

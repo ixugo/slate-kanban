@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
-  title: 卡片
-  description: "卡片的读写、移动和评论。REST 接口固定以「人」的身份调用。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
+  title: 任务
+  description: "任务的读写、移动和评论。REST 接口固定以「人」的身份调用。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
   version: "1.0.0"
 servers:
   - url: "http://127.0.0.1:7070"
@@ -15,8 +15,8 @@ paths:
     get:
       tags:
         - admin/卡片
-      summary: 卡片列表
-      description: 按筛选条件列出看板里的卡片，顺序和看板上看到的一致。query 的语法和网页搜索框一致，写错返回 400 并指出是哪个词有问题。
+      summary: 任务列表
+      description: 按筛选条件列出看板里的任务，顺序和看板上看到的一致。query 的语法和网页搜索框一致，写错返回 400 并指出是哪个词有问题。
       operationId: listCards
       parameters:
         - name: board_id
@@ -34,7 +34,7 @@ paths:
         - name: limit
           in: query
           required: false
-          description: 最多返回几张，默认 200，最大 500，负数不合法
+          description: 最多返回几个，默认 200，最大 500，负数不合法
           schema:
             type: integer
       responses:
@@ -65,8 +65,8 @@ paths:
     post:
       tags:
         - admin/卡片
-      summary: 创建卡片
-      description: 创建卡片。column_id 不填放到第一列，卡片放到所在列的末尾。
+      summary: 创建任务
+      description: 创建任务。column_id 不填放到第一列，任务放到所在列的末尾。
       operationId: createCard
       parameters:
         - name: board_id
@@ -113,8 +113,8 @@ paths:
                   type: array
                   items:
                     type: integer
-                    description: 卡片编号
-                  description: 依赖的卡片编号，最多 20 张
+                    description: 任务编号
+                  description: 依赖的任务编号，最多 20 个
                 due_at:
                   type: string
                   description: "到期时间。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
@@ -164,14 +164,14 @@ paths:
     get:
       tags:
         - admin/卡片
-      summary: 卡片详情
-      description: 返回卡片的完整信息：派生状态、所在列给 agent 的工作指令、依赖和全部评论。
+      summary: 任务详情
+      description: 返回任务的完整信息：派生状态、所在列给 agent 的工作指令、依赖和全部评论。
       operationId: getCard
       parameters:
         - name: card_id
           in: path
           required: true
-          description: 卡片编号
+          description: 任务编号
           schema:
             type: integer
       responses:
@@ -202,14 +202,19 @@ paths:
     patch:
       tags:
         - admin/卡片
-      summary: 修改卡片
-      description: 只更新请求里出现的字段。带上 version 时和当前版本比较，不一致返回 409，避免覆盖别人的修改。
+      summary: 修改任务
+      description: |
+        只更新请求里出现的字段。带上 version 时和当前版本比较，不一致返回 409，避免覆盖别人的修改。
+        修改描述时会同时留下一条变更记录（修改前和修改后的完整内容），记录编号写在 card.updated 事件内容的 description_change_id 里，可用「任务变更记录」接口读取。
+        更新说明：
+        2026-11-21
+        - card.updated 事件的内容在修改了描述时多一个 description_change_id 字段
       operationId: updateCard
       parameters:
         - name: card_id
           in: path
           required: true
-          description: 卡片编号
+          description: 任务编号
           schema:
             type: integer
       requestBody:
@@ -250,8 +255,8 @@ paths:
                   type: array
                   items:
                     type: integer
-                    description: 卡片编号
-                  description: 依赖的卡片编号，最多 20 张
+                    description: 任务编号
+                  description: 依赖的任务编号，最多 20 个
                 due_at:
                   type: string
                   description: "到期时间。时间字段用 RFC3339 格式，例如 2026-11-17T09:30:00+08:00，空字符串表示不设置。"
@@ -269,7 +274,7 @@ paths:
                   description: 关联的链接
                 version:
                   type: integer
-                  description: 读到这张卡片时的版本号，用来做冲突检测，可选
+                  description: 读到这个任务时的版本号，用来做冲突检测，可选
       responses:
         "200":
           description: 成功
@@ -304,14 +309,14 @@ paths:
     delete:
       tags:
         - admin/卡片
-      summary: 删除卡片
-      description: 删除卡片和它的评论。卡片已经不存在也返回成功。
+      summary: 删除任务
+      description: 删除任务和它的评论。任务已经不存在也返回成功。
       operationId: deleteCard
       parameters:
         - name: card_id
           in: path
           required: true
-          description: 卡片编号
+          description: 任务编号
           schema:
             type: integer
       responses:
@@ -333,18 +338,103 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/changes/{change_id}":
+    get:
+      tags:
+        - admin/卡片
+      summary: 任务变更记录
+      description: |
+        返回任务的一次变更记录：修改前和修改后的完整内容，网页的「查看变更」据此左右对比两个版本。
+        目前只记录描述的修改；修改描述时，对应的 card.updated 事件内容里带 description_change_id，就是这里的 change_id。
+        记录不存在、不属于这个任务，或者任务已经被删除，都返回 404。
+        更新说明：
+        2026-11-21
+        - 新增接口
+      operationId: getCardChange
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 任务编号
+          schema:
+            type: integer
+        - name: change_id
+          in: path
+          required: true
+          description: 变更记录编号，取自 card.updated 事件内容里的 description_change_id
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardChange"
+        "400":
+          description: 请求参数不合法
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 变更记录不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/read":
+    post:
+      tags:
+        - admin/卡片
+      summary: 标记任务已读
+      description: 把任务的未读动态数清零。幂等，不写活动事件，不增加版本号。仅供网页在用户打开任务详情时调用。
+      operationId: markCardRead
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 任务编号
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                maxProperties: 0
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   "/api/v1/cards/{card_id}/move":
     post:
       tags:
         - admin/卡片
-      summary: 移动卡片
-      description: 移动卡片到某列，或者调整同一列里的顺序。before_id、after_id 指定放到哪张卡片的前面或后面，最多填一个，都不填放到目标列末尾。
+      summary: 移动任务
+      description: 移动任务到某列，或者调整同一列里的顺序。before_id、after_id 指定放到哪个任务的前面或后面，最多填一个，都不填放到目标列末尾。
       operationId: moveCard
       parameters:
         - name: card_id
           in: path
           required: true
-          description: 卡片编号
+          description: 任务编号
           schema:
             type: integer
       requestBody:
@@ -359,10 +449,10 @@ paths:
                   description: 目标列编号，不填或 0 表示留在当前列，只调整顺序
                 before_id:
                   type: integer
-                  description: 放到这张卡片的前面
+                  description: 放到这个任务的前面
                 after_id:
                   type: integer
-                  description: 放到这张卡片的后面
+                  description: 放到这个任务的后面
       responses:
         "200":
           description: 成功
@@ -399,13 +489,13 @@ paths:
       tags:
         - admin/卡片
       summary: 写评论
-      description: 在卡片下写一条评论。
+      description: 在任务下写一条评论。
       operationId: addComment
       parameters:
         - name: card_id
           in: path
           required: true
-          description: 卡片编号
+          description: 任务编号
           schema:
             type: integer
       requestBody:
@@ -485,7 +575,7 @@ components:
       properties:
         id:
           type: integer
-          description: 卡片编号
+          description: 任务编号
         board_id:
           type: integer
           description: 所属看板编号
@@ -494,10 +584,10 @@ components:
           description: 所在列编号
         number:
           type: integer
-          description: 看板内的卡片序号
+          description: 看板内的任务序号
         key:
           type: string
-          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+          description: 任务编号，由看板 slug 和序号组成，例如 SLATE-12
         title:
           type: string
           description: 标题
@@ -523,8 +613,8 @@ components:
           type: array
           items:
             type: integer
-            description: 卡片编号
-          description: 依赖的卡片编号列表
+            description: 任务编号
+          description: 依赖的任务编号列表
         due_at:
           type:
             - string
@@ -545,7 +635,7 @@ components:
           description: 完成时间
         claimed_by:
           type: string
-          description: 当前持有这张卡的 agent 名称，没有则为空
+          description: 当前持有这个任务的 agent 名称，没有则为空
         claim_expires_at:
           type:
             - string
@@ -557,7 +647,7 @@ components:
           description: 绑定或分配的全栈工程师编号，0 表示还没有
         claim_engineer_id:
           type: integer
-          description: 当前领取这张卡的工程师编号，领取放开后为 0
+          description: 当前领取这个任务的工程师编号，领取放开后为 0
         branch:
           type: string
           description: 关联的代码分支
@@ -566,7 +656,7 @@ components:
           description: 关联的链接，例如合并请求
         version:
           type: integer
-          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+          description: 版本号，每次真实修改加一，修改任务时可带上做冲突检测
         created_by:
           type: string
           description: 创建者名称
@@ -581,13 +671,48 @@ components:
           type: string
           format: date-time
           description: 更新时间
-      description: 卡片本身的字段
+      description: 任务本身的字段
+    CardChange:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 变更记录编号
+        board_id:
+          type: integer
+          description: 所属看板编号
+        card_id:
+          type: integer
+          description: 所属任务编号
+        field:
+          type: string
+          description: 被修改的字段名，目前只有 description（描述）
+        old_value:
+          type: string
+          description: 修改前的完整内容
+        new_value:
+          type: string
+          description: 修改后的完整内容
+        actor_kind:
+          type: string
+          description: 修改者类型
+          enum:
+            - human
+            - agent
+            - system
+        actor:
+          type: string
+          description: 修改者名称
+        created_at:
+          type: string
+          format: date-time
+          description: 修改时间
     CardDetail:
       type: object
       properties:
         id:
           type: integer
-          description: 卡片编号
+          description: 任务编号
         board_id:
           type: integer
           description: 所属看板编号
@@ -596,10 +721,10 @@ components:
           description: 所在列编号
         number:
           type: integer
-          description: 看板内的卡片序号
+          description: 看板内的任务序号
         key:
           type: string
-          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+          description: 任务编号，由看板 slug 和序号组成，例如 SLATE-12
         title:
           type: string
           description: 标题
@@ -625,8 +750,8 @@ components:
           type: array
           items:
             type: integer
-            description: 卡片编号
-          description: 依赖的卡片编号列表
+            description: 任务编号
+          description: 依赖的任务编号列表
         due_at:
           type:
             - string
@@ -647,7 +772,7 @@ components:
           description: 完成时间
         claimed_by:
           type: string
-          description: 当前持有这张卡的 agent 名称，没有则为空
+          description: 当前持有这个任务的 agent 名称，没有则为空
         claim_expires_at:
           type:
             - string
@@ -659,7 +784,7 @@ components:
           description: 绑定或分配的全栈工程师编号，0 表示还没有
         claim_engineer_id:
           type: integer
-          description: 当前领取这张卡的工程师编号，领取放开后为 0
+          description: 当前领取这个任务的工程师编号，领取放开后为 0
         branch:
           type: string
           description: 关联的代码分支
@@ -668,7 +793,7 @@ components:
           description: 关联的链接，例如合并请求
         version:
           type: integer
-          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+          description: 版本号，每次真实修改加一，修改任务时可带上做冲突检测
         created_by:
           type: string
           description: 创建者名称
@@ -688,19 +813,19 @@ components:
           items:
             type: string
             description: 标签文字
-          description: 卡片上带文字的标签的文字，按卡片上的顺序
+          description: 任务上带文字的标签的文字，按任务上的顺序
         column:
           type: string
-          description: 卡片所在列的名称
+          description: 任务所在列的名称
         done:
           type: boolean
-          description: 卡片位于完成列
+          description: 任务位于完成列
         waiting:
           type: boolean
-          description: 卡片有还没完成的依赖
+          description: 任务有还没完成的依赖
         claim_active:
           type: boolean
-          description: 卡片正被某个 agent 领取，并且领取还没到期
+          description: 任务正被某个 agent 领取，并且领取还没到期
         column_instruction:
           type: string
           description: 所在列给 agent 的工作指令
@@ -708,13 +833,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CardRef"
-          description: 依赖的卡片
+          description: 依赖的任务
         comments:
           type: array
           items:
             $ref: "#/components/schemas/Comment"
           description: 全部评论，按时间从早到晚
-      description: 卡片的完整信息
+      description: 任务的完整信息
     CardList:
       type: object
       properties:
@@ -722,7 +847,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CardView"
-          description: 命中的卡片，顺序和看板上看到的一致
+          description: 命中的任务，顺序和看板上看到的一致
         total:
           type: integer
           description: 命中的总数
@@ -734,10 +859,10 @@ components:
       properties:
         id:
           type: integer
-          description: 卡片编号
+          description: 任务编号
         key:
           type: string
-          description: 卡片编号，例如 SLATE-12
+          description: 任务编号，例如 SLATE-12
         title:
           type: string
           description: 标题
@@ -747,13 +872,13 @@ components:
         done:
           type: boolean
           description: 是否已完成
-      description: 依赖列表里一张卡片的概要
+      description: 依赖列表里一个任务的概要
     CardView:
       type: object
       properties:
         id:
           type: integer
-          description: 卡片编号
+          description: 任务编号
         board_id:
           type: integer
           description: 所属看板编号
@@ -762,10 +887,10 @@ components:
           description: 所在列编号
         number:
           type: integer
-          description: 看板内的卡片序号
+          description: 看板内的任务序号
         key:
           type: string
-          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+          description: 任务编号，由看板 slug 和序号组成，例如 SLATE-12
         title:
           type: string
           description: 标题
@@ -791,8 +916,8 @@ components:
           type: array
           items:
             type: integer
-            description: 卡片编号
-          description: 依赖的卡片编号列表
+            description: 任务编号
+          description: 依赖的任务编号列表
         due_at:
           type:
             - string
@@ -813,7 +938,7 @@ components:
           description: 完成时间
         claimed_by:
           type: string
-          description: 当前持有这张卡的 agent 名称，没有则为空
+          description: 当前持有这个任务的 agent 名称，没有则为空
         claim_expires_at:
           type:
             - string
@@ -825,7 +950,7 @@ components:
           description: 绑定或分配的全栈工程师编号，0 表示还没有
         claim_engineer_id:
           type: integer
-          description: 当前领取这张卡的工程师编号，领取放开后为 0
+          description: 当前领取这个任务的工程师编号，领取放开后为 0
         branch:
           type: string
           description: 关联的代码分支
@@ -834,7 +959,7 @@ components:
           description: 关联的链接，例如合并请求
         version:
           type: integer
-          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+          description: 版本号，每次真实修改加一，修改任务时可带上做冲突检测
         created_by:
           type: string
           description: 创建者名称
@@ -854,20 +979,23 @@ components:
           items:
             type: string
             description: 标签文字
-          description: 卡片上带文字的标签的文字，按卡片上的顺序
+          description: 任务上带文字的标签的文字，按任务上的顺序
         column:
           type: string
-          description: 卡片所在列的名称
+          description: 任务所在列的名称
         done:
           type: boolean
-          description: 卡片位于完成列
+          description: 任务位于完成列
         waiting:
           type: boolean
-          description: 卡片有还没完成的依赖
+          description: 任务有还没完成的依赖
         claim_active:
           type: boolean
-          description: 卡片正被某个 agent 领取，并且领取还没到期
-      description: 卡片连同从列、依赖、领取推出来的派生状态
+          description: 任务正被某个 agent 领取，并且领取还没到期
+        unread_count:
+          type: integer
+          description: 自上次在网页打开详情以来累积的未读动态数
+      description: 任务连同从列、依赖、领取推出来的派生状态
     Comment:
       type: object
       properties:
@@ -879,7 +1007,7 @@ components:
           description: 所属看板编号
         card_id:
           type: integer
-          description: 所属卡片编号
+          description: 所属任务编号
         author_kind:
           type: string
           description: 作者类型

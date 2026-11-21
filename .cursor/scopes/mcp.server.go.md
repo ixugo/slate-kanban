@@ -11,7 +11,7 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 | 1 | MCP 工具里自己再写一套权限判断 | 同一个操作在不同入口结果不同，漏洞藏在某个入口里 | 工具只做"取身份、调 Core、转结果"，权限和校验全在 Core；工具视图只是减少干扰，不是安全边界 | 实施 |
 | 2 | MCP 请求没有可靠的身份 | 不同入口的操作者混乱 | `identityMiddleware` 解析 `?name=` 与 `?role=worker|manager`，校验后写入 `X-Slate-Actor-*` 头；`bearerGate` 在无 Authorization 时补占位 `Bearer open`，SDK 用 `headerVerifier` 读头构造 TokenInfo 做会话绑定 | 实施 |
 | 3 | agent 看到一堆自己用不了的管理工具 | 占掉上下文，还会反复尝试越权再被拒绝 | 两套工具视图：`role=worker`（默认 agent 名）19 个工作工具，`role=manager` 25 个管理工具；同名工具入参按身份裁剪 | 实施 |
-| 4 | 一个工具返回整板卡片，每张描述最长 20000 字 | 一次响应几百 KB，把 agent 的上下文撑爆 | `list_cards` 和资源快照里的卡片只给摘要（没有描述和评论），要看全文用 `get_card`；`list_cards` 默认 50 张、最多 200 张；资源快照最多 200 张，并如实给出 `total` 和 `truncated`；创建、修改、移动卡片只返回精简字段，不把刚写进去的描述原样回传 | 实施 |
+| 4 | 一个工具返回整板任务，每个任务的描述最长 20000 字 | 一次响应几百 KB，把 agent 的上下文撑爆 | `list_cards` 和资源快照里的任务只给摘要（没有描述和评论），要看全文用 `get_card`；`list_cards` 默认 50 个、最多 200 个；资源快照最多 200 个，并如实给出 `total` 和 `truncated`；创建、修改、移动任务只返回精简字段，不把刚写进去的描述原样回传 | 实施 |
 | 5 | 服务端有更新，agent 不知道 | 只能盲目轮询 | agent 订阅资源 `slate://boards/{board_id}`，看板每次提交更新，服务端异步发 `notifications/resources/updated`（带最新事件序号）；200 毫秒内的多次更新合并成一次通知；通知不阻塞写请求 | 实施 |
 | 6 | agent 当时不在线，或者它的 host 不支持订阅通知 | 通知丢了就丢了更新 | 通知只是"有更新"的提示，不带数据也不保证送达；数据靠 `pull_updates`：进度按（看板，agent）存在服务端数据库里，离线多久都能补读；离线太久事件被清理时返回 `truncated`，agent 用 `list_cards` 重新了解现状 | 实施 |
 | 7 | agent 想一直挂着等活 | 定时轮询浪费请求，而且 host 的循环功能很笨重 | `wait_for_updates` 阻塞到有值得处理的更新为止，最长 50 秒（低于常见代理和客户端的一分钟超时）；超时返回 `timed_out`，不是错误，agent 带着返回的 `cursor` 立刻再等 | 实施 |
@@ -19,10 +19,10 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 | 9 | 通知流（客户端用 GET 一直挂着的连接）永远不断 | 僵尸连接占资源 | 依赖正常 TCP/代理超时与服务关闭时 `lifecycle.Bind` 结束；身份在连接 URL 里，换 name 重连即换身份 | 实施 |
 | 10 | 服务放在 nginx 后面，nginx 用 127.0.0.1 连过来，Host 头是域名 | SDK 默认 Host 校验误判 DNS 重绑定 | 关闭这项校验；MCP 身份在查询参数，不靠 Bearer 秘密 | 实施 |
 | 11 | 内部错误的细节原样返回给 agent | 数据库错误文本进了模型的上下文，还可能被写进它的记录里 | 业务错误返回 `reason: msg`；不是业务错误的只记日志，返回通用文案；错误的 details 一律不返回 | 实施 |
-| 12 | agent 不知道这个看板怎么用 | 领不该领的卡、把卡片拖进完成列、一直轮询 | 连接时下发简短的使用说明（instructions），每个工具的描述写清前置条件和后果；worktree、子 agent、项目路径这类更完整的流程放在 skill 里 | 实施 |
+| 12 | agent 不知道这个看板怎么用 | 领不该领的任务、把任务拖进完成列、一直轮询 | 连接时下发简短的使用说明（instructions），每个工具的描述写清前置条件和后果；worktree、子 agent、项目路径这类更完整的流程放在 skill 里 | 实施 |
 | 13 | 会话越攒越多 | 内存一直涨 | 会话空闲 6 小时自动关闭，客户端按协议重新初始化 | 实施 |
 | 14 | 新版协议（2026-07-28 起的无状态协议）的客户端 | 部分新 host 可能只讲新协议 | 本版只提供有状态会话（2025 系列协议）。SDK 对新协议请求返回"不支持的协议版本"并列出支持的旧版本，遵循规范的客户端会自动降级；将来 host 不再支持旧协议时，再加一个无状态入口 | 限制 |
-| 15 | agent 读到不明确的任务就直接开干 | 做出来的东西和人想要的不一致，白白浪费一轮 | `get_card`、`claim_card`、`next_card`（领到卡时）的结果里带 `agent_notice`，同时写进 instructions 和 skill：不明确就先 `comment_card` 写出疑问和理解，再 `move_card` 移出领取列等人回复；只 `release_card` 不行，卡片还在领取列里会被 `next_card` 马上领回来。管理视图不带这个字段 | 实施 |
+| 15 | agent 读到不明确的任务就直接开干 | 做出来的东西和人想要的不一致，白白浪费一轮 | `get_card`、`claim_card`、`next_card`（领到任务时）的结果里带 `agent_notice`，同时写进 instructions 和 skill：不明确就先 `comment_card` 写出疑问和理解，再 `move_card` 移出领取列等人回复；只 `release_card` 不行，任务还在领取列里会被 `next_card` 马上领回来。管理视图不带这个字段 | 实施 |
 
 ## 两套工具视图
 
@@ -34,18 +34,18 @@ MCP 是看板领域（kanban）的第二个适配器，和 REST 一致：只做"
 | whoami | 有 | 有 | — | 当前身份、视图、服务版本、订阅用的资源地址 |
 | list_boards | 有 | 有 | ListBoards | 看板列表 |
 | get_board | 有 | 有 | GetBoard | 看板、列（含给 agent 的指令）、规则、工程师名册 |
-| list_cards | 有 | 有 | ListCards | 按筛选语法列出卡片摘要 |
-| get_card | 有 | 有 | GetCardDetail | 卡片全文、评论、依赖、所在列的指令；agent 视图的结果多一个 `agent_notice` |
+| list_cards | 有 | 有 | ListCards | 按筛选语法列出任务摘要 |
+| get_card | 有 | 有 | GetCardDetail | 任务全文、评论、依赖、所在列的指令；agent 视图的结果多一个 `agent_notice` |
 | pull_updates | 有 | — | PullUpdates | 拉取没读过的更新，进度在服务端 |
 | wait_for_updates | 有 | — | WaitUpdates | 阻塞等待更新，最长 50 秒 |
-| next_card | 有 | — | NextCard | 从"agent 领取列"里领下一张该做的卡（可选 `engineer_id`），没有时 `card` 为 null；领到时 `card` 里带 `agent_notice` |
-| claim_card | 有 | — | ClaimCard | 领取或续租指定的卡（可选 `engineer_id`）；结果带 `agent_notice` |
-| release_card | 有 | 有 | ReleaseCard | agent 释放自己的；人可以收回任何一张 |
+| next_card | 有 | — | NextCard | 从"agent 领取列"里领下一个该做的任务（可选 `engineer_id`），没有时 `card` 为 null；领到时 `card` 里带 `agent_notice` |
+| claim_card | 有 | — | ClaimCard | 领取或续租指定的任务（可选 `engineer_id`）；结果带 `agent_notice` |
+| release_card | 有 | 有 | ReleaseCard | agent 释放自己的；人可以收回任何一个 |
 | finish_card | 有 | 有 | FinishCard | 写总结并交接到下一列（通常是"审查"），默认放到目标列最顶部，可用 before_id / after_id 指定位置 |
 | comment_card | 有 | 有 | AddComment | 写评论 |
-| create_card | 有 | 有 | CreateCard | agent 版没有规划类字段；新卡片放在所在列最顶部 |
-| update_card | 有 | 有 | UpdateCard | agent 版没有规划类字段，只能改自己持有的卡 |
-| move_card | 有 | 有 | MoveCard | agent 只能移自己持有的卡，且不能放进"agent 领取列"；不带 before_id / after_id 时放到目标列最顶部（最新的在最上面）|
+| create_card | 有 | 有 | CreateCard | agent 版没有规划类字段；新任务放在所在列最顶部 |
+| update_card | 有 | 有 | UpdateCard | agent 版没有规划类字段，只能改自己持有的任务 |
+| move_card | 有 | 有 | MoveCard | agent 只能移自己持有的任务，且不能放进"agent 领取列"；不带 before_id / after_id 时放到目标列最顶部（最新的在最上面）|
 | set_project_path | 有 | — | UpdateBoard | 项目路径为空时写入；已有值时返回 `ErrProjectPathLocked` |
 | list_events | — | 有 | ListEvents | 看板的活动流水 |
 | create_board | 有 | 有 | CreateBoard | 新建项目；agent 只在用户明确要求时才用（说明和 skill 里都这样写）。自动化规则不能建 |
@@ -152,7 +152,7 @@ sequenceDiagram
 
 ## 资源
 
-只有一个资源模板 `slate://boards/{board_id}`：读取它返回整板快照（看板、列、规则、最多 200 张卡片摘要、卡片总数 `total`、是否被截断 `truncated`、`seq`），
+只有一个资源模板 `slate://boards/{board_id}`：读取它返回整板快照（看板、列、规则、最多 200 个任务摘要、任务总数 `total`、是否被截断 `truncated`、`seq`），
 订阅它得到"看板有更新"的通知。agent 平时用 `pull_updates` 取增量，快照主要给人手动查看或被截断后重新了解现状使用。
 
 地址解析很严格：必须是 `slate://boards/` 加上正整数，不允许多余的路径、查询参数、符号、空白或前导零；解析不了、看板不存在，读取和订阅都按协议规定的"资源不存在"处理。
@@ -166,12 +166,12 @@ sequenceDiagram
 - 输出一律是 JSON 对象（列表外面包一层，例如 `{boards: [...]}`），同时放进 `structuredContent` 和文本内容，
   不声明输出 Schema（领域对象的 Schema 很大，会白白占用每次 `tools/list` 的上下文）。
 - 事件的 JSON 和 REST、实时流里是同一种格式（Payload 是对象），因为都来自 Core 的同一个类型。
-- 写入类工具的结果都很精简：创建、修改、移动卡片返回 `cardBrief`（没有描述和派生状态），`finish_card` 返回 `cardSummary`，领取类返回卡片全文，删除类返回 `{ok: true}`。
+- 写入类工具的结果都很精简：创建、修改、移动任务返回 `cardBrief`（没有描述和派生状态），`finish_card` 返回 `cardSummary`，领取类返回任务全文，删除类返回 `{ok: true}`。
 - `set_project_path` 拒绝空路径（`ErrInvalidInput`）：空路径在人那里表示清除，agent 只能写入，所以"写了个空"不能被当成成功；两端的空白会被去掉。
 
-精简卡片（`cardBrief`）的字段：`id, key, title, column_id, priority, tags, human_only, claimed_by, waits_on, due_at, started_at, finished_at,
+精简任务（`cardBrief`）的字段：`id, key, title, column_id, priority, tags, human_only, claimed_by, waits_on, due_at, started_at, finished_at,
 branch, url, version, updated_at`。
-卡片摘要（`cardSummary`）在它的基础上多四个派生字段：`column`（列名）、`done`、`waiting`、`claim_active`。
+任务摘要（`cardSummary`）在它的基础上多四个派生字段：`column`（列名）、`done`、`waiting`、`claim_active`。
 
 ## 错误
 
@@ -226,7 +226,7 @@ branch, url, version, updated_at`。
 | 工作工具 | nextCard、claimCard、releaseCard、finishCard、commentCard、createCard、updateCard、moveCard、setProjectPath | internal/web/mcpapi/tools_work.go |
 | 管理工具 | 看板、列的增删改，deleteCard、deleteComment | internal/web/mcpapi/tools_admin.go |
 | 自动化规则工具 | createRule、updateRule、deleteRule | internal/web/mcpapi/tools_rule.go |
-| 卡片摘要与精简字段 | summarize、briefOf、clampListLimit | internal/web/mcpapi/summary.go |
+| 任务摘要与精简字段 | summarize、briefOf、clampListLimit | internal/web/mcpapi/summary.go |
 | 资源与订阅 | readBoard、subscribe、parseBoardURI、resourceError | internal/web/mcpapi/resource.go |
 | 通知器 | notifier.mark、notifier.run | internal/web/mcpapi/notify.go |
 | 使用说明 | instructionsFor（agentInstructions、adminInstructions） | internal/web/mcpapi/instructions.go |

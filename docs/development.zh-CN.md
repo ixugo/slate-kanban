@@ -31,6 +31,8 @@ go run . -conf "$HOME/.slate-kanban-dev"
 
 如果本机已有 Slate 占用 7070，在开发配置的 `[Server.HTTP]` 里改用其他端口，再重启后端，并把 `SLATE_BACKEND` 指向新端口。配置字段见 [带注释的配置样例](../configs/config.example.toml)。
 
+数据库默认是 SQLite。把配置里的 `Data.Database.Dsn` 改成 `postgres://用户:密码@主机:5432/库名?sslmode=disable` 就切到 PostgreSQL，程序按前缀自动识别（`postgres://`、`postgresql://` 走 PostgreSQL，`sqlite://` 或只写文件路径走 SQLite），两种驱动都已内置，不需要构建标签。
+
 ## 构建并运行单文件程序
 
 ```sh
@@ -44,6 +46,18 @@ make build
 
 `./slate -d` 会注册为系统服务并启动，`./slate -stop` 停止并删除该服务。Windows 是 Windows 服务（需管理员终端），Linux 是开机即启的 systemd 系统服务（会自动用 sudo 提权），macOS 是登录后启动的 LaunchAgent。
 
+## 打发布包
+
+发布包由 Makefile 打包，GitHub Actions 只负责准备环境、检出源码和上传，不自己读 git 哈希或拼编译参数。本地想试打包，可以执行：
+
+```sh
+make release/assets TAG=v1.2.3
+```
+
+产物放在 `dist/`：Windows amd64、Linux amd64、Linux arm64、macOS arm64 四个压缩包（`slate_<tag>_<系统>_<架构>.tar.gz` 或 `.zip`，解压后是同名目录，里面有程序和启动、停止脚本），加一个 `checksums.txt`。`TAG` 必须是 `v1.2.3` 这样的版本号，可以带 `-rc.1` 之类后缀。Linux 和 Windows 的程序会用 upx 压缩，本机没装 upx 时加 `UPX_BIN=` 跳过。
+
+给旧版本补包时，工作流会同时检出两份代码：最新的 Makefile 放在 `tool/`，要打包的 tag 源码放在 `src/`，在 `src/` 里执行 `make -f ../tool/Makefile release/assets TAG=<tag>`，所以旧 tag 里没有这套 Makefile 也能打。
+
 ## 常用开发命令
 
 | 命令 | 用途 |
@@ -51,8 +65,9 @@ make build
 | `make web/test` | 运行前端类型检查、oxlint 和单元测试 |
 | `make web/build` | 构建前端并检查体积预算 |
 | `go test ./internal/...` | 运行后端测试，默认使用 SQLite |
-| `make test-postgres` | 用临时 Docker PostgreSQL 运行看板存储层测试 |
+| `make test-postgres` | 用临时 Docker PostgreSQL 运行看板存储层和数据库连接层测试 |
 | `go vet ./internal/... ./pkg/... .` | Go 静态检查 |
 | `make docker/build` | 构建容器镜像 |
+| `make release/assets TAG=v1.2.3` | 打四个平台的发布包和校验和到 `dist/` |
 
 前端使用 React、Vite 和 Tailwind，见 [前端开发说明](../web/README.md)。后端沿用 [GoDDD](https://github.com/ixugo/goddd) 分层，进程入口在 `main.go`，看板领域和存储在 `internal/core/kanban/`，REST、MCP 和前端静态资源服务在 `internal/web/`。设计文档在 [`.cursor/scopes/`](../.cursor/scopes/)，REST 接口描述在 [`docs/api/`](api/)。

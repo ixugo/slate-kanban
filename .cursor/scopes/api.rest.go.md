@@ -10,10 +10,10 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 | 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
 |------|----------|-------------|---------|------|
 | 1 | 网页、MCP、脚本各写一套业务判断 | 同一个操作在不同入口结果不同，权限漏洞藏在某个入口里 | 处理函数只做"解析、取身份、调 Core、返回"，权限和校验全在 Core；两个入口共用同一套 Core | 实施 |
-| 2 | 路径里的卡片编号被请求体或查询参数里的同名字段覆盖 | URL 指向卡片 1，实际改的是卡片 7，审计和权限都错位 | 路径参数字段统一标 `uri:"x" json:"-" form:"-"`，只能从 URL 取值；有测试专门验证覆盖不了 | 实施 |
+| 2 | 路径里的任务编号被请求体或查询参数里的同名字段覆盖 | URL 指向任务 1，实际改的是任务 7，审计和权限都错位 | 路径参数字段统一标 `uri:"x" json:"-" form:"-"`，只能从 URL 取值；有测试专门验证覆盖不了 | 实施 |
 | 3 | 用 EventSource 连实时流 | EventSource 不能自定义请求头，启用口令后带不了 Bearer | 网页用原生 EventSource；默认免登录、REST 固定人身份；启用口令后网页靠同源的会话 cookie 通过，EventSource 会自动带上它，不需要自定义请求头 | 实施 |
 | 5 | 超大的请求体 | 一次请求吃光内存 | `/api/v1` 下请求体上限 1 MiB，声明的长度超过就直接返回 413；没声明长度的用读取上限兜底；唯一的例外是图片上传路由，它收 multipart 表单、上限 6 MiB（图片 5 MiB 加表单余量），跨站写请求由 Origin 检查拦住 | 实施 |
-| 6 | curl 或脚本忘了写 Content-Type，请求体被当成表单悄悄忽略 | 创建出空卡片，或者收到莫名其妙的校验错误，排查很久 | 有请求体但不是 JSON，一律返回 415，说明要用 application/json | 实施 |
+| 6 | curl 或脚本忘了写 Content-Type，请求体被当成表单悄悄忽略 | 创建出空任务，或者收到莫名其妙的校验错误，排查很久 | 有请求体但不是 JSON，一律返回 415，说明要用 application/json | 实施 |
 | 7 | 网页断线重连 | 断线期间别人做的修改看不到 | 流支持从某个事件序号续传：网页先取快照拿到 seq，再用 `after=seq` 连流；服务端先订阅再读库，读库和等待之间的新事件不会漏 | 实施 |
 | 8 | 续传的起点比保留的最早事件还早 | 中间的事件已经被清理，补不齐，网页的数据会悄悄不一致 | 流发一条 reset 事件然后结束，网页收到后重新取快照再连 | 实施 |
 | 9 | 流连接永远不断 | 半开的连接一直占着资源 | 每 20 秒发一次心跳，写失败就知道对方走了；单次连接最长 10 分钟，到点服务端主动结束，客户端带着最后的序号重连 | 实施 |
@@ -23,7 +23,7 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 | 13 | 各接口的错误格式不一样 | 客户端要写很多分支才能提示用户 | 统一用 goddd 的 `web.Fail`：`{reason, msg, trace_id}`，状态码取自 Core 返回的错误；Core 的错误必须原样返回，不能再包一层 | 实施 |
 | 14 | 网页和接口不同源 | 要开跨域，扩大攻击面 | 网页由同一个服务提供，不开跨域；开发时用 Vite 的代理转发 `/api` | 实施 |
 | 15 | 关闭服务时，挂着的实时流和阻塞等待让 Shutdown 一直等到超时 | 每次重启都卡 5 秒还留下一条错误日志；开着网页的人按 Ctrl-C 也会这样 | 关闭前先取消"关闭中"信号，长连接用 `lifecycle.Bind` 得到的上下文，收到信号后自己结束：实时流直接结束（客户端带最后的 id 重连），阻塞等待返回 503；普通请求不受影响。实测挂着一条流和一条等待时，退出耗时从 5.07 秒降到 0.11 秒 | 实施 |
-| 16 | 导出整板撑爆内存或拖垮数据库 | 个人看板规模以外的滥用 | 导出一次性读出全部卡片和评论，不分页；适合个人/小团队规模，与快照同级 | 实施 |
+| 16 | 导出整板撑爆内存或拖垮数据库 | 个人看板规模以外的滥用 | 导出一次性读出全部任务和评论，不分页；适合个人/小团队规模，与快照同级 | 实施 |
 
 ## 路由
 
@@ -45,35 +45,36 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 | GET /boards/:board_id | GetBoard | 全部 | — | BoardDetail（含列和规则） |
 | PATCH /boards/:board_id | UpdateBoard | 人；agent 只能在项目路径为空时写项目路径，不能改标签库（`tags`） | UpdateBoardInput（含 tags，见 kanban.board.go.md「标签库」） | Board（含 tags） |
 | DELETE /boards/:board_id | DeleteBoard | 人 | — | `{}` |
-| GET /boards/:board_id/snapshot | BoardSnapshot | 全部 | — | Snapshot（看板、列、规则、全部卡片、seq） |
+| GET /boards/:board_id/snapshot | BoardSnapshot | 全部 | — | Snapshot（看板、列、规则、全部任务、seq） |
 | GET /boards/:board_id/export | ExportBoard | 全部 | 查询 format=json\|md，默认 json | JSON 信封或 Markdown 附件（见 kanban.board.go.md） |
 | GET /boards/:board_id/events | ListEvents | 全部 | 查询 after、limit | EventPage |
-| GET /boards/:board_id/activity | ListActivity | 全部 | 查询 before、limit、types（逗号分隔的事件类型）、exclude_types（逗号分隔，不要的事件类型）、actor_kind、actor、card_id（只看某张卡片的事件） | ActivityPage：events 从新到旧，has_more，latest，actors（见 kanban.event.go.md「读取路径：活动流」） |
+| GET /boards/:board_id/activity | ListActivity | 全部 | 查询 before、limit、types（逗号分隔的事件类型）、exclude_types（逗号分隔，不要的事件类型）、actor_kind、actor、card_id（只看某个任务的事件） | ActivityPage：events 从新到旧，has_more，latest，actors（见 kanban.event.go.md「读取路径：活动流」） |
 | GET /boards/:board_id/stream | 见"实时流" | 全部 | 查询 after 或头 Last-Event-ID | text/event-stream |
 | POST /boards/:board_id/updates/pull | PullUpdates | agent | PullInput | Updates |
 | POST /boards/:board_id/updates/wait | WaitUpdates | agent | PullInput 加 timeout_seconds | Updates |
 | POST /boards/:board_id/columns | CreateColumn | 人 | CreateColumnInput | Column |
 | PUT /boards/:board_id/columns/order | ReorderColumns | 人 | `{ids: [...]}` | 列数组 |
 | PATCH /boards/:board_id/columns/:column_id | UpdateColumn | 人 | UpdateColumnInput | Column |
-| DELETE /boards/:board_id/columns/:column_id | DeleteColumn | 人 | 查询 move_to（卡片要搬去的列） | `{}` |
+| DELETE /boards/:board_id/columns/:column_id | DeleteColumn | 人 | 查询 move_to（任务要搬去的列） | `{}` |
 | GET /boards/:board_id/cards | ListCards | 全部 | 查询 query、limit | CardList |
 | POST /boards/:board_id/cards | CreateCard | 人和 agent（agent 不能填规划类字段） | CreateCardInput | Card |
-| POST /boards/:board_id/cards/next | NextCard | agent | NextCardInput | `{card: CardDetail 或 null}`，没有可领的卡片时是 null |
+| POST /boards/:board_id/cards/next | NextCard | agent | NextCardInput | `{card: CardDetail 或 null}`，没有可领的任务时是 null |
 | POST /boards/:board_id/rules | CreateRule | 人 | CreateRuleInput | Rule |
 | PATCH /rules/:rule_id | UpdateRule | 人 | UpdateRuleInput | Rule |
 | DELETE /rules/:rule_id | DeleteRule | 人 | — | `{}` |
 | GET /cards/:card_id | GetCardDetail | 全部 | — | CardDetail |
-| PATCH /cards/:card_id | UpdateCard | 人；agent 只能改自己持有的卡片 | UpdateCardInput | Card |
+| PATCH /cards/:card_id | UpdateCard | 人；agent 只能改自己持有的任务 | UpdateCardInput | Card |
 | DELETE /cards/:card_id | DeleteCard | 人 | — | `{}` |
-| POST /cards/:card_id/move | MoveCard | 人；agent 只能移自己持有的卡片 | MoveCardInput | Card |
+| GET /cards/:card_id/changes/:change_id | GetCardChange | 全部 | — | CardChange（修改前、修改后的完整内容；记录不存在或不属于这个任务返回 404，见 kanban.cardchange.go.md） |
+| POST /cards/:card_id/move | MoveCard | 人；agent 只能移自己持有的任务 | MoveCardInput | Card |
 | POST /cards/:card_id/claim | ClaimCard | agent | ClaimCardInput | CardDetail |
-| POST /cards/:card_id/release | ReleaseCard | agent 释放自己的；人可以收回任何一张 | — | `{}` |
-| POST /cards/:card_id/finish | FinishCard | 人；agent 只能完成自己持有的卡片 | FinishCardInput | CardDetail |
+| POST /cards/:card_id/release | ReleaseCard | agent 释放自己的；人可以收回任何一个 | — | `{}` |
+| POST /cards/:card_id/finish | FinishCard | 人；agent 只能完成自己持有的任务 | FinishCardInput | CardDetail |
 | POST /cards/:card_id/comments | AddComment | 人和 agent | `{body}` | Comment |
 | DELETE /comments/:comment_id | DeleteComment | 人 | — | `{}` |
 | POST /boards/:board_id/attachments | SaveAttachment | 人和 agent | multipart 表单，字段 `file`（图片） | `{token, url, content_type, size}`；见「图片附件」 |
 | GET /attachments/:token | GetAttachment | 全部 | — | 图片字节（不是 JSON） |
-没有对应路由的 Core 方法：`ListRules`（看板详情里已经带了规则）、`GetCard`（卡片详情接口已经覆盖）、
+没有对应路由的 Core 方法：`ListRules`（看板详情里已经带了规则）、`GetCard`（任务详情接口已经覆盖）、
 `Observe`（留给 MCP 做更新通知）、`Subscribe` 和 `LatestSeq`（实时流内部使用）。
 
 ## 一次请求怎么走
@@ -99,7 +100,7 @@ flowchart TD
 goddd 的 `web.WrapH` 先把路径参数按 `uri` 标签填进请求结构体，再按方法处理其余部分：
 GET 和不带请求体的 DELETE 读查询参数（`form` 标签），POST、PUT、PATCH 读 JSON 请求体，没有请求体就不绑定。
 
-- 请求结构体把路径参数和 Core 的入参类型内嵌在一起，例如修改卡片：`{CardID int64; kanban.UpdateCardInput}`。
+- 请求结构体把路径参数和 Core 的入参类型内嵌在一起，例如修改任务：`{CardID int64; kanban.UpdateCardInput}`。
   Core 的入参类型只有 `json` 标签，所以 GET 和 DELETE 的查询参数要单独写带 `form` 标签的结构体，再转成 Core 的入参。
 - 路径字段统一写成 `uri:"card_id" json:"-" form:"-"`。如果不加 `json:"-"`，请求体里的 `{"id": 7}` 会覆盖路径里的编号；
   不加 `form:"-"`，查询参数 `?CardID=7` 同样能覆盖。
@@ -115,7 +116,7 @@ agent 通过 MCP 接入，身份由 `GET/POST /mcp?name=...&role=worker|manager`
 
 ## 导出
 
-`GET /boards/:board_id/export?format=json|md`，默认 `json`。Core 的 `ExportBoard` 一次读出看板、列、规则、全部卡片（含 `CardView` 派生字段）和每张卡的评论，以及导出前的最新事件序号 `seq`；评论用 `ListByBoard` 批量加载，避免 N+1。权限与 `BoardSnapshot` 相同，看板不存在返回 404；`format` 不是 `json` 或 `md` 返回 400（`ErrInvalidInput`）。
+`GET /boards/:board_id/export?format=json|md`，默认 `json`。Core 的 `ExportBoard` 一次读出看板、列、规则、全部任务（含 `CardView` 派生字段）和每个任务的评论，以及导出前的最新事件序号 `seq`；评论用 `ListByBoard` 批量加载，避免 N+1。权限与 `BoardSnapshot` 相同，看板不存在返回 404；`format` 不是 `json` 或 `md` 返回 400（`ErrInvalidInput`）。
 
 | 格式 | Content-Type | 正文 |
 |------|--------------|------|
@@ -131,13 +132,13 @@ agent 通过 MCP 接入，身份由 `GET/POST /mcp?name=...&role=worker|manager`
 图片的生命周期（`attachment.go`、`attachment_commit.go`）：
 
 1. 上传 `POST /boards/:board_id/attachments` 只把图片放进系统临时目录（`<系统临时目录>/slate-kanban-uploads/<编号>.<扩展名>`），不入库，返回编号和地址；此时 `GET /attachments/:token` 已能读到（先查库，查不到再查临时目录）。
-2. 引用它的内容保存时（创建卡片、修改描述、添加评论），在同一个事务里把引用到的临时图片写进 `resource/<slug>/`、插入记录，事务提交后删除临时文件；粘贴后放弃的图片只留在临时目录，由系统清理。
-3. 描述改短、删除评论、删除卡片时，找出被删掉引用的图片；整个看板里已经没有卡片描述或评论再引用它，才删记录，并在事务提交后删文件（别的看板的图片、仍被引用的图片都不动）。
+2. 引用它的内容保存时（创建任务、修改描述、添加评论），在同一个事务里把引用到的临时图片写进 `resource/<slug>/`、插入记录，事务提交后删除临时文件；粘贴后放弃的图片只留在临时目录，由系统清理。
+3. 描述改短、删除评论、删除任务时，找出被删掉引用的图片；整个看板里已经没有任务描述或评论再引用它，才删记录，并在事务提交后删文件（别的看板的图片、仍被引用的图片都不动）。
 
 - 上传 `POST /boards/:board_id/attachments`：表单字段 `file`。`guard.go` 对这条路由放开「只收 JSON」和 1 MiB 上限（`uploadRoute`、`uploadBodyLimit`），请求体限制在 5 MB + 1 MB 后才解析。类型由 `http.DetectContentType` 按内容判断，只收 PNG、JPEG、GIF、WebP；**不收 SVG**（SVG 能带脚本）。超过 5 MB 返回 413 `ErrAttachmentTooLarge`，类型不对或字段缺失返回 400 `ErrInvalidInput`，看板不存在 404。
 - 读取 `GET /attachments/:token`：`token` 是随机的 32 位小写十六进制，格式不对直接 404。响应头带 `X-Content-Type-Options: nosniff`、`Content-Security-Policy: default-src 'none'; sandbox`、`Content-Disposition: inline`，内容不变所以 `Cache-Control: private, max-age=31536000, immutable`。
 - Markdown 里写 `![说明](/api/v1/attachments/<token>)`，网页只渲染这种本服务的附件图片，外部图片地址当文字显示，不会去加载。
-- 删除看板时图片记录和它的资源子目录一起删除（记录在事务里删，子目录在提交后清理，清理失败只记警告）；删除卡片时清理它描述和评论里不再被引用的图片。整板导出的 JSON/Markdown 只保留图片地址，不内嵌图片字节。
+- 删除看板时图片记录和它的资源子目录一起删除（记录在事务里删，子目录在提交后清理，清理失败只记警告）；删除任务时清理它描述和评论里不再被引用的图片。整板导出的 JSON/Markdown 只保留图片地址，不内嵌图片字节。
 - 没有访问口令时和其他接口一样免登录；设了口令后图片地址也要带会话 cookie（`<img>` 同源请求会自动带上）。
 
 ## 实时流
@@ -217,7 +218,7 @@ flowchart TD
 | 请求体上限、JSON 检查 | limitBody, requireJSON | internal/web/api/guard.go |
 | REST 固定人身份 | restactor.Middleware, restactor.From | internal/web/restactor/actor.go |
 | 看板、列、规则 | boardRoutes 等 | internal/web/api/kanbanapi/board.go, column.go, rule.go |
-| 卡片、评论 | cardRoutes | internal/web/api/kanbanapi/card.go |
+| 任务、评论 | cardRoutes | internal/web/api/kanbanapi/card.go |
 | 领取、完成 | claimRoutes | internal/web/api/kanbanapi/claim.go |
 | 快照、事件、拉取、等待 | snapshot、listEvents、pullUpdates、waitUpdates | internal/web/api/kanbanapi/event.go |
 | 导出 | export, exportAttachmentName, renderBoardMarkdown | internal/web/api/kanbanapi/export.go, export_md.go |

@@ -2,7 +2,7 @@
 
 ## 需求目标
 
-框架在 DSN 以 `postgres` 开头时使用 PostgreSQL，但 Slate 的看板存储实现和测试原先只在 SQLite 上跑过。
+程序在 DSN 以 `postgres://` 或 `postgresql://` 开头时使用 PostgreSQL（默认构建已内置驱动），但 Slate 的看板存储实现和测试原先只在 SQLite 上跑过。
 要在不复制用例的前提下，让同一套 `kanbandb` 存储测试在 SQLite 与 PostgreSQL 上都通过，并核对事务、行锁、JSON 字段和唯一约束在两种方言下的行为一致。
 
 | 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
@@ -10,8 +10,8 @@
 | 1 | 默认 `go test` 依赖 docker | 开发机没装 Postgres 时日常测试失败 | 未设置 `SLATE_TEST_POSTGRES_DSN` 时只跑 SQLite；设置后 `ForEachBackend` 再多跑 postgres 子测试 | 实施 |
 | 2 | 并行存储测试共用一个库 | 用例互相污染、顺序依赖 | 每个 postgres 子测试创建独立随机库，结束 `DROP DATABASE` | 实施 |
 | 3 | 事务回滚后残留数据 | 回滚语义与线上一致性不可信 | 沿用 `TestRuleWithTx`、`TestBoardTxLockAndRollback` 等，在双后端执行 | 实施 |
-| 4 | 并发抢卡片编号 | 两张卡同一 Key | `IncrCardSeq` 使用 `UPDATE … RETURNING`；`TestPostgresConcurrentIncrCardSeq` 压测 | 实施 |
-| 5 | 并发领取同一张卡 | 两个 agent 同时持有 | PostgreSQL 行锁 + 看板事务；`TestPostgresConcurrentClaimOneWinner` | 实施 |
+| 4 | 并发抢任务编号 | 两个任务同一 Key | `IncrCardSeq` 使用 `UPDATE … RETURNING`；`TestPostgresConcurrentIncrCardSeq` 压测 | 实施 |
+| 5 | 并发领取同一个任务 | 两个 agent 同时持有 | PostgreSQL 行锁 + 看板事务；`TestPostgresConcurrentClaimOneWinner` | 实施 |
 | 6 | JSON 标签/依赖中文与引号 | 读写字段损坏 | `TestPostgresJSONRoundTripSpecialChars` + `TestCardRoundTrip` 双后端 | 实施 |
 | 7 | 唯一约束错误类型不一致 | 业务无法映射 409 | `orm.TranslateError` + `TestBoardSlugIsUnique` / `TestCardKeyIsUnique` 双后端 | 实施 |
 
@@ -29,7 +29,7 @@
 
 - 环境变量 `SLATE_TEST_POSTGRES_DSN`：指向可连通的 Postgres（通常连 `postgres` 库，由测试代码 `CREATE DATABASE`）。
 - `kanbantest.ForEachBackend`：每个现有存储测试包一层 `sqlite` / `postgres` 子测试。
-- `make test-postgres`：启动 `postgres:16-alpine` 一次性容器、等待 `pg_isready`、导出 DSN、跑 `./internal/core/kanban/stores/kanbandb/...`，退出时 `docker rm -f`。
+- `make test-postgres`：启动 `postgres:16-alpine` 一次性容器、等待 `pg_isready`、导出 DSN、跑 `./internal/core/kanban/stores/kanbandb/...` 和 `./internal/data/...`（后者含默认构建的 `SetupDB` 连通性用例），退出时 `docker rm -f`。
 
 ### 连接池
 

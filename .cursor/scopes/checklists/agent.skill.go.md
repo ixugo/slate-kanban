@@ -16,7 +16,7 @@
 
 ## 一致性
 - [x] CHK009 - skill 里的工具名、错误名、字段名与服务端实际一致吗，新增或改名时有没有测试提醒？[Conflict]
-- [x] CHK010 - 单张用 `next_card`、多张用 `list_cards` 加 `claim_card`，与 `next_card` "优先给已持有的卡片"的行为是否一致？[Conflict]
+- [x] CHK010 - 单个用 `next_card`、多个用 `list_cards` 加 `claim_card`，与 `next_card` "优先给已持有的任务"的行为是否一致？[Conflict]
 - [x] CHK011 - skill 里"不要自己拖进完成列"与服务端的权限（agent 不能放进领取列、`finish_card` 去下一列）是否一致？[Conflict]
 
 ## 边界场景

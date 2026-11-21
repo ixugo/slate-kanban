@@ -8,10 +8,11 @@
 
 | 项 | 决定 |
 |---|---|
-| 谁会被提示 | 只有官方 release 构建（发布工作流把 `gitBranch` 写成 `release`，`main.go` 据此设置 `Runtime.Official`）；本机编译的版本、容器里的程序不检查或只提示不更新 |
+| 谁会被提示 | 所有构建都检查并提示；只有官方 release 构建（Makefile 发布目标把 `gitBranch` 写成 `release`，`main.go` 据此设置 `Runtime.Official`）能自动替换，本机编译的版本、容器里的程序只提示并引导去下载 |
 | 查询 | 网页每次打开请求 `GET /api/v1/update`；服务端请求 `releases/latest`，成功缓存 1 小时，失败 5 分钟内不重试，失败只记日志、按没有更新返回 |
 | 忽略 | 网页把被忽略的版本号写进 localStorage `slate.update.ignored`，小于等于它的版本不再弹窗；不同的电脑仍会提醒 |
-| 包的选择 | 按 `GOOS/GOARCH` 找 `slate_<tag>_<系统>_<架构>.tar.gz`（windows 为 `.zip`）和 `checksums.txt`，规则和 `.github/workflows/release.yml` 一致；包地址必须在 `https://github.com/ixugo/slate-kanban/releases/download/` 下 |
+| 包的选择 | 按 `GOOS/GOARCH` 找 `slate_<tag>_<系统>_<架构>.tar.gz`（windows 为 `.zip`）和 `checksums.txt`，规则与 Makefile 的 `release/assets` 一致；包地址必须在 `https://github.com/ixugo/slate-kanban/releases/download/` 下 |
+| 包内布局 | 程序在包内同名的 `slate_<tag>_<系统>_<架构>/` 目录里，解压后得到单个目录；已发布的旧版平铺包也照样能识别，按名字取最后一段匹配 |
 | 校验 | 下载的包必须和 `checksums.txt` 里的 sha256 一致，否则放弃，不改动现有程序 |
 | 替换 | 临时文件写在程序所在目录；类 Unix 直接改名覆盖，windows 先把旧程序改名成 `.old` 再放新的，放不上去就改回来；不做备份 |
 | 重启 | 不自动重启：替换成功后网页提示用户重启 Slate 并刷新页面，因为不知道程序由谁守护 |
@@ -30,7 +31,7 @@
 
 ## 验收清单
 
-- [x] 版本比较、缓存、失败不报错、非官方不查询、容器只提示
+- [x] 版本比较、缓存、失败不报错、非官方构建也查询但只提示、容器只提示
 - [x] 类 Unix 和 windows 的替换，校验不过不改程序且不留临时文件
 - [x] 网页：弹窗、忽略、立即更新、失败重试、去下载
 - [ ] 真实 release 上联调

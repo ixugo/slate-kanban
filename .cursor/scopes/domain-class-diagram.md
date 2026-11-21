@@ -5,8 +5,8 @@
 
 ## L0 全局上下文
 
-聚合根有四个：看板（Board）、卡片（Card）、事件（Event）、Agent 游标（AgentCursor）。
-列（Column）、自动化规则（Rule）和工程师（Engineer）依附于看板，评论（Comment）依附于卡片，所以不在 L0 出现。
+聚合根有四个：看板（Board）、任务（Card）、事件（Event）、Agent 游标（AgentCursor）。
+列（Column）、自动化规则（Rule）和工程师（Engineer）依附于看板，评论（Comment）依附于任务，所以不在 L0 出现。
 
 ```mermaid
 classDiagram
@@ -20,13 +20,13 @@ classDiagram
     Board "1" --> "0..*" Event : 产生
     Board "1" --> "0..*" AgentCursor : 记录各 agent 的读取进度
     Card "1" --> "0..*" Event : 可选关联
-    Card "0..*" --> "0..*" Card : 等待其他卡片完成
+    Card "0..*" --> "0..*" Card : 等待其他任务完成
 ```
 
 ## L1 看板聚合
 
-看板是根，列和自动化规则只能通过看板访问。看板上的 CardSeq 记录最后一个已分配的卡片编号，
-创建卡片时在事务里加一，保证同一看板内编号不重复。
+看板是根，列和自动化规则只能通过看板访问。看板上的 CardSeq 记录最后一个已分配的任务编号，
+创建任务时在事务里加一，保证同一看板内编号不重复。
 
 ```mermaid
 classDiagram
@@ -79,9 +79,9 @@ classDiagram
     Column "0..1" --> "0..1" Column : 完成后的下一列
 ```
 
-## L1 卡片聚合
+## L1 任务聚合
 
-卡片是根，评论依附于卡片。卡片靠 BoardID 和 ColumnID 引用看板与列，不持有它们的对象。
+任务是根，评论依附于任务。任务靠 BoardID 和 ColumnID 引用看板与列，不持有它们的对象。
 Version 是乐观锁，每次写入加一，调用方带着旧 Version 更新时发现不一致就返回冲突。
 
 ```mermaid

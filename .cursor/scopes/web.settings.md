@@ -24,7 +24,7 @@
 | 数据来源 | `useBoardSnapshot`，不连 SSE |
 | 缓存 | 成功后 `invalidate` `queryKeys.board(id)`；改名称时同时 `boards` |
 | 列排序 | 上/下移按钮 + `reorderColumns`，乐观更新顺序 |
-| 删列 | 有卡必须 `move_to` |
+| 删列 | 有任务必须 `move_to` |
 | 导出 | 「导出」页签每种格式一行（JSON 完整数据、Markdown 可读文档），用带 `download` 的同源链接下载，不进前端缓存；看板工具栏不再放导出入口 |
 | 删项目 | 模态框里输入项目名称才放行（区分大小写，忽略首尾空白，不再用 slug）；弹窗标题是「删除 **项目名** 项目？」，项目名加粗标红且一点就全选，方便复制后粘贴进输入框，下面只有一个输入框；输入框里回车等同点删除 |
 | 工程师 | 「工程师」页签（`EngineersSection`）：列表、招募/编辑对话框、解聘确认，保存都走 `PATCH board` 的 `engineers` 整体替换（已有项带 id）；类型有全栈、前端、后端、UI、测试五种（`engineerKinds.ts`，标签同一填充样式、只有颜色不同）；名称必填且不重名、提示词必填、最多 20 位，校验在 `validation.ts` 的 `validateDraft`；每位工程师配随机头像（`EngineerAvatar` 用 `avatar.ts` 的种子特征画 Q 版真人、猫咪两种画风的 SVG，不用图片文件），列表里只展示头像，招募和编辑窗口里头像右下角有小骰子可随机切换（保存时一起提交）；按钮文案是「招募」「解聘」，不叫「创建 agents」 |

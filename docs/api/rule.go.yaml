@@ -50,7 +50,7 @@ paths:
                   description: 触发所在的列，0 表示任意列
                 condition:
                   type: string
-                  description: 条件，使用卡片筛选语法，空表示无条件
+                  description: 条件，使用任务筛选语法，空表示无条件
                 actions:
                   type: array
                   items:
@@ -124,7 +124,7 @@ paths:
                   description: 触发所在的列，0 表示任意列
                 condition:
                   type: string
-                  description: 条件，使用卡片筛选语法，空表示无条件
+                  description: 条件，使用任务筛选语法，空表示无条件
                 actions:
                   type: array
                   items:
@@ -242,7 +242,7 @@ components:
           description: 触发所在的列，0 表示任意列
         condition:
           type: string
-          description: 条件，使用卡片筛选语法，空表示无条件
+          description: 条件，使用任务筛选语法，空表示无条件
         actions:
           type: array
           items:

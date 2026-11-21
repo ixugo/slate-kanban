@@ -37,13 +37,13 @@ paths:
                   description: 列名称，同一看板内不能重名，最长 60 个字符
                 instruction:
                   type: string
-                  description: 给 agent 的指令，说明这一列的卡片该怎么处理
+                  description: 给 agent 的指令，说明这一列的任务该怎么处理
                 is_done:
                   type: boolean
-                  description: 卡片进入这一列是否算完成
+                  description: 任务进入这一列是否算完成
                 next_column_id:
                   type: integer
-                  description: 卡片完成交接后默认移入的下一列，0 表示没有
+                  description: 任务完成交接后默认移入的下一列，0 表示没有
               required:
                 - name
       responses:
@@ -171,13 +171,13 @@ paths:
                   description: 列名称，同一看板内不能重名，最长 60 个字符
                 instruction:
                   type: string
-                  description: 给 agent 的指令，说明这一列的卡片该怎么处理
+                  description: 给 agent 的指令，说明这一列的任务该怎么处理
                 is_done:
                   type: boolean
-                  description: 卡片进入这一列是否算完成
+                  description: 任务进入这一列是否算完成
                 next_column_id:
                   type: integer
-                  description: 卡片完成交接后默认移入的下一列，0 表示没有
+                  description: 任务完成交接后默认移入的下一列，0 表示没有
       responses:
         "200":
           description: 成功
@@ -213,7 +213,7 @@ paths:
       tags:
         - admin/列
       summary: 删除列
-      description: 列里还有卡片时必须用 move_to 指定卡片搬去的列，否则返回 409。列已经不存在也返回成功。
+      description: 列里还有任务时必须用 move_to 指定任务搬去的列，否则返回 409。列已经不存在也返回成功。
       operationId: deleteColumn
       parameters:
         - name: board_id
@@ -231,7 +231,7 @@ paths:
         - name: move_to
           in: query
           required: false
-          description: 列里的卡片搬去的列编号；列是空的时可以不填
+          description: 列里的任务搬去的列编号；列是空的时可以不填
           schema:
             type: integer
       responses:
@@ -281,13 +281,13 @@ components:
           description: 列名称
         instruction:
           type: string
-          description: 给 agent 的指令，说明这一列的卡片该怎么处理
+          description: 给 agent 的指令，说明这一列的任务该怎么处理
         is_done:
           type: boolean
-          description: 卡片进入这一列是否算完成
+          description: 任务进入这一列是否算完成
         next_column_id:
           type: integer
-          description: 卡片完成交接后默认移入的下一列，0 表示没有
+          description: 任务完成交接后默认移入的下一列，0 表示没有
         sort:
           type: integer
           description: 排序值，越小越靠左

@@ -117,7 +117,7 @@ components:
           description: 各个 agent 宿主的接入步骤
         loop_prompt:
           type: string
-          description: "用户唯一要贴的一行守候提示词，里面的 <看板名> 是占位符，使用时换成真实的看板名；完整提示词由 MCP 的 get_board 返回（watch_prompt）"
+          description: "用户唯一要贴的一行守候提示词（agent 靠 wait_for_updates 长连接持续监听，loop 反复贴它只是检查监听是否还活着），里面的 <看板名> 是占位符，使用时换成真实的看板名；完整提示词由 MCP 的 get_board 返回（watch_prompt）"
         watch_notes:
           type: array
           items:

@@ -97,7 +97,7 @@ components:
           description: 所属看板编号
         card_id:
           type: integer
-          description: 关联的卡片编号，0 表示与卡片无关
+          description: 关联的任务编号，0 表示与任务无关
         type:
           type: string
           description: 事件类型

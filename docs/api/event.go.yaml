@@ -16,7 +16,7 @@ paths:
       tags:
         - admin/事件
       summary: 看板快照
-      description: 一次返回整块看板：看板、列、规则、全部卡片，以及读取之前的最新事件序号 seq。网页加载和断线重连后用它对齐状态。
+      description: 一次返回整块看板：看板、列、规则、全部任务，以及读取之前的最新事件序号 seq。网页加载和断线重连后用它对齐状态。
       operationId: getSnapshot
       parameters:
         - name: board_id
@@ -106,7 +106,7 @@ paths:
       tags:
         - admin/事件
       summary: 活动流
-      description: 从新到旧返回看板的事件，可以按事件类型、操作者和卡片筛选。types 和 exclude_types 里出现空项（比如多写了逗号）或不认识的类型，返回 400。
+      description: 从新到旧返回看板的事件，可以按事件类型、操作者和任务筛选。types 和 exclude_types 里出现空项（比如多写了逗号）或不认识的类型，返回 400。
       operationId: listActivity
       parameters:
         - name: board_id
@@ -158,7 +158,7 @@ paths:
         - name: card_id
           in: query
           required: false
-          description: 只看某张卡片的事件
+          description: 只看某个任务的事件
           schema:
             type: integer
       responses:
@@ -350,7 +350,7 @@ components:
       properties:
         id:
           type: integer
-          description: 卡片编号
+          description: 任务编号
         board_id:
           type: integer
           description: 所属看板编号
@@ -359,10 +359,10 @@ components:
           description: 所在列编号
         number:
           type: integer
-          description: 看板内的卡片序号
+          description: 看板内的任务序号
         key:
           type: string
-          description: 卡片编号，由看板 slug 和序号组成，例如 SLATE-12
+          description: 任务编号，由看板 slug 和序号组成，例如 SLATE-12
         title:
           type: string
           description: 标题
@@ -388,8 +388,8 @@ components:
           type: array
           items:
             type: integer
-            description: 卡片编号
-          description: 依赖的卡片编号列表
+            description: 任务编号
+          description: 依赖的任务编号列表
         due_at:
           type:
             - string
@@ -410,7 +410,7 @@ components:
           description: 完成时间
         claimed_by:
           type: string
-          description: 当前持有这张卡的 agent 名称，没有则为空
+          description: 当前持有这个任务的 agent 名称，没有则为空
         claim_expires_at:
           type:
             - string
@@ -422,7 +422,7 @@ components:
           description: 绑定或分配的全栈工程师编号，0 表示还没有
         claim_engineer_id:
           type: integer
-          description: 当前领取这张卡的工程师编号，领取放开后为 0
+          description: 当前领取这个任务的工程师编号，领取放开后为 0
         branch:
           type: string
           description: 关联的代码分支
@@ -431,7 +431,7 @@ components:
           description: 关联的链接，例如合并请求
         version:
           type: integer
-          description: 版本号，每次真实修改加一，修改卡片时可带上做冲突检测
+          description: 版本号，每次真实修改加一，修改任务时可带上做冲突检测
         created_by:
           type: string
           description: 创建者名称
@@ -451,20 +451,20 @@ components:
           items:
             type: string
             description: 标签文字
-          description: 卡片上带文字的标签的文字，按卡片上的顺序
+          description: 任务上带文字的标签的文字，按任务上的顺序
         column:
           type: string
-          description: 卡片所在列的名称
+          description: 任务所在列的名称
         done:
           type: boolean
-          description: 卡片位于完成列
+          description: 任务位于完成列
         waiting:
           type: boolean
-          description: 卡片有还没完成的依赖
+          description: 任务有还没完成的依赖
         claim_active:
           type: boolean
-          description: 卡片正被某个 agent 领取，并且领取还没到期
-      description: 卡片连同从列、依赖、领取推出来的派生状态
+          description: 任务正被某个 agent 领取，并且领取还没到期
+      description: 任务连同从列、依赖、领取推出来的派生状态
     Column:
       type: object
       properties:
@@ -479,13 +479,13 @@ components:
           description: 列名称
         instruction:
           type: string
-          description: 给 agent 的指令，说明这一列的卡片该怎么处理
+          description: 给 agent 的指令，说明这一列的任务该怎么处理
         is_done:
           type: boolean
-          description: 卡片进入这一列是否算完成
+          description: 任务进入这一列是否算完成
         next_column_id:
           type: integer
-          description: 卡片完成交接后默认移入的下一列，0 表示没有
+          description: 任务完成交接后默认移入的下一列，0 表示没有
         sort:
           type: integer
           description: 排序值，越小越靠左
@@ -555,7 +555,7 @@ components:
           description: 所属看板编号
         card_id:
           type: integer
-          description: 关联的卡片编号，0 表示与卡片无关
+          description: 关联的任务编号，0 表示与任务无关
         type:
           type: string
           description: 事件类型
@@ -642,7 +642,7 @@ components:
           description: 触发所在的列，0 表示任意列
         condition:
           type: string
-          description: 条件，使用卡片筛选语法，空表示无条件
+          description: 条件，使用任务筛选语法，空表示无条件
         actions:
           type: array
           items:
@@ -716,7 +716,7 @@ components:
           description: 看板名称
         slug:
           type: string
-          description: 看板短标识，卡片编号的前缀，创建后不可修改
+          description: 看板短标识，任务编号的前缀，创建后不可修改
         description:
           type: string
           description: 看板说明
@@ -755,7 +755,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CardView"
-          description: 看板里的全部卡片，先按列从左到右，同一列里按位置
+          description: 看板里的全部任务，先按列从左到右，同一列里按位置
         seq:
           type: integer
           description: 读取数据之前看板的最新事件序号，从它之后接收事件不会漏

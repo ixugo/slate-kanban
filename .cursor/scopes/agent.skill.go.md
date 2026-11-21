@@ -7,16 +7,16 @@ agent 光有 MCP 工具还不够：它得知道怎么用——项目路径问不
 
 | 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
 |------|----------|-------------|---------|------|
-| 1 | agent 只有工具，不知道工作流程 | 领不该领的卡、直接在主分支上改、做完不交接 | 随服务发布 `slate-kanban` skill，写清：先确认看板和项目路径、守候、领取、worktree、子 agent、交接到审查、出错怎么办 | 实施 |
+| 1 | agent 只有工具，不知道工作流程 | 领不该领的任务、直接在主分支上改、做完不交接 | 随服务发布 `slate-kanban` skill，写清：先确认看板和项目路径、守候、领取、worktree、子 agent、交接到审查、出错怎么办 | 实施 |
 | 2 | 项目在本机的位置没人告诉 agent | agent 不知道去哪个目录建 worktree，或者每次都问用户 | 路径记在看板上（`project_path`），不在本地另存：看板上有就直接用，没有才问用户一次，再用 `set_project_path` 写回；agent 只能写还是空的，已有的只有人能改 | 实施 |
-| 3 | 来活之后主 agent 自己干 | 上下文被代码细节占满，一次只能做一张，卡片租约到期 | 主 agent 只做调度：领卡、派子 agent、续租、交接；每张卡一个子 agent、一个 worktree、一个分支；同时进行的卡片数有上限（默认 2）。host 没有子 agent 能力时，主 agent 自己在 worktree 里做，一次一张 | 实施 |
+| 3 | 来活之后主 agent 自己干 | 上下文被代码细节占满，一次只能做一个，任务租约到期 | 主 agent 只做调度：领任务、派子 agent、续租、交接；每个任务一个子 agent、一个 worktree、一个分支；并发名额按名册算（研发和审查分开数，服务端把数字写进 `watch_prompt`），有几个空闲名额就一次领满、在同一次回复里同时派出，一个任务新开一个子 agent、不复用做过别的任务的。host 没有子 agent 能力时，主 agent 自己在 worktree 里做，一次一个 | 实施 |
 | 4 | 不同 host 有的能长时间阻塞调用，有的不能 | 要么 agent 空转轮询，要么错过新活 | skill 给出选择：优先用 `wait_for_updates` 阻塞守候；工具调用超时短就缩短 `timeout_seconds`；host 不能保持会话就用它自己的定时功能周期性检查 | 实施 |
 | 5 | 装 MCP 和 skill 要翻各 host 的文档 | 接入门槛高 | `/install.md`（免认证）写好 Claude Code、Cursor、Codex 的安装步骤，MCP URL 带 `?name=`（管理步骤带 `&role=manager`）；网页「连接 Agent」用免认证的 `/api/v1/connect` 取同一份结构化说明 | 实施 |
 | 6 | skill 和服务端版本对不上 | skill 里提到的工具不存在或已改名，agent 去调用不存在的工具 | skill 内嵌在服务二进制里，由服务提供：`/skills/slate-kanban/SKILL.md` 和 MCP 资源 `slate://skills/slate-kanban`；测试保证 skill 提到的工具和错误名都真实存在，agent 视图的每个工具 skill 里都有 | 实施 |
 | 7 | agent 连上 MCP 时还没装 skill | 不知道还有流程说明 | 连接时下发的 `instructions` 提示：没装就读取资源 `slate://skills/slate-kanban`，经用户同意后存成自己的 skill | 实施 |
 | 8 | 免认证的地址被用来做文章 | 通过 Host 头注入内容，或被缓存污染 | 只返回静态内容和从请求里算出的服务地址；Host 和转发头严格校验，不合格返回 400；说明页不缓存；里面没有任何令牌 | 实施 |
-| 9 | 多个 agent 同时连上来，不知道各自占哪个名额 | 同一张卡被重复领取，或同时做的卡超过人想要的并发 | 看板名册里每位工程师是一个名额：领取要带 `engineer_id`，服务端拒绝重复领取和忙碌的工程师；skill 把工程师的 `prompt` 当子 agent 角色设定的底稿 | 实施 |
-| 10 | 装好后不知道怎么让 agent 长期挂着守候，只会复制一句安装提示词 | agent 做完就收工，没人再接新卡片 | `/api/v1/connect` 增加 `watch_prompt`（长期守候，不收工、守候时不输出）、`loop_prompt`（单轮，配合 host 的 loop）、`watch_notes` 和每个 host 的 `watch` 片段（screen 开会话、恢复命令）；`/install.md` 第 4 节同源渲染；skill 第三节补长期运行纪律 | 实施 |
+| 9 | 多个 agent 同时连上来，不知道各自占哪个名额 | 同一个任务被重复领取，或同时做的任务超过人想要的并发 | 看板名册里每位工程师是一个名额：领取要带 `engineer_id`，服务端拒绝重复领取和忙碌的工程师；skill 把工程师的 `prompt` 当子 agent 角色设定的底稿 | 实施 |
+| 10 | 装好后不知道怎么让 agent 长期挂着守候，只会复制一句安装提示词 | agent 做完就收工，没人再接新任务 | `/api/v1/connect` 增加 `watch_prompt`（长期守候，不收工、守候时不输出）、`loop_prompt`（单轮，配合 host 的 loop）、`watch_notes` 和每个 host 的 `watch` 片段（screen 开会话、恢复命令）；`/install.md` 第 4 节同源渲染；skill 第三节补长期运行纪律 | 实施 |
 
 ## 两条主线
 
@@ -55,8 +55,8 @@ flowchart TD
     E --> F{有空闲名额吗}
     F -->|没有| W
     F -->|有| G[next_card 或 list_cards + claim_card]
-    G -->|有卡片| H[建 worktree 和分支, 派子 agent]
-    G -->|没有卡片| W[wait_for_updates 阻塞等待]
+    G -->|有任务| H[建 worktree 和分支, 派子 agent]
+    G -->|没有任务| W[wait_for_updates 阻塞等待]
     H --> I[comment_card 续租和汇报]
     I --> J[子 agent 返回, 检查分支]
     J --> K[finish_card 交接到下一列]
@@ -74,12 +74,12 @@ flowchart TD
 |----|------|---------|
 | 先确认能用 | `whoami` 能返回 agent 身份才算装好；没装去读 `/install.md` | 5、6 |
 | 找到看板和项目路径 | 按当前仓库匹配看板；路径为空问一次并写回；已有路径不再问；路径和当前目录不一致先问用户 | 2 |
-| 守候和领取 | 阻塞循环；并发上限；单张用 `next_card`，多张用 `list_cards` 加 `claim_card`；按 host 能力选守候方式；重启后用 `claimed:` 找回自己持有的卡片 | 3、4 |
+| 守候和领取 | 阻塞循环；并发上限；单个用 `next_card`，多个用 `list_cards` 加 `claim_card`；按 host 能力选守候方式；重启后用 `claimed:` 找回自己持有的任务 | 3、4 |
 | 派发 | 读全文和评论；建 worktree 和分支；子 agent 的约束和汇报要求；每 20 分钟评论续租；`finish_card` 交接；返工 | 3 |
 | 做不下去 | 提问、释放、新任务记在非领取列、规划类字段不能改；服务端错误对照表 | 1 |
-| 收尾 | 卡片完成且分支已合并后清理 worktree 和分支 | 3 |
+| 收尾 | 任务完成且分支已合并后清理 worktree 和分支 | 3 |
 
-关键规则：各列允许 agent 做什么由列的 `instruction` 提示词约定；`next_card` 必须传入按提示词选择的 `column_id`，只从该列取卡；只有进行中派研发子 agent、只有审查派审查子 agent，任务完成只由审查决定，完成列 agent 不操作；不改人的规划类字段。
+关键规则：各列允许 agent 做什么由列的 `instruction` 提示词约定；`next_card` 必须传入按提示词选择的 `column_id`，只从该列取任务；只有进行中派研发子 agent、只有审查派审查子 agent，任务完成只由审查决定，完成列 agent 不操作；不改人的规划类字段。
 这些规则服务端本来就会强制（agent 做不到会得到对应的错误），skill 的作用是让 agent 一开始就不去尝试。
 
 ## 服务端提供的东西
@@ -160,9 +160,9 @@ skill 是写给模型的文字，没有编译器帮忙，所以用测试守住�
 | 变异验证 | 在 skill、资源、说明、地址校验、渲染和路由上共造 35 处变异（一次性脚本，用完已清理） | 全部被测试发现；其中"代码围栏没有闭合"一处最初漏网：原来只数围栏个数，同时少了偶数个关闭围栏时发现不了，改成检查严格一开一关交替 |
 | 真实进程：页面 | curl 检查免认证页面头、`/api/v1/connect` 免认证 JSON、非法 Host 400 | skill 与仓库一致 |
 | 真实进程：host 命令 | 临时 HOME 执行安装命令 | MCP URL 带 `?name=`，无 SLATE_TOKEN；三种 host skill 安装可执行 |
-| 真实进程：流程 | 一次性的冒烟测试（用完已清理）用脚本照着 skill 走完整流程：确认并写入项目路径、守候、用 `list_cards` 加 `claim_card` 领两张、按 skill 的命令建 worktree 和分支、子 agent 提交、交接到审查、人返工后再交接、释放做不下去的卡片、人合并后清理；并触发错误对照表里的每个错误 | 通过：skill 里的 git 命令、查询写法和每个错误名，都和服务端真实行为一致 |
-| 真实 host：Claude Code 2.1.286 | 临时 HOME 里照 `/install.md` 的命令装用户级 MCP 和 skill，中间放一个记录请求的代理，再用 `claude -p` 开真实会话 | 通过：会话里看得到用户级 MCP 和 skill，`Skill` 工具能加载；`whoami`、`list_boards`、`get_board`、`next_card`、`finish_card` 走通，卡片进审查；`wait_for_updates` 阻塞和被事件唤醒都正常；带口令的 `--header` 写法有效 |
-| 真实 host：Codex 0.168.0 | 同上，用 `codex mcp add` 和 `codex exec` | 通过：skill 从 `~/.codex/skills` 被发现；`whoami`、读取 skill 资源、`list_cards`、`claim_card`、`finish_card` 走通，卡片进审查；`--bearer-token-env-var` 带口令有效（每个请求都带了头）；`wait_for_updates` 等满 50 秒正常返回，没有触发 Codex 默认的 60 秒工具超时 |
+| 真实进程：流程 | 一次性的冒烟测试（用完已清理）用脚本照着 skill 走完整流程：确认并写入项目路径、守候、用 `list_cards` 加 `claim_card` 领两个、按 skill 的命令建 worktree 和分支、子 agent 提交、交接到审查、人返工后再交接、释放做不下去的任务、人合并后清理；并触发错误对照表里的每个错误 | 通过：skill 里的 git 命令、查询写法和每个错误名，都和服务端真实行为一致 |
+| 真实 host：Claude Code 2.1.286 | 临时 HOME 里照 `/install.md` 的命令装用户级 MCP 和 skill，中间放一个记录请求的代理，再用 `claude -p` 开真实会话 | 通过：会话里看得到用户级 MCP 和 skill，`Skill` 工具能加载；`whoami`、`list_boards`、`get_board`、`next_card`、`finish_card` 走通，任务进审查；`wait_for_updates` 阻塞和被事件唤醒都正常；带口令的 `--header` 写法有效 |
+| 真实 host：Codex 0.168.0 | 同上，用 `codex mcp add` 和 `codex exec` | 通过：skill 从 `~/.codex/skills` 被发现；`whoami`、读取 skill 资源、`list_cards`、`claim_card`、`finish_card` 走通，任务进审查；`--bearer-token-env-var` 带口令有效（每个请求都带了头）；`wait_for_updates` 等满 50 秒正常返回，没有触发 Codex 默认的 60 秒工具超时 |
 | 真实 host：Cursor 命令行客户端（Cursor 3.30.14 自带，版本 2026.11.13） | 隔离的 HOME 里放 `~/.cursor/mcp.json`（四个临时服务）和一份项目级 `.cursor/mcp.json`，中间放记录请求的代理，运行 `agent mcp list`、`agent mcp list-tools slate`、`agent mcp enable` | 通过，但只到 MCP 连接这一层：`~/.cursor/mcp.json` 里的服务直接显示 `ready`；`list-tools` 看到工作视图的 16 个工具；带口令的 `Authorization` 头有效，`${env:SLATE_PASSCODE}` 写法也有效；漏带口令显示 `Error: Connection failed`；项目级 `.cursor/mcp.json` 先显示 `not loaded (needs approval)`，`agent mcp enable` 之后才连上。每个连接只调用 `initialize`、`tools/list`、`resources/list` |
 | 没有验证的 | Cursor：命令行没有登录（`agent status` 显示 Not logged in），所以没有带大模型的会话：`~/.cursor/skills` 能不能被发现、模型会不会照着 skill 做、工具超时多久都没验证；图形界面里改 `mcp.json` 是否要重启、怎么启用，只对照了官方文档（在 IDE 里临时放过一份项目级 `mcp.json`，约 55 秒内没有出现连接）。大模型会不会真的照着 skill 做，也只在 Claude Code 和 Codex 上看过 | 见"限制" |
 
