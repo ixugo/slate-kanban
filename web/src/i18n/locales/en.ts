@@ -606,6 +606,10 @@ export const en = {
     },
   },
   update: {
+    check: 'Check for updates',
+    checking: 'Checking…',
+    current: 'You’re up to date.',
+    checkUnavailable: 'Could not determine the latest version.',
     title: 'A new version is available',
     versions: 'Current {{current}}, latest {{latest}}',
     ignore: 'Skip this version',

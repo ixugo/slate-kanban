@@ -250,11 +250,25 @@ func TestCheck(t *testing.T) {
 			t.Fatalf("失败后短时间内不应再请求，实际 %d 次", n)
 		}
 	})
-	t.Run("开发版本不查询", func(t *testing.T) {
+	t.Run("本机编译版本也检查并提示，但不能自动更新", func(t *testing.T) {
 		g := newFakeGitHub(t, "v9.0.0", "linux", "new")
 		a, _ := newAPI(t, g, "v0.0.51", func(o *Options) { o.Official = false })
-		if got := infoOf(t, a); got.HasUpdate || g.releaseHits.Load() != 0 {
-			t.Fatalf("非官方构建不该查询: %+v 请求 %d 次", got, g.releaseHits.Load())
+		got := infoOf(t, a)
+		if !got.HasUpdate || got.CanApply || got.Latest != "v9.0.0" || got.CheckState != CheckStateOK || g.releaseHits.Load() != 1 {
+			t.Fatalf("非官方构建应查询并提示但不能更新: %+v 请求 %d 次", got, g.releaseHits.Load())
+		}
+	})
+	t.Run("check_state 区分成功与 GitHub 失败", func(t *testing.T) {
+		g := newFakeGitHub(t, "v1.2.0", "linux", "new")
+		a, _ := newAPI(t, g, "v1.1.0", nil)
+		if got := infoOf(t, a); got.CheckState != CheckStateOK {
+			t.Fatalf("成功查询应为 ok: %+v", got)
+		}
+		g403 := newFakeGitHub(t, "v1.2.0", "linux", "new")
+		g403.status = http.StatusForbidden
+		a403, _ := newAPI(t, g403, "v1.1.0", nil)
+		if got := infoOf(t, a403); got.CheckState != CheckStateUnreachable {
+			t.Fatalf("GitHub 失败应为 unreachable: %+v", got)
 		}
 	})
 	t.Run("容器里只提示不能更新", func(t *testing.T) {

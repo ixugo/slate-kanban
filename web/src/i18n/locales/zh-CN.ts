@@ -603,6 +603,10 @@ export const zhCN: Messages = {
     },
   },
   update: {
+    check: '检查更新',
+    checking: '正在检查…',
+    current: '当前已是最新版本。',
+    checkUnavailable: '暂时无法获取最新版本。',
     title: '发现新版本',
     versions: '当前 {{current}}，最新 {{latest}}',
     ignore: '此版本忽略',

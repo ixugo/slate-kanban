@@ -38,6 +38,47 @@ describe('AppSettingsDialog', () => {
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
   })
 
+  it('关于里的手动检查发现新版本时，复用更新说明和安装弹窗', async () => {
+    const api = installFakeApi({
+      'GET /api/v1/version': { version: 'v0.1.0' },
+      'GET /api/v1/update': {
+        current: 'v0.1.0',
+        latest: 'v0.1.1',
+        has_update: true,
+        can_apply: true,
+        check_state: 'ok',
+        notes: 'A manual check result',
+        url: 'https://example.com/v0.1.1',
+      },
+    })
+    renderApp(<AppSettingsButton />)
+    await userEvent.click(screen.getByRole('button', { name: en.nav.settings }))
+    await userEvent.click(await screen.findByRole('tab', { name: en.nav.about }))
+    expect(api.count('GET /api/v1/update')).toBe(0)
+    await userEvent.click(screen.getByRole('button', { name: en.update.check }))
+    expect(await screen.findByRole('dialog', { name: en.update.title })).toBeInTheDocument()
+    expect(screen.getByText('A manual check result')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: en.update.now })).toBeEnabled()
+    await userEvent.keyboard('{Escape}')
+    expect(await screen.findByRole('tab', { name: en.nav.about, selected: true })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: en.update.check })).toHaveFocus()
+  })
+
+  it('能区分已是最新版本与暂时获取不到版本', async () => {
+    const api = installFakeApi({
+      'GET /api/v1/version': { version: 'v0.1.0' },
+      'GET /api/v1/update': { current: 'v0.1.0', latest: 'v0.1.0', has_update: false, check_state: 'ok' },
+    })
+    renderApp(<AppSettingsButton />)
+    await userEvent.click(screen.getByRole('button', { name: en.nav.settings }))
+    await userEvent.click(await screen.findByRole('tab', { name: en.nav.about }))
+    await userEvent.click(screen.getByRole('button', { name: en.update.check }))
+    expect(await screen.findByText(en.update.current)).toBeInTheDocument()
+    api.set('GET /api/v1/update', { current: 'v0.1.0', latest: '', has_update: false, check_state: 'unreachable' })
+    await userEvent.click(screen.getByRole('button', { name: en.update.check }))
+    expect(await screen.findByText(en.update.checkUnavailable)).toBeInTheDocument()
+  })
+
   it('切换通用和关于时弹窗保持固定宽高', async () => {
     installFakeApi({ 'GET /api/v1/version': { version: 'v0.1.0' } })
     renderApp(<AppSettingsButton />)

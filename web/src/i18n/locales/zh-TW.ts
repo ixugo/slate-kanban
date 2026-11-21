@@ -604,6 +604,10 @@ export const zhTW: Messages = {
     },
   },
   update: {
+    check: '檢查更新',
+    checking: '正在檢查…',
+    current: '目前已是最新版本。',
+    checkUnavailable: '暫時無法取得最新版本。',
     title: '發現新版本',
     versions: '目前 {{current}}，最新 {{latest}}',
     ignore: '此版本忽略',

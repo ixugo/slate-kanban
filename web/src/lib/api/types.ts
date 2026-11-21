@@ -433,6 +433,9 @@ export interface VersionInfo {
   remark: string
 }
 
+/** 服务端告诉网页这次更新检查进行到了哪一步 */
+export type UpdateCheckState = 'ok' | 'unreachable'
+
 /** 自动更新的检查结果：只有官方 release 构建才可能有更新；can_apply 为假时只能引导用户去 release 页面手动下载 */
 export interface UpdateInfo {
   current: string
@@ -443,6 +446,8 @@ export interface UpdateInfo {
   url: string
   has_update: boolean
   can_apply: boolean
+  /** 检查状态：区分开发版不查、GitHub 失败与正常查到版本 */
+  check_state?: UpdateCheckState
 }
 
 /** 立即更新成功的结果：程序已被替换，重启后才是这个版本 */

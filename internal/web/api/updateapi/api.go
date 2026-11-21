@@ -1,6 +1,6 @@
 // Package updateapi 提供程序自动更新：网页打开时问服务端有没有新版本，点「立即更新」时由服务端从
-// GitHub release 下载对应平台的包、校验后替换本地程序。只有官方 release 构建才会检查和更新，
-// 本机自己编译的开发版本、容器里的程序都不会被提示或替换。
+// GitHub release 下载对应平台的包、校验后替换本地程序。所有构建都会检查并提示新版本，
+// 但只有官方 release 构建能自动替换；本机自己编译的版本、容器里的程序只提示、引导去下载。
 package updateapi
 
 import (
@@ -35,7 +35,7 @@ const (
 type Options struct {
 	// Current 是当前程序的版本号，例如 v1.2.3。
 	Current string
-	// Official 表示这是官方 release 构建；为假时既不查询也不更新。
+	// Official 表示这是官方 release 构建；为假时仍会查询并提示新版本，但不能自动更新。
 	Official bool
 	// Container 表示程序跑在容器里；容器里替换文件重启就丢，所以只提示不更新。
 	Container bool
@@ -119,17 +119,26 @@ type Applied struct {
 	Version string `json:"version"`
 }
 
-// info 汇总网页需要的信息；不是官方构建时直接返回「没有更新」，不去访问 GitHub。
+// CheckState 说明本次检查走到了哪一步，方便网页区分「已是最新」和「GitHub 连不上」。
+type CheckState string
+
+const (
+	// CheckStateOK 表示成功拿到 GitHub 上的 release 信息。
+	CheckStateOK CheckState = "ok"
+	// CheckStateUnreachable 表示查询 GitHub 失败（网络、限流等）。
+	CheckStateUnreachable CheckState = "unreachable"
+)
+
+// info 汇总网页需要的信息；不论官方还是本机编译的构建都会去查最新版本。
 func (u *updater) info(ctx context.Context) *Info {
 	out := &Info{Current: u.opt.Current}
-	if !u.opt.Official {
-		return out
-	}
 	rel, err := u.latest(ctx, false)
 	if err != nil {
 		slog.Warn("查询最新版本失败", "err", err)
+		out.CheckState = CheckStateUnreachable
 		return out
 	}
+	out.CheckState = CheckStateOK
 	out.Latest = rel.Tag
 	out.URL = rel.URL
 	out.Notes = truncateRunes(rel.Body, maxNotesRunes)
@@ -140,12 +149,13 @@ func (u *updater) info(ctx context.Context) *Info {
 
 // Info 是网页用来决定要不要弹窗的信息。
 type Info struct {
-	Current   string `json:"current"`
-	Latest    string `json:"latest"`
-	Notes     string `json:"notes"`
-	URL       string `json:"url"`
-	HasUpdate bool   `json:"has_update"`
-	CanApply  bool   `json:"can_apply"`
+	Current    string     `json:"current"`
+	Latest     string     `json:"latest"`
+	Notes      string     `json:"notes"`
+	URL        string     `json:"url"`
+	HasUpdate  bool       `json:"has_update"`
+	CanApply   bool       `json:"can_apply"`
+	CheckState CheckState `json:"check_state"`
 }
 
 // newerThanRunning 判断 tag 是否比正在运行的版本新；已经替换成功的版本不再算「有更新」。

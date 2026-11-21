@@ -607,6 +607,10 @@ export const ja: Messages = {
     },
   },
   update: {
+    check: '更新を確認',
+    checking: '確認中…',
+    current: '最新バージョンです。',
+    checkUnavailable: '最新バージョンを確認できませんでした。',
     title: '新しいバージョンがあります',
     versions: '現在 {{current}}、最新 {{latest}}',
     ignore: 'このバージョンをスキップ',

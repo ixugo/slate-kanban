@@ -607,6 +607,10 @@ export const ko: Messages = {
     },
   },
   update: {
+    check: '업데이트 확인',
+    checking: '확인 중…',
+    current: '최신 버전을 사용 중입니다.',
+    checkUnavailable: '최신 버전을 확인할 수 없습니다.',
     title: '새 버전이 있습니다',
     versions: '현재 {{current}}, 최신 {{latest}}',
     ignore: '이 버전 건너뛰기',

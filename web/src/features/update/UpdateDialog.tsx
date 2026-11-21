@@ -13,6 +13,7 @@ import { saveIgnored } from './version'
 interface Props {
   info: UpdateInfo
   onClose: () => void
+  onCloseAutoFocus?: (event: Event) => void
 }
 
 /** 只放行 https 链接，免得服务端返回的地址被当成脚本 */
@@ -21,7 +22,7 @@ function safeUrl(url: string): string {
 }
 
 /** 更新弹窗；更新成功后提示重启，因为替换的是磁盘上的程序，正在运行的进程要重启才生效 */
-export default function UpdateDialog({ info, onClose }: Props) {
+export default function UpdateDialog({ info, onClose, onCloseAutoFocus }: Props) {
   const { t } = useTranslation()
   const update = useMutation({ mutationFn: applyUpdate })
   const link = safeUrl(info.url)
@@ -31,7 +32,7 @@ export default function UpdateDialog({ info, onClose }: Props) {
   }
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" onCloseAutoFocus={onCloseAutoFocus}>
         <DialogHeader>
           <DialogTitle>{t('update.title')}</DialogTitle>
           <DialogDescription>{t('update.versions', { current: info.current, latest: info.latest })}</DialogDescription>

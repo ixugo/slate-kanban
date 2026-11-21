@@ -1,13 +1,33 @@
 // 设置里的「关于」：项目介绍、服务端版本及项目仓库。
 
-import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from '@/i18n/react'
-import { getVersion } from '@/lib/api/endpoints'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import UpdateDialog from '@/features/update/UpdateDialog'
+import { useTranslation, type TFunction } from '@/i18n/react'
+import { getUpdateInfo, getVersion } from '@/lib/api/endpoints'
+import type { UpdateInfo } from '@/lib/api/types'
 import { queryKeys } from '@/lib/queryKeys'
 import { Logo } from './Logo'
 
 /** 项目的公开仓库地址 */
 export const PROJECT_URL = 'https://github.com/ixugo/slate-kanban'
+
+/**
+ * 根据检查更新接口的返回，选出要展示给用户的说明文案；有新版时由更新弹窗接手，这里不显示。
+ */
+function updateCheckStatusText(info: UpdateInfo, t: TFunction): string {
+  if (info.has_update) return ''
+  switch (info.check_state) {
+    case 'unreachable':
+      return t('update.checkUnavailable')
+    case 'ok':
+      return t('update.current')
+    default:
+      if (info.latest) return t('update.current')
+      return t('update.checkUnavailable')
+  }
+}
 
 /** GitHub 的标志图形（Octicons 的 mark-github），用当前文字颜色填充，装饰用 */
 function GithubMark({ className }: { className?: string }) {
@@ -24,6 +44,14 @@ export function AboutSettings() {
     queryKey: queryKeys.version,
     queryFn: ({ signal }) => getVersion(signal),
     staleTime: Infinity,
+  })
+  const checkButton = useRef<HTMLButtonElement>(null)
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const check = useMutation({
+    mutationFn: () => getUpdateInfo(),
+    onSuccess: (info) => {
+      if (info.has_update) setUpdateInfo(info)
+    },
   })
   return (
     <div className="space-y-4">
@@ -48,6 +76,29 @@ export function AboutSettings() {
           <GithubMark className="size-4" />
         </a>
       </div>
+      <div className="space-y-2 border-t border-border pt-4">
+        <Button ref={checkButton} type="button" size="sm" variant="outline" onClick={() => check.mutate()} disabled={check.isPending}>
+          {check.isPending ? t('update.checking') : t('update.check')}
+        </Button>
+        {check.isError ? (
+          <p role="status" className="text-muted-foreground">{t('update.checkUnavailable')}</p>
+        ) : check.isSuccess && !check.data.has_update ? (
+          (() => {
+            const text = updateCheckStatusText(check.data, t)
+            return text ? <p role="status" className="text-muted-foreground">{text}</p> : null
+          })()
+        ) : null}
+      </div>
+      {updateInfo && (
+        <UpdateDialog
+          info={updateInfo}
+          onClose={() => setUpdateInfo(null)}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            checkButton.current?.focus()
+          }}
+        />
+      )}
     </div>
   )
 }
