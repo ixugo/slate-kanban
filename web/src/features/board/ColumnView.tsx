@@ -2,10 +2,10 @@
 
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useEffect, useRef, type MouseEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
-import type { CardView, Column } from '@/lib/api/types'
+import type { Card, CardView, Column } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { CardTile } from './CardTile'
 import { AddCard } from './AddCard'
@@ -20,7 +20,7 @@ interface ColumnViewProps {
   addOpen: boolean
   onAddOpen: () => void
   onAddClose: () => void
-  onAddCard: (title: string) => void
+  onAddCard: (title: string) => Promise<Card>
   addBusy?: boolean
   dragDisabled?: boolean
   /** 当前是否收成 48px 窄边 */
@@ -67,17 +67,34 @@ export function ColumnView({
     id: columnDropId(column.id),
     data: { type: 'column', columnId: column.id, collapsed },
   })
-  // 卡片列表的滚动容器：本页面刚添加了卡片、列表长度增加时滚到底，让新卡片看得见
   const listRef = useRef<HTMLDivElement | null>(null)
-  const scrollAfterAdd = useRef(false)
-  const prevCount = useRef(cards.length)
-  useEffect(() => {
-    if (scrollAfterAdd.current && cards.length > prevCount.current && listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight
-      scrollAfterAdd.current = false
+  const [scrollCardId, setScrollCardId] = useState<number | null>(null)
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list || scrollCardId === null) return
+    // 快照和 POST 响应可能以任意顺序到达，只有本地创建的具体卡片进入 DOM 才滚动。
+    const target = list.querySelector<HTMLElement>(`[data-card-id="${scrollCardId}"]`)
+    if (!target) return
+    if (target === list.lastElementChild) {
+      list.scrollTop = list.scrollHeight
+    } else {
+      // 其他人继续追加后，本地卡可能已不在列尾；只调整这一列，使本地卡进入可视区。
+      const cardBounds = target.getBoundingClientRect()
+      const listBounds = list.getBoundingClientRect()
+      if (cardBounds.top < listBounds.top) list.scrollTop += cardBounds.top - listBounds.top
+      else if (cardBounds.bottom > listBounds.bottom) list.scrollTop += cardBounds.bottom - listBounds.bottom
     }
-    prevCount.current = cards.length
-  }, [cards.length])
+    setScrollCardId(null)
+  }, [cards, collapsed, scrollCardId])
+
+  const add = async (title: string) => {
+    try {
+      const card = await onAddCard(title)
+      if (card.column_id === column.id) setScrollCardId(card.id)
+    } catch {
+      // useCreateCard 已显示错误，失败的提交不产生滚动目标。
+    }
+  }
   const towardStart = collapseTowardStart(columnIndex, columnCount)
   const CollapseIcon = towardStart ? ChevronLeftIcon : ChevronRightIcon
   const ExpandIcon = towardStart ? ChevronRightIcon : ChevronLeftIcon
@@ -154,10 +171,7 @@ export function ColumnView({
           open={addOpen}
           onOpen={onAddOpen}
           onClose={onAddClose}
-          onSubmit={(title) => {
-            scrollAfterAdd.current = true
-            onAddCard(title)
-          }}
+          onSubmit={(title) => void add(title)}
           busy={addBusy}
         />
       </footer>

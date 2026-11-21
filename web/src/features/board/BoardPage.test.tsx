@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Route, Routes } from 'react-router-dom'
@@ -6,7 +6,7 @@ import { en } from '@/i18n/locales/en'
 import { installFakeApi } from '@/test/fakeApi'
 import { makeCard, makeSnapshot } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
-import { installFakeEventSource } from '@/test/fakeEventSource'
+import { FakeEventSource, installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from './BoardPage'
 import { columnCollapseKey } from './useCollapsedColumns'
 
@@ -30,6 +30,17 @@ const renderBoard = (route = '/b/1') =>
     </Routes>,
     { route },
   )
+
+function observeScroll(list: HTMLElement) {
+  let scrollTop = 0
+  Object.defineProperty(list, 'scrollHeight', { value: 777, configurable: true })
+  Object.defineProperty(list, 'scrollTop', { get: () => scrollTop, set: (v: number) => { scrollTop = v }, configurable: true })
+  return () => scrollTop
+}
+
+function notifyCardCreated() {
+  act(() => FakeEventSource.instances.at(-1)?.emit('board', { type: 'card.created' }))
+}
 
 describe('BoardPage', () => {
   beforeEach(() => installFakeEventSource())
@@ -114,13 +125,75 @@ describe('BoardPage', () => {
     renderBoard()
     const alpha = await screen.findByText('Alpha')
     const list = alpha.closest('.overflow-y-auto') as HTMLElement
-    let scrollTop = 0
-    Object.defineProperty(list, 'scrollHeight', { value: 777, configurable: true })
-    Object.defineProperty(list, 'scrollTop', { get: () => scrollTop, set: (v: number) => { scrollTop = v }, configurable: true })
+    const scrollTop = observeScroll(list)
     await user.keyboard('n')
     await user.type(screen.getByLabelText(en.board.addCard), '新建{Enter}')
     expect(await screen.findByText('新建')).toBeInTheDocument()
-    await waitFor(() => expect(scrollTop).toBe(777))
+    await waitFor(() => expect(scrollTop()).toBe(777))
+  })
+
+  it('本地 POST 失败后，远端新卡不会滚动本列', async () => {
+    let cards = snapshot.cards
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': () => ({ body: { ...snapshot, cards } }),
+      'POST /api/v1/boards/:id/cards': () => ({ status: 500, body: { reason: 'ErrStore' } }),
+    })
+    const user = userEvent.setup()
+    renderBoard()
+    const alpha = await screen.findByText('Alpha')
+    const scrollTop = observeScroll(alpha.closest('.overflow-y-auto') as HTMLElement)
+    await user.keyboard('n')
+    await user.type(screen.getByLabelText(en.board.addCard), 'Failed locally{Enter}')
+    expect(await screen.findByText(en.errors.ErrStore)).toBeInTheDocument()
+    expect(api.count('POST /api/v1/boards/:id/cards')).toBe(1)
+
+    cards = [...cards, makeCard({ id: 10, column_id: 1, title: 'Remote after failure', position: 10000 })]
+    notifyCardCreated()
+    expect(await screen.findByText('Remote after failure')).toBeInTheDocument()
+    expect(scrollTop()).toBe(0)
+  })
+
+  it('本地 POST 等待期间先收到远端新增，只为本地成功的 ID 滚动对应列', async () => {
+    let cards = snapshot.cards
+    const local = makeCard({ id: 11, column_id: 1, title: 'Local delayed', position: 11000 })
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': () => ({ body: { ...snapshot, cards } }),
+      'POST /api/v1/boards/:id/cards': () => {
+        cards = [...cards, local]
+        return { body: local }
+      },
+    })
+    const fetch = globalThis.fetch
+    let finishPost!: () => void
+    const postReady = new Promise<void>((resolve) => { finishPost = resolve })
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') await postReady
+      return fetch(input, init)
+    })
+
+    const user = userEvent.setup()
+    renderBoard()
+    const alpha = await screen.findByText('Alpha')
+    const beta = screen.getByText('Beta')
+    const scrollTop = observeScroll(alpha.closest('.overflow-y-auto') as HTMLElement)
+    const adjacentTop = observeScroll(beta.closest('.overflow-y-auto') as HTMLElement)
+    await user.keyboard('n')
+    const field = screen.getByLabelText(en.board.addCard)
+    await user.type(field, 'Local delayed{Enter}')
+    expect(field).toHaveAttribute('readonly')
+
+    cards = [...cards, makeCard({ id: 12, column_id: 1, title: 'Remote first', position: 10000 })]
+    notifyCardCreated()
+    expect(await screen.findByText('Remote first')).toBeInTheDocument()
+    try {
+      expect(scrollTop()).toBe(0)
+    } finally {
+      finishPost()
+    }
+    expect(await screen.findByText('Local delayed')).toBeInTheDocument()
+    await waitFor(() => expect(scrollTop()).toBe(777))
+    expect(adjacentTop()).toBe(0)
+    expect(api.count('POST /api/v1/boards/:id/cards')).toBe(1)
   })
 
   it('快照 404 时显示看板不存在', async () => {

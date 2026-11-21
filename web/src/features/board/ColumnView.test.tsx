@@ -10,6 +10,7 @@ import { setLanguage } from '@/i18n'
 import { ColumnView } from './ColumnView'
 
 const noop = () => {}
+const addCard = async () => makeCard({ id: 1 })
 
 /** 把 dnd-kit 里已登记的全部落点编号交给测试 */
 function Registry({ onChange }: { onChange: (ids: string[]) => void }) {
@@ -23,7 +24,7 @@ function Registry({ onChange }: { onChange: (ids: string[]) => void }) {
 describe('ColumnView 的拖拽落点编号', () => {
   it('卡片 id 和列 id 都是数据库自增的数字，经常相同；相同时它们仍各自是独立的落点', async () => {
     let ids: string[] = []
-    const common = { addOpen: false, onAddOpen: noop, onAddClose: noop, onAddCard: noop, columnCount: 2, onExpand: noop, onCollapse: noop }
+    const common = { addOpen: false, onAddOpen: noop, onAddClose: noop, onAddCard: addCard, columnCount: 2, onExpand: noop, onCollapse: noop }
     renderApp(
       <DndContext>
         {/* 7 号列收成窄边，8 号列展开且里面有一张 7 号卡片：卡片的 id 同时撞上了窄边的 id */}
@@ -48,7 +49,7 @@ describe('ColumnView 的拖拽落点编号', () => {
 })
 
 describe('ColumnView 的起步模板文案', () => {
-  const common = { addOpen: false, onAddOpen: noop, onAddClose: noop, onAddCard: noop, columnCount: 1, onExpand: noop, onCollapse: noop, cards: [], cardIds: [], collapsed: false, columnIndex: 0 }
+  const common = { addOpen: false, onAddOpen: noop, onAddClose: noop, onAddCard: addCard, columnCount: 1, onExpand: noop, onCollapse: noop, cards: [], cardIds: [], collapsed: false, columnIndex: 0 }
 
   it('起步模板的列名和说明跟着界面语言走，自己起的名字原样显示', async () => {
     await setLanguage('en')

@@ -15,7 +15,7 @@ import {
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useMemo, useRef, useState } from 'react'
-import type { CardView, Column } from '@/lib/api/types'
+import type { Card, CardView, Column } from '@/lib/api/types'
 import { buildItems, findColumnOf, moveToColumn, pickShownItems, type Items, type MovePlan, type Settling } from './dnd'
 import { boardCollision } from './collision'
 import { handleDragEnd } from './handleDragEnd'
@@ -34,7 +34,7 @@ interface BoardCanvasProps {
   addColumnId: number | null
   onAddOpen: (columnId: number) => void
   onAddClose: () => void
-  onAddCard: (columnId: number, title: string) => void
+  onAddCard: (columnId: number, title: string) => Promise<Card>
   addBusy?: boolean
 }
 

@@ -188,7 +188,7 @@ export default function BoardPage() {
             addColumnId={addColumnId}
             onAddOpen={setAddColumnId}
             onAddClose={() => setAddColumnId(null)}
-            onAddCard={(columnId, title) => create.mutate({ columnId, title })}
+            onAddCard={(columnId, title) => create.mutateAsync({ columnId, title })}
             addBusy={create.isPending}
           />
         ) : (

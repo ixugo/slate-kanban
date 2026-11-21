@@ -92,6 +92,7 @@ export function CardTile({ card, dragDisabled }: CardTileProps) {
   return (
     <Link
       ref={setNodeRef}
+      data-card-id={card.id}
       to={{ search: next.toString() }}
       // 链接默认能被浏览器原生拖走，会打断 dnd-kit 的指针拖拽
       draggable={false}
