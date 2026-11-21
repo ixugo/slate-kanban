@@ -15,14 +15,14 @@ type boardIn struct {
 
 // cardIn 是只需要卡片编号的工具的入参。
 type cardIn struct {
-	CardID int64 `json:"card_id" jsonschema:"卡片编号，是数字 id，不是 SLATE-12 这样的 key；list_cards 的结果里两个都有"`
+	CardID int64 `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key；list_cards 的结果里两个都有"`
 }
 
 // listCardsIn 是 list_cards 的入参。
 type listCardsIn struct {
 	BoardID int64  `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	Query   string `json:"query,omitempty" jsonschema:"筛选条件，写法见工具说明；不填列出全部"`
-	Limit   int    `json:"limit,omitempty" jsonschema:"最多返回几张，默认 10，最多 30；还有更多时 truncated 为 true，收紧筛选条件再取下一批"`
+	Limit   int    `json:"limit,omitempty" jsonschema:"最多返回几个，默认 10，最多 30；还有更多时 truncated 为 true，收紧筛选条件再取下一批"`
 }
 
 // listEventsIn 是 list_events 的入参。
@@ -67,24 +67,24 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 		name: "get_board", kind: kindRead,
 		desc: "读取一个看板的详情：全部列、自动化规则和工程师名册 engineers（每位是一个并发名额：id、name、kind 是 dev 全栈、frontend 前端、backend 后端、ui UI（这四种都做研发）或 review 测试、prompt 是角色提示词）。每一列有 " +
 			"instruction（人写给 agent 的提示词，写明这个状态下谁能做什么，必须遵守）、" +
-			"is_done（完成列）、next_column_id（交接后卡片去的下一列）。开始工作前先读一遍。" +
+			"is_done（完成列）、next_column_id（交接后任务去的下一列）。开始工作前先读一遍。" +
 			"watch_prompt 是守候这个看板要照做的提示词（看板名已填好），核心是用 wait_for_updates 长连接持续监听；用户让你守候这个看板、或 loop 叫醒你检查监听时，读它并照做。",
 	}, a.getBoard)
 	register(s, spec{
 		name: "list_cards", kind: kindRead,
-		desc: "列出看板里的卡片摘要，顺序和看板上看到的一致（先按列从左到右，同一列里从上到下）。摘要不含描述和评论，要全文请用 get_card。" +
+		desc: "列出看板里的任务摘要，顺序和看板上看到的一致（先按列从左到右，同一列里从上到下）。摘要不含描述和评论，要全文请用 get_card。" +
 			"query 是空格分隔的多个词，所有词都满足才命中，词前加减号表示取反，双引号包起来的算一个词。写法：" +
 			"普通文字（匹配标题、描述、编号、标签）；tag:标签；col:列名（也可以写列 id）；key:SLATE-12；title:文字；desc:文字；" +
 			"priority:high、priority:3、priority:>=2（high、medium、low、none 对应 3、2、1、0）；claimed:agent 名称；" +
 			"is:done、is:open、is:human、is:claimed、is:free、is:waiting、is:overdue、is:started、is:finished；" +
 			"has:due、has:branch、has:url、has:tags、has:desc、has:deps（no: 表示没有）；due:today、due:<2026-12-01（created:、updated: 同理）。" +
 			"tag、col、key、priority、claimed、is、has、no 的取值可以用竖线写成多选一，例如 tag:bug|ui、col:待办|进行中、priority:high|medium。" +
-			"例如：col:进行中 is:free -is:waiting。每次最多返回 30 张（默认 10 张），total 是命中总数，truncated 为 true 说明还有更多：用筛选条件缩小范围，不要一次要很多。",
+			"例如：col:进行中 is:free -is:waiting。每次最多返回 30 个（默认 10 个），total 是命中总数，truncated 为 true 说明还有更多：用筛选条件缩小范围，不要一次要很多。",
 	}, a.listCards)
 	register(s, spec{
 		name: "get_card", kind: kindRead,
-		desc: "读取一张卡片的完整信息：全文描述、评论、依赖的卡片，以及所在列给 agent 的指令（column_instruction）。" +
-			"领到卡片后、动手之前先读它，评论里可能有人的补充要求或审查意见。结果里的 agent_notice 是提醒：任务不明确时先评论反馈并把卡片移出领取列，不要直接开始。",
+		desc: "读取一个任务的完整信息：全文描述、评论、依赖的任务，以及所在列给 agent 的指令（column_instruction）。" +
+			"领到任务后、动手之前先读它，评论里可能有人的补充要求或审查意见。结果里的 agent_notice 是提醒：任务不明确时先评论反馈并把任务移出领取列，不要直接开始。",
 	}, a.getCard)
 	if v == viewAdmin {
 		register(s, spec{

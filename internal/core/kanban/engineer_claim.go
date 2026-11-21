@@ -42,7 +42,7 @@ func (u *unit) loadEngineerPool(ctx context.Context, boardID int64, cards []*Car
 	}
 	if cards == nil {
 		if cards, err = u.card.ListByBoard(ctx, boardID); err != nil {
-			return nil, wrapDB("读取卡片", err)
+			return nil, wrapDB("读取任务", err)
 		}
 	}
 	return newEngineerPool(all, cards, u.now()), nil
@@ -97,13 +97,13 @@ func (p *engineerPool) checkChoice(card *Card, kind string, id, bound int64) (in
 		return 0, invalidf("工程师 %d 不存在，或者不属于这个看板", id)
 	}
 	if stageOf(e.Kind) != kind {
-		return 0, invalidf("%s 的类型不符：这张卡现在要 %s 工程师", e.Name, kindLabel(kind))
+		return 0, invalidf("%s 的类型不符：这个任务现在要 %s 工程师", e.Name, kindLabel(kind))
 	}
 	if bound != 0 && bound != id {
-		return 0, ErrEngineerBound.WithMsg(fmt.Sprintf("卡片绑定了 %s，只能由他承担", p.find(bound).Name))
+		return 0, ErrEngineerBound.WithMsg(fmt.Sprintf("任务绑定了 %s，只能由他承担", p.find(bound).Name))
 	}
 	if !p.free(id, card.ID) {
-		return 0, ErrEngineerBusy.WithMsg(fmt.Sprintf("%s 正在做别的卡片，换一位空闲的工程师，或者排队等一等", e.Name))
+		return 0, ErrEngineerBusy.WithMsg(fmt.Sprintf("%s 正在做别的任务，换一位空闲的工程师，或者排队等一等", e.Name))
 	}
 	return id, nil
 }
@@ -146,6 +146,6 @@ func checkHolder(actor Actor, card *Card, engineerID int64, now time.Time, loc *
 	if card.ClaimedBy == actor.Name && (engineerID == 0 || card.ClaimEngineerID == engineerID) {
 		return nil
 	}
-	return ErrCardClaimed.WithMsg(fmt.Sprintf("卡片已被 %s 领取，租约在 %s 到期",
+	return ErrCardClaimed.WithMsg(fmt.Sprintf("任务已被 %s 领取，租约在 %s 到期",
 		card.ClaimedBy, card.ClaimExpiresAt.In(loc).Format(time.RFC3339)))
 }

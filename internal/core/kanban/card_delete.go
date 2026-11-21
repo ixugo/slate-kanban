@@ -39,16 +39,16 @@ func (u *unit) deleteCard(ctx context.Context, actor Actor, card *Card) error {
 		return err
 	}
 	if err := u.comment.DeleteByCard(ctx, card.ID); err != nil {
-		return wrapDB("删除卡片的评论", err)
+		return wrapDB("删除任务的评论", err)
 	}
 	if err := u.cardChange.DeleteByCard(ctx, card.ID); err != nil {
-		return wrapDB("删除卡片的变更记录", err)
+		return wrapDB("删除任务的变更记录", err)
 	}
 	if err := u.dropDependency(ctx, actor, card); err != nil {
 		return err
 	}
 	if err := u.card.Delete(ctx, card); err != nil {
-		return wrapDB("删除卡片", err)
+		return wrapDB("删除任务", err)
 	}
 	if err := u.releaseImages(ctx, card.BoardID, attachmentTokens(texts...)); err != nil {
 		return err
@@ -62,7 +62,7 @@ func (u *unit) deleteCard(ctx context.Context, actor Actor, card *Card) error {
 func (u *unit) cardTexts(ctx context.Context, card *Card) ([]string, error) {
 	comments, err := u.comment.ListByCard(ctx, card.ID)
 	if err != nil {
-		return nil, wrapDB("读取卡片的评论", err)
+		return nil, wrapDB("读取任务的评论", err)
 	}
 	texts := []string{card.Description}
 	for _, c := range comments {
@@ -77,7 +77,7 @@ func (u *unit) cardTexts(ctx context.Context, card *Card) ([]string, error) {
 func (u *unit) dropDependency(ctx context.Context, actor Actor, card *Card) error {
 	cards, err := u.card.ListByBoard(ctx, card.BoardID)
 	if err != nil {
-		return wrapDB("读取看板的卡片", err)
+		return wrapDB("读取看板的任务", err)
 	}
 	for _, other := range cards {
 		i := slices.Index(other.WaitsOn, card.ID)

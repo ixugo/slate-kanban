@@ -10,7 +10,7 @@ const AUTOMATION_PREFIX = 'automation:'
 
 /** 一条事件要显示的文字 */
 export interface EventText {
-  /** 一句话，不含操作者，例如「把卡片从「待办」移到「进行中」」 */
+  /** 一句话，不含操作者，例如「将任务从「待办」移到「进行中」」 */
   text: string
   /** 补充说明（评论摘要、自动化执行了哪些动作），没有就是空串 */
   detail: string

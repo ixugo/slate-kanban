@@ -44,7 +44,7 @@ type uploadImageOut struct {
 func (a API) registerImageTools(s *mcp.Server) {
 	register(s, spec{
 		name: "upload_image", kind: kindWrite,
-		desc: "上传一张图片，返回可以直接写进卡片描述或评论的 markdown。只收 PNG、JPEG、GIF、WebP，最大 5 MB。" +
+		desc: "上传一张图片，返回可以直接写进任务描述或评论的 markdown。只收 PNG、JPEG、GIF、WebP，最大 5 MB。" +
 			"优先用 path 传本机文件的绝对路径（Slate 和你在同一台机器上才可用）；拿不到文件时用 data_base64（只适合很小的图片，整个请求不能超过 1 MiB）。" +
 			"图片要等引用它的描述或评论保存之后才会留在看板里：上传后请把返回的 markdown 写进 create_card、update_card 或 comment_card，" +
 			"没被引用的图片不会留在看板里。",
@@ -57,7 +57,7 @@ func (a API) registerImageTools(s *mcp.Server) {
 func (a API) registerGetImage(s *mcp.Server) {
 	tool := &mcp.Tool{
 		Name: "get_image",
-		Description: "按图片编号读取一张图片并返回图片本身，用来查看卡片描述或评论里的截图。" +
+		Description: "按图片编号读取一张图片并返回图片本身，用来查看任务描述或评论里的截图。" +
 			"描述里形如 ![](/api/v1/attachments/<32 位编号>) 的就是本看板的图片。",
 		Annotations: kindRead.annotations(),
 	}

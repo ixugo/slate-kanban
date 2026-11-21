@@ -211,7 +211,7 @@ func (r *ruleRun) addTag(ctx context.Context, rule *Rule, text string) (effect b
 	case slices.Contains(r.card.TagIDs, ids[0]):
 		return false, "", nil
 	case len(r.card.TagIDs) >= maxCardTags:
-		return false, fmt.Sprintf("卡片的标签已经有 %d 个，没有加上 %q", maxCardTags, text), nil
+		return false, fmt.Sprintf("任务的标签已经有 %d 个，没有加上 %q", maxCardTags, text), nil
 	}
 	r.card.TagIDs = append(r.card.TagIDs, ids[0])
 	r.changed = true
@@ -245,7 +245,7 @@ func (r *ruleRun) move(ctx context.Context, rule *Rule, a RuleAction, depth int)
 	case to == nil:
 		return false, "目标列已经不存在", nil
 	case from == nil:
-		return false, "卡片所在的列已经不存在", nil
+		return false, "任务所在的列已经不存在", nil
 	case from.ID == to.ID:
 		return false, "", nil
 	}

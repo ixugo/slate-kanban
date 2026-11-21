@@ -111,7 +111,7 @@ func (u *unit) buildNewCard(ctx context.Context, actor Actor, boardID int64, in 
 		return nil, "", err
 	}
 	if err := u.card.Create(ctx, card); err != nil {
-		return nil, "", wrapDB("创建卡片", err)
+		return nil, "", wrapDB("创建任务", err)
 	}
 	if err := u.commitImages(ctx, boardID, card.Description); err != nil {
 		return nil, "", err
@@ -152,7 +152,7 @@ func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card, top bool
 	}
 	number, err := u.board.IncrCardSeq(ctx, card.BoardID)
 	if err != nil {
-		return wrapDB("分配卡片编号", err)
+		return wrapDB("分配任务编号", err)
 	}
 	card.Number = number
 	card.Key = fmt.Sprintf("%s-%d", board.Slug, number)
@@ -163,7 +163,7 @@ func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card, top bool
 	}
 	others, err := u.card.ListByColumn(ctx, card.ColumnID)
 	if err != nil {
-		return wrapDB("读取目标列的卡片", err)
+		return wrapDB("读取目标列的任务", err)
 	}
 	card.Position, _, err = u.placeCard(ctx, others, topRef(others, true, 0, 0), 0)
 	return err
@@ -173,7 +173,7 @@ func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card, top bool
 func (u *unit) checkWaitsOn(ctx context.Context, boardID, cardID int64, deps []int64) error {
 	cards, err := u.card.ListByBoard(ctx, boardID)
 	if err != nil {
-		return wrapDB("读取卡片", err)
+		return wrapDB("读取任务", err)
 	}
 	return validateWaitsOn(cardID, deps, cards)
 }
@@ -182,7 +182,7 @@ func (u *unit) checkWaitsOn(ctx context.Context, boardID, cardID int64, deps []i
 func (c Core) GetCard(ctx context.Context, id int64) (*Card, error) {
 	card, err := c.store.Card().GetByID(ctx, id)
 	if err != nil {
-		return nil, mapNotFound(err, ErrCardNotFound, "读取卡片")
+		return nil, mapNotFound(err, ErrCardNotFound, "读取任务")
 	}
 	return card, nil
 }
@@ -192,7 +192,7 @@ func (c Core) GetCard(ctx context.Context, id int64) (*Card, error) {
 func (c Core) boardOfCard(ctx context.Context, cardID int64) (int64, error) {
 	card, err := c.store.Card().GetByID(ctx, cardID)
 	if err != nil {
-		return 0, mapNotFound(err, ErrCardNotFound, "读取卡片")
+		return 0, mapNotFound(err, ErrCardNotFound, "读取任务")
 	}
 	return card.BoardID, nil
 }
@@ -202,7 +202,7 @@ func (c Core) boardOfCard(ctx context.Context, cardID int64) (int64, error) {
 func (u *unit) loadCard(ctx context.Context, boardID, cardID int64) (*Card, error) {
 	card, err := u.card.GetByID(ctx, cardID)
 	if err != nil {
-		return nil, mapNotFound(err, ErrCardNotFound, "读取卡片")
+		return nil, mapNotFound(err, ErrCardNotFound, "读取任务")
 	}
 	if card.BoardID != boardID {
 		return nil, ErrCardNotFound
@@ -226,7 +226,7 @@ func (u *unit) saveCard(ctx context.Context, actor Actor, card *Card) error {
 	card.UpdatedBy = actor.Name
 	card.UpdatedAt = u.now()
 	if err := u.card.Save(ctx, card); err != nil {
-		return wrapDB("保存卡片", err)
+		return wrapDB("保存任务", err)
 	}
 	return nil
 }

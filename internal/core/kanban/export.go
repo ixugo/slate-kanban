@@ -31,7 +31,7 @@ func (c Core) ExportBoard(ctx context.Context, _ Actor, boardID int64) (*BoardEx
 	}
 	cards, err := c.store.Card().ListByBoard(ctx, boardID)
 	if err != nil {
-		return nil, wrapDB("读取卡片", err)
+		return nil, wrapDB("读取任务", err)
 	}
 	allComments, err := c.store.Comment().ListByBoard(ctx, boardID)
 	if err != nil {

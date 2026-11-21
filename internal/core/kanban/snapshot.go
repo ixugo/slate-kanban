@@ -30,7 +30,7 @@ func (c Core) BoardSnapshot(ctx context.Context, boardID int64) (*Snapshot, erro
 	}
 	cards, err := c.store.Card().ListByBoard(ctx, boardID)
 	if err != nil {
-		return nil, wrapDB("读取卡片", err)
+		return nil, wrapDB("读取任务", err)
 	}
 	ix := newBoardIndex(c.now(), time.Local, detail.Columns, detail.Tags, cards)
 	sorted := ix.sortCards(ix.all)

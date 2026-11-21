@@ -14,7 +14,7 @@ const (
 )
 
 // errNeedRenumber 是包内的信号：位置间隙太小，调用方要先整列重排再重新计算。它不会返回给外部调用方。
-var errNeedRenumber = errors.New("kanban: 卡片位置间隙太小，需要整列重排")
+var errNeedRenumber = errors.New("kanban: 任务位置间隙太小，需要整列重排")
 
 // computePosition 计算一张卡片放进目标列的位置，以及它在 cards 里的插入下标（0 到 len(cards)）。
 // cards 是目标列里除去正在移动的这张以外的卡片，按位置升序。
@@ -31,7 +31,7 @@ func computePosition(cards []*Card, beforeID, afterID int64) (float64, int, erro
 	}
 	idx := slices.IndexFunc(cards, func(c *Card) bool { return c.ID == refID })
 	if idx < 0 {
-		return 0, 0, invalidf("参照卡片不在目标列里")
+		return 0, 0, invalidf("参照任务不在目标列里")
 	}
 	if afterID != 0 {
 		idx++ // 放到参照卡片后面，插入下标就是它的下一个
@@ -105,7 +105,7 @@ func (u *unit) renumberColumn(ctx context.Context, cards []*Card) error {
 			continue
 		}
 		if err := u.card.SetPosition(ctx, c.ID, want); err != nil {
-			return wrapDB("整列重排卡片位置", err)
+			return wrapDB("整列重排任务位置", err)
 		}
 		c.Position = want
 	}

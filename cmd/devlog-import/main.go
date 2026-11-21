@@ -104,7 +104,7 @@ func run(base, file string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("看板 %s（id=%d）：新增 %d 张卡片，跳过 %d 张已存在的\n", rec.Board.Slug, boardID, created, skipped)
+	fmt.Printf("看板 %s（id=%d）：新增 %d 个任务，跳过 %d 个已存在的\n", rec.Board.Slug, boardID, created, skipped)
 	return nil
 }
 
@@ -124,10 +124,10 @@ func loadRecords(path string) (*records, error) {
 	seen := map[string]bool{}
 	for i, c := range rec.Cards {
 		if strings.TrimSpace(c.Title) == "" || strings.TrimSpace(c.Column) == "" {
-			return nil, fmt.Errorf("第 %d 张卡片缺少 title 或 column", i+1)
+			return nil, fmt.Errorf("第 %d 个任务缺少 title 或 column", i+1)
 		}
 		if seen[c.Title] {
-			return nil, fmt.Errorf("卡片标题重复，无法按标题去重: %q", c.Title)
+			return nil, fmt.Errorf("任务标题重复，无法按标题去重: %q", c.Title)
 		}
 		seen[c.Title] = true
 	}
@@ -237,7 +237,7 @@ func (im *importer) existingTitles(boardID int64) (map[string]bool, error) {
 		return nil, err
 	}
 	if list.Truncated {
-		return nil, fmt.Errorf("看板卡片超过 %d 张，无法按标题去重", listLimit)
+		return nil, fmt.Errorf("看板任务超过 %d 个，无法按标题去重", listLimit)
 	}
 	titles := make(map[string]bool, len(list.Cards))
 	for _, c := range list.Cards {
@@ -260,10 +260,10 @@ func (im *importer) importCards(boardID int64, columns map[string]int64, cards [
 		}
 		columnID, ok := columns[c.Column]
 		if !ok {
-			return created, skipped, fmt.Errorf("卡片 %q 指定的列 %q 在看板里不存在", c.Title, c.Column)
+			return created, skipped, fmt.Errorf("任务 %q 指定的列 %q 在看板里不存在", c.Title, c.Column)
 		}
 		if err := im.createCard(boardID, columnID, c); err != nil {
-			return created, skipped, fmt.Errorf("录入卡片 %q: %w", c.Title, err)
+			return created, skipped, fmt.Errorf("录入任务 %q: %w", c.Title, err)
 		}
 		created++
 	}

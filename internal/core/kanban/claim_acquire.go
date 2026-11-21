@@ -83,7 +83,7 @@ func (u *unit) claimNext(ctx context.Context, actor Actor, boardID, columnID int
 		return 0, invalidf("必须指定本看板的 column_id，并按该列提示词选择任务")
 	}
 	if col.IsDone {
-		return 0, invalidf("不能从完成列领取下一张卡片")
+		return 0, invalidf("不能从完成列领取下一个任务")
 	}
 	pool, err := u.loadEngineerPool(ctx, boardID, ix.all)
 	if err != nil {
@@ -165,7 +165,7 @@ func (u *unit) boardIndex(ctx context.Context, boardID int64) (*boardIndex, erro
 	}
 	cards, err := u.card.ListByBoard(ctx, boardID)
 	if err != nil {
-		return nil, wrapDB("读取卡片", err)
+		return nil, wrapDB("读取任务", err)
 	}
 	return newBoardIndex(u.now(), time.Local, cols, tags, cards), nil
 }

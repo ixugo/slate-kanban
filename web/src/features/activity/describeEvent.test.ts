@@ -36,21 +36,21 @@ describe('describeEvent', () => {
     ['column.updated', { name: '待办' }, 'edited column “待办”'],
     ['column.deleted', { name: '待办' }, 'deleted column “待办”'],
     ['column.reordered', {}, 'reordered the columns'],
-    ['card.created', { column: '待办' }, 'created the card in “待办”'],
+    ['card.created', { column: '待办' }, 'created the task in “待办”'],
     ['card.updated', { fields: ['title'] }, 'changed Title'],
     ['card.updated', { fields: ['priority', 'due_at'] }, 'changed Priority, Due date'],
     ['card.updated', { fields: ['human_only', 'waits_on', 'url', 'started_at', 'finished_at'] }, 'changed Human only, Dependencies, Link, Start time, Finish time'],
     ['card.updated', { fields: ['mystery'] }, 'changed mystery'],
-    ['card.updated', {}, 'edited the card'],
+    ['card.updated', {}, 'edited the task'],
     ['card.tags_updated', { fields: ['tags'] }, 'changed the tags'],
     ['board.labels_updated', { fields: ['labels'] }, 'changed the project labels'],
-    ['card.moved', { from: '待办', to: '进行中' }, 'moved the card from “待办” to “进行中”'],
-    ['card.reordered', {}, 'reordered the card within its column'],
-    ['card.deleted', {}, 'deleted the card'],
-    ['card.claimed', {}, 'claimed the card'],
-    ['card.released', { why: 'released', agent: 'codex' }, 'released the card'],
-    ['card.released', { why: 'revoked', agent: 'codex' }, 'took the card back from codex'],
-    ['card.released', { why: 'moved', agent: 'codex' }, 'the card moved, so the claim by codex ended'],
+    ['card.moved', { from: '待办', to: '进行中' }, 'moved the task from “待办” to “进行中”'],
+    ['card.reordered', {}, 'reordered the task within its column'],
+    ['card.deleted', {}, 'deleted the task'],
+    ['card.claimed', {}, 'claimed the task'],
+    ['card.released', { why: 'released', agent: 'codex' }, 'released the task'],
+    ['card.released', { why: 'revoked', agent: 'codex' }, 'took the task back from codex'],
+    ['card.released', { why: 'moved', agent: 'codex' }, 'the task moved, so the claim by codex ended'],
     ['comment.added', { snippet: '收到' }, 'commented'],
     ['comment.deleted', {}, 'deleted a comment'],
     ['rule.created', { name: '开始计时' }, 'added rule “开始计时”'],
@@ -88,7 +88,7 @@ describe('describeEvent', () => {
   })
 
   it('按当前语言出句子', () => {
-    expect(describeEvent(ev('card.moved', { from: 'A', to: 'B' }), tZh).text).toBe('把卡片从「A」移到「B」')
+    expect(describeEvent(ev('card.moved', { from: 'A', to: 'B' }), tZh).text).toBe('将任务从「A」移到「B」')
   })
 
   it('改了描述的事件带变更记录编号，其他事件和不合法的值都没有', () => {
@@ -106,10 +106,10 @@ describe('describeEvent', () => {
   })
 
   it('载荷缺字段或根本不是对象时也能显示', () => {
-    expect(describeEvent(ev('card.moved', {}), tEn).text).toBe('moved the card from “” to “”')
+    expect(describeEvent(ev('card.moved', {}), tEn).text).toBe('moved the task from “” to “”')
     const broken = ev('card.moved', {}, { payload: 'not json' as unknown as Record<string, unknown> })
-    expect(describeEvent(broken, tEn).text).toBe('moved the card from “” to “”')
-    expect(describeEvent(ev('card.moved', { from: 3, to: null }), tEn).text).toBe('moved the card from “” to “”')
+    expect(describeEvent(broken, tEn).text).toBe('moved the task from “” to “”')
+    expect(describeEvent(ev('card.moved', { from: 3, to: null }), tEn).text).toBe('moved the task from “” to “”')
   })
 })
 

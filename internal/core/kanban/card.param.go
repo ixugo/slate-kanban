@@ -139,13 +139,13 @@ func (in UpdateCardInput) applyTexts(c *Card) ([]string, error) {
 	var changed []string
 	if in.Title != nil {
 		title := strings.TrimSpace(*in.Title)
-		if err := checkLine("卡片标题", title, 1, maxCardTitleLen); err != nil {
+		if err := checkLine("任务标题", title, 1, maxCardTitleLen); err != nil {
 			return nil, err
 		}
 		assign(&c.Title, &title, "title", &changed)
 	}
 	if in.Description != nil {
-		if err := checkText("卡片描述", *in.Description, 0, maxCardDescLen); err != nil {
+		if err := checkText("任务描述", *in.Description, 0, maxCardDescLen); err != nil {
 			return nil, err
 		}
 		assign(&c.Description, in.Description, "description", &changed)
@@ -253,7 +253,7 @@ func normalizeTagIDs(ids []int64) ([]int64, error) {
 		}
 	}
 	if len(out) > maxCardTags {
-		return nil, invalidf("一张卡片最多 %d 个标签", maxCardTags)
+		return nil, invalidf("一个任务最多 %d 个标签", maxCardTags)
 	}
 	return out, nil
 }

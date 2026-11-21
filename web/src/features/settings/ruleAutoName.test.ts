@@ -52,7 +52,7 @@ describe('buildRuleAutoName', () => {
       enCols,
       t,
     )
-    expect(name).toBe('When a card enters “In progress”: record start time')
+    expect(name).toBe('When a task enters “In progress”: record start time')
   })
 
   it('多动作用顿号连接', () => {

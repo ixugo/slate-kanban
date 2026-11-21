@@ -96,11 +96,11 @@ describe('活动抽屉', () => {
   it('点工具栏的「活动」打开抽屉，从新到旧列出谁做了什么', async () => {
     const { user } = setup()
     const dialog = await openDrawer(user)
-    await within(dialog).findByText(/moved the card/)
+    await within(dialog).findByText(/moved the task/)
     const rows = rowTexts(dialog)
     expect(rows).toHaveLength(4)
     expect(rows[0]).toContain('Me')
-    expect(rows[0]).toContain('moved the card from “Todo” to “Doing”')
+    expect(rows[0]).toContain('moved the task from “Todo” to “Doing”')
     expect(rows[0]).toContain('#2 卡片二')
     expect(rows[1]).toContain('codex')
     expect(rows[1]).toContain('commented')
@@ -108,13 +108,13 @@ describe('活动抽屉', () => {
     expect(rows[2]).toContain('Automation · 开始计时')
     expect(rows[2]).toContain('ran the rule')
     expect(rows[2]).toContain('Set started time')
-    expect(rows[3]).toContain('created the card in “Todo”')
+    expect(rows[3]).toContain('created the task in “Todo”')
   })
 
   it('第一次请求不带筛选条件，每页读固定条数', async () => {
     const { api, user } = setup()
     await openDrawer(user)
-    await screen.findByText(/moved the card/)
+    await screen.findByText(/moved the task/)
     const call = lastActivityCall(api)
     expect(call.query.get('limit')).toBe(String(ACTIVITY_PAGE_SIZE))
     expect(call.query.get('exclude_types')).toBe('card.tags_updated,board.labels_updated')
@@ -124,7 +124,7 @@ describe('活动抽屉', () => {
   it('点事件类型的分组只看这些类型，再点一下取消，「清除筛选」一键复位', async () => {
     const { api, user } = setup()
     const dialog = await openDrawer(user)
-    await within(dialog).findByText(/moved the card/)
+    await within(dialog).findByText(/moved the task/)
 
     await user.click(within(dialog).getByRole('button', { name: en.activity.groups.move }))
     await waitFor(() => expect(lastActivityCall(api).query.get('types')).toBe('card.moved,card.reordered'))
@@ -149,7 +149,7 @@ describe('活动抽屉', () => {
   it('按操作者筛选：人、agent、规则各一个选项，选「所有人」复位', async () => {
     const { api, user } = setup()
     const dialog = await openDrawer(user)
-    await within(dialog).findByText(/moved the card/)
+    await within(dialog).findByText(/moved the task/)
     const group = within(dialog).getByRole('radiogroup', { name: en.activity.actorTitle })
     expect(within(group).getAllByRole('radio').map((r) => r.textContent)).toEqual([
       en.activity.anyone,
@@ -177,7 +177,7 @@ describe('活动抽屉', () => {
   it('事件类型和操作者可以叠加，没有结果时提示并能清除', async () => {
     const { api, user } = setup()
     const dialog = await openDrawer(user)
-    await within(dialog).findByText(/moved the card/)
+    await within(dialog).findByText(/moved the task/)
     await user.click(within(dialog).getByRole('button', { name: en.activity.groups.move }))
     await user.click(within(dialog).getByRole('radio', { name: 'codex' }))
     await waitFor(() => expect(lastActivityCall(api).query.get('actor')).toBe('codex'))
@@ -207,7 +207,7 @@ describe('活动抽屉', () => {
   it('抽屉开着时有新事件，列表实时出现新的一条', async () => {
     const { api, events, user } = setup()
     const dialog = await openDrawer(user)
-    await within(dialog).findByText(/moved the card/)
+    await within(dialog).findByText(/moved the task/)
     const before = api.count(ACTIVITY)
 
     events.push(ev(5, 'comment.deleted', 'human', 'human', { key: 'SLATE-1' }, 1))
@@ -221,7 +221,7 @@ describe('活动抽屉', () => {
   it('抽屉关着时看板有新事件，不会去读活动流', async () => {
     const { api, user } = setup()
     const dialog = await openDrawer(user)
-    await within(dialog).findByText(/moved the card/)
+    await within(dialog).findByText(/moved the task/)
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog', { name: en.activity.title })).toBeNull())
     const before = api.count(ACTIVITY)
@@ -236,7 +236,7 @@ describe('活动抽屉', () => {
     const detail = { ...makeCard({ id: 2, title: '卡片二', column_id: 2 }), column_instruction: '', dependencies: [], comments: [] }
     const { api, user } = setup(events, { 'GET /api/v1/cards/:id': detail })
     const dialog = await openDrawer(user)
-    await within(dialog).findByText(/deleted the card/)
+    await within(dialog).findByText(/deleted the task/)
     expect(within(dialog).queryByRole('link', { name: /已删的卡/ })).toBeNull()
     expect(within(dialog).getByText('#9 已删的卡')).toBeInTheDocument()
 

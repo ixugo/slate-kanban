@@ -57,10 +57,10 @@ func checkClaimable(actor Actor, card *Card, ix *boardIndex) error {
 		for i, dep := range waiting {
 			keys[i] = dep.Key
 		}
-		return ErrCardWaiting.WithMsg(fmt.Sprintf("卡片在等待 %s 完成", strings.Join(keys, "、")))
+		return ErrCardWaiting.WithMsg(fmt.Sprintf("任务在等待 %s 完成", strings.Join(keys, "、")))
 	}
 	if card.ClaimedBy != actor.Name && claimActive(card, ix.now) {
-		return ErrCardClaimed.WithMsg(fmt.Sprintf("卡片已被 %s 领取，租约在 %s 到期",
+		return ErrCardClaimed.WithMsg(fmt.Sprintf("任务已被 %s 领取，租约在 %s 到期",
 			card.ClaimedBy, card.ClaimExpiresAt.In(ix.loc).Format(time.RFC3339)))
 	}
 	return nil

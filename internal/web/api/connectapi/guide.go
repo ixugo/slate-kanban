@@ -119,7 +119,7 @@ func claudeCodeHost(g Guide, passcodeRequired bool) Host {
 		MCP: []Snippet{
 			{
 				Kind:  "worker",
-				Title: "添加工作视图 MCP（agent 日常领任务、改卡片）" + suffix,
+				Title: "添加工作视图 MCP（agent 日常领任务、改任务）" + suffix,
 				Lang:  "sh",
 				Code:  workerCode,
 			},

@@ -169,7 +169,7 @@ func (u *unit) removeEngineers(ctx context.Context, boardID int64, prev []*Engin
 func (u *unit) unassignCards(ctx context.Context, boardID int64, gone map[int64]bool) error {
 	cards, err := u.card.ListByBoard(ctx, boardID)
 	if err != nil {
-		return wrapDB("读取卡片", err)
+		return wrapDB("读取任务", err)
 	}
 	now := u.now()
 	for _, card := range cards {
@@ -185,7 +185,7 @@ func (u *unit) unassignCards(ctx context.Context, boardID int64, gone map[int64]
 		card.Version++
 		card.UpdatedAt = now
 		if err := u.card.Save(ctx, card); err != nil {
-			return wrapDB("保存卡片", err)
+			return wrapDB("保存任务", err)
 		}
 	}
 	return nil
@@ -236,7 +236,7 @@ func (u *unit) checkEngineerID(ctx context.Context, boardID, id int64) error {
 		return invalidf("工程师 %d 不存在，或者不属于这个看板", id)
 	}
 	if stageOf(items[i].Kind) != EngineerDev {
-		return invalidf("卡片只能绑定研发类工程师（全栈、前端、后端、UI），%s 是测试", items[i].Name)
+		return invalidf("任务只能绑定研发类工程师（全栈、前端、后端、UI），%s 是测试", items[i].Name)
 	}
 	return nil
 }

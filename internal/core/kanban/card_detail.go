@@ -30,7 +30,7 @@ type CardDetail struct {
 func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, error) {
 	card, err := c.store.Card().GetByID(ctx, cardID)
 	if err != nil {
-		return nil, mapNotFound(err, ErrCardNotFound, "读取卡片")
+		return nil, mapNotFound(err, ErrCardNotFound, "读取任务")
 	}
 	cols, err := c.store.Column().ListByBoard(ctx, card.BoardID)
 	if err != nil {
@@ -76,7 +76,7 @@ func loadDependencies(ctx context.Context, cards CardStorer, card *Card) ([]*Car
 			continue
 		}
 		if err != nil {
-			return nil, wrapDB("读取依赖的卡片", err)
+			return nil, wrapDB("读取依赖的任务", err)
 		}
 		deps = append(deps, dep)
 	}

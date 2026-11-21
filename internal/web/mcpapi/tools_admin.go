@@ -16,7 +16,7 @@ type columnsOut struct {
 // createBoardIn 是 create_board 的入参。
 type createBoardIn struct {
 	Name        string `json:"name" jsonschema:"看板名称，1 到 100 字，单行"`
-	Slug        string `json:"slug,omitempty" jsonschema:"看板标识，2 到 10 位，大写字母开头，只含大写字母和数字；会拼进每张卡片的编号（例如 SLATE-12），创建后不能改；不填按名称生成"`
+	Slug        string `json:"slug,omitempty" jsonschema:"看板标识，2 到 10 位，大写字母开头，只含大写字母和数字；会拼进每个任务的编号（例如 SLATE-12），创建后不能改；不填按名称生成"`
 	Description string `json:"description,omitempty" jsonschema:"看板说明，最多 2000 字"`
 	ProjectPath string `json:"project_path,omitempty" jsonschema:"这个看板对应的项目在本机的绝对路径"`
 	Template    string `json:"template,omitempty" jsonschema:"起步模板：dev（收件箱、待办、进行中、审查、完成，默认）、simple（待办、进行中、完成）、empty（没有列）"`
@@ -35,9 +35,9 @@ type updateBoardIn struct {
 type createColumnIn struct {
 	BoardID      int64  `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	Name         string `json:"name" jsonschema:"列名称，1 到 60 字，同一个看板里不能重名"`
-	Instruction  string `json:"instruction,omitempty" jsonschema:"给 agent 的做事规则，最多 4000 字；agent 领到这一列的卡片时必须遵守"`
-	IsDone       bool   `json:"is_done,omitempty" jsonschema:"为 true 表示这是完成列，进入这一列的卡片算已完成"`
-	NextColumnID int64  `json:"next_column_id,omitempty" jsonschema:"agent 用 finish_card 交接后，卡片去的下一列（列编号）；不填表示没有"`
+	Instruction  string `json:"instruction,omitempty" jsonschema:"给 agent 的做事规则，最多 4000 字；agent 领到这一列的任务时必须遵守"`
+	IsDone       bool   `json:"is_done,omitempty" jsonschema:"为 true 表示这是完成列，进入这一列的任务算已完成"`
+	NextColumnID int64  `json:"next_column_id,omitempty" jsonschema:"agent 用 finish_card 交接后，任务去的下一列（列编号）；不填表示没有"`
 }
 
 // updateColumnIn 是 update_column 的入参，指针字段不填或为 null 都表示不改。
@@ -60,7 +60,7 @@ type reorderColumnsIn struct {
 type deleteColumnIn struct {
 	BoardID  int64 `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	ColumnID int64 `json:"column_id" jsonschema:"要删除的列编号"`
-	MoveTo   int64 `json:"move_to,omitempty" jsonschema:"列里有卡片时，把它们移入的列编号（追加到末尾）；列是空的不用填"`
+	MoveTo   int64 `json:"move_to,omitempty" jsonschema:"列里有任务时，把它们移入的列编号（追加到末尾）；列是空的不用填"`
 }
 
 // deleteCommentIn 是 delete_comment 的入参。
@@ -85,7 +85,7 @@ func (a API) registerAdminTools(s *mcp.Server) {
 	a.registerRuleTools(s)
 	register(s, spec{
 		name: "delete_card", kind: kindDestroy,
-		desc: "删除一张卡片和它的全部评论，不可恢复。卡片已经不存在也返回成功。",
+		desc: "删除一个任务和它的全部评论，不可恢复。任务已经不存在也返回成功。",
 	}, a.deleteCard)
 	register(s, spec{
 		name: "delete_comment", kind: kindDestroy,
@@ -116,8 +116,8 @@ func (a API) registerBoardTools(s *mcp.Server) {
 func (a API) registerColumnTools(s *mcp.Server) {
 	register(s, spec{
 		name: "create_column", kind: kindWrite,
-		desc: "在看板的最右边新增一列。instruction 是写给 agent 的提示词，写明卡片在这个状态下谁能做什么、能不能派 subagent、做完去哪一列，agent 必须遵守；" +
-			"is_done 为 true 表示完成列；next_column_id 是 agent 用 finish_card 交接后卡片去的下一列。",
+		desc: "在看板的最右边新增一列。instruction 是写给 agent 的提示词，写明任务在这个状态下谁能做什么、能不能派 subagent、做完去哪一列，agent 必须遵守；" +
+			"is_done 为 true 表示完成列；next_column_id 是 agent 用 finish_card 交接后任务去的下一列。",
 	}, a.createColumn)
 	register(s, spec{
 		name: "update_column", kind: kindWrite,
@@ -130,7 +130,7 @@ func (a API) registerColumnTools(s *mcp.Server) {
 	}, a.reorderColumns)
 	register(s, spec{
 		name: "delete_column", kind: kindDestroy,
-		desc: "删除一列。列里有卡片时必须用 move_to 指定把它们移入的列（追加到那一列末尾），否则返回 ErrColumnNotEmpty。" +
+		desc: "删除一列。列里有任务时必须用 move_to 指定把它们移入的列（追加到那一列末尾），否则返回 ErrColumnNotEmpty。" +
 			"其他列指向它的「下一列」会被清除，用到它的规则会被停用。列已经不存在也返回成功。",
 	}, a.deleteColumn)
 }

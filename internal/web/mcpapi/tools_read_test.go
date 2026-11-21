@@ -62,8 +62,8 @@ func TestGetBoard(t *testing.T) {
 		t.Errorf("watch_prompt 应该写明调度 agent 分工和 worktree: %q", prompt)
 	}
 	// 并发名额由服务端按名册数好写进提示词：研发模板的起步名册是两位全栈加一位测试
-	if !strings.Contains(prompt, "最多同时做 2 张研发卡、同时审 1 张审查卡") || !strings.Contains(prompt, "一张卡新开一个子 agent") {
-		t.Errorf("watch_prompt 应该按名册写明并发名额，并要求一张卡一个新子 agent: %q", prompt)
+	if !strings.Contains(prompt, "最多同时做 2 个研发任务、同时审 1 个审查任务") || !strings.Contains(prompt, "一个任务新开一个子 agent") {
+		t.Errorf("watch_prompt 应该按名册写明并发名额，并要求一个任务一个新子 agent: %q", prompt)
 	}
 	missing := call(t, sess, "get_board", map[string]any{"board_id": 9999})
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrBoardNotFound:") {

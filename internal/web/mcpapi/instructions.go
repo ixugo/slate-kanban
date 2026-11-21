@@ -13,10 +13,10 @@ const agentInstructions = `你连接的是 Slate 看板，是其中的 agent，�
 干活的规则：
 - 每列的 instruction 写明这个状态下谁能做什么、能不能派 subagent、做完去哪一列；没写允许的事不要做。
 - 按各列 instruction 选出允许你处理的列，再用 next_card(board_id, column_id, engineer_id) 领取；也可以 list_cards 找后 claim_card。动手前读完全文和评论。
-- 领取时 engineer_id 指定承担的工程师，不填则用卡片绑定的，否则随机一位空闲的；每位同时只做一张。ErrEngineerBusy、ErrNoIdleEngineer 是名额满了，排队等，别硬抢。
+- 领取时 engineer_id 指定承担的工程师，不填则用任务绑定的，否则随机一位空闲的；每位同时只做一个。ErrEngineerBusy、ErrNoIdleEngineer 是名额满了，排队等，别硬抢。
 - 任务不明确（目标、范围、验收标准缺失或有歧义）时不要直接开始：先 comment_card 写出疑问，再 move_card 移出领取列（如「收件箱」；只 release_card 会被 next_card 马上领回），等人回复。
-- 你是调度 agent，自己不写代码：研发、审查名额分开算，有几个空闲名额就一次领几张卡；每张研发卡先建好 git worktree 和分支，再同时派出各自新的 subagent，一张卡一个，别复用做过别卡的。
-- 用 comment_card 汇报进度或提问，发现新任务用 create_card 记下来。
+- 你是调度 agent，自己不写代码：研发、审查名额分开算，有几个空闲名额就一次领几个；每个研发任务先建好 git worktree 和分支，再同时派出各自新的 subagent，一个任务一个，别复用做过别的任务的。
+- 用 comment_card 汇报或提问，发现新任务用 create_card 记下来。
 - 图片地址 /api/v1/attachments/<编号> 用 get_image 看；配图先 upload_image，再把返回的 markdown 写进描述或评论。
 - 做完用 finish_card 写总结并交接到下一列（通常是审查）。审查结论用 comment_card 写，再 move_card 到完成列或放回进行中。
 - 做不下去：评论写清卡点，再 move_card 移出领取列等人处理。release_card 只用于让别的 agent 接手。
@@ -29,11 +29,11 @@ const agentInstructions = `你连接的是 Slate 看板，是其中的 agent，�
 完整流程写在 slate-kanban skill 里：装了先读它；没装就读资源 slate://skills/slate-kanban，经用户同意存成 slate-kanban/SKILL.md。`
 
 // adminInstructions 是人（管理视图）连接时收到的使用说明。
-const adminInstructions = `你连接的是 Slate 看板，当前是人的管理视图：可以管理看板、列和自动化规则，也可以像 agent 一样读写卡片。
+const adminInstructions = `你连接的是 Slate 看板，当前是人的管理视图：可以管理看板、列和自动化规则，也可以像 agent 一样读写任务。
 
-- 列的 instruction 是写给 agent 的提示词，决定 agent 在这个状态下能做什么，服务端不按列限制 agent 的操作；领取卡片时 agent 要显式指定按提示词选出的 column_id；next_column_id 决定 agent 交接后卡片去哪一列。
-- 看板的 engineers 是工程师名册，每位是一个并发名额；名册在网页设置里招募和解聘，卡片可用 engineer_id 绑定研发工程师。
-- 人通过移动卡片和编写列提示词来安排工作，agent 处理完交接到下一列（通常是「审查」），审查和完成由审查列、完成列的 instruction 约定。
+- 列的 instruction 是写给 agent 的提示词，决定 agent 在这个状态下能做什么，服务端不按列限制 agent 的操作；领取任务时 agent 要显式指定按提示词选出的 column_id；next_column_id 决定 agent 交接后任务去哪一列。
+- 看板的 engineers 是工程师名册，每位是一个并发名额；名册在网页设置里招募和解聘，任务可用 engineer_id 绑定研发工程师。
+- 人通过移动任务和编写列提示词来安排工作，agent 处理完交接到下一列（通常是「审查」），审查和完成由审查列、完成列的 instruction 约定。
 - 自动化规则用 create_rule 创建，配置写错的规则在保存时就会被拒绝；update_column 可以随时调整列的指令和流转。
 - 删除类操作不可恢复，执行前先向用户确认。`
 

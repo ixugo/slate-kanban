@@ -61,8 +61,8 @@ func (a API) registerResources(s *mcp.Server) {
 	s.AddResourceTemplate(&mcp.ResourceTemplate{
 		Name:  "board",
 		Title: "看板快照",
-		Description: "一个看板的当前快照：列、规则和卡片摘要（最多 200 张，没有描述和评论），以及读取时的事件序号 seq。" +
-			"订阅它，看板有更新时会收到通知；平时用 pull_updates 取增量，用 get_card 看卡片全文。",
+		Description: "一个看板的当前快照：列、规则和任务摘要（最多 200 个，没有描述和评论），以及读取时的事件序号 seq。" +
+			"订阅它，看板有更新时会收到通知；平时用 pull_updates 取增量，用 get_card 看任务全文。",
 		MIMEType:    "application/json",
 		URITemplate: boardURITemplate,
 	}, a.readBoard)

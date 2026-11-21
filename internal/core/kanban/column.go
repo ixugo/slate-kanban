@@ -274,13 +274,13 @@ func (u *unit) deleteColumn(ctx context.Context, actor Actor, boardID, columnID,
 func (u *unit) evacuateColumn(ctx context.Context, actor Actor, cols []*Column, col *Column, moveTo int64) (int64, int, error) {
 	cards, err := u.card.ListByColumn(ctx, col.ID)
 	if err != nil {
-		return 0, 0, wrapDB("读取列里的卡片", err)
+		return 0, 0, wrapDB("读取列里的任务", err)
 	}
 	if len(cards) == 0 {
 		return 0, 0, nil
 	}
 	if moveTo == 0 {
-		return 0, 0, ErrColumnNotEmpty.WithMsg(fmt.Sprintf("「%s」列里还有 %d 张卡片，请指定把它们移入的列", col.Name, len(cards)))
+		return 0, 0, ErrColumnNotEmpty.WithMsg(fmt.Sprintf("「%s」列里还有 %d 个任务，请指定把它们移入的列", col.Name, len(cards)))
 	}
 	target := columnByID(cols, moveTo)
 	if target == nil || target.ID == col.ID {

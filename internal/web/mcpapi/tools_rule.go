@@ -28,7 +28,7 @@ type createRuleIn struct {
 	Enabled   *bool          `json:"enabled,omitempty" jsonschema:"是否启用；不填启用"`
 	Trigger   string         `json:"trigger" jsonschema:"触发时机：card_created、card_entered 或 card_left"`
 	ColumnID  int64          `json:"column_id,omitempty" jsonschema:"在哪一列发生才触发；不填表示任意列"`
-	Condition string         `json:"condition,omitempty" jsonschema:"条件，写法同 list_cards 的 query，卡片满足才执行；不填表示无条件"`
+	Condition string         `json:"condition,omitempty" jsonschema:"条件，写法同 list_cards 的 query，任务满足才执行；不填表示无条件"`
 	Actions   []ruleActionIn `json:"actions" jsonschema:"按顺序执行的动作，至少 1 个，最多 20 个"`
 }
 
@@ -64,14 +64,14 @@ func toRuleActions(in []ruleActionIn) []kanban.RuleAction {
 func (a API) registerRuleTools(s *mcp.Server) {
 	register(s, spec{
 		name: "create_rule", kind: kindWrite,
-		desc: "创建自动化规则：某件事发生并且卡片满足条件时，按顺序执行一组动作，人和 agent 的操作都会触发。\n" +
-			"触发时机 trigger：card_created（创建卡片时）、card_entered（卡片进入某一列，创建卡片也算进入初始列）、" +
-			"card_left（卡片离开某一列）；column_id 指定发生在哪一列，不填表示任意列。" +
-			"condition 用 list_cards 的筛选语法，卡片满足才执行，不填表示无条件。\n" +
+		desc: "创建自动化规则：某件事发生并且任务满足条件时，按顺序执行一组动作，人和 agent 的操作都会触发。\n" +
+			"触发时机 trigger：card_created（创建任务时）、card_entered（任务进入某一列，创建任务也算进入初始列）、" +
+			"card_left（任务离开某一列）；column_id 指定发生在哪一列，不填表示任意列。" +
+			"condition 用 list_cards 的筛选语法，任务满足才执行，不填表示无条件。\n" +
 			"动作 actions 的 type：set_started_at、set_finished_at（把时间写成现在，mode 为 if_empty 只在为空时写，是默认，always 覆盖已有的值）；" +
 			"clear_started_at、clear_finished_at、clear_due（清除时间）；set_due（days：从现在起几天后到期）；" +
 			"set_priority（priority：0 到 3）；add_tag、remove_tag（tag）；set_human_only（flag）；" +
-			"add_comment（text：自动写一条评论）；move_to_column（column_id：把卡片移到另一列，会继续触发那一列的规则，连锁最多 3 层）。\n" +
+			"add_comment（text：自动写一条评论）；move_to_column（column_id：把任务移到另一列，会继续触发那一列的规则，连锁最多 3 层）。\n" +
 			"保存时就会校验整条规则，写错的规则会被拒绝，不会保存成永远不触发的样子。",
 	}, a.createRule)
 	register(s, spec{

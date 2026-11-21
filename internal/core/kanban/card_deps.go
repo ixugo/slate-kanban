@@ -10,7 +10,7 @@ func normalizeWaitsOn(ids []int64) ([]int64, error) {
 	seen := make(map[int64]bool, len(ids))
 	for _, id := range ids {
 		if id <= 0 {
-			return nil, invalidf("依赖的卡片 id 必须是正整数")
+			return nil, invalidf("依赖的任务 id 必须是正整数")
 		}
 		if !seen[id] {
 			seen[id] = true
@@ -18,7 +18,7 @@ func normalizeWaitsOn(ids []int64) ([]int64, error) {
 		}
 	}
 	if len(out) > maxWaitsOn {
-		return nil, invalidf("一张卡片最多依赖 %d 张卡片", maxWaitsOn)
+		return nil, invalidf("一个任务最多依赖 %d 个任务", maxWaitsOn)
 	}
 	return out, nil
 }
@@ -34,14 +34,14 @@ func validateWaitsOn(cardID int64, deps []int64, boardCards []*Card) error {
 	}
 	for _, dep := range deps {
 		if dep == cardID {
-			return invalidf("卡片不能依赖它自己")
+			return invalidf("任务不能依赖它自己")
 		}
 		if _, ok := graph[dep]; !ok {
-			return invalidf("依赖的卡片 %d 不存在，或者不属于这个看板", dep)
+			return invalidf("依赖的任务 %d 不存在，或者不属于这个看板", dep)
 		}
 	}
 	if cardID != 0 && reachesTarget(graph, deps, cardID) {
-		return invalidf("依赖关系不能成环：被依赖的卡片直接或间接在等待这张卡片")
+		return invalidf("依赖关系不能成环：被依赖的任务直接或间接在等待这个任务")
 	}
 	return nil
 }

@@ -11,7 +11,7 @@ import (
 // 免得抢走对方正在做的活，持有者交接或释放之后才能移动。
 func checkCardMovable(actor Actor, card *Card, now time.Time) error {
 	if actor.IsAgent() && card.ClaimedBy != actor.Name && claimActive(card, now) {
-		return ErrCardClaimed.WithMsg("卡片正被 " + card.ClaimedBy + " 持有，等它交接或释放之后再移动")
+		return ErrCardClaimed.WithMsg("任务正被 " + card.ClaimedBy + " 持有，等它交接或释放之后再移动")
 	}
 	return nil
 }
@@ -95,7 +95,7 @@ func (u *unit) resolveMove(ctx context.Context, card *Card, columnID int64) (fro
 func (u *unit) cardsExcept(ctx context.Context, columnID, exceptID int64) ([]*Card, error) {
 	cards, err := u.card.ListByColumn(ctx, columnID)
 	if err != nil {
-		return nil, wrapDB("读取目标列的卡片", err)
+		return nil, wrapDB("读取目标列的任务", err)
 	}
 	return slices.DeleteFunc(cards, func(c *Card) bool { return c.ID == exceptID }), nil
 }

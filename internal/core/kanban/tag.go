@@ -157,7 +157,7 @@ func (u *unit) removeTags(ctx context.Context, boardID int64, prev []*Tag, kept 
 func (u *unit) untagCards(ctx context.Context, boardID int64, gone map[int64]bool) error {
 	cards, err := u.card.ListByBoard(ctx, boardID)
 	if err != nil {
-		return wrapDB("读取卡片", err)
+		return wrapDB("读取任务", err)
 	}
 	now := u.now()
 	for _, card := range cards {
@@ -168,7 +168,7 @@ func (u *unit) untagCards(ctx context.Context, boardID int64, gone map[int64]boo
 		card.Version++
 		card.UpdatedAt = now
 		if err := u.card.Save(ctx, card); err != nil {
-			return wrapDB("保存卡片", err)
+			return wrapDB("保存任务", err)
 		}
 	}
 	return nil

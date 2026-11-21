@@ -30,25 +30,25 @@ type nextCardIn struct {
 
 // claimCardIn 是 claim_card 的入参。
 type claimCardIn struct {
-	CardID       int64 `json:"card_id" jsonschema:"卡片编号，是数字 id，不是 SLATE-12 这样的 key"`
+	CardID       int64 `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
 	LeaseMinutes int   `json:"lease_minutes,omitempty" jsonschema:"领取的租约分钟数，默认 30，最多 1440"`
-	EngineerID   int64 `json:"engineer_id,omitempty" jsonschema:"由哪位工程师承担，来自 get_board 的 engineers，按列提示词选择研发类或测试类型；不填则卡片绑定的优先，否则服务端挑一位空闲的；看板没有工程师时忽略"`
+	EngineerID   int64 `json:"engineer_id,omitempty" jsonschema:"由哪位工程师承担，来自 get_board 的 engineers，按列提示词选择研发类或测试类型；不填则任务绑定的优先，否则服务端挑一位空闲的；看板没有工程师时忽略"`
 }
 
 // finishCardIn 是 finish_card 的入参。
 type finishCardIn struct {
-	CardID   int64  `json:"card_id" jsonschema:"卡片编号，是数字 id，不是 SLATE-12 这样的 key"`
-	Summary  string `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在卡片下"`
+	CardID   int64  `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
+	Summary  string `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在任务下"`
 	Branch   string `json:"branch,omitempty" jsonschema:"这次工作用的分支名；不填表示不改"`
 	URL      string `json:"url,omitempty" jsonschema:"相关链接，例如合并请求，必须以 http:// 或 https:// 开头；不填表示不改"`
 	ColumnID int64  `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；按各列 instruction 的约定选择"`
-	BeforeID int64  `json:"before_id,omitempty" jsonschema:"放到目标列这张卡片（数字 id）的前面；和 after_id 最多填一个；都不填放到目标列最顶部"`
-	AfterID  int64  `json:"after_id,omitempty" jsonschema:"放到目标列这张卡片（数字 id）的后面；和 before_id 最多填一个"`
+	BeforeID int64  `json:"before_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的前面；和 after_id 最多填一个；都不填放到目标列最顶部"`
+	AfterID  int64  `json:"after_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的后面；和 before_id 最多填一个"`
 }
 
 // commentCardIn 是 comment_card 的入参。
 type commentCardIn struct {
-	CardID int64  `json:"card_id" jsonschema:"卡片编号，是数字 id，不是 SLATE-12 这样的 key"`
+	CardID int64  `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
 	Body   string `json:"body" jsonschema:"评论正文，1 到 20000 字；评论只能新增，不能修改"`
 }
 
@@ -57,7 +57,7 @@ type createCardIn struct {
 	BoardID     int64    `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	Title       string   `json:"title" jsonschema:"标题，1 到 200 字，单行"`
 	Description string   `json:"description,omitempty" jsonschema:"详细描述，最多 20000 字；写清要做什么和验收标准"`
-	ColumnID    int64    `json:"column_id,omitempty" jsonschema:"放进哪一列；不填放进第一列；新卡片放在该列最顶部"`
+	ColumnID    int64    `json:"column_id,omitempty" jsonschema:"放进哪一列；不填放进第一列；新任务放在该列最顶部"`
 	Tags        []string `json:"tags,omitempty" jsonschema:"标签文字，最多 10 个，每个 1 到 30 字；看板标签库里没有的文字会新建一个没有颜色的标签；和 tag_ids 只填一个"`
 	TagIDs      []int64  `json:"tag_ids,omitempty" jsonschema:"标签主键，来自 get_board 的 tags；可以选没有文字的标签；和 tags 只填一个"`
 	Branch      string   `json:"branch,omitempty" jsonschema:"关联的分支名"`
@@ -70,7 +70,7 @@ type createCardAdminIn struct {
 	Priority   int     `json:"priority,omitempty" jsonschema:"优先级：0 未设置，1 低，2 中，3 高"`
 	HumanOnly  bool    `json:"human_only,omitempty" jsonschema:"为 true 表示只能由人处理，agent 不会领取"`
 	EngineerID int64   `json:"engineer_id,omitempty" jsonschema:"绑定一位研发类工程师（全栈、前端、后端、UI，来自 get_board 的 engineers），领取时由他承担；不填表示领取时随机分配"`
-	WaitsOn    []int64 `json:"waits_on,omitempty" jsonschema:"依赖的卡片编号（数字 id）；依赖没完成之前这张卡处于等待状态"`
+	WaitsOn    []int64 `json:"waits_on,omitempty" jsonschema:"依赖的任务编号（数字 id）；依赖没完成之前这个任务处于等待状态"`
 	DueAt      string  `json:"due_at,omitempty" jsonschema:"到期时间，RFC3339 格式，例如 2026-12-01T18:00:00+08:00"`
 	StartedAt  string  `json:"started_at,omitempty" jsonschema:"开始时间，RFC3339 格式；通常由自动化规则写入"`
 	FinishedAt string  `json:"finished_at,omitempty" jsonschema:"完成时间，RFC3339 格式；通常由自动化规则写入"`
@@ -78,8 +78,8 @@ type createCardAdminIn struct {
 
 // updateCardIn 是修改卡片的入参，agent 视图只有这些字段。指针字段为 null 或不填都表示不改。
 type updateCardIn struct {
-	CardID      int64     `json:"card_id" jsonschema:"卡片编号，是数字 id，不是 SLATE-12 这样的 key"`
-	Version     *int64    `json:"version,omitempty" jsonschema:"你上次读到的 version；带上后，卡片已被别人改过就返回 ErrCardVersionConflict，而不是覆盖对方的修改"`
+	CardID      int64     `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
+	Version     *int64    `json:"version,omitempty" jsonschema:"你上次读到的 version；带上后，任务已被别人改过就返回 ErrCardVersionConflict，而不是覆盖对方的修改"`
 	Title       *string   `json:"title,omitempty" jsonschema:"新标题；不填不改"`
 	Description *string   `json:"description,omitempty" jsonschema:"新描述，整体替换；不填不改"`
 	Tags        *[]string `json:"tags,omitempty" jsonschema:"新标签文字列表，整体替换（没有文字的标签会被去掉，要保留请用 tag_ids）；传空数组清空；不填不改；和 tag_ids 只填一个"`
@@ -94,7 +94,7 @@ type updateCardAdminIn struct {
 	Priority   *int     `json:"priority,omitempty" jsonschema:"优先级：0 未设置，1 低，2 中，3 高；不填不改"`
 	HumanOnly  *bool    `json:"human_only,omitempty" jsonschema:"是否只能由人处理；不填不改"`
 	EngineerID *int64   `json:"engineer_id,omitempty" jsonschema:"绑定的研发工程师编号，来自 get_board 的 engineers；传 0 取消绑定；不填不改"`
-	WaitsOn    *[]int64 `json:"waits_on,omitempty" jsonschema:"依赖的卡片编号，整体替换；传空数组清空；不填不改"`
+	WaitsOn    *[]int64 `json:"waits_on,omitempty" jsonschema:"依赖的任务编号，整体替换；传空数组清空；不填不改"`
 	DueAt      *string  `json:"due_at,omitempty" jsonschema:"到期时间，RFC3339 格式；传空字符串清除；不填不改"`
 	StartedAt  *string  `json:"started_at,omitempty" jsonschema:"开始时间，RFC3339 格式；传空字符串清除；不填不改"`
 	FinishedAt *string  `json:"finished_at,omitempty" jsonschema:"完成时间，RFC3339 格式；传空字符串清除；不填不改"`
@@ -102,10 +102,10 @@ type updateCardAdminIn struct {
 
 // moveCardIn 是 move_card 的入参。
 type moveCardIn struct {
-	CardID   int64 `json:"card_id" jsonschema:"卡片编号，是数字 id，不是 SLATE-12 这样的 key"`
+	CardID   int64 `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
 	ColumnID int64 `json:"column_id,omitempty" jsonschema:"移到哪一列；不填表示留在当前列，只调整顺序"`
-	BeforeID int64 `json:"before_id,omitempty" jsonschema:"放到这张卡片（数字 id）的前面；和 after_id 最多填一个"`
-	AfterID  int64 `json:"after_id,omitempty" jsonschema:"放到这张卡片（数字 id）的后面；和 before_id 最多填一个；都不填放到目标列最顶部"`
+	BeforeID int64 `json:"before_id,omitempty" jsonschema:"放到这个任务（数字 id）的前面；和 after_id 最多填一个"`
+	AfterID  int64 `json:"after_id,omitempty" jsonschema:"放到这个任务（数字 id）的后面；和 before_id 最多填一个；都不填放到目标列最顶部"`
 }
 
 // setProjectPathIn 是 set_project_path 的入参。
@@ -164,24 +164,24 @@ func (a API) registerWorkTools(s *mcp.Server, v view) {
 func (a API) registerSharedWork(s *mcp.Server) {
 	register(s, spec{
 		name: "release_card", kind: kindWrite,
-		desc: "释放卡片上的领取。你做不下去、想让别的 agent 接手时用它；释放后卡片留在原来的列，所以你自己的 next_card 也会再领到它。要等人回复的话，改用 move_card 把卡片移出领取列。" +
-			"agent 只能释放自己持有的卡片，人可以收回任何一张。已经没有领取时也返回成功。",
+		desc: "释放任务上的领取。你做不下去、想让别的 agent 接手时用它；释放后任务留在原来的列，所以你自己的 next_card 也会再领到它。要等人回复的话，改用 move_card 把任务移出领取列。" +
+			"agent 只能释放自己持有的任务，人可以收回任何一个。已经没有领取时也返回成功。",
 	}, a.releaseCard)
 	register(s, spec{
 		name: "finish_card", kind: kindWrite,
-		desc: "完成交接：把 summary 写成评论、记下分支和链接、把卡片移到下一列（通常是「审查」）并结束你的领取，全部在一次操作里完成。" +
-			"做完一张卡片就调用它，不要自己用 move_card 去拖；是否算完成由审查决定，具体按各列的 instruction。" +
+		desc: "完成交接：把 summary 写成评论、记下分支和链接、把任务移到下一列（通常是「审查」）并结束你的领取，全部在一次操作里完成。" +
+			"做完一个任务就调用它，不要自己用 move_card 去拖；是否算完成由审查决定，具体按各列的 instruction。" +
 			"summary 要让审查的人不看代码也能知道做了什么、怎么验证的、有什么风险。",
 	}, a.finishCard)
 	register(s, spec{
 		name: "comment_card", kind: kindWrite,
-		desc: "在卡片下写一条评论，用来汇报进度、提问或回复人的问题。不必持有这张卡片也能评论；" +
+		desc: "在任务下写一条评论，用来汇报进度、提问或回复人的问题。不必持有这个任务也能评论；" +
 			"持有者评论会顺延领取的租约。评论只能新增，不能修改。",
 	}, a.commentCard)
 	register(s, spec{
 		name: "move_card", kind: kindWrite,
-		desc: "把卡片移到另一列，或在同一列里调整顺序。换列会结束领取，并触发看板上对应的自动化规则。" +
-			"不能移动正被别的 agent 持有的卡片；什么状态下该动哪张卡、能放进哪一列，按卡片所在列和目标列的 instruction 来（例如审查不通过时放回「进行中」）。做完一张卡片请用 finish_card，不要用它。",
+		desc: "把任务移到另一列，或在同一列里调整顺序。换列会结束领取，并触发看板上对应的自动化规则。" +
+			"不能移动正被别的 agent 持有的任务；什么状态下该动哪个任务、能放进哪一列，按任务所在列和目标列的 instruction 来（例如审查不通过时放回「进行中」）。做完一个任务请用 finish_card，不要用它。",
 	}, a.moveCard)
 }
 
@@ -189,28 +189,28 @@ func (a API) registerSharedWork(s *mcp.Server) {
 func (a API) registerAgentWork(s *mcp.Server) {
 	register(s, spec{
 		name: "next_card", kind: kindWrite,
-		desc: "领取下一张该你做的卡片。先读取列的 instruction，按提示词指定 column_id，只从这一列按看板顺序从上到下取卡，" +
-			"跳过只能由人处理的、还在等依赖的、别人正在做的和绑定给别的工程师的；你自己已经持有的卡片优先，所以重启之后能接着做原来的活。" +
-			"看板有工程师名册时，engineer_id 指定由哪位工程师承担（按列提示词选择研发或测试）（不填则卡片绑定的优先，否则随机挑空闲的）；一位工程师同时只做一张，名额满了返回 ErrNoIdleEngineer，排队等一等。" +
-			"领到后返回卡片全文、评论、依赖和所在列的指令（column_instruction，必须遵守）。" +
-			"没有可做的卡片时 card 为 null，不是错误：用 wait_for_updates 等人安排新工作。领到卡片时结果带 agent_notice：任务不明确就先评论反馈，不要直接开始。" +
-			"领取有租约（lease_minutes，默认 30 分钟，最多 1440 分钟）：持有期间在卡片上评论或修改会把租约顺延到至少 30 分钟之后，" +
+		desc: "领取下一个该你做的任务。先读取列的 instruction，按提示词指定 column_id，只从这一列按看板顺序从上到下取任务，" +
+			"跳过只能由人处理的、还在等依赖的、别人正在做的和绑定给别的工程师的；你自己已经持有的任务优先，所以重启之后能接着做原来的活。" +
+			"看板有工程师名册时，engineer_id 指定由哪位工程师承担（按列提示词选择研发或测试）（不填则任务绑定的优先，否则随机挑空闲的）；一位工程师同时只做一个，名额满了返回 ErrNoIdleEngineer，排队等一等。" +
+			"领到后返回任务全文、评论、依赖和所在列的指令（column_instruction，必须遵守）。" +
+			"没有可做的任务时 card 为 null，不是错误：用 wait_for_updates 等人安排新工作。领到任务时结果带 agent_notice：任务不明确就先评论反馈，不要直接开始。" +
+			"领取有租约（lease_minutes，默认 30 分钟，最多 1440 分钟）：持有期间在任务上评论或修改会把租约顺延到至少 30 分钟之后，" +
 			"租约到期后别的 agent 可以接手。",
 	}, a.nextCard)
 	register(s, spec{
 		name: "claim_card", kind: kindWrite,
-		desc: "领取指定的卡片，已经由你持有时只是续租。哪一列的卡片你能领，按这一列的 instruction 来（例如审查 agent 领审查列的卡）；卡片不是只能由人处理的，" +
-			"依赖已经完成，并且没有被别的 agent 持有。看板有工程师名册时由 engineer_id 指定的工程师承担（按列提示词选择研发或测试），不填则卡片绑定的优先，否则随机挑空闲的；" +
-			"指定的工程师在做别的卡返回 ErrEngineerBusy，和卡片绑定的不一致返回 ErrEngineerBound。领到后返回卡片全文、评论、依赖和所在列的指令，以及 agent_notice 提醒（任务不明确就先评论反馈）。一般用 next_card 就够了。",
+		desc: "领取指定的任务，已经由你持有时只是续租。哪一列的任务你能领，按这一列的 instruction 来（例如审查 agent 领审查列的任务）；任务不是只能由人处理的，" +
+			"依赖已经完成，并且没有被别的 agent 持有。看板有工程师名册时由 engineer_id 指定的工程师承担（按列提示词选择研发或测试），不填则任务绑定的优先，否则随机挑空闲的；" +
+			"指定的工程师在做别的任务返回 ErrEngineerBusy，和任务绑定的不一致返回 ErrEngineerBound。领到后返回任务全文、评论、依赖和所在列的指令，以及 agent_notice 提醒（任务不明确就先评论反馈）。一般用 next_card 就够了。",
 	}, a.claimCard)
 	register(s, spec{
 		name: "create_card", kind: kindWrite,
-		desc: "创建卡片，用来记录你在工作中发现的新任务、问题或后续事项。放进哪一列按各列 instruction 的约定，没有约定就建在「收件箱」，" +
+		desc: "创建任务，用来记录你在工作中发现的新任务、问题或后续事项。放进哪一列按各列 instruction 的约定，没有约定就建在「收件箱」，" +
 			"由人决定做不做、什么时候做。优先级、依赖和时间是人的安排，agent 不能设置。",
 	}, a.createCard)
 	register(s, spec{
 		name: "update_card", kind: kindWrite,
-		desc: "修改你持有的卡片的标题、描述、标签、分支或链接，只更新你填写的字段。" +
+		desc: "修改你持有的任务的标题、描述、标签、分支或链接，只更新你填写的字段。" +
 			"带上 version（上次读到的版本号）可以避免覆盖别人刚做的修改。优先级、依赖和时间是人的安排，agent 不能修改。",
 	}, a.updateCard)
 	register(s, spec{
@@ -224,11 +224,11 @@ func (a API) registerAgentWork(s *mcp.Server) {
 func (a API) registerAdminCards(s *mcp.Server) {
 	register(s, spec{
 		name: "create_card", kind: kindWrite,
-		desc: "创建卡片。可以直接设置优先级、仅人处理、依赖、到期时间等规划类字段；column_id 不填放进第一列。",
+		desc: "创建任务。可以直接设置优先级、仅人处理、依赖、到期时间等规划类字段；column_id 不填放进第一列。",
 	}, a.createCardAdmin)
 	register(s, spec{
 		name: "update_card", kind: kindWrite,
-		desc: "修改卡片，只更新填写的字段，包括优先级、仅人处理、依赖和三个时间。时间用 RFC3339 格式，传空字符串清除。" +
+		desc: "修改任务，只更新填写的字段，包括优先级、仅人处理、依赖和三个时间。时间用 RFC3339 格式，传空字符串清除。" +
 			"带上 version（上次读到的版本号）可以避免覆盖别人刚做的修改。",
 	}, a.updateCardAdmin)
 }
