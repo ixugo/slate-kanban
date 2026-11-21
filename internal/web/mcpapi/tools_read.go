@@ -68,7 +68,7 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 		desc: "读取一个看板的详情：全部列、自动化规则和工程师名册 engineers（每位是一个并发名额：id、name、kind 是 dev 全栈、frontend 前端、backend 后端、ui UI（这四种都做研发）或 review 测试、prompt 是角色提示词）。每一列有 " +
 			"instruction（人写给 agent 的提示词，写明这个状态下谁能做什么，必须遵守）、" +
 			"is_done（完成列）、next_column_id（交接后卡片去的下一列）。开始工作前先读一遍。" +
-			"watch_prompt 是 loop 定时叫醒时每轮要照做的守候提示词（看板名已填好）；用户让你守候这个看板时，读它并照做一轮。",
+			"watch_prompt 是守候这个看板要照做的提示词（看板名已填好），核心是用 wait_for_updates 长连接持续监听；用户让你守候这个看板、或 loop 叫醒你检查监听时，读它并照做。",
 	}, a.getBoard)
 	register(s, spec{
 		name: "list_cards", kind: kindRead,

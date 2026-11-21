@@ -606,32 +606,35 @@ export const ko: Messages = {
   },
   agents: {
     title: '에이전트 연결',
-    subtitle: 'MCP와 Slate skill을 설치하면 코딩 에이전트가 이 프로젝트를 읽고 수정할 수 있습니다.',
-    steps: {
-      mcp: '사용 중인 호스트용 명령으로 MCP 서버를 설치합니다.',
-      skill: 'Slate skill을 설치해 에이전트가 워크플로를 익히게 합니다.',
-      work: 'MCP URL에 ?name=으로 자신의 이름을 넣고, 각 열의 프롬프트에 따라 카드를 맡습니다.',
-    },
+    subtitle: 'MCP를 연결하면 코딩 에이전트가 이 프로젝트를 읽고 수정할 수 있습니다.',
     promptTitle: '한 줄 프롬프트',
     oneLiner: '{{url}}을(를) 읽고 안내에 따라 연결을 완료해 주세요.',
     nameHint:
       '각 에이전트는 MCP URL에 서로 다른 ?name=을 씁니다. 댓글, 점유, 업데이트 커서에 사용됩니다.',
     watch: {
-      title: '상시 실행',
-      intro: '에이전트가 보드를 계속 지켜보다 카드가 생기면 맡게 하려면: 아래 프롬프트를 세션에 붙여 넣고 세션을 열어 두세요.',
+      title: '계속 듣는 방법',
+      intro: '연결한 뒤 에이전트는 보드를 계속 지켜보다가 카드가 생기면 맡을 수 있습니다. 동작 방식은 이렇습니다:',
+      how: {
+        connect: '에이전트는 세션을 열어 둔 채 MCP 도구 wait_for_updates를 계속 반복해서 호출합니다.',
+        push: '서버는 각 호출을 붙잡아 두었다가 보드가 바뀌는 즉시 응답합니다. 변화가 없으면 약 50초에 한 번만 요청하며, 작업을 가져오는 폴링이 아닙니다.',
+        loop: 'host의 loop는 이 대기가 아직 살아 있는지 몇 분마다 확인할 뿐입니다. 끊겼다면 에이전트가 다시 대기를 겁니다.',
+      },
       board: '보드',
       anyBoard: '지정 안 함',
-      loopTitle: '한 줄 감시 프롬프트(전체 내용은 MCP의 get_board가 반환)',
+      loopTitle: '한 줄 감시 프롬프트(에이전트에게 붙여 넣기. 전체 내용은 MCP의 get_board가 반환)',
       notes: {
-        how: 'Slate는 에이전트를 대신 실행하지 않습니다. 계속 지켜보려면 host의 loop로 에이전트를 주기적으로 깨웁니다. 깨어날 때마다 에이전트가 MCP의 get_board에서 전체 프롬프트(watch_prompt)를 읽어 한 번 실행하므로, 긴 프롬프트를 붙여 넣을 필요가 없습니다.',
-        resume: '터미널이나 세션을 닫거나 컴퓨터가 잠자기에 들어가면 loop가 멈춥니다. 「세션 재개」의 명령으로 돌아와 loop를 다시 실행하면, 맡고 있던 카드를 다시 찾습니다.',
+        resume: '터미널이나 세션을 닫거나 컴퓨터가 잠자기에 들어가면 대기가 끊깁니다. 「세션 재개」의 명령으로 돌아와 loop를 다시 실행하면, 맡고 있던 카드를 다시 찾고 대기도 다시 시작합니다.',
         perm: '무인 실행 중에는 권한 확인 창이 세션을 멈춥니다. 먼저 slate 도구와 자주 쓰는 작업을 「항상 허용」으로 두고, 권한 검사를 끄는 것은 격리된 환경에서만 하세요.',
       },
     },
+    advanced: '수동 설치(고급)',
+    advancedHint: '위의 한 줄 프롬프트로 에이전트가 이 단계를 스스로 처리합니다. 직접 설치하려는 경우에만 펼치세요.',
+    skillOptional:
+      'skill은 선택 사항입니다. MCP 리소스 slate://skills/slate-kanban이 skill과 완전히 같은 내용을 반환하며, skill이 없으면 감시 프롬프트가 에이전트에게 그것을 읽게 합니다. host가 자동으로 불러오게 하려는 경우에만 설치하세요.',
     managerFold: '관리자용 MCP(선택)',
     managerHint: '열·규칙 편집, 작업 일괄 등록이 필요할 때만 설치하세요.',
-    snippets: { worker: '워커용 MCP', manager: '관리자용 MCP', skill: 'skill 설치',
-      watch: '상시 실행(터미널 세션)', resume: '세션 재개', loop: '/loop로 타이머 실행' },
+    snippets: { worker: '워커용 MCP', manager: '관리자용 MCP', skill: 'skill 설치(선택)',
+      watch: '상시 실행(터미널 세션)', resume: '세션 재개', loop: '/loop로 대기 상태 확인' },
     copyFailed: '복사하지 못했습니다. 텍스트를 선택해 수동으로 복사하세요.',
   },
   pwa: {

@@ -1,4 +1,4 @@
-// 长期挂着：给一行守候提示词，可以选看板把看板名填进去。
+// 怎么持续监听：讲清长连接推送的原理，给一行守候提示词，可以选看板把看板名填进去。
 
 import { useState } from 'react'
 import { useTranslation } from '@/i18n/react'
@@ -14,7 +14,7 @@ function fillBoard(prompt: string, name: string): string {
   return name ? prompt.replaceAll(BOARD_PLACEHOLDER, name) : prompt
 }
 
-/** 长期挂着一节：看板选择、一行提示词和注意事项；看板列表读不到时选择框不出现，占位符保留 */
+/** 持续监听一节：三步原理、看板选择、一行提示词和注意事项；看板列表读不到时选择框不出现，占位符保留 */
 export function WatchSection({ guide }: { guide: ConnectGuide }) {
   const { t } = useTranslation()
   const [board, setBoard] = useState('')
@@ -27,6 +27,11 @@ export function WatchSection({ guide }: { guide: ConnectGuide }) {
         <h2 className="text-body font-semibold tracking-tight">{t('agents.watch.title')}</h2>
         <p className="text-ui text-muted-foreground">{t('agents.watch.intro')}</p>
       </div>
+      <ol className="list-decimal space-y-1.5 pl-5 text-ui marker:font-semibold">
+        <li>{t('agents.watch.how.connect')}</li>
+        <li>{t('agents.watch.how.push')}</li>
+        <li>{t('agents.watch.how.loop')}</li>
+      </ol>
       {boards.length > 0 && (
         <label className="flex items-center gap-2 text-ui">
           {t('agents.watch.board')}
@@ -46,7 +51,6 @@ export function WatchSection({ guide }: { guide: ConnectGuide }) {
       )}
       <SnippetCard snippet={prompt(guide.loop_prompt, t('agents.watch.loopTitle'))} />
       <ul className="list-disc space-y-1.5 pl-5 text-ui text-muted-foreground">
-        <li>{t('agents.watch.notes.how')}</li>
         <li>{t('agents.watch.notes.resume')}</li>
         <li>{t('agents.watch.notes.perm')}</li>
       </ul>

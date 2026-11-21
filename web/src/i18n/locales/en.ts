@@ -605,32 +605,35 @@ export const en = {
   },
   agents: {
     title: 'Connect agents',
-    subtitle: 'Install MCP and the Slate skill so coding agents can read and update this project.',
-    steps: {
-      mcp: 'Install the MCP server using the command for your agent host.',
-      skill: 'Install the Slate skill so the agent knows the workflow.',
-      work: 'Put your name in the MCP URL (?name=) and pick up cards according to each column\'s prompt.',
-    },
+    subtitle: 'Connect MCP so coding agents can read and update this project.',
     promptTitle: 'One-line prompt',
     oneLiner: 'Please read {{url}} and follow the setup steps.',
     nameHint:
       'Each agent must use its own ?name= in the MCP URL. That name is used for comments, claims, and update cursors.',
     watch: {
-      title: 'Run long-term',
-      intro: 'Want an agent to watch the board and take cards as they appear? Paste the prompt below into its session and keep the session open.',
+      title: 'How agents keep listening',
+      intro: 'Once connected, an agent can stay on the board and take cards as they appear. It works like this:',
+      how: {
+        connect: 'The agent keeps its session open and calls the MCP tool wait_for_updates over and over.',
+        push: 'The server holds each call open and answers the moment the board changes. When nothing changes it is only one request about every 50 seconds, not a poll for tasks.',
+        loop: 'The host\'s loop only checks every few minutes that this listening is still alive; if it dropped, the agent attaches again.',
+      },
       board: 'Board',
       anyBoard: 'Any board',
-      loopTitle: 'One-line watch prompt (the full prompt comes from the MCP get_board)',
+      loopTitle: 'One-line watch prompt (paste it to the agent; the full prompt comes from the MCP get_board)',
       notes: {
-        how: 'Slate does not run agents for you. Staying on the board relies on the host\'s loop waking the agent on a timer: each time, the agent reads the full prompt (watch_prompt) from the MCP get_board and does one round, so you never paste a long prompt.',
-        resume: 'The loop stops when the terminal or session closes, or the computer sleeps: come back with the commands under “Resume the session” and run the loop again; the agent will find the cards it still holds.',
+        resume: 'Listening drops when the terminal or session closes, or the computer sleeps: come back with the commands under “Resume the session” and run the loop again; the agent will find the cards it still holds and attach again.',
         perm: 'Permission prompts stall an unattended session: set slate\'s tools and common actions to “always allow” first, and only turn permission checks off inside an isolated environment.',
       },
     },
+    advanced: 'Manual install (advanced)',
+    advancedHint: 'The one-line prompt above lets the agent do all of this itself. Open this only to install by hand.',
+    skillOptional:
+      'The skill is optional. The MCP resource slate://skills/slate-kanban returns exactly the same text, and the watch prompt tells the agent to read it when the skill is not installed. Install the skill only if you want the host to load it automatically.',
     managerFold: 'Manager MCP (optional)',
     managerHint: 'Install only when the agent must edit columns/rules, or bulk-import tasks.',
-    snippets: { worker: 'Worker MCP', manager: 'Manager MCP', skill: 'Skill install',
-      watch: 'Keep running (terminal session)', resume: 'Resume the session', loop: 'Wake on a timer with /loop' },
+    snippets: { worker: 'Worker MCP', manager: 'Manager MCP', skill: 'Skill install (optional)',
+      watch: 'Keep running (terminal session)', resume: 'Resume the session', loop: 'Check the listening with /loop' },
     copyFailed: 'Could not copy. Select the text and copy manually.',
   },
   pwa: {

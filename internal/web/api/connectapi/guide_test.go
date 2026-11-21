@@ -176,6 +176,11 @@ func TestWatchGuide(t *testing.T) {
 	if len(g.WatchNotes) == 0 {
 		t.Errorf("说明不能为空")
 	}
+	// 说明要讲清楚持续监听走 wait_for_updates 推送，不能再把 loop 说成定时叫醒来拉任务
+	all := strings.Join(g.WatchNotes, "\n")
+	if !strings.Contains(all, "wait_for_updates") || !strings.Contains(all, "检查监听") || strings.Contains(all, "定时叫醒") {
+		t.Errorf("说明应该讲 wait_for_updates 推送和 loop 检查监听: %q", all)
+	}
 	for _, h := range g.Hosts {
 		if len(h.Watch) == 0 {
 			t.Errorf("host %s 缺少长期挂着的步骤", h.ID)

@@ -16,9 +16,10 @@ const (
 
 `
 	mcpIntro   = "## 1. 安装 MCP\n\n按你使用的 host 选一种。工作视图日常领任务（用户要求时也能新建项目）；只有要改列、改规则、批量录任务时才装管理视图（role=manager）。\n\n"
-	skillIntro = "## 2. 安装 skill\n\n" +
+	skillIntro = "## 2. 安装 skill（可选）\n\n" +
 		"skill 是 agent 使用看板的操作手册：怎么确认项目路径、怎么守候、怎么开分支做事、做完怎么交接。" +
-		"装在 host 的 skills 目录里，agent 需要的时候会自己加载。\n\n"
+		"这一步可以跳过：MCP 资源 slate://skills/slate-kanban 返回的内容和 skill 完全相同，没装 skill 时，" +
+		"MCP 的使用说明和守候提示词都会让 agent 自己去读它。装在 host 的 skills 目录里的好处只是 host 会按需自动加载。\n\n"
 	verifyStep = "## 3. 验证\n\n" +
 		"装完 MCP 和 skill 之后，在 host 里新开一个会话（已经打开的会话不会获得新装的 MCP 和 skill）。让 agent 调用 whoami：" +
 		"返回的名称应该和网址里 name 一致，工作视图类型是 agent。确认之后，让它按 " + skillName + " skill 开始工作。\n\n" +
@@ -29,7 +30,8 @@ const (
 		"- Cursor：命令行版运行 `agent mcp list`，slate 那一行显示 `ready` 就是连上了。写在项目里的 `.cursor/mcp.json` 要先批准：`agent mcp enable slate`；`~/.cursor/mcp.json` 里的服务不用。" +
 		"图形界面里，按 Cursor 官方文档，改完 `mcp.json` 要重启 Cursor，再到设置的 MCP 页面确认 slate 已启用。\n\n"
 	watchIntro = "## 4. 长期挂着守候\n\n" +
-		"装好之后，要让 agent 一直盯着看板、有卡片就接，靠 host 的 loop 定时叫醒 agent。把下面的一行提示词里的 `<看板名>` 换成你的看板名，再按所用 host 的命令执行 loop。\n\n"
+		"装好之后，要让 agent 一直盯着看板、有卡片就接：agent 反复调用 MCP 工具 wait_for_updates，服务端挂住请求、看板有更新立刻推送；" +
+		"host 的 loop 只负责检查这个监听是否还活着，断了就让 agent 重新挂上。把下面的一行提示词里的 `<看板名>` 换成你的看板名，再按所用 host 的命令执行 loop。\n\n"
 	faqSection = "## 常见问题\n\n" +
 		"- 连接返回 400：检查 name 格式（小写字母数字开头，最长 64，不能用 human 或 system）。\n" +
 		"- Claude Code 添加成功时打印的地址里没有 `?name=…`，那只是提示文字省略了查询参数，配置里存的是完整地址；以 whoami 返回的名称为准。\n" +
@@ -73,7 +75,7 @@ func writeHostSteps(b *strings.Builder, hosts []Host, pick func(Host) []Snippet)
 // writeWatch 写出“长期挂着守候”一节：一行提示词、几条说明，以及各 host 的启动和恢复命令。
 func writeWatch(b *strings.Builder, g Guide) {
 	b.WriteString(watchIntro)
-	b.WriteString("一行守候提示词（完整内容由 MCP 的 get_board 返回，每次 loop 叫醒时 agent 自己去读）：\n\n```text\n" + g.LoopPrompt + "\n```\n\n")
+	b.WriteString("一行守候提示词（完整内容由 MCP 的 get_board 返回，agent 自己去读）：\n\n```text\n" + g.LoopPrompt + "\n```\n\n")
 	for _, n := range g.WatchNotes {
 		b.WriteString("- " + n + "\n")
 	}

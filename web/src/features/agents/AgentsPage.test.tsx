@@ -40,6 +40,18 @@ describe('AgentsPage', () => {
     expect(screen.getByText(en.agents.snippets.skill)).toBeInTheDocument()
   })
 
+  it('先讲清持续监听的原理，skill 标明可选，命令片段收在手动安装折叠里', async () => {
+    installFakeApi({ 'GET /api/v1/connect': guide })
+    renderApp(<AgentsPage />, { route: '/agents' })
+    expect(await screen.findByText(en.agents.watch.how.push)).toBeInTheDocument()
+    expect(screen.getByText(en.agents.watch.how.connect)).toBeInTheDocument()
+    expect(screen.getByText(en.agents.watch.how.loop)).toBeInTheDocument()
+    const fold = screen.getByText(en.agents.advanced).closest('details')
+    expect(fold).not.toHaveAttribute('open')
+    expect(fold).toContainElement(screen.getByText(en.agents.skillOptional))
+    expect(fold).toContainElement(screen.getByText('cursor mcp --name=test'))
+  })
+
   it('长期挂着：选看板后提示词里的占位符换成看板名', async () => {
     installFakeApi({
       'GET /api/v1/connect': guide,
