@@ -3,6 +3,7 @@ package mcpapi_test
 import (
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 	"unicode/utf8"
 )
@@ -21,6 +22,7 @@ var notTools = []string{"next_column_id", "claim_engineer_id"}
 // （写错或者提到别的视图的工具，agent 就会去调用不存在的工具）；关键的工作流程工具一个不少。
 func TestInstructions(t *testing.T) {
 	s := newStack(t)
+	agent := s.agent(t, "claude").InitializeResult().Instructions
 	cases := []struct {
 		name     string
 		tools    []string
@@ -30,13 +32,16 @@ func TestInstructions(t *testing.T) {
 		{
 			"agent", agentTools,
 			[]string{"whoami", "list_boards", "get_board", "set_project_path", "next_card", "comment_card", "create_card", "finish_card", "release_card", "wait_for_updates", "pull_updates", "list_cards", "slate://skills/slate-kanban"},
-			s.agent(t, "claude").InitializeResult().Instructions,
+			agent,
 		},
 		{
 			"人", adminTools,
 			[]string{"create_rule", "update_column"},
 			s.human(t).InitializeResult().Instructions,
 		},
+	}
+	if !strings.Contains(agent, "先只读拟定方案") || !strings.Contains(agent, "评论成功后") {
+		t.Errorf("agent 初始化说明应该要求调度者先记录方案再让子 agent 开工: %q", agent)
 	}
 	for _, tc := range cases {
 		if tc.text == "" || utf8.RuneCountInString(tc.text) > maxInstructionRunes {

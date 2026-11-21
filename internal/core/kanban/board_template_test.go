@@ -94,6 +94,26 @@ func TestDoingInstructionConcurrencyByRoster(t *testing.T) {
 	}
 }
 
+// TestPlanCommentInTemplate 确认每种语言的研发和审查列都指定先记录方案再开始执行。
+func TestPlanCommentInTemplate(t *testing.T) {
+	afterComment := map[string]string{
+		"zh-CN": "评论成功后",
+		"zh-TW": "留言成功後",
+		"en":    "only after the comment is saved",
+		"ja":    "保存されたことを確認してから",
+		"ko":    "저장을 확인한 뒤",
+	}
+	for _, locale := range supportedLocales {
+		for _, kind := range []textKind{textDoing, textReview} {
+			instruction := textsFor(locale).Columns[kind].Instruction
+			_, after, found := strings.Cut(instruction, "comment_card")
+			if !found || !strings.Contains(after, afterComment[locale]) {
+				t.Errorf("%s 的列 %d 没有要求先用 comment_card 记录方案再开始执行", locale, kind)
+			}
+		}
+	}
+}
+
 // TestSeedEngineerTexts 验证起步工程师的名称（英文名）和提示词（中文）合法、名称不重名。
 func TestSeedEngineerTexts(t *testing.T) {
 	names := map[string]bool{}

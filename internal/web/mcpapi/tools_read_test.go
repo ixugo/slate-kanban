@@ -65,6 +65,10 @@ func TestGetBoard(t *testing.T) {
 	if !strings.Contains(prompt, "最多同时做 2 个研发任务、同时审 1 个审查任务") || !strings.Contains(prompt, "一个任务新开一个子 agent") {
 		t.Errorf("watch_prompt 应该按名册写明并发名额，并要求一个任务一个新子 agent: %q", prompt)
 	}
+	if !strings.Contains(prompt, "先只读拟定方案") || !strings.Contains(prompt, "comment_card") ||
+		!strings.Contains(prompt, "评论成功后") {
+		t.Errorf("watch_prompt 应该要求调度者先记录方案再让子 agent 开工: %q", prompt)
+	}
 	missing := call(t, sess, "get_board", map[string]any{"board_id": 9999})
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrBoardNotFound:") {
 		t.Errorf("看板不存在应该是工具错误: %+v", missing)

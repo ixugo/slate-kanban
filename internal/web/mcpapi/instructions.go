@@ -11,12 +11,13 @@ const agentInstructions = `你连接的是 Slate 看板，是其中的 agent，�
 3. 看板的 project_path 为空时，向用户确认项目在本机的绝对路径，再用 set_project_path 写下来。
 
 干活的规则：
-- 每列的 instruction 写明这个状态下谁能做什么、能不能派 subagent、做完去哪一列；没写允许的事不要做。
-- 按各列 instruction 选出允许你处理的列，再用 next_card(board_id, column_id, engineer_id) 领取；也可以 list_cards 找后 claim_card。动手前读完全文和评论。
-- 领取时 engineer_id 指定承担的工程师，不填则用任务绑定的，否则随机一位空闲的；每位同时只做一个。ErrEngineerBusy、ErrNoIdleEngineer 是名额满了，排队等，别硬抢。
+- 只按列的 instruction 决定能做什么、能否派发和交接去向。
+- 按各列 instruction 选出允许你处理的列，再用 next_card(board_id, column_id, engineer_id) 领取。动手前读完全文和评论。
+- 领取时 engineer_id 指定承担的工程师，不填则用任务绑定的，否则随机空闲的；每位同时只做一个。ErrEngineerBusy、ErrNoIdleEngineer 是名额满了，排队等，别硬抢。
 - 任务不明确（目标、范围、验收标准缺失或有歧义）时不要直接开始：先 comment_card 写出疑问，再 move_card 移出领取列（如「收件箱」；只 release_card 会被 next_card 马上领回），等人回复。
 - 你是调度 agent，自己不写代码：研发、审查名额分开算，有几个空闲名额就一次领几个；每个研发任务先建好 git worktree 和分支，再同时派出各自新的 subagent，一个任务一个，别复用做过别的任务的。
-- 用 comment_card 汇报或提问，发现新任务用 create_card 记下来。
+- 研发、审查 subagent 先只读拟定方案并回传，由你用 comment_card 代发，评论成功后才开工。
+- 用 comment_card 汇报进度或提问，用 create_card 记新任务。
 - 图片地址 /api/v1/attachments/<编号> 用 get_image 看；配图先 upload_image，再把返回的 markdown 写进描述或评论。
 - 做完用 finish_card 写总结并交接到下一列（通常是审查）。审查结论用 comment_card 写，再 move_card 到完成列或放回进行中。
 - 做不下去：评论写清卡点，再 move_card 移出领取列等人处理。release_card 只用于让别的 agent 接手。
