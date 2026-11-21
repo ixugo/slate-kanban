@@ -14,7 +14,7 @@ import (
 	"github.com/ixugo/goddd/pkg/system"
 	"slate-kanban/internal/app"
 	"slate-kanban/internal/conf"
-	"slate-kanban/internal/svcinstall"
+	"slate-kanban/internal/svcmgr"
 )
 
 var (
@@ -32,9 +32,9 @@ const officialBranch = "release"
 // 自定义配置目录；不填就用 ~/.slate-kanban（配置文件和数据库都在里面）
 var configDir = flag.String("conf", "", "config directory, default ~/.slate-kanban, eg: -conf /configs/")
 
-// -d 注册为用户级服务并启动，-stop 停止并删除该服务（仅 macOS 和 Linux）
+// -d 注册为系统服务并启动，-stop 停止并删除该服务（Windows 服务、Linux systemd、macOS launchd）
 var (
-	daemonMode = flag.Bool("d", false, "register as a user service and start it (macOS launchd / Linux systemd)")
+	daemonMode = flag.Bool("d", false, "register as a system service and start it (Windows service / Linux systemd / macOS launchd)")
 	stopMode   = flag.Bool("stop", false, "stop the service registered by -d and remove it")
 )
 
@@ -44,11 +44,6 @@ func getBuildRelease() bool {
 }
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "service" {
-		svcinstall.RunFromMain(os.Args[2:])
-		return
-	}
-
 	flag.Parse()
 
 	if *daemonMode || *stopMode {
@@ -56,10 +51,22 @@ func main() {
 			fmt.Fprintln(os.Stderr, "-d 和 -stop 不能同时使用")
 			os.Exit(1)
 		}
-		svcinstall.RunDaemonFromMain(*stopMode, *configDir)
+		svcmgr.RunDaemonFromMain(*stopMode, *configDir)
 		return
 	}
 
+	if svcmgr.UnderServiceManager() {
+		if err := svcmgr.RunAsService(runApp); err != nil {
+			fmt.Fprintf(os.Stderr, "以服务方式运行失败: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	runApp(nil)
+}
+
+// runApp 加载配置并运行服务，阻塞到收到退出信号或 stop 被关闭；stop 为 nil 时只看信号。
+func runApp(stop <-chan struct{}) {
 	// 初始化配置
 	var bc conf.Bootstrap
 	fileDir, err := resolveConfigDir(*configDir)
@@ -102,7 +109,7 @@ func main() {
 	versionapi.DBVersion = buildVersion
 	versionapi.DBRemark = gitBranch + "_" + gitHash
 
-	app.Run(&bc)
+	app.Run(&bc, stop)
 }
 
 // resolveConfigDir 决定配置目录：没指定就用 ~/.slate-kanban，指定了按启动目录转成绝对路径

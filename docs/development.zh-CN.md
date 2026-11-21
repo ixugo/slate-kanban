@@ -42,7 +42,7 @@ make build
 
 旧版本如果把数据放在启动目录下的 `configs/`，可继续用 `./slate -conf ./configs` 指向原目录。迁移目录前先停止 Slate，复制配置、数据库及已有的 `-wal`、`-shm` 文件和资源目录，再更新配置中的 `Data.Database.Dsn`、`Data.ResourceDir` 和 `Log.Dir`，使它们指向迁移后的位置。
 
-在 macOS 或使用 systemd 的 Linux 上，`./slate -d` 会注册用户级服务并启动，`./slate -stop` 停止并删除该服务。需要预览服务文件时，用 `./slate service print`。
+`./slate -d` 会注册为系统服务并启动，`./slate -stop` 停止并删除该服务。Windows 是 Windows 服务（需管理员终端），Linux 是开机即启的 systemd 系统服务（会自动用 sudo 提权），macOS 是登录后启动的 LaunchAgent。
 
 ## 常用开发命令
 
