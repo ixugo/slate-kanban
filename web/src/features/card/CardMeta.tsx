@@ -2,14 +2,14 @@
 // 没设值时按钮上只有图标和名称；设了值就把值显示在按钮上。点开按钮才出现编辑控件，平时不占地方。
 // 标签例外：设了标签以后单独占一行，显示成大号标签（对齐 Trello）。
 
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { CheckIcon, ClockIcon, FlagIcon, GitBranchIcon, Link2Icon, LinkIcon, LockIcon, PlusIcon, TagIcon, XIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { useLanguage } from '@/i18n/useLanguage'
 import type { CardDetail, Engineer } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatDateTime, isPast, toLocalInput } from '@/lib/format'
 import { CARD_BRANCH_MAX, CARD_URL_MAX } from '@/lib/limits'
 import { toast } from '@/lib/toast'
@@ -91,12 +91,15 @@ function PriorityChip({ card, onPatch }: CardMetaProps) {
   )
 }
 
+/** 点触发按钮时调用，让标签弹层把按钮此刻的位置记下来 */
+type TriggerClick = (event: MouseEvent<HTMLElement>) => void
+
 /** 没有标签时放在属性按钮一排里的「标签」按钮；点开是标签选择器 */
-function TagsChip() {
+function TagsChip({ onTriggerClick }: { onTriggerClick: TriggerClick }) {
   const { t } = useTranslation()
   return (
     <PopoverTrigger asChild>
-      <Button type="button" variant="secondary" className={CHIP_CLASS}>
+      <Button type="button" variant="secondary" className={CHIP_CLASS} onClick={onTriggerClick}>
         <ChipLabel icon={<TagIcon />}>{t('card.field.tags')}</ChipLabel>
       </Button>
     </PopoverTrigger>
@@ -104,7 +107,7 @@ function TagsChip() {
 }
 
 /** 设了标签以后单独占一行（对齐 Trello）：小标题加一排大号标签，末尾的「+」点开标签选择器 */
-function TagsSection({ tagIds }: { tagIds: number[] }) {
+function TagsSection({ tagIds, onTriggerClick }: { tagIds: number[]; onTriggerClick: TriggerClick }) {
   const { t } = useTranslation()
   return (
     <section aria-label={t('card.field.tags')} className="space-y-1.5">
@@ -114,7 +117,7 @@ function TagsSection({ tagIds }: { tagIds: number[] }) {
           <TagBadge key={id} id={id} size="lg" />
         ))}
         <PopoverTrigger asChild>
-          <Button type="button" variant="secondary" size="icon" className="size-8 rounded-md" aria-label={t('card.field.tags')}>
+          <Button type="button" variant="secondary" size="icon" className="size-8 rounded-md" aria-label={t('card.field.tags')} onClick={onTriggerClick}>
             <PlusIcon />
           </Button>
         </PopoverTrigger>
@@ -231,6 +234,14 @@ export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps
   const { t } = useTranslation()
   // 标签选择器的开关放在这里：加第一枚标签时入口从按钮挪到标签区，弹层不能跟着关掉
   const [tagsOpen, setTagsOpen] = useState(false)
+  // 弹层锚定在点开那一刻的按钮位置：加第一枚标签后入口会从按钮一排挪到下面的标签区，弹层不能跟着跑
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
+  const anchorRef = useRef<{ getBoundingClientRect: () => DOMRect } | null>(null)
+  const freezeAnchor: TriggerClick = (event) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    anchorRef.current = { getBoundingClientRect: () => rect }
+    setAnchorRect(rect)
+  }
   const tagIds = card.tag_ids ?? []
   const hasTags = tagIds.length > 0
 
@@ -247,7 +258,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps
     <Popover open={tagsOpen} onOpenChange={setTagsOpen}>
       <div className="flex flex-wrap items-center gap-2">
         <PriorityChip card={card} onPatch={onPatch} />
-        {!hasTags && <TagsChip />}
+        {!hasTags && <TagsChip onTriggerClick={freezeAnchor} />}
         <EngineerChip card={card} engineers={engineers} onPatch={onPatch} />
         <DueChip card={card} onPatch={onPatch} />
         <DepsChip card={card} depOptions={depOptions} onPatch={onPatch} />
@@ -269,7 +280,8 @@ export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps
           <ChipLabel icon={<LockIcon />}>{t('card.field.humanOnly')}</ChipLabel>
         </Button>
       </div>
-      {hasTags && <TagsSection tagIds={tagIds} />}
+      {hasTags && <TagsSection tagIds={tagIds} onTriggerClick={freezeAnchor} />}
+      {anchorRect && <PopoverAnchor virtualRef={anchorRef} />}
       {/* 标签选择器：编辑页（30 色色板）比较高，高度不超过窗口剩余空间，放不下时弹层内部滚动，保存按钮始终够得着 */}
       <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-72 overflow-y-auto">
         <LabelPicker tagIds={tagIds} onChange={(next) => onPatch({ tag_ids: next, version: card.version })} />
