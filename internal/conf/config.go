@@ -22,12 +22,11 @@ type Server struct {
 }
 
 type ServerHTTP struct {
-	Host         string      `comment:"监听地址，默认 0.0.0.0（所有 IPv4 网卡），端口默认 7070"`                        // 监听地址
-	Port         int         `comment:"http 端口"`                                                      // 服务器端口号
-	Timeout      Duration    `comment:"请求超时时间"`                                                       // 请求超时时间
-	AllowedHosts []string    `comment:"额外允许的 Host 白名单（不含端口）；IP、localhost 和 *.localhost 始终允许"`         // Host 白名单
-	Passcode     string      `comment:"可选访问口令；非空时 REST、MCP 与 /app 指标需要 Bearer 或登录后的会话 cookie，留空则免登录"` // 访问口令
-	PProf        ServerPPROF // Pprof配置
+	Host     string      `comment:"监听地址，默认 0.0.0.0（所有 IPv4 网卡），端口默认 7070"`                        // 监听地址
+	Port     int         `comment:"http 端口"`                                                      // 服务器端口号
+	Timeout  Duration    `comment:"请求超时时间"`                                                       // 请求超时时间
+	Passcode string      `comment:"可选访问口令；非空时 REST、MCP 与 /app 指标需要 Bearer 或登录后的会话 cookie，留空则免登录"` // 访问口令
+	PProf    ServerPPROF // Pprof配置
 }
 
 // ServerPPROF 结构体，包含 Enabled 和 AccessIps 两个字段

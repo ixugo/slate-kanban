@@ -45,7 +45,7 @@ tar -xzf slate_*.tar.gz
 ## 資料與存取
 
 - 資料存放在 `~/.slate-kanban/`。備份前先停止 Slate，將 `data.db` 與 `resource/` 一起備份。
-- Slate 監聽 `0.0.0.0:7070`。沒設口令時，能連上它的人都能讀寫所有看板。需要共享存取時，設定 `Server.HTTP.Passcode`，放在 HTTPS 反向代理後面，並把網域加進 `Server.HTTP.AllowedHosts`。請參閱[設定範例](configs/config.example.toml)。
+- Slate 監聽 `0.0.0.0:7070`。沒設口令時，能連上它的人都能讀寫所有看板。需要共享存取時，設定 `Server.HTTP.Passcode`，放在 HTTPS 反向代理後面。請參閱[設定範例](configs/config.example.toml)。
 
 ## 授權
 

@@ -45,7 +45,7 @@ tar -xzf slate_*.tar.gz
 ## データとアクセス
 
 - データは `~/.slate-kanban/` にあります。Slate を停止してから `data.db` と `resource/` を一緒にバックアップしてください。
-- Slate は `0.0.0.0:7070` で待ち受けます。パスコードが未設定だと、アクセスできる人は全ボードを閲覧・編集できます。共有する前に `Server.HTTP.Passcode` を設定し、HTTPS リバースプロキシの背後に置き、ホスト名を `Server.HTTP.AllowedHosts` に追加してください。[設定例](configs/config.example.toml)を参照してください。
+- Slate は `0.0.0.0:7070` で待ち受けます。パスコードが未設定だと、アクセスできる人は全ボードを閲覧・編集できます。共有する前に `Server.HTTP.Passcode` を設定し、HTTPS リバースプロキシの背後に置いてください。[設定例](configs/config.example.toml)を参照してください。
 
 ## ライセンス
 

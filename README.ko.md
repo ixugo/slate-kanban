@@ -45,7 +45,7 @@ tar -xzf slate_*.tar.gz
 ## 데이터와 접근
 
 - 데이터는 `~/.slate-kanban/`에 저장됩니다. Slate를 중지한 뒤 `data.db`와 `resource/`를 함께 백업하세요.
-- Slate는 `0.0.0.0:7070`에서 수신합니다. 접근 암호가 비어 있으면 접속할 수 있는 사람이 모든 보드를 읽고 편집할 수 있습니다. 공유하기 전에 `Server.HTTP.Passcode`를 설정하고, HTTPS 리버스 프록시 뒤에 두고, 호스트 이름을 `Server.HTTP.AllowedHosts`에 추가하세요. [설정 예시](configs/config.example.toml)를 참고하세요.
+- Slate는 `0.0.0.0:7070`에서 수신합니다. 접근 암호가 비어 있으면 접속할 수 있는 사람이 모든 보드를 읽고 편집할 수 있습니다. 공유하기 전에 `Server.HTTP.Passcode`를 설정하고 HTTPS 리버스 프록시 뒤에 두세요. [설정 예시](configs/config.example.toml)를 참고하세요.
 
 ## 라이선스
 

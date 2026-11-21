@@ -109,7 +109,7 @@ func (a API) newServer(v view) *mcp.Server {
 }
 
 // newHandler 组装 HTTP 处理器：先校验网址上的 name/role，再交给 SDK 处理会话和协议。
-// 关闭 SDK 自带的 localhost Host 校验，改由全局 securityMiddleware 统一做 Host 白名单。
+// 关闭 SDK 自带的 localhost Host 校验，Host 不做限制。
 // 通知流（GET）随服务关闭而结束，见 limitStream。
 func (a API) newHandler() http.Handler {
 	sdk := mcp.NewStreamableHTTPHandler(a.serverFor, &mcp.StreamableHTTPOptions{

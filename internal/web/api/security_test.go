@@ -7,49 +7,36 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
-	"slate-kanban/internal/conf"
 )
 
 func init() {
 	gin.SetMode(gin.TestMode)
 }
 
-// miniEngine 只挂安全中间件，用来单测 Host/Origin。
-func miniEngine(bc *conf.Bootstrap) *gin.Engine {
+// miniEngine 只挂安全中间件，用来单测 Origin 和响应头。
+func miniEngine() *gin.Engine {
 	g := gin.New()
-	g.Use(securityMiddleware(bc))
+	g.Use(securityMiddleware())
 	g.GET("/api/v1/ping", func(c *gin.Context) { c.Status(http.StatusOK) })
 	g.POST("/api/v1/ping", func(c *gin.Context) { c.Status(http.StatusOK) })
 	return g
 }
 
-func TestSecurityHostWhitelist(t *testing.T) {
-	bc := &conf.Bootstrap{Server: conf.Server{HTTP: conf.ServerHTTP{AllowedHosts: []string{"kanban.corp"}}}}
-	g := miniEngine(bc)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/ping", nil)
-	req.Host = "evil.com"
-	rec := httptest.NewRecorder()
-	g.ServeHTTP(rec, req)
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("evil Host 应 403: %d", rec.Code)
-	}
-	req.Host = "kanban.corp"
-	rec2 := httptest.NewRecorder()
-	g.ServeHTTP(rec2, req)
-	if rec2.Code != http.StatusOK {
-		t.Fatalf("白名单 Host 应通过: %d", rec2.Code)
-	}
-	req.Host = "127.0.0.1:7070"
-	rec3 := httptest.NewRecorder()
-	g.ServeHTTP(rec3, req)
-	if rec3.Code != http.StatusOK {
-		t.Fatalf("IP Host 应通过: %d", rec3.Code)
+func TestSecurityAnyHostAllowed(t *testing.T) {
+	g := miniEngine()
+	for _, host := range []string{"gowvp.golang.space:7070", "kanban.corp", "127.0.0.1:7070", "localhost"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/ping", nil)
+		req.Host = host
+		rec := httptest.NewRecorder()
+		g.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("Host %s 应通过: %d", host, rec.Code)
+		}
 	}
 }
 
 func TestSecurityOriginBlock(t *testing.T) {
-	g := miniEngine(&conf.Bootstrap{})
+	g := miniEngine()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ping", strings.NewReader(`{}`))
 	req.Host = "localhost"
 	req.Header.Set("Origin", "http://evil.com")
@@ -68,7 +55,7 @@ func TestSecurityOriginBlock(t *testing.T) {
 }
 
 func TestSecurityOriginDefaultPort(t *testing.T) {
-	g := miniEngine(&conf.Bootstrap{})
+	g := miniEngine()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ping", strings.NewReader(`{}`))
 	req.Host = "localhost"
 	req.Header.Set("Origin", "http://localhost:80")
@@ -88,7 +75,7 @@ func TestSecurityOriginDefaultPort(t *testing.T) {
 }
 
 func TestSecurityHeaders(t *testing.T) {
-	g := miniEngine(&conf.Bootstrap{})
+	g := miniEngine()
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ping", nil)
 	req.Host = "localhost"
 	rec := httptest.NewRecorder()

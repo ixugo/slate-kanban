@@ -1,8 +1,7 @@
 # 用 docker compose 运行 Slate：docker compose up -d --build，然后打开 http://127.0.0.1:7070
 #
 # Slate 没有登录。默认只把端口映射到宿主机的 127.0.0.1，只有本机能访问；
-# 要让局域网里的其他机器使用，把 ports 改成 "7070:7070"，并在前面放一个带认证的反向代理
-# （通过域名访问时，还要把域名写进配置里的 AllowedHosts）。
+# 要让局域网里的其他机器使用，把 ports 改成 "7070:7070"，并在前面放一个带认证的反向代理。
 services:
   slate:
     build:

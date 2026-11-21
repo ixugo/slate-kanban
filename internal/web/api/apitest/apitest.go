@@ -76,7 +76,7 @@ func withMCPIdentity(path, token string) string {
 
 // Serve 处理一个已经构造好的请求，需要自定义请求头或请求体时用它。
 func (c Client) Serve(req *http.Request) Response {
-	// 测试请求默认带 localhost，避免 Host 白名单中间件误拦。
+	// 测试请求默认带 localhost，保持请求形态统一。
 	if req.Host == "" {
 		req.Host = "localhost"
 	}

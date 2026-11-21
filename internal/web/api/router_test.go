@@ -181,8 +181,8 @@ func TestStreamThroughRouter(t *testing.T) {
 func TestSecurityHostAndOrigin(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/boards", http.NoBody)
 	req.Host = "evil.com"
-	if resp := (apitest.Client{Engine: shared.engine}).Serve(req); resp.Code != http.StatusForbidden {
-		t.Errorf("非法 Host 应 403: %d", resp.Code)
+	if resp := (apitest.Client{Engine: shared.engine}).Serve(req); resp.Code != http.StatusOK {
+		t.Errorf("任意域名 Host 应通过: %d", resp.Code)
 	}
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/boards", strings.NewReader(`{"name":"x","slug":"X"}`))
 	req.Host = "localhost"

@@ -45,7 +45,7 @@ tar -xzf slate_*.tar.gz
 ## Data and access
 
 - Data lives in `~/.slate-kanban/`. Stop Slate, then back up `data.db` and `resource/` together.
-- Slate listens on `0.0.0.0:7070`. With no passcode set, anyone who can reach it can read and edit every board. Before sharing access, set `Server.HTTP.Passcode`, put Slate behind an HTTPS reverse proxy, and add your hostname to `Server.HTTP.AllowedHosts`. See the [configuration example](configs/config.example.toml).
+- Slate listens on `0.0.0.0:7070`. With no passcode set, anyone who can reach it can read and edit every board. Before sharing access, set `Server.HTTP.Passcode` and put Slate behind an HTTPS reverse proxy. See the [configuration example](configs/config.example.toml).
 
 ## License
 
