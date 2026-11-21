@@ -141,6 +141,7 @@ export const en = {
     humanOnly: 'Human only',
     waiting: 'Waiting on dependencies',
     claimed: 'Held by {{name}}',
+    unreadBadge: '{{count}} unread updates',
     done: 'Done',
     dnd: {
       pickUp: 'Picked up task {{title}}. Use arrow keys to move, space to drop, Escape to cancel.',

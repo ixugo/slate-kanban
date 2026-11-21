@@ -1,6 +1,6 @@
 // 卡片详情弹窗：由 ?card= 打开根卡片，描述和评论的引用可在同一个弹窗里逐层打开。
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
@@ -18,6 +18,7 @@ import { fromLocalInput } from '@/lib/format'
 import { useMoveCard } from '@/features/board/useMoveCard'
 import { useBoardSnapshot, useBoardView } from '@/features/board/useBoard'
 import { useCardDetail } from './useCardDetail'
+import { useMarkCardRead } from './useMarkCardRead'
 import { useCardUpdate } from './useCardUpdate'
 import { useLanguage } from '@/i18n/useLanguage'
 import { CardDialogBody } from './CardDialogBody'
@@ -68,6 +69,11 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
   const move = useMoveCard(boardId)
   const queryClient = useQueryClient()
   const toastError = useErrorToast()
+  const { tryMark } = useMarkCardRead(boardId)
+
+  useEffect(() => {
+    tryMark(cardId)
+  }, [cardId, tryMark])
 
   const content = useRef<HTMLDivElement>(null)
   const layer = useRef({ cardId, depth: references.length })

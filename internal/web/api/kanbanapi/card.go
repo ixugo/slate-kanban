@@ -17,6 +17,7 @@ func (a API) cardRoutes(r gin.IRouter) {
 	r.DELETE("/cards/:card_id", route(a.deleteCard))
 	r.GET("/cards/:card_id/changes/:change_id", route(a.getCardChange))
 	r.POST("/cards/:card_id/move", route(a.moveCard))
+	r.POST("/cards/:card_id/read", route(a.markCardRead))
 	r.POST("/cards/:card_id/comments", route(a.addComment))
 	r.DELETE("/comments/:comment_id", route(a.deleteComment))
 }
@@ -85,6 +86,11 @@ func (a API) getCardChange(ctx context.Context, _ kanban.Actor, in *cardChangePa
 // moveCard 移动卡片到某列或调整同一列里的顺序。agent 只能移自己持有的卡片，由 Core 判断。
 func (a API) moveCard(ctx context.Context, actor kanban.Actor, in *moveCardInput) (*kanban.Card, error) {
 	return a.core.MoveCard(ctx, actor, in.CardID, in.MoveCardInput)
+}
+
+// markCardRead 把任务的未读数清零，只给人用；不写事件，不碰版本号。
+func (a API) markCardRead(ctx context.Context, _ kanban.Actor, in *cardPath) (empty, error) {
+	return empty{}, a.core.MarkCardRead(ctx, in.CardID)
 }
 
 // addComment 在卡片下写一条评论，人和 agent 都能写。

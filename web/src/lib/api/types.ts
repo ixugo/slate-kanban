@@ -143,6 +143,8 @@ export interface Card {
   url: string
   /** 乐观锁版本号 */
   version: number
+  /** 未读动态数，仅看板磁贴展示 */
+  unread_count: number
   created_by: string
   updated_by: string
   created_at: string

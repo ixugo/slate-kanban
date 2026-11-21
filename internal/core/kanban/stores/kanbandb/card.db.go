@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ixugo/goddd/pkg/orm"
+	"gorm.io/gorm"
 
 	"slate-kanban/internal/core/kanban"
 )
@@ -110,6 +111,18 @@ func (d Card) SetPosition(ctx context.Context, id int64, position float64) error
 // DeleteByBoard 删除看板的全部卡片。
 func (d Card) DeleteByBoard(ctx context.Context, boardID int64) error {
 	return d.db.WithContext(ctx).Where("board_id = ?", boardID).Delete(&kanban.Card{}).Error
+}
+
+// IncrUnreadCount 在未读列上加一，留给网页角标用，不算用户编辑。
+func (d Card) IncrUnreadCount(ctx context.Context, id int64) error {
+	return d.db.WithContext(ctx).Model(&kanban.Card{}).Where("id = ?", id).
+		UpdateColumn("unread_count", gorm.Expr("unread_count + ?", 1)).Error
+}
+
+// ClearUnreadCount 把未读数归零，打开详情时调用，不算用户编辑。
+func (d Card) ClearUnreadCount(ctx context.Context, id int64) error {
+	return d.db.WithContext(ctx).Model(&kanban.Card{}).Where("id = ?", id).
+		UpdateColumn("unread_count", 0).Error
 }
 
 // normalizeCards 对一批卡片调用 Normalize。

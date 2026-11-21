@@ -158,6 +158,12 @@ func (u *unit) emit(ctx context.Context, actor Actor, ev newEvent) error {
 	}
 	u.touched[ev.BoardID] = max(u.touched[ev.BoardID], e.ID)
 
+	if ev.CardID != 0 && ev.Type != EventCardCreated && ev.Type != EventCardDeleted {
+		if err := u.card.IncrUnreadCount(ctx, ev.CardID); err != nil {
+			return wrapDB("递增任务未读数", err)
+		}
+	}
+
 	if u.core.pruneEvery > 0 && e.ID%u.core.pruneEvery == 0 {
 		if err := u.event.Prune(ctx, ev.BoardID, u.core.keepEvents); err != nil {
 			return wrapDB("清理旧事件", err)

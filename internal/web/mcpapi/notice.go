@@ -19,3 +19,9 @@ type cardDetailOut struct {
 func withNotice(detail *kanban.CardDetail) cardDetailOut {
 	return cardDetailOut{CardDetail: detail, Notice: unclearTaskNotice}
 }
+
+// MarshalJSON agent 读任务不需要未读角标，去掉 REST 专有的 unread_count。
+func (o cardDetailOut) MarshalJSON() ([]byte, error) {
+	type alias cardDetailOut
+	return kanban.MarshalJSONOmitField(alias(o), "unread_count")
+}

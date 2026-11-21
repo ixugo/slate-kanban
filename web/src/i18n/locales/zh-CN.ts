@@ -138,6 +138,7 @@ export const zhCN: Messages = {
     humanOnly: '仅人工',
     waiting: '等待依赖',
     claimed: '{{name}} 处理中',
+    unreadBadge: '{{count}} 条未读动态',
     done: '已完成',
     dnd: {
       pickUp: '已拿起任务 {{title}}。方向键移动，空格放下，Esc 取消。',

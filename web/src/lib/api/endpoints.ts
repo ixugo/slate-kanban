@@ -142,6 +142,11 @@ export function moveCard(cardId: number, input: MoveCardInput): Promise<Card> {
   return request<Card>(`/cards/${cardId}/move`, { method: 'POST', body: input })
 }
 
+/** 把任务未读动态清零，打开详情时调用 */
+export function markCardRead(cardId: number): Promise<Empty> {
+  return request<Empty>(`/cards/${cardId}/read`, { method: 'POST' })
+}
+
 /** 收回 agent 对卡片的领取 */
 export function releaseCard(cardId: number): Promise<Empty> {
   return request<Empty>(`/cards/${cardId}/release`, { method: 'POST' })

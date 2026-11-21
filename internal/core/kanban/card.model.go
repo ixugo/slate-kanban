@@ -34,6 +34,7 @@ type Card struct {
 	ClaimEngineerID int64      `gorm:"column:claim_engineer_id;notNull;default:0;comment:当前领取这张卡的工程师，领取放开后清零" json:"claim_engineer_id"`
 	Branch          string     `gorm:"column:branch;size:200;notNull;default:'';comment:关联的代码分支" json:"branch"`
 	URL             string     `gorm:"column:url;size:500;notNull;default:'';comment:关联的链接，例如合并请求" json:"url"`
+	UnreadCount     int        `gorm:"column:unread_count;notNull;default:0;comment:网页未读动态计数" json:"-"`
 	Version         int64      `gorm:"column:version;notNull;default:1;comment:乐观锁版本号，每次真实修改加一" json:"version"`
 	CreatedBy       string     `gorm:"column:created_by;size:64;notNull;default:'';comment:创建者名称" json:"created_by"`
 	UpdatedBy       string     `gorm:"column:updated_by;size:64;notNull;default:'';comment:最后修改者名称" json:"updated_by"`

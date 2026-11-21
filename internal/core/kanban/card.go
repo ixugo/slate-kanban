@@ -35,6 +35,10 @@ type CardStorer interface {
 	SetPosition(ctx context.Context, id int64, position float64) error
 	// DeleteByBoard 删除看板的全部卡片，用于删除看板。
 	DeleteByBoard(context.Context, int64) error
+	// IncrUnreadCount 把任务的未读数加一，不改版本号和更新时间。
+	IncrUnreadCount(ctx context.Context, id int64) error
+	// ClearUnreadCount 把未读数清零，不改版本号和更新时间。
+	ClearUnreadCount(ctx context.Context, id int64) error
 }
 
 // CreateCard 在看板里创建一张卡片，放在目标列的末尾。人和 agent 都可以创建：
@@ -355,4 +359,19 @@ func (u *unit) emitCardUpdates(ctx context.Context, actor Actor, card *Card, cha
 	}
 	ev := newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardTagsUpdated, Payload: cardPayload(card, map[string]any{"fields": []string{"tag_ids"}})}
 	return u.emit(ctx, actor, ev)
+}
+
+// MarkCardRead 把任务的未读动态清零，只给网页用：不写事件、不增版本、不碰 updated_at，重复调用也安全。
+func (c Core) MarkCardRead(ctx context.Context, cardID int64) error {
+	card, err := c.store.Card().GetByID(ctx, cardID)
+	if err != nil {
+		return mapNotFound(err, ErrCardNotFound, "读取任务")
+	}
+	if card.UnreadCount == 0 {
+		return nil
+	}
+	if err := c.store.Card().ClearUnreadCount(ctx, cardID); err != nil {
+		return wrapDB("清零未读数", err)
+	}
+	return nil
 }

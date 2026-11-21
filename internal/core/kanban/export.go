@@ -11,6 +11,12 @@ type ExportCard struct {
 	Comments []*Comment `json:"comments"`
 }
 
+// MarshalJSON 导出不应带上网页未读数，避免导入时把旧环境计数带进来。
+func (e *ExportCard) MarshalJSON() ([]byte, error) {
+	type alias ExportCard
+	return MarshalJSONOmitField((*alias)(e), "unread_count")
+}
+
 // BoardExport 是整板导出在 Core 层的结果，不含 JSON/Markdown 包装字段。
 type BoardExport struct {
 	*BoardDetail

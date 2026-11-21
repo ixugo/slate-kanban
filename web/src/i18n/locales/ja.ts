@@ -138,6 +138,7 @@ export const ja: Messages = {
     humanOnly: '人のみ',
     waiting: '依存待ち',
     claimed: '{{name}} が作業中',
+    unreadBadge: '未読の更新 {{count}} 件',
     done: '完了',
     dnd: {
       pickUp: 'タスク {{title}} を持ち上げました。矢印で移動、Space でドロップ、Esc でキャンセル。',

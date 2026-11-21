@@ -22,6 +22,8 @@ type CardView struct {
 	Waiting bool `json:"waiting"`
 	// ClaimActive 表示卡片正被某个 agent 领取，并且租约还没到期。
 	ClaimActive bool `json:"claim_active"`
+	// UnreadCount 是网页未读动态数，只给 REST 用；库里存在 Card 上，序列化时单独挂出来。
+	UnreadCount int `json:"unread_count"`
 }
 
 // boardIndex 是一个看板的列和卡片在内存里的索引，一次构建后可以反复用来生成 CardView 和做筛选匹配，
@@ -73,6 +75,7 @@ func (ix *boardIndex) view(card *Card) *CardView {
 	v := &CardView{
 		Card: card, Tags: ix.tagNames(card), Done: ix.doneCols[card.ColumnID],
 		Waiting: ix.isWaiting(card), ClaimActive: claimActive(card, ix.now),
+		UnreadCount: card.UnreadCount,
 	}
 	if col, ok := ix.columns[card.ColumnID]; ok {
 		v.Column = col.Name

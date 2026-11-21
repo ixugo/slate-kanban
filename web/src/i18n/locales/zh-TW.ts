@@ -138,6 +138,7 @@ export const zhTW: Messages = {
     humanOnly: '僅限人工',
     waiting: '等待相依',
     claimed: '{{name}} 處理中',
+    unreadBadge: '{{count}} 則未讀動態',
     done: '已完成',
     dnd: {
       pickUp: '已拿起任務 {{title}}。方向鍵移動，空白鍵放下，Esc 取消。',

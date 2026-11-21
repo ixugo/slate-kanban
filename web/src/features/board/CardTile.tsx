@@ -12,6 +12,7 @@ import { useLanguage } from '@/i18n/useLanguage'
 import { cn } from '@/lib/utils'
 import { TagBadge } from '@/features/labels/TagBadge'
 import { displayKey } from '@/lib/cardKey'
+import { UnreadBadge } from './UnreadBadge'
 
 /** 优先级圆点的颜色：低、中、高；0 表示没设优先级，不显示 */
 const PRIORITY_DOT = ['', 'bg-p-low', 'bg-p-mid', 'bg-p-high'] as const
@@ -40,6 +41,7 @@ export function TileBody({ card }: { card: CardView }) {
           <span className={cn('size-1.5 shrink-0 rounded-full', PRIORITY_DOT[card.priority])} aria-hidden />
         )}
         <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{displayKey(card.key)}</span>
+        <UnreadBadge count={card.unread_count ?? 0} />
         {card.claim_active && card.claimed_by && (
           <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] font-medium text-agent">
             <span className="signal-dot size-1.5 shrink-0 rounded-full bg-agent" aria-hidden />

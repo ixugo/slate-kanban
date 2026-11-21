@@ -166,6 +166,9 @@ func TestGetCard(t *testing.T) {
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrCardNotFound:") {
 		t.Errorf("卡片不存在应该是工具错误: %+v", missing)
 	}
+	if _, ok := got["unread_count"]; ok {
+		t.Errorf("get_card 不应带 unread_count: %v", got["unread_count"])
+	}
 }
 
 // TestListEvents 验证活动流水只在管理视图里：返回起点之后的全部事件、最新序号。

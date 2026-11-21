@@ -138,6 +138,7 @@ export const ko: Messages = {
     humanOnly: '사람 전용',
     waiting: '의존 대기',
     claimed: '{{name}} 작업 중',
+    unreadBadge: '읽지 않은 업데이트 {{count}}건',
     done: '완료',
     dnd: {
       pickUp: '작업 {{title}}를 집었습니다. 화살표로 이동, Space로 놓기, Esc 취소.',

@@ -30,6 +30,7 @@ export function makeCard(overrides: Partial<CardView> & { id: number }): CardVie
     branch: '',
     url: '',
     version: 1,
+    unread_count: 0,
     created_by: 'admin',
     updated_by: 'admin',
     created_at: T0,
