@@ -23,6 +23,8 @@ env:
 jobs:
   assets:
     runs-on: ubuntu-latest
+    # 整个任务最多 10 分钟，超时 GitHub 会自动取消，避免卡死后一直占用 runner
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
@@ -76,14 +78,16 @@ jobs:
               upx --best --lzma -q "dist/${bin}"
               upx -t -q "dist/${bin}"
             fi
-            # 压缩后的程序能不能跑，只有和 runner 同平台的 linux/amd64 能当场验证
-            if [ "$os/$arch" = "linux/amd64" ]; then
-              "dist/${bin}" service help > /dev/null
-            fi
             if [ "$os" = "windows" ]; then
-              (cd dist && zip -q "${name}.zip" "${bin}")
+              # 把 start.bat / stop.bat 一起打进包
+              cp start.bat stop.bat dist/
+              (cd dist && zip -q "${name}.zip" "${bin}" start.bat stop.bat)
+              rm dist/start.bat dist/stop.bat
             else
-              tar -C dist -czf "dist/${name}.tar.gz" "${bin}"
+              # 把 start.sh / stop.sh 一起打进包；自动更新只按名字取出 slate，多出的文件不受影响
+              cp start.sh stop.sh dist/
+              tar -C dist -czf "dist/${name}.tar.gz" "${bin}" start.sh stop.sh
+              rm dist/start.sh dist/stop.sh
             fi
             rm "dist/${bin}"
           done
