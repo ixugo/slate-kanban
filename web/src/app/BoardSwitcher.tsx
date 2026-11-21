@@ -57,7 +57,7 @@ export function BoardSwitcher() {
         <option value={HOME_VALUE}>{t('nav.allBoards')}</option>
         {boards.map((board) => (
           <option key={board.id} value={String(board.id)}>
-            {`${board.slug} ${board.name}`}
+            {board.name}
           </option>
         ))}
       </select>

@@ -113,7 +113,7 @@ describe('AppShell', () => {
   it('看板切换：显示当前看板名，可以跳到别的看板或回到列表', async () => {
     setup('/b/2')
     const select = await screen.findByRole('combobox', { name: en.nav.switchBoard })
-    expect(select).toHaveDisplayValue('WEB 官网')
+    expect(select).toHaveDisplayValue('官网')
     await userEvent.selectOptions(select, '1')
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/b/1'))
     await userEvent.selectOptions(select, en.nav.allBoards)

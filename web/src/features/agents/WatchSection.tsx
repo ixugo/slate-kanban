@@ -54,7 +54,7 @@ export function WatchSection({ guide, board, boards, error, isPending, locked, i
             </option>
             {boards.map((b) => (
               <option key={b.id} value={String(b.id)}>
-                {b.slug} {b.name}
+                {b.name}
               </option>
             ))}
           </select>

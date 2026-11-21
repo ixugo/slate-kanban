@@ -76,7 +76,7 @@ describe('AgentsPage', () => {
     expect(fold).toContainElement(screen.getByText('cursor mcp --name=test'))
   })
 
-  it('无 project 参数时，可以按前缀区分并选择两个同名看板', async () => {
+  it('无 project 参数时，可以按 value 选择两个同名看板', async () => {
     installFakeApi({ 'GET /api/v1/connect': guide, 'GET /api/v1/boards': boards })
     renderApp(<AgentsPage />, { route: '/agents' })
     const select = await screen.findByRole('combobox', { name: en.agents.watch.board })
@@ -84,10 +84,10 @@ describe('AgentsPage', () => {
     await userEvent.click(screen.getByText(en.agents.advanced))
     expect(screen.getByText(`/loop 5m ${loopPrompt}`)).toBeInTheDocument()
 
-    await userEvent.selectOptions(select, screen.getByRole('option', { name: `WEB ${sameName}` }))
+    await userEvent.selectOptions(select, "1")
     expect(screen.getByText(boundPrompt(1))).toBeInTheDocument()
     expect(screen.getByText(`/loop 5m ${boundPrompt(1)}`)).toBeInTheDocument()
-    await userEvent.selectOptions(select, screen.getByRole('option', { name: `SLATE ${sameName}` }))
+    await userEvent.selectOptions(select, "2")
     expect(screen.getByText(boundPrompt(2))).toBeInTheDocument()
     expect(screen.getByText(`/loop 5m ${boundPrompt(2)}`)).toBeInTheDocument()
     expect(screen.queryByText(boundPrompt(1))).not.toBeInTheDocument()
@@ -126,7 +126,7 @@ describe('AgentsPage', () => {
     const select = screen.getByRole('combobox', { name: en.agents.watch.board })
     expect(select).toBeEnabled()
     expect(screen.queryByRole('heading', { name: en.agents.watch.loopTitle })).not.toBeInTheDocument()
-    await userEvent.selectOptions(select, screen.getByRole('option', { name: `WEB ${sameName}` }))
+    await userEvent.selectOptions(select, "1")
     expect(screen.getByText(boundPrompt(1))).toBeInTheDocument()
   })
 

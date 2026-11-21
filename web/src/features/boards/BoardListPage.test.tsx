@@ -56,7 +56,7 @@ describe('BoardListPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(en.errors.ErrStore)
     api.set('GET /api/v1/boards', [makeBoard({ id: 1, name: '恢复了' })])
     await userEvent.click(screen.getByRole('button', { name: en.common.retry }))
-    expect(await screen.findByText('恢复了')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '恢复了' })).toBeInTheDocument()
   })
 })
 
