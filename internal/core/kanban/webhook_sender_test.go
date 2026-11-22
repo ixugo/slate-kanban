@@ -2,9 +2,13 @@ package kanban_test
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -33,6 +37,16 @@ func TestSendWebhookBodies(t *testing.T) {
 	}
 	if !strings.Contains(gotURL, "timestamp=") || !strings.Contains(gotURL, "sign=") {
 		t.Fatalf("钉钉 URL 应带加签: %s", gotURL)
+	}
+	dingURL, err := url.Parse(gotURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := dingURL.Query()
+	mac := hmac.New(sha256.New, []byte("sec"))
+	_, _ = mac.Write([]byte(query.Get("timestamp") + "\nsec"))
+	if query.Get("sign") != base64.StdEncoding.EncodeToString(mac.Sum(nil)) {
+		t.Fatal("钉钉 URL 解码一次后应得到正确的 Base64 签名")
 	}
 	var ding map[string]any
 	if err := json.Unmarshal([]byte(gotBody), &ding); err != nil || ding["msgtype"] != "text" {
