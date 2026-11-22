@@ -10,6 +10,7 @@ import { describeError } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Card, CardDetail, Snapshot, UpdateCardInput } from '@/lib/api/types'
+import { applyOptimistic, rollbackOptimistic } from '@/lib/optimistic'
 import { queryKeys } from '@/lib/queryKeys'
 import { useErrorToast } from '@/lib/useErrorToast'
 import { toast } from '@/lib/toast'
@@ -20,6 +21,7 @@ import { useBoardSnapshot, useBoardView } from '@/features/board/useBoard'
 import { useCardDetail } from './useCardDetail'
 import { useMarkCardRead } from './useMarkCardRead'
 import { useCardUpdate } from './useCardUpdate'
+import { clearClaim } from './cardPatch'
 import { useLanguage } from '@/i18n/useLanguage'
 import { CardDialogBody } from './CardDialogBody'
 import { CardHeaderBar } from './CardHeaderBar'
@@ -122,22 +124,46 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
     move.mutate({ cardId: card.id, plan: { columnId } })
   }
 
+  // 放弃领取：详情和看板磁贴先显示成未被领取，失败再还原
   const release = useMutation({
     mutationFn: releaseCard,
-    onSuccess: (_, id) => {
+    onMutate: async (id) => ({
+      detail: await applyOptimistic<CardDetail>(queryClient, queryKeys.card(id), (old) => clearClaim(old)),
+      snapshot: await applyOptimistic<Snapshot>(queryClient, queryKeys.board(boardId), (old) => ({
+        ...old,
+        cards: old.cards.map((c) => (c.id === id ? clearClaim(c) : c)),
+      })),
+    }),
+    onError: (err, id, context) => {
+      rollbackOptimistic(queryClient, queryKeys.card(id), context?.detail)
+      rollbackOptimistic(queryClient, queryKeys.board(boardId), context?.snapshot)
+      toastError(err)
+    },
+    onSettled: (_data, _err, id) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.card(id) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
     },
-    onError: toastError,
   })
 
+  // 删除：弹窗先关、磁贴先消失，失败再把磁贴放回来（弹窗不再弹出，只提示原因）
   const remove = useMutation({
     mutationFn: deleteCard,
-    onSuccess: (_, id) => {
+    onMutate: async (id) => {
       closeCard(id)
+      return {
+        snapshot: await applyOptimistic<Snapshot>(queryClient, queryKeys.board(boardId), (old) => ({
+          ...old,
+          cards: old.cards.filter((c) => c.id !== id),
+        })),
+      }
+    },
+    onError: (err, _id, context) => {
+      rollbackOptimistic(queryClient, queryKeys.board(boardId), context?.snapshot)
+      toastError(err)
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
     },
-    onError: toastError,
   })
 
   // 只有服务端明确说卡片不存在（404）才提示"已经没有这张卡片"；
