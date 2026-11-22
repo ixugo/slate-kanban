@@ -233,7 +233,12 @@ func TestCheck(t *testing.T) {
 		}
 		infoOf(t, a)
 		if n := g.releaseHits.Load(); n != 1 {
-			t.Fatalf("一小时内应该走缓存，实际请求 %d 次", n)
+			t.Fatalf("10 秒内应该走缓存，实际请求 %d 次", n)
+		}
+		a.u.cachedAt = time.Now().Add(-11 * time.Second)
+		infoOf(t, a)
+		if n := g.releaseHits.Load(); n != 2 {
+			t.Fatalf("缓存过期后应重新请求，实际请求 %d 次", n)
 		}
 	})
 	t.Run("已是最新", func(t *testing.T) {
@@ -270,7 +275,7 @@ func TestCheck(t *testing.T) {
 			t.Fatalf("被拒绝时不能动现有程序，实际 %q", data)
 		}
 		g.noAssets.Store(false)
-		a.u.cachedAt = time.Now().Add(-2 * noAssetTTL)
+		a.u.cachedAt = time.Now().Add(-11 * time.Second)
 		if got := infoOf(t, a); !got.HasUpdate || !got.CanApply {
 			t.Fatalf("包传完后应立即提示并可更新: %+v", got)
 		}
@@ -300,7 +305,7 @@ func TestCheck(t *testing.T) {
 			t.Fatalf("短缓存期内不应重复请求，实际 %d 次", n)
 		}
 		g.noAssets.Store(false)
-		a.u.cachedAt = time.Now().Add(-2 * noAssetTTL)
+		a.u.cachedAt = time.Now().Add(-11 * time.Second)
 		if got := infoOf(t, a); !got.HasUpdate || !got.CanApply {
 			t.Fatalf("短缓存过期后应读到新上传的包: %+v", got)
 		}

@@ -15,10 +15,7 @@ import (
 
 const (
 	// cacheTTL 是最新版本的缓存时间：网页每次打开都去问 GitHub 太浪费，也怕被网站的访问频率限制拦住。
-	cacheTTL = time.Hour
-	// noAssetTTL 是「release 里还没有任何安装包」时的缓存时间：发布工作流先建 release、后上传包，
-	// 这段窗口期内的结果不能锁一小时，否则包上传完了网页也一直显示不能更新。
-	noAssetTTL = time.Minute
+	cacheTTL = 10 * time.Second
 	// failTTL 是查询失败后不再重试的时间，GitHub 不通时不用每次打开网页都等一次超时。
 	failTTL = 5 * time.Minute
 	// maxFeedBytes 是 release 订阅源响应体的大小上限。
@@ -91,7 +88,7 @@ func (u *updater) latest(ctx context.Context, force bool) (*release, error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	now := time.Now()
-	if !force && u.cached != nil && now.Sub(u.cachedAt) < u.cacheTTLOf(u.cached) {
+	if !force && u.cached != nil && now.Sub(u.cachedAt) < cacheTTL {
 		return u.cached, nil
 	}
 	if !force && !u.failedAt.IsZero() && now.Sub(u.failedAt) < failTTL {
@@ -102,16 +99,8 @@ func (u *updater) latest(ctx context.Context, force bool) (*release, error) {
 		u.failedAt = now
 		return nil, err
 	}
-	u.cached, u.cachedAt, u.failedAt = rel, now, time.Time{}
+	u.cached, u.cachedAt, u.failedAt = rel, time.Now(), time.Time{}
 	return rel, nil
-}
-
-// cacheTTLOf 返回这份 release 信息该缓存多久：还没有任何安装包说明正在发布，只缓存很短的时间。
-func (u *updater) cacheTTLOf(rel *release) time.Duration {
-	if len(rel.Assets) == 0 {
-		return noAssetTTL
-	}
-	return cacheTTL
 }
 
 // fetchLatest 汇总最新 release：先问版本号，再读订阅源里的更新时间和说明，最后探测安装包是否已上传。
