@@ -245,3 +245,71 @@ func TestWaitInterruptedByShutdown(t *testing.T) {
 		t.Fatal("服务关闭之后，阻塞等待没有结束")
 	}
 }
+
+// TestWaitForProjectInstructions 验证守候者收到项目说明变化后能重读 Markdown，清空也会通知。
+func TestWaitForProjectInstructions(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	sess := s.agent(t, "claude")
+	human := s.human(t)
+	boardArgs := map[string]any{"board_id": b.ID}
+	initial := ok(t, sess, "get_board", boardArgs).Data["watch_prompt"].(string)
+	if !strings.Contains(initial, "board.updated") || !strings.Contains(initial, "description") {
+		t.Error("空说明时也应提示守候者如何收到并重读后续说明")
+	}
+
+	const heading = "\n\n## 项目说明（AGENTS.md）\n\n"
+	if strings.Contains(initial, heading) {
+		t.Error("空说明不应附带空白段落")
+	}
+	cursor := ok(t, sess, "pull_updates", boardArgs).Data["cursor"]
+	const markdown = "    keep indentation\n\n# 开发约定\n\n- 保持 100% 原文\n"
+	for _, description := range []string{markdown, ""} {
+		done := make(chan *mcp.CallToolResult, 1)
+		go func() {
+			response, err := sess.CallTool(t.Context(), &mcp.CallToolParams{
+				Name: "wait_for_updates", Arguments: map[string]any{"board_id": b.ID, "since": cursor, "timeout_seconds": 3600},
+			})
+			if err != nil {
+				t.Errorf("等待失败: %v", err)
+				done <- nil
+				return
+			}
+			done <- response
+		}()
+		select {
+		case <-done:
+			t.Fatal("项目说明尚未修改，守候不应提前返回")
+		case <-time.After(100 * time.Millisecond):
+		}
+
+		ok(t, human, "update_board", map[string]any{"board_id": b.ID, "description": description})
+		select {
+		case response := <-done:
+			if response == nil {
+				t.Fatal("未收到守候响应")
+			}
+			got := unpack(t, response)
+			events := items(t, got.Data, "events")
+			if got.IsError || got.Data["timed_out"] != false || len(events) != 1 || events[0]["type"] != "board.updated" {
+				t.Fatalf("应由项目设置事件唤醒: %+v", got)
+			}
+			fields := events[0]["payload"].(map[string]any)["fields"].([]any)
+			if len(fields) != 1 || fields[0] != "description" {
+				t.Fatalf("设置事件应标出 description 字段: %v", fields)
+			}
+			cursor = got.Data["cursor"]
+		case <-time.After(5 * time.Second):
+			t.Fatal("项目说明修改未唤醒守候")
+		}
+
+		got := ok(t, sess, "get_board", boardArgs).Data
+		want := initial
+		if description != "" {
+			want += heading + description
+		}
+		if got["description"] != description || got["watch_prompt"] != want {
+			t.Fatalf("重读后未完整更新项目 Markdown，收到 description=%q", got["description"])
+		}
+	}
+}

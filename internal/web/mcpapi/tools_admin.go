@@ -17,7 +17,7 @@ type columnsOut struct {
 type createBoardIn struct {
 	Name        string `json:"name" jsonschema:"看板名称，1 到 100 字，单行"`
 	Slug        string `json:"slug,omitempty" jsonschema:"看板标识，2 到 10 位，大写字母开头，只含大写字母和数字；会拼进每个任务的编号（例如 SLATE-12），创建后不能改；不填按名称生成"`
-	Description string `json:"description,omitempty" jsonschema:"看板说明，最多 2000 字"`
+	Description string `json:"description,omitempty" jsonschema:"项目 AGENTS.md，Markdown 文本，最多 2000 字"`
 	ProjectPath string `json:"project_path,omitempty" jsonschema:"这个看板对应的项目在本机的绝对路径"`
 	Template    string `json:"template,omitempty" jsonschema:"起步模板：dev（收件箱、待办、进行中、审查、完成，默认）、simple（待办、进行中、完成）、empty（没有列）"`
 	Locale      string `json:"locale,omitempty" jsonschema:"起步列名的语言：zh-CN、zh-TW、en、ja、ko；不填按 en"`
@@ -27,7 +27,7 @@ type createBoardIn struct {
 type updateBoardIn struct {
 	BoardID     int64   `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	Name        *string `json:"name,omitempty" jsonschema:"新名称；不填不改"`
-	Description *string `json:"description,omitempty" jsonschema:"新说明；不填不改"`
+	Description *string `json:"description,omitempty" jsonschema:"新的项目 AGENTS.md，Markdown 文本；不填不改，空串清空"`
 	ProjectPath *string `json:"project_path,omitempty" jsonschema:"新的项目路径，必须是绝对路径；传空字符串清除；不填不改"`
 }
 

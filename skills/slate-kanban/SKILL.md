@@ -68,6 +68,7 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 - `list_cards` 每次最多返回 30 个（默认 10 个），并发上限一般不超过 5，用 `limit` 取够空闲名额就行，不要一次要很多。
 - 重启之后，先找回自己还持有的任务：`list_cards(board_id, query="claimed:<你的名称>")`（名称来自 `whoami`），任务上的 `claim_engineer_id` 就是承担它的工程师，接着用这一位做。`next_card` 必须传入按列提示词选择的 `column_id`，它只在这一列内优先给你已经持有的任务。审查领取须按提示词显式指定测试工程师的 `engineer_id`；未指定时默认分配研发工程师，不从列推断角色。
 - 你离线期间发生的更新，上线后第一次 `wait_for_updates` 或 `pull_updates` 就会补给你，不用自己记时间。处理完这一批，才把返回的 `cursor` 当作下一次的 `since`。
+- 收到人的 `board.updated` 且 `payload.fields` 包含 `description`，或更新已截断（`truncated`）时，重新调用 `get_board`，以最新 `watch_prompt` 末尾的 AGENTS.md 项目说明为准。说明已清空时，停止应用旧内容。
 - 你自己和你的子 agent 做的操作（包括审查子 agent 把任务放回进行中）不会作为事件推给你，要靠子 agent 返回的结果知道。事件里有 `type` 和 `card_id`。涉及你正在做的任务时：
   - `comment.added`、`card.updated`：人有新的补充。用 `get_card` 读一下，转告子 agent。
   - `card.released`：领取已经结束（被人收回，或租约被别人接手）。让子 agent 停下，把还没提交的成果告诉用户，不要继续改。

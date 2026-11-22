@@ -36,6 +36,21 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('tab', { name: en.settings.tabs.general })).toBeInTheDocument()
   })
 
+  it('把已有项目说明显示为 Markdown AGENTS.md，并原样提交', async () => {
+    const markdown = '    keep indentation\n\n# Project rules\n'
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ description: markdown }),
+      'PATCH /api/v1/boards/:id': {},
+    })
+    renderSettings()
+
+    const editor = await screen.findByRole('textbox', { name: 'AGENTS.md' })
+    expect(editor).toHaveTextContent('Project rules')
+    await userEvent.click(screen.getByRole('button', { name: en.common.save }))
+    await waitFor(() => expect(api.count('PATCH /api/v1/boards/:id')).toBe(1))
+    expect(api.calls.find((call) => call.method === 'PATCH')?.body).toMatchObject({ description: markdown })
+  })
+
   it('「导出」页签给出 JSON 和 Markdown 两个下载链接，指向当前项目的导出接口', async () => {
     installFakeApi({ 'GET /api/v1/boards/:id/snapshot': makeSnapshot({ id: 7 }) })
     renderSettings('7')
