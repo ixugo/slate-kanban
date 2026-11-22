@@ -712,8 +712,10 @@ export const zhCN: Messages = {
         perm: '无人值守时权限弹窗会卡住会话：先把 slate 的工具和常用操作设成“总是允许”；只有在隔离环境里才考虑关闭权限检查。',
       },
     },
-    advanced: '手动安装（高级）',
-    advancedHint: '上面的一句话提示词会让 agent 自己完成这些步骤；需要手动安装时再展开。',
+    advanced: '手动安装与卸载',
+    advancedHint: '上面的一句话提示词可以让 agent 为你安装 Slate MCP。',
+    uninstallMcp: '卸载 Slate MCP',
+    uninstallMcpCursor: '在 ~/.cursor/mcp.json 的 mcpServers 中移除 slate（工作视图）或 slate-manager（管理视图）。保留其他条目，保存文件并重启 Cursor。',
     skillOptional:
       'Skill 可选，不装也行：MCP 资源 slate://skills/slate-kanban 返回的内容与 skill 完全相同，没装 skill 时守候提示词会让 agent 自己去读它。只有想让 host 自动加载时才需要装。',
     managerFold: '管理视图 MCP（可选）',

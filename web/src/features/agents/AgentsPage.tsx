@@ -1,4 +1,4 @@
-// Agent 接入页：一句话提示词、怎么持续监听；各宿主的 MCP、skill（可选）命令片段收在默认折叠的“手动安装”里。
+// Agent 接入页：一句话提示词、持续监听与各宿主的手动安装和卸载说明。
 
 import { CopyIcon } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -17,6 +17,7 @@ import { useConnectGuide } from './useConnectGuide'
 import { parseAgentsProjectParam } from '@/lib/agentsProject'
 import { bindWatchPrompt } from './watchPrompt'
 import { WatchSection } from './WatchSection'
+import { UninstallMcp } from './UninstallMcp'
 
 /** 接入页默认导出 */
 export default function AgentsPage() {
@@ -89,7 +90,7 @@ export default function AgentsPage() {
   )
 }
 
-/** 各 host 的命令片段：MCP、管理视图、skill（可选）和长期挂着的启动恢复命令，放在默认折叠的“手动安装”里 */
+/** 各宿主的 MCP、skill 和守候说明 */
 function HostTabs({ guide: data, board }: { guide: ConnectGuide; board?: Board }) {
   const { t } = useTranslation()
   return (
@@ -117,6 +118,7 @@ function HostTabs({ guide: data, board }: { guide: ConnectGuide; board?: Board }
                 <SnippetCard snippet={s} subdued />
               </details>
             ))}
+          <UninstallMcp host={h.id} />
           {h.skill.map((s) => (
             <SnippetCard key={`${h.id}-skill`} snippet={s} />
           ))}

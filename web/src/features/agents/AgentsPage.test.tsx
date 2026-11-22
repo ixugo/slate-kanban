@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
@@ -8,7 +8,10 @@ import { installFakeApi } from '@/test/fakeApi'
 import { makeBoard } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 const loopPrompt = '守候 Slate 看板「<看板名>」：调用 get_board 读取返回里的 watch_prompt，照它做。'
 const sameName = "官网 $& '改版"
@@ -76,6 +79,33 @@ describe('AgentsPage', () => {
     expect(fold).toContainElement(screen.getByText('cursor mcp --name=test'))
   })
 
+  it('按宿主提供仅移除 Slate 工作和管理视图的说明及命令', async () => {
+    const user = userEvent.setup()
+    installFakeApi({ 'GET /api/v1/connect': guide })
+    renderApp(<AgentsPage />, { route: '/agents' })
+    await user.click(await screen.findByText(en.agents.advanced))
+
+    const cursor = screen.getByText(en.agents.uninstallMcp)
+    expect(cursor.closest('details')).not.toHaveAttribute('open')
+    await user.click(cursor)
+    expect(screen.getByText(en.agents.uninstallMcpCursor)).toBeVisible()
+
+    for (const [host, command] of [['Claude Code', 'claude mcp remove --scope user'], ['Codex', 'codex mcp remove']]) {
+      await user.click(screen.getByRole('tab', { name: host }))
+      const summary = screen.getByText(en.agents.uninstallMcp)
+      await user.click(summary)
+      const details = summary.closest('details')!
+      const section = within(details)
+      expect(section.getByText(`${command} slate`)).toBeVisible()
+      expect(section.getByText(`${command} slate-manager`)).toBeVisible()
+      const [copyWorker, copyManager] = section.getAllByRole('button', { name: en.common.copy })
+      await user.click(copyWorker)
+      expect(await navigator.clipboard.readText()).toBe(`${command} slate`)
+      await user.click(copyManager)
+      expect(await navigator.clipboard.readText()).toBe(`${command} slate-manager`)
+    }
+  })
+
   it('无 project 参数时，可以按 value 选择两个同名看板', async () => {
     installFakeApi({ 'GET /api/v1/connect': guide, 'GET /api/v1/boards': boards })
     renderApp(<AgentsPage />, { route: '/agents' })
@@ -131,13 +161,13 @@ describe('AgentsPage', () => {
   })
 
   it('复制失败时不抛错', async () => {
+    const user = userEvent.setup()
     installFakeApi({ 'GET /api/v1/connect': guide })
-    const write = vi.fn().mockRejectedValue(new Error('denied'))
-    Object.assign(navigator, { clipboard: { writeText: write } })
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'))
     renderApp(<AgentsPage />, { route: '/agents' })
     await screen.findByText(en.agents.title)
     const buttons = screen.getAllByRole('button', { name: en.common.copy })
-    await userEvent.click(buttons[0])
+    await user.click(buttons[0])
     expect(write).toHaveBeenCalled()
   })
 

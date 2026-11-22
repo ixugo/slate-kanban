@@ -717,8 +717,10 @@ export const ja: Messages = {
         perm: '無人運転では権限確認の表示でセッションが止まります。先に slate のツールと主な操作を「常に許可」にし、権限チェックを切るのは隔離環境の中だけにしてください。',
       },
     },
-    advanced: '手動インストール（上級）',
-    advancedHint: '上の一言プロンプトでエージェントがこれらを自分で行います。手動で入れるときだけ開いてください。',
+    advanced: '手動インストールと削除',
+    advancedHint: '上の一言プロンプトで、エージェントに Slate MCP のインストールを任せられます。',
+    uninstallMcp: 'Slate MCP を削除',
+    uninstallMcpCursor: '~/.cursor/mcp.json の mcpServers から slate（ワーカー用）または slate-manager（マネージャー用）を削除します。他の項目は残したままファイルを保存し、Cursor を再起動してください。',
     skillOptional:
       'skill は任意です。MCP リソース slate://skills/slate-kanban が skill と全く同じ内容を返し、skill が未インストールのときは見張りプロンプトがエージェントにそれを読ませます。host に自動で読み込ませたいときだけ入れてください。',
     managerFold: 'マネージャー用 MCP（任意）',

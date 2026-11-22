@@ -717,8 +717,10 @@ export const ko: Messages = {
         perm: '무인 실행 중에는 권한 확인 창이 세션을 멈춥니다. 먼저 slate 도구와 자주 쓰는 작업을 「항상 허용」으로 두고, 권한 검사를 끄는 것은 격리된 환경에서만 하세요.',
       },
     },
-    advanced: '수동 설치(고급)',
-    advancedHint: '위의 한 줄 프롬프트로 에이전트가 이 단계를 스스로 처리합니다. 직접 설치하려는 경우에만 펼치세요.',
+    advanced: '수동 설치 및 제거',
+    advancedHint: '위의 한 줄 프롬프트를 사용하면 에이전트가 Slate MCP를 설치합니다.',
+    uninstallMcp: 'Slate MCP 제거',
+    uninstallMcpCursor: '~/.cursor/mcp.json의 mcpServers에서 slate(워커용) 또는 slate-manager(관리자용)를 제거하세요. 다른 항목은 유지하고 파일을 저장한 뒤 Cursor를 다시 시작하세요.',
     skillOptional:
       'skill은 선택 사항입니다. MCP 리소스 slate://skills/slate-kanban이 skill과 완전히 같은 내용을 반환하며, skill이 없으면 감시 프롬프트가 에이전트에게 그것을 읽게 합니다. host가 자동으로 불러오게 하려는 경우에만 설치하세요.',
     managerFold: '관리자용 MCP(선택)',

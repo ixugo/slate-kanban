@@ -716,8 +716,10 @@ export const en = {
         perm: 'Permission prompts stall an unattended session: set slate\'s tools and common actions to “always allow” first, and only turn permission checks off inside an isolated environment.',
       },
     },
-    advanced: 'Manual install (advanced)',
-    advancedHint: 'The one-line prompt above lets the agent do all of this itself. Open this only to install by hand.',
+    advanced: 'Manual setup and removal',
+    advancedHint: 'The one-line prompt above lets the agent install Slate MCP for you.',
+    uninstallMcp: 'Remove Slate MCP',
+    uninstallMcpCursor: 'In ~/.cursor/mcp.json, remove slate (worker) or slate-manager (manager) from mcpServers. Keep the other entries, save the file, and restart Cursor.',
     skillOptional:
       'The skill is optional. The MCP resource slate://skills/slate-kanban returns exactly the same text, and the watch prompt tells the agent to read it when the skill is not installed. Install the skill only if you want the host to load it automatically.',
     managerFold: 'Manager MCP (optional)',
