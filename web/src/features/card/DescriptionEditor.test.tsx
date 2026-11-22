@@ -14,17 +14,21 @@ describe('DescriptionEditor', () => {
     expect(await screen.findByRole('textbox', { name: en.card.field.description })).toBeInTheDocument()
   })
 
-  it('「编辑」按钮悬浮提示可以双击描述编辑', () => {
+  it('单击空白描述的占位区可以编辑', async () => {
+    render(<DescriptionEditor boardId={1} value="" onSave={vi.fn()} />)
+    await userEvent.click(screen.getByText(en.card.descPlaceholder))
+    expect(await screen.findByRole('textbox', { name: en.card.field.description })).toBeInTheDocument()
+  })
+
+  it('「编辑」按钮悬浮提示可以单击描述编辑', () => {
     render(<DescriptionEditor boardId={1} value="a" onSave={vi.fn()} />)
     expect(screen.getByRole('button', { name: en.card.descEdit })).toHaveAttribute('title', en.card.descEditHint)
   })
 
-  it('单击仍查看，双击描述进入编辑，Esc 放弃修改', async () => {
+  it('单击描述进入编辑，Esc 放弃修改', async () => {
     const onSave = vi.fn()
     render(<DescriptionEditor boardId={1} value="**粗**" onSave={onSave} />)
     await userEvent.click(screen.getByText('粗'))
-    expect(screen.queryByRole('textbox', { name: en.card.field.description })).toBeNull()
-    await userEvent.dblClick(screen.getByText('粗'))
     const editor = await screen.findByRole('textbox', { name: en.card.field.description })
     expect(editor).toHaveTextContent('**粗**')
     fireEvent.keyDown(editor, { key: 'Escape', code: 'Escape' })

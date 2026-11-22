@@ -374,7 +374,7 @@ export const ko: Messages = {
     dueTime: '마감 시각',
     datesOrder: '마감일은 시작일보다 빠를 수 없습니다',
     descEdit: '편집',
-    descEditHint: '설명 영역을 더블클릭하면 편집할 수 있습니다',
+    descEditHint: '설명 영역을 클릭하면 편집할 수 있습니다',
     descPlaceholder: 'Markdown 지원',
     columnInstructionHint: '에이전트가 이 열의 작업을 맡을 때 읽습니다.',
     claim: {

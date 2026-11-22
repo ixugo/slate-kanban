@@ -377,7 +377,7 @@ export const en = {
     dueTime: 'Due time',
     datesOrder: 'The due date can’t be before the start date',
     descEdit: 'Edit',
-    descEditHint: 'Double-click the description to edit',
+    descEditHint: 'Click the description to edit',
     descPlaceholder: 'Markdown supported',
     columnInstructionHint: 'Agents read this when working tasks in this column.',
     claim: {

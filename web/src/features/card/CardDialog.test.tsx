@@ -342,7 +342,7 @@ describe('CardDialog', () => {
     openBoardWithCard({ ...baseDetail, description: '旧描述' })
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
-    await user.dblClick(await within(dialog).findByText('旧描述'))
+    await user.click(await within(dialog).findByText('旧描述'))
     const editor = await within(dialog).findByRole('textbox', { name: en.card.field.description })
     fireEvent.keyDown(editor, { key: 'Escape', code: 'Escape' })
     await waitFor(() => expect(within(dialog).queryByRole('textbox', { name: en.card.field.description })).toBeNull())

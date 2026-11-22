@@ -374,7 +374,7 @@ export const ja: Messages = {
     dueTime: '期限の時刻',
     datesOrder: '期限日は開始日より前にできません',
     descEdit: '編集',
-    descEditHint: '説明エリアをダブルクリックで編集できます',
+    descEditHint: '説明エリアをクリックして編集できます',
     descPlaceholder: 'Markdown 対応',
     columnInstructionHint: 'エージェントがこの列のタスクを担当するときに読みます。',
     claim: {

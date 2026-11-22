@@ -374,7 +374,7 @@ export const zhTW: Messages = {
     dueTime: '截止時刻',
     datesOrder: '截止日期不能早於開始日期',
     descEdit: '編輯',
-    descEditHint: '雙擊描述區域可以編輯',
+    descEditHint: '點擊描述區域可以編輯',
     descPlaceholder: '支援 Markdown',
     columnInstructionHint: 'Agent 處理本欄任務時會讀取這段說明。',
     claim: {

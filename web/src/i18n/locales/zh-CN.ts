@@ -374,7 +374,7 @@ export const zhCN: Messages = {
     dueTime: '截止时刻',
     datesOrder: '截止日期不能早于开始日期',
     descEdit: '编辑',
-    descEditHint: '双击描述区域可以编辑',
+    descEditHint: '点击描述区域可以编辑',
     descPlaceholder: '支持 Markdown',
     columnInstructionHint: 'agent 处理本列任务时会读取这段说明。',
     claim: {
