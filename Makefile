@@ -271,11 +271,7 @@ docker/publish:
 
 # 发布包的输出目录；打包用的临时目录也放在里面，打完就删
 RELEASE_DIST := dist
-# 历史 tag：只发「压缩包根部直接放程序」的平铺包（没有 slate_<tag>_<系统>_<架构>/ 这一层目录），
-# 补包时保持原样，不额外加安装包。
-# 其余 tag 打两份：同名的平铺包（已发布的旧版自动更新器要求程序在归档根目录），
-# 以及带 _install 后缀、解压后得到一个同名目录的安装包（手动安装用）
-RELEASE_FLAT_TAGS := v0.1.0 v0.1.1
+# 每个平台只打一个包：程序和启动、停止脚本都放在压缩包根目录（旧版自动更新器要求程序在归档根目录）
 # 没有启动脚本的历史 tag：v0.1.0 的源码和发布包里都没有 start/stop 脚本
 RELEASE_NO_SCRIPT_TAGS := v0.1.0
 # 写入 main.gitBranch 的值，标明这是 release 发布包（只用于版本信息展示，不影响更新检查）
@@ -317,8 +313,7 @@ define release_package
 		env -u UPX '$(UPX_BIN)' --best --lzma -q "$${package_dir}/$${bin}"; \
 		env -u UPX '$(UPX_BIN)' -t -q "$${package_dir}/$${bin}"; \
 	fi; \
-	flat=0; skip_scripts=0; \
-	for t in $(RELEASE_FLAT_TAGS); do if [ "$${t}" = "$${TAG}" ]; then flat=1; fi; done; \
+	skip_scripts=0; \
 	for t in $(RELEASE_NO_SCRIPT_TAGS); do if [ "$${t}" = "$${TAG}" ]; then skip_scripts=1; fi; done; \
 	scripts=($(5)); \
 	archive_entries=("$${bin}"); \
@@ -336,7 +331,6 @@ define release_package
 		fi; \
 	}; \
 	archive "$${package_dir}" "$${name}" "$${archive_entries[@]}"; \
-	if [ "$${flat}" -eq 0 ]; then archive "$(RELEASE_DIST)" "$${name}_install" "$${name}"; fi; \
 	rm -rf "$${package_dir}"
 endef
 
