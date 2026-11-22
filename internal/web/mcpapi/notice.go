@@ -2,10 +2,10 @@ package mcpapi
 
 import "slate-kanban/internal/core/kanban"
 
-// unclearTaskNotice 是读取或领取任务任务时附在结果里的提示，提醒 agent 任务不清楚就先问，别硬做。
+// unclearTaskNotice 是读取或领取时附在结果里的提示，提醒 agent 任务不清楚就先问，别硬做。
 // 放在每次返回任务全文的结果里，而不是只写在连接说明里：连接说明会被上下文压缩冲掉，任务结果每次都新鲜。
-const unclearTaskNotice = "动手之前先判断任务是否明确。目标、范围或验收标准有缺失或歧义，或者描述和评论里的要求互相矛盾时，" +
-	"不要直接开始：先用 comment_card 在这个任务下写出你的疑问和你的理解，再用 move_card 把任务移出领取列（例如移到「收件箱」，换列会同时结束你的领取）。" +
+const unclearTaskNotice = "动手之前先判断任务是否明确。目标、范围、验收标准或授权有疑问时，" +
+	"不触发终端阻塞式提问。先用 comment_card 在任务下写清疑问，再用 move_card 把任务移回「收件箱」或列指令约定的澄清列，腾出名额后继续其他可办任务。" +
 	"只 release_card 不行：任务还在领取列里，next_card 会马上又领到它。人回复后会把任务放回领取列，你再领到时先读新评论。" +
 	"任务已经清楚就直接做，不用为了确认而确认。"
 

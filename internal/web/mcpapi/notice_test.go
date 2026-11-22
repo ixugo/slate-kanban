@@ -20,8 +20,10 @@ func TestCardToolsCarryUnclearTaskNotice(t *testing.T) {
 	sess := s.agent(t, "claude")
 
 	got := ok(t, sess, "get_card", map[string]any{"card_id": c.ID}).Data
-	if notice := noticeOf(got); !strings.Contains(notice, "comment_card") || !strings.Contains(notice, "不要直接开始") {
-		t.Errorf("get_card 应该带提示: %v", got)
+	for _, want := range []string{"comment_card", "move_card", "收件箱", "终端阻塞式提问", "继续其他可办任务"} {
+		if !strings.Contains(noticeOf(got), want) {
+			t.Errorf("get_card 的任务澄清提示缺少 %q: %s", want, noticeOf(got))
+		}
 	}
 	if got["id"] != float64(c.ID) || got["description"] != "描述：写文档" || got["column_instruction"] == "" {
 		t.Errorf("任务字段应该保持平铺: %v", got)

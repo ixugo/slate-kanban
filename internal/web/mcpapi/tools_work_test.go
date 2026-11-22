@@ -275,6 +275,47 @@ func TestSetProjectPath(t *testing.T) {
 	}
 }
 
+// TestProjectPathConfirmedOnBoard 验证看板上的确认和路径变更可通过监听接收，无需终端问答。
+func TestProjectPathConfirmedOnBoard(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SETUP")
+	sess, human := s.agent(t, "claude"), s.human(t)
+	boardArgs := map[string]any{"board_id": b.ID}
+	made := ok(t, sess, "create_card", map[string]any{
+		"board_id": b.ID, "column_id": b.idea,
+		"title": "确认项目路径", "description": "请确认是否使用 /work/slate",
+	}).Data
+	if made["column_id"] != float64(b.idea) {
+		t.Fatalf("配置任务应记在收件箱: %v", made)
+	}
+	if got := ok(t, sess, "get_board", boardArgs).Data; got["project_path"] != "" {
+		t.Fatalf("路径确认前应保持为空: %v", got["project_path"])
+	}
+
+	first := ok(t, sess, "wait_for_updates", boardArgs).Data
+	ok(t, human, "comment_card", map[string]any{"card_id": made["id"], "body": "确认使用 /work/slate"})
+	reply := ok(t, sess, "wait_for_updates", map[string]any{
+		"board_id": b.ID, "since": first["cursor"], "timeout_seconds": 1,
+	}).Data
+	events := items(t, reply, "events")
+	if len(events) != 1 || events[0]["type"] != "comment.added" || events[0]["card_id"] != made["id"] || events[0]["actor_kind"] != "human" {
+		t.Fatalf("应收到配置任务上的人类回复: %v", reply)
+	}
+	ok(t, sess, "set_project_path", map[string]any{"board_id": b.ID, "project_path": "/work/slate"})
+
+	ok(t, human, "update_board", map[string]any{"board_id": b.ID, "project_path": "/work/slate-renamed"})
+	changed := ok(t, sess, "wait_for_updates", map[string]any{
+		"board_id": b.ID, "since": reply["cursor"], "timeout_seconds": 1,
+	}).Data
+	events = items(t, changed, "events")
+	if len(events) != 1 || events[0]["type"] != "board.updated" {
+		t.Fatalf("应收到看板路径变更: %v", changed)
+	}
+	if got := ok(t, sess, "get_board", boardArgs).Data; got["project_path"] != "/work/slate-renamed" {
+		t.Errorf("应能重新读取人调整的路径: %v", got["project_path"])
+	}
+}
+
 // TestHumanCardTools 验证人的任务工具带有规划类字段：优先级、仅人处理、依赖、时间都能写，
 // 移动到完成列会触发自动化规则写上完成时间。
 func TestHumanCardTools(t *testing.T) {

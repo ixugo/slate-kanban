@@ -216,7 +216,7 @@ func (a API) registerAgentWork(s *mcp.Server) {
 	register(s, spec{
 		name: "set_project_path", kind: kindWrite,
 		desc: "记录这个看板对应的项目在本机的绝对路径。只有看板上还没有路径时才能写；已经有路径了就不能改，只有人可以改。" +
-			"先用 get_board 看 project_path，是空的才需要问用户并用它写下来。",
+			"先用 get_board 核对 project_path。为空且人在看板上明确确认绝对路径后才写入；用看板记录疑问，不触发终端阻塞式提问。",
 	}, a.setProjectPath)
 }
 

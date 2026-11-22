@@ -81,6 +81,11 @@ func TestGetBoard(t *testing.T) {
 	if todoCheck < 0 || wait < 0 || todoCheck >= wait {
 		t.Errorf("watch_prompt 应该在开始监听前要求主动检查待办: %q", prompt)
 	}
+	for _, want := range []string{"禁止在终端触发阻塞式提问", "腾出名额后继续其他可做的任务", "复用或新建配置任务", "不绕过宿主权限"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("watch_prompt 的看板澄清规则缺少 %q: %q", want, prompt)
+		}
+	}
 	missing := call(t, sess, "get_board", map[string]any{"board_id": 9999})
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrBoardNotFound:") {
 		t.Errorf("看板不存在应该是工具错误: %+v", missing)
