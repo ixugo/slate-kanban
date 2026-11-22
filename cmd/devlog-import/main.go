@@ -59,6 +59,9 @@ type cardRecord struct {
 	Branch      string   `json:"branch"`
 	URL         string   `json:"url"`
 	Comments    []string `json:"comments"`
+
+	// PreviousTitle 用于识别已用旧标题导入的开发记录，不发送给服务端。
+	PreviousTitle string `json:"previous_title,omitempty"`
 }
 
 // importer 保存一次导入要用的 MCP 会话。
@@ -254,7 +257,7 @@ func (im *importer) importCards(boardID int64, columns map[string]int64, cards [
 	}
 	created, skipped := 0, 0
 	for _, c := range cards {
-		if titles[c.Title] {
+		if titles[c.Title] || (c.PreviousTitle != "" && titles[c.PreviousTitle]) {
 			skipped++
 			continue
 		}

@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // writeRecords 把内容写进临时目录里的记录文件并返回路径。
@@ -93,5 +96,44 @@ func TestCardArgsKeepsValues(t *testing.T) {
 	}
 	if args["started_at"] == nil || args["finished_at"] == nil {
 		t.Fatalf("时间缺失: %+v", args)
+	}
+}
+
+func TestImportSkipsRecordWithPreviousTitle(t *testing.T) {
+	rec, err := loadRecords(writeRecords(t, `{
+		"board": {"name": "Slate 开发", "slug": "SLATE"},
+		"cards": [{"column": "完成", "title": "任务筛选语法", "previous_title": "卡片筛选语法"}]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := mcp.NewServer(&mcp.Implementation{Name: "devlog-test", Version: "1"}, nil)
+	type listedCard struct {
+		Title string `json:"title"`
+	}
+	type listing struct {
+		Cards []listedCard `json:"cards"`
+	}
+	mcp.AddTool(server, &mcp.Tool{Name: "list_cards"}, func(_ context.Context, _ *mcp.CallToolRequest, _ map[string]any) (*mcp.CallToolResult, listing, error) {
+		return nil, listing{Cards: []listedCard{{Title: "卡片筛选语法"}}}, nil
+	})
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	ctx := t.Context()
+	serverSession, err := server.Connect(ctx, serverTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = serverSession.Close() })
+	client := mcp.NewClient(&mcp.Implementation{Name: "devlog-test", Version: "1"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = clientSession.Close() })
+	im := importer{ctx: ctx, sess: clientSession}
+
+	created, skipped, err := im.importCards(1, map[string]int64{"完成": 2}, rec.Cards)
+	if err != nil || created != 0 || skipped != 1 {
+		t.Fatalf("已按旧标题导入的任务应跳过，创建 %d，跳过 %d，错误 %v", created, skipped, err)
 	}
 }
