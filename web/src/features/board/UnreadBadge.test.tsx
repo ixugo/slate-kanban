@@ -10,6 +10,11 @@ describe('UnreadBadge', () => {
     renderApp(<UnreadBadge count={3} />)
     expect(screen.getByLabelText('3 unread updates')).toBeInTheDocument()
   })
+  it('红底白字', () => {
+    renderApp(<UnreadBadge count={3} />)
+    const badge = screen.getByLabelText('3 unread updates')
+    expect(badge).toHaveClass('bg-destructive', 'text-white')
+  })
   it('0 不显示', () => {
     renderApp(<UnreadBadge count={0} />)
     expect(screen.queryByLabelText(/unread/)).not.toBeInTheDocument()

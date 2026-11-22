@@ -15,7 +15,7 @@ function formatUnreadCount(count: number): string | null {
   return String(count)
 }
 
-/** 看板磁贴和列表共用的未读角标 */
+/** 看板磁贴和列表共用的未读角标：红底白字，一眼能看到 */
 export function UnreadBadge({ count, className }: UnreadBadgeProps) {
   const { t } = useTranslation()
   const label = formatUnreadCount(count)
@@ -23,7 +23,7 @@ export function UnreadBadge({ count, className }: UnreadBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex min-w-[1.125rem] shrink-0 items-center justify-center rounded-full bg-primary px-1 py-0.5 font-mono text-[0.625rem] font-semibold leading-none text-primary-foreground',
+        'inline-flex min-w-[1.125rem] shrink-0 items-center justify-center rounded-full bg-destructive px-1 py-0.5 font-mono text-[0.625rem] font-semibold leading-none text-white',
         className,
       )}
       aria-label={t('board.unreadBadge', { count: label })}
