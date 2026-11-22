@@ -310,7 +310,7 @@ paths:
       tags:
         - admin/任务
       summary: 删除任务
-      description: 删除任务和它的评论。任务已经不存在也返回成功。
+      description: 删除普通或归档任务，只有人能做。任务不存在也返回成功。
       operationId: deleteCard
       parameters:
         - name: card_id
@@ -338,12 +338,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "409":
-          description: 任务已归档
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
   "/api/v1/cards/{card_id}/changes/{change_id}":
     get:
       tags:
@@ -356,7 +350,7 @@ paths:
         返回里带 prev_id、next_id：同一个任务里前一条和后一条记录的编号（没有为 0），网页据此翻页。
         更新说明：
         2026-11-22
-        - 返回增加 prev_id、next_id
+        - 返回增加 prev_id、next_id、previous_at
         2026-11-21
         - 新增接口
       operationId: getCardChange
@@ -681,9 +675,15 @@ paths:
         - name: before
           in: query
           required: false
-          description: 上一页最后一条的任务主键，不填从最新归档开始
+          description: 旧客户端分页参数，上一页最后一条的任务主键。不能与 cursor 同时提供
           schema:
             type: integer
+        - name: cursor
+          in: query
+          required: false
+          description: 上一页返回的 next_cursor，不填从最新归档开始。即使上一页末条已删除也可续页
+          schema:
+            type: string
       responses:
         "200":
           description: 成功
@@ -770,6 +770,9 @@ components:
         has_more:
           type: boolean
           description: 还有更早的归档任务
+        next_cursor:
+          type: string
+          description: 用于请求下一页的游标。没有下一页时省略
     Card:
       type: object
       properties:
@@ -855,6 +858,12 @@ components:
         branch:
           type: string
           description: 关联的代码分支
+        merged_commits:
+          type: array
+          description: 由审查 agent 记录的主工作区合并提交哈希前六位。未合并时省略。
+          items:
+            type: string
+            pattern: '^[0-9a-f]{6}$'
         url:
           type: string
           description: 关联的链接，例如合并请求
@@ -911,6 +920,10 @@ components:
           type: string
           format: date-time
           description: 修改时间
+        previous_at:
+          type: string
+          format: date-time
+          description: 前版时间，取前一条变更时间，首版取任务创建时间
         prev_id:
           type: integer
           description: 同一个任务里前一条变更记录的编号，没有为 0
@@ -1020,6 +1033,12 @@ components:
         branch:
           type: string
           description: 关联的代码分支
+        merged_commits:
+          type: array
+          description: 由审查 agent 记录的主工作区合并提交哈希前六位。未合并时省略。
+          items:
+            type: string
+            pattern: '^[0-9a-f]{6}$'
         url:
           type: string
           description: 关联的链接，例如合并请求
@@ -1193,6 +1212,12 @@ components:
         branch:
           type: string
           description: 关联的代码分支
+        merged_commits:
+          type: array
+          description: 由审查 agent 记录的主工作区合并提交哈希前六位。未合并时省略。
+          items:
+            type: string
+            pattern: '^[0-9a-f]{6}$'
         url:
           type: string
           description: 关联的链接，例如合并请求

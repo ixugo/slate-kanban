@@ -36,6 +36,10 @@ paths:
       tags:
         - admin/webhook
       summary: 新增 webhook
+      description: |
+        新增活动通知。旧调用方省略筛选模式时，筛选项为空继续表示不限。
+        2026-11-22
+        - 增加可选 strict_filter_modes 字段。网页新建时为各维启用显式订阅。
       operationId: createWebhook
       parameters:
         - name: board_id
@@ -61,6 +65,10 @@ paths:
       tags:
         - admin/webhook
       summary: 修改 webhook
+      description: |
+        仅更新传入字段。不修改订阅时，存量配置继续使用原有筛选语义。
+        2026-11-22
+        - 增加可选 strict_filter_modes 字段，其中未传的维度继续使用已有模式。旧 strict_filters 显式传值会替换全局模式，并清除先前的各维覆盖。
       operationId: updateWebhook
       parameters:
         - name: webhook_id
@@ -136,6 +144,11 @@ components:
           type: string
         enabled:
           type: boolean
+        strict_filters:
+          type: boolean
+          description: 兼容开关，为没有单独设置的维度提供默认模式。
+        strict_filter_modes:
+          $ref: "#/components/schemas/WebhookFilterModes"
         event_types:
           type: array
           items:
@@ -163,6 +176,12 @@ components:
           type: string
         enabled:
           type: boolean
+        strict_filters:
+          type: boolean
+          default: false
+          description: 默认 false，为没有单独设置的维度提供默认模式。
+        strict_filter_modes:
+          $ref: "#/components/schemas/WebhookFilterModes"
         event_types:
           type: array
           items:
@@ -190,6 +209,11 @@ components:
           type: boolean
         enabled:
           type: boolean
+        strict_filters:
+          type: boolean
+          description: 兼容开关。若传值，重置已有各维覆盖，之后再应用本次请求中明确传入的各维覆盖。
+        strict_filter_modes:
+          $ref: "#/components/schemas/WebhookFilterModes"
         event_types:
           type: array
           items:
@@ -202,6 +226,19 @@ components:
           type: array
           items:
             type: integer
+    WebhookFilterModes:
+      type: object
+      description: 各维的覆盖开关。true 为显式选择，false 为该维空列表不限。未设置的维度继承 strict_filters；PATCH 中省略的维度保留原值。
+      properties:
+        event_types:
+          type: boolean
+          description: 显式模式下空选不发送任何事件。
+        actor_kinds:
+          type: boolean
+          description: 显式模式下空选不发送任何操作者的事件。
+        move_column_ids:
+          type: boolean
+          description: 显式模式下空选仅停止移动事件，其他事件不受此维度影响。
     TestWebhookResult:
       type: object
       properties:

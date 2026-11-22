@@ -10,7 +10,7 @@
 |---|---|
 | 谁会被提示 | 所有构建（含本机编译的）都检查、提示、能自动更新；容器里的程序只提示并引导去下载 |
 | 何时提示 | 当前平台的包和 `checksums.txt` 都确认已上传才提示、才允许更新，不按发布时间猜（发布工作流先建 release、后传包，包没传完时 `has_update` 为假）；包一传完，最迟 1 分钟（短缓存）内就能提示；release 一直没有当前平台的包时不会提示 |
-| 查询 | 网页每次打开请求 `GET /api/v1/update`；服务端只访问 github.com 网页地址、不用有匿名额度限制的 API：`releases/latest` 的 302 跳转给出 tag，`releases.atom` 给出该 tag 的说明，再对当前平台的包和 `checksums.txt` 的下载地址发 HEAD 确认已上传；成功缓存 1 小时（release 里还没有任何安装包时只缓存 1 分钟，避免发布工作流先建 release、后传包的窗口期被锁住），失败 5 分钟内不重试，失败只记日志、按没有更新返回 |
+| 查询 | 网页每次打开请求 `GET /api/v1/update`。服务端通过 `releases/latest` 的 302 跳转取 tag，再从 `releases.atom` 取说明，并对当前平台的包和 `checksums.txt` 发 HEAD 请求确认上传状态。成功结果一律缓存 10 秒，从查询完成开始计时。查询失败会记录日志，按没有更新返回，5 分钟内不重试。 |
 | 忽略 | 网页把被忽略的版本号写进 localStorage `slate.update.ignored`，小于等于它的版本不再弹窗；不同的电脑仍会提醒 |
 | 包的选择 | 按 `GOOS/GOARCH` 找 `slate_<tag>_<系统>_<架构>.tar.gz`（windows 为 `.zip`）和 `checksums.txt`，规则与 Makefile 的 `release/assets` 一致；包地址必须在 `https://github.com/ixugo/slate-kanban/releases/download/` 下 |
 | 包内布局 | 程序在包内同名的 `slate_<tag>_<系统>_<架构>/` 目录里，解压后得到单个目录；已发布的旧版平铺包也照样能识别，按名字取最后一段匹配 |

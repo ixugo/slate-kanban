@@ -78,7 +78,7 @@ components:
           description: 看板短标识，任务编号的前缀，创建后不可修改
         description:
           type: string
-          description: 看板说明
+          description: 项目 AGENTS.md，Markdown 文本
         project_path:
           type: string
           description: 看板关联的本地项目路径
@@ -449,7 +449,7 @@ components:
           description: move_to_column 使用的目标列编号
         days:
           type: integer
-          description: set_due 使用的天数
+          description: 旧 set_due 动作使用的天数，仅兼容存量记录，已停用
         priority:
           type: integer
           description: set_priority 使用的优先级，1 低、2 中、3 高
