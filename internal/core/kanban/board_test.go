@@ -264,6 +264,29 @@ func TestListBoards(t *testing.T) {
 	}
 }
 
+// TestListBoardsLastActivity 验证看板列表带最后活动时间：取看板自身更新时间和最新事件时间里较晚的那个，
+// 所以看板本身没被改过、但卡片上一直有动静时，列表里的时间是新的。
+func TestListBoardsLastActivity(t *testing.T) {
+	ctx := context.Background()
+	core, db := newBare(t)
+	quiet := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "安静", Slug: "QUIET"})
+	busy := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "活跃", Slug: "BUSY"})
+	later := time.Now().Add(48 * time.Hour).UTC().Truncate(time.Second)
+	if err := db.Event().Create(ctx, &kanban.Event{BoardID: busy.ID, Type: "card.updated", ActorKind: "human", Actor: "human", Payload: "{}", CreatedAt: later}); err != nil {
+		t.Fatalf("写事件失败: %v", err)
+	}
+	boards, err := core.ListBoards(ctx)
+	if err != nil || len(boards) != 2 {
+		t.Fatalf("读取列表失败: %v %v", boards, err)
+	}
+	if got := boards[0]; got.ID != quiet.ID || got.LastActivityAt.Before(got.UpdatedAt) || got.LastActivityAt.After(later) {
+		t.Fatalf("没有新事件时最后活动时间不应早于看板更新时间: %+v", got)
+	}
+	if got := boards[1]; !got.LastActivityAt.Equal(later) {
+		t.Fatalf("最后活动时间应取最新事件的时间 %v，实际 %v", later, got.LastActivityAt)
+	}
+}
+
 // boardEvents 返回看板里的事件，按序号升序。
 func boardEvents(t *testing.T, db kanbandb.DB, boardID int64) []*kanban.Event {
 	t.Helper()

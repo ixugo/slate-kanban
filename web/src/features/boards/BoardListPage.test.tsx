@@ -42,6 +42,23 @@ describe('BoardListPage', () => {
     expect(within(link).queryByText('/code/slate')).not.toBeInTheDocument()
   })
 
+  it('“更新于”按最后活动时间显示，而不是项目自身的更新时间', async () => {
+    const now = Date.now()
+    installFakeApi({
+      'GET /api/v1/boards': [
+        makeBoard({
+          id: 1,
+          name: '活跃项目',
+          updated_at: new Date(now - 3 * 86_400_000).toISOString(),
+          last_activity_at: new Date(now - 30_000).toISOString(),
+        }),
+      ],
+    })
+    renderPage()
+    const link = (await screen.findByRole('heading', { name: '活跃项目' })).closest('a') as HTMLElement
+    expect(within(link).getByText(/30 seconds ago/)).toBeInTheDocument()
+  })
+
   it('没有项目时显示引导，点按钮打开新建对话框', async () => {
     installFakeApi({ 'GET /api/v1/boards': [] })
     renderPage()

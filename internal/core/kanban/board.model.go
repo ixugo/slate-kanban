@@ -16,6 +16,8 @@ type Board struct {
 	CardSeq     int64       `gorm:"column:card_seq;notNull;default:0;comment:已经分配到的最后一个卡片编号" json:"-"`
 	CreatedAt   time.Time   `gorm:"column:created_at;notNull;default:CURRENT_TIMESTAMP;comment:创建时间" json:"created_at"`
 	UpdatedAt   time.Time   `gorm:"column:updated_at;notNull;default:CURRENT_TIMESTAMP;comment:更新时间" json:"updated_at"`
+	// LastActivityAt 是最后活动时间：看板自身更新时间和最新事件时间里较晚的那个，不存库，列表读取时算出。
+	LastActivityAt time.Time `gorm:"-" json:"last_activity_at"`
 }
 
 // TableName 指定表名，这是 GORM 约定的方法。
@@ -31,5 +33,8 @@ func (b *Board) Normalize() {
 	}
 	if b.Engineers == nil {
 		b.Engineers = []*Engineer{}
+	}
+	if b.LastActivityAt.IsZero() {
+		b.LastActivityAt = b.UpdatedAt
 	}
 }

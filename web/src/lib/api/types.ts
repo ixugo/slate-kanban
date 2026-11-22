@@ -40,6 +40,8 @@ export interface Board {
   project_path: string
   created_at: string
   updated_at: string
+  /** 最后活动时间：看板自身更新和卡片、评论等事件里最晚的一个，项目列表用它显示“更新于” */
+  last_activity_at: string
 }
 
 export interface Column {

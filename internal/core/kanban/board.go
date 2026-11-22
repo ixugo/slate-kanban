@@ -143,8 +143,25 @@ func (c Core) ListBoards(ctx context.Context) ([]*Board, error) {
 		if err := c.loadTagsAndEngineers(ctx, b); err != nil {
 			return nil, err
 		}
+		if err := c.loadLastActivity(ctx, b); err != nil {
+			return nil, err
+		}
 	}
 	return items, nil
+}
+
+// loadLastActivity 给看板填最后活动时间：取最新一条事件，和看板自身的更新时间比，谁晚用谁。
+// 每个看板只多一次按序号倒序取一条的查询，看板数量是个位数到几十个，不需要批量优化。
+func (c Core) loadLastActivity(ctx context.Context, b *Board) error {
+	latest, err := c.store.Event().ListBefore(ctx, b.ID, 0, ActivityFilter{}, 1)
+	if err != nil {
+		return wrapDB("读取看板最后活动时间", err)
+	}
+	b.LastActivityAt = b.UpdatedAt
+	if len(latest) > 0 && latest[0].CreatedAt.After(b.UpdatedAt) {
+		b.LastActivityAt = latest[0].CreatedAt
+	}
+	return nil
 }
 
 // GetBoard 返回看板、它的列和自动化规则（含停用的）。看板不存在返回 404。人和 agent 都可以读。

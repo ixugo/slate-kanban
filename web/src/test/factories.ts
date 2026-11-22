@@ -70,6 +70,7 @@ export function makeBoard(overrides: Partial<Board> = {}): Board {
     project_path: '',
     created_at: T0,
     updated_at: T0,
+    last_activity_at: T0,
     ...overrides,
   }
 }

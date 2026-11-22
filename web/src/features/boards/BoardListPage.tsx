@@ -30,7 +30,7 @@ function BoardCard({ board }: { board: Board }) {
       <h2 className="truncate text-[1.0625rem] leading-6 font-semibold tracking-tight">{board.name}</h2>
       {board.description && <p className="line-clamp-2 text-ui text-muted-foreground">{board.description}</p>}
       <span className="mt-auto font-mono text-xs text-muted-foreground">
-        {t('boards.updated', { time: formatRelative(board.updated_at, lang) })}
+        {t('boards.updated', { time: formatRelative(board.last_activity_at, lang) })}
       </span>
     </Link>
   )
