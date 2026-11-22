@@ -28,6 +28,7 @@ func setupRouter(r *gin.Engine, uc *Usecase) {
 	guard := newPasscodeGuard(uc.Conf, limiter)
 
 	r.Use(
+		gzipMiddleware(),
 		securityMiddleware(),
 		passcodeMiddleware(guard),
 		web.Recover(),
