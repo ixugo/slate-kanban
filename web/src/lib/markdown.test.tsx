@@ -85,6 +85,33 @@ describe('Markdown：块级结构', () => {
     expect(root.querySelector('pre code')).toHaveTextContent('x := **1**')
     expect(root.querySelector('pre strong')).toBeNull()
   })
+
+  it('处理表格列对齐、转义管道和长度不齐的正文', () => {
+    const root = renderMd([
+      '左 | 中 | 右',
+      ':--- | :---: | ---:',
+      '*甲\\|乙* | `a\\|b` | [链接](https://example.com)',
+      '短行 | 空末列',
+      '| 甲 | 乙 | 丙 | 多余 |',
+      '> 表格外的引用',
+    ].join('\n'))
+    const table = within(screen.getByRole('table'))
+    expect(table.getAllByRole('columnheader').map((cell) => cell.style.textAlign)).toEqual(['left', 'center', 'right'])
+    expect(root.querySelector('td em')).toHaveTextContent('甲|乙')
+    expect(root.querySelector('td code')).toHaveTextContent('a|b')
+    expect(table.getByRole('link', { name: '链接' })).toHaveAttribute('href', 'https://example.com')
+    expect(table.getAllByRole('cell')).toHaveLength(9)
+    expect(table.getAllByRole('cell')[5]).toBeEmptyDOMElement()
+    expect(table.queryByText('多余')).not.toBeInTheDocument()
+    expect(root.querySelector('blockquote')).toHaveTextContent('表格外的引用')
+  })
+
+  it('列定义不匹配或表格在代码围栏中时保留原文', () => {
+    const root = renderMd('| A | B |\n| --- |\n\n```md\n| A | B |\n| --- | --- |\n```')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(root.querySelector('p')).toHaveTextContent('| A | B |')
+    expect(root.querySelector('pre code')).toHaveTextContent('| --- | --- |')
+  })
 })
 
 describe('Markdown：任务清单', () => {
