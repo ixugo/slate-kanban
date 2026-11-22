@@ -18,11 +18,15 @@ export function SearchHelp({ onExample }: SearchHelpProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label={t('search.syntax')}>
-          <HelpCircleIcon />
+        <Button type="button" variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label={t('search.syntax')} title={t('search.syntax')}>
+          <HelpCircleIcon aria-hidden />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 space-y-3 text-ui" align="end">
+      <PopoverContent
+        className="max-h-(--radix-popover-content-available-height) w-80 max-w-[calc(100vw-1.5rem)] space-y-3 overflow-y-auto text-ui"
+        align="end"
+        collisionPadding={12}
+      >
         <p className="font-medium">{t('search.syntaxTitle')}</p>
         <ul className="space-y-1 text-muted-foreground">
           {TERM_KEYS.map((key) => (

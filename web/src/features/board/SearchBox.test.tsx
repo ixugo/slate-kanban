@@ -15,15 +15,32 @@ function Harness() {
 }
 
 describe('SearchBox 清除按钮', () => {
-  it('有文字才出现；点击清空文字并把焦点放回输入框', async () => {
+  it('输入后用清空按钮替代搜索帮助，清空后恢复帮助与输入焦点', async () => {
     renderApp(<Harness />)
-    expect(screen.queryByRole('button', { name: en.search.clear })).not.toBeInTheDocument()
+    const user = userEvent.setup()
+    const helpName = { name: en.search.syntax }
+    const clearName = { name: en.search.clear }
+    expect(screen.getByRole('button', helpName)).toBeVisible()
+    expect(screen.queryByRole('button', clearName)).not.toBeInTheDocument()
     const input = screen.getByPlaceholderText(en.search.placeholder)
-    await userEvent.type(input, 'tag:bug')
-    await userEvent.click(screen.getByRole('button', { name: en.search.clear }))
+    await user.type(input, 'tag:bug')
+    expect(screen.queryByRole('button', helpName)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', clearName))
     expect(input).toHaveValue('')
     expect(input).toHaveFocus()
-    expect(screen.queryByRole('button', { name: en.search.clear })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', helpName)).toBeVisible()
+    expect(screen.queryByRole('button', clearName)).not.toBeInTheDocument()
+  })
+
+  it('空输入时可以打开帮助，点选示例后填入并聚焦搜索框', async () => {
+    renderApp(<Harness />)
+    const user = userEvent.setup()
+    const input = screen.getByPlaceholderText(en.search.placeholder)
+    await user.click(screen.getByRole('button', { name: en.search.syntax }))
+    await user.click(screen.getByRole('button', { name: en.search.examples.openBugs }))
+    expect(input).toHaveValue(en.search.examples.openBugs)
+    expect(input).toHaveFocus()
+    expect(screen.getByRole('button', { name: en.search.clear })).toBeVisible()
   })
 })
 
