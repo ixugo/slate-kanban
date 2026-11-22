@@ -58,3 +58,18 @@ describe('CardMeta 标签选择弹层', () => {
     expect(popperTransform()).toBe(before)
   })
 })
+
+describe('CardMeta 优先级', () => {
+  it('选项前带和看板圆点一致的颜色，选中后按钮上的旗子也变色', async () => {
+    installFakeApi({})
+    renderApp(<Harness />)
+    await userEvent.click(screen.getByRole('button', { name: en.card.field.priority }))
+    for (const [name, color] of [['Low', 'bg-p-low'], ['Medium', 'bg-p-mid'], ['High', 'bg-p-high']] as const) {
+      const radio = await screen.findByRole('radio', { name })
+      expect(radio.querySelector(`.${color}`)).not.toBeNull()
+    }
+    await userEvent.click(screen.getByRole('radio', { name: 'High' }))
+    const trigger = await screen.findByRole('button', { name: new RegExp(`${en.card.field.priority}: High`) })
+    expect(trigger.querySelector('svg')).toHaveClass('text-p-high')
+  })
+})

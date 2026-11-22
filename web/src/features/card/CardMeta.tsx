@@ -40,6 +40,10 @@ interface TextChipProps {
 /** 优先级的取值顺序，下标就是服务端的数值 */
 const PRIORITIES = ['none', 'low', 'medium', 'high'] as const
 
+/** 各优先级的颜色，和看板磁贴、列表上的圆点同一套色；下标就是服务端的数值，0 是没有优先级 */
+const PRIORITY_BG = ['', 'bg-p-low', 'bg-p-mid', 'bg-p-high'] as const
+const PRIORITY_TEXT = ['', 'text-p-low', 'text-p-mid', 'text-p-high'] as const
+
 /** 属性小按钮的外观：圆角矩形、浅底；设了值（active）时底色更深 */
 const CHIP_CLASS = 'h-8 max-w-full rounded-lg px-2.5 font-medium'
 
@@ -61,7 +65,7 @@ function PriorityChip({ card, onPatch }: CardMetaProps) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button type="button" variant="secondary" className={cn(CHIP_CLASS, card.priority > 0 && 'bg-accent')}>
-          <ChipLabel icon={<FlagIcon />}>
+          <ChipLabel icon={<FlagIcon className={PRIORITY_TEXT[card.priority]} />}>
             {card.priority > 0 ? `${t('card.field.priority')}: ${t(`board.priority.${PRIORITIES[card.priority]}`)}` : t('card.field.priority')}
           </ChipLabel>
         </Button>
@@ -81,7 +85,13 @@ function PriorityChip({ card, onPatch }: CardMetaProps) {
                 setOpen(false)
               }}
             >
-              {t(`board.priority.${p}`)}
+              <span className="flex items-center gap-2">
+                <span
+                  className={cn('size-2 shrink-0 rounded-full', i === 0 ? 'border border-muted-foreground/50' : PRIORITY_BG[i])}
+                  aria-hidden
+                />
+                {t(`board.priority.${p}`)}
+              </span>
               {card.priority === i && <CheckIcon />}
             </Button>
           ))}
