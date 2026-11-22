@@ -84,6 +84,61 @@ func TestAgentWorkLoop(t *testing.T) {
 	}
 }
 
+// TestAgentDispatchesTodoOnlyBoard 验证待办是唯一有任务的列时，调度能从待办开始并完成流转。
+func TestAgentDispatchesTodoOnlyBoard(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	unclear := s.card(t, b, b.todo, "需要人确认的任务")
+	clear := s.card(t, b, b.todo, "需求明确的任务")
+	sess := s.agent(t, "claude")
+	dev, review := b.Engineers[0].ID, b.Engineers[2].ID
+	next := func(columnID int64) map[string]any {
+		return ok(t, sess, "next_card", map[string]any{
+			"board_id": b.ID, "column_id": columnID, "engineer_id": dev,
+		}).Data
+	}
+
+	if got := next(b.doing); got["card"] != nil {
+		t.Fatalf("只有待办有任务，进行中应该为空: %v", got)
+	}
+	for _, want := range []int64{unclear.ID, clear.ID} {
+		got, _ := next(b.todo)["card"].(map[string]any)
+		if got["id"] != float64(want) || got["claim_engineer_id"] != float64(dev) {
+			t.Fatalf("应在待办用研发名额领取 %d: %v", want, got)
+		}
+		if want == unclear.ID {
+			ok(t, sess, "comment_card", map[string]any{"card_id": want, "body": "请补充验收标准"})
+			moved := ok(t, sess, "move_card", map[string]any{"card_id": want, "column_id": b.idea}).Data
+			if moved["column_id"] != float64(b.idea) || moved["claimed_by"] != "" {
+				t.Fatalf("不明确的任务应移回收件箱并结束领取: %v", moved)
+			}
+		}
+	}
+
+	moved := ok(t, sess, "move_card", map[string]any{"card_id": clear.ID, "column_id": b.doing}).Data
+	if moved["claimed_by"] != "" {
+		t.Fatalf("从待办移到进行中应结束原领取: %v", moved)
+	}
+	claimed, _ := next(b.doing)["card"].(map[string]any)
+	if claimed["id"] != float64(clear.ID) || claimed["claim_engineer_id"] != float64(dev) {
+		t.Fatalf("进行中应重新领取该任务: %v", claimed)
+	}
+	handoff := ok(t, sess, "finish_card", map[string]any{"card_id": clear.ID, "summary": "研发交接"}).Data
+	if handoff["column_id"] != float64(b.review) {
+		t.Fatalf("研发应交接到审查: %v", handoff)
+	}
+
+	ok(t, sess, "claim_card", map[string]any{"card_id": clear.ID, "engineer_id": review})
+	ok(t, sess, "comment_card", map[string]any{"card_id": clear.ID, "body": "审查通过"})
+	done := ok(t, sess, "move_card", map[string]any{"card_id": clear.ID, "column_id": b.done}).Data
+	if done["column_id"] != float64(b.done) {
+		t.Fatalf("审查通过后应移到完成: %v", done)
+	}
+	if got := next(b.todo); got["card"] != nil {
+		t.Errorf("问题任务已移到收件箱，待办应为空: %v", got)
+	}
+}
+
 // TestNextCardSkipsHumanOnly 验证只能由人处理的任务不会被 agent 领到：取卡跳过它，指定领取被拒绝。
 func TestNextCardSkipsHumanOnly(t *testing.T) {
 	s := newStack(t)

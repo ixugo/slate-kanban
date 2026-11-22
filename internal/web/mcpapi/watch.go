@@ -14,6 +14,11 @@ import (
 const watchPromptFormat = `你是 Slate 看板「%s」的调度 agent，现在要长期守候这个看板，直到用户手动停止。守候靠 MCP 长连接推送：wait_for_updates 会让服务端挂住请求，看板有更新立刻返回，空闲时可以连续等到 60 分钟。
 
 1. 读 slate-kanban skill（没装就读 MCP 资源 slate://skills/slate-kanban）。第一次启动时用 whoami 确认身份，按 skill 第二节确认项目路径；列的提示词和 engineers 名册以本次 get_board 的结果为准。
+   启动时先恢复持有的任务。启动、收到更新或子 agent 交卷后，都在再次等待前按下列顺序调度。根据 get_board 返回的 instruction 和 next_column_id 识别实际入口和去向，调用工具时带实际的 column_id。以下是默认五列的流程。
+   - 进行中：有空闲研发名额时先领取已在进行中的任务。名额还有剩余时，必须主动检查待办列，即使进行中的 next_card 返回 card 为 null。
+   - 待办：有研发空位就用 next_card 领取，再读完整描述、评论和依赖。任务明确时用 move_card 移到进行中，在那里重新领取后才派发。任务不明确时先评论提问，再移回收件箱。研发名额已满时，待办留在原列排队。
+   - 审查：独立使用审查名额领任务。研发结束用 finish_card 交接到审查；审查通过后写评论再移到完成，不通过则写明原因后退回进行中。
+   - 收件箱与完成：平时跳过这两列的任务，只按各列指令做上述流转。检查完有空闲名额的各入口后再等待。
 2. 先找回自己手上的活：用 list_cards(query="claimed:<你的名称>") 跟进自己还持有的任务，再按 skill 第三节的循环数名额、领任务：有空闲名额就一次领满，并按第 5 条同时派出子 agent。
 3. 然后一直守候：客户端和连接链路已配置支持长等待，且没有正在处理的任务、子 agent 或近期需检查的租约时，用 wait_for_updates(timeout_seconds=3600)。配置未知、连接提前断开或有任务需跟进时，用 wait_for_updates(timeout_seconds=50) 或更短。把返回的 cursor 作为下一次的 since。空超时直接再次等待；有更新就按 skill 处理，处理完继续等。守候期间不要输出文字，不要用 list_cards 或 next_card 定时刷新来代替等待。
 4. 如果你是被 loop 叫醒才读到这段话：loop 只用来检查监听是否还活着。能被叫醒，说明上一段监听已经结束或断了，所以不用再判断别的，直接从第 2 步重新开始，并重新挂上 wait_for_updates。离线期间的更新会由第一次 wait_for_updates 按你的名字补给你。

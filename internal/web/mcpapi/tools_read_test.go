@@ -75,6 +75,12 @@ func TestGetBoard(t *testing.T) {
 			t.Errorf("watch_prompt 应该提醒标签只用已有的、交接前补任务项，缺少 %q: %q", want, prompt)
 		}
 	}
+	// 待办入口须写在挂起监听之前，守候时不能把进行中为空当成没有任务。
+	todoCheck := strings.Index(prompt, "主动检查待办列")
+	wait := strings.Index(prompt, "3. 然后一直守候")
+	if todoCheck < 0 || wait < 0 || todoCheck >= wait {
+		t.Errorf("watch_prompt 应该在开始监听前要求主动检查待办: %q", prompt)
+	}
 	missing := call(t, sess, "get_board", map[string]any{"board_id": 9999})
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrBoardNotFound:") {
 		t.Errorf("看板不存在应该是工具错误: %+v", missing)

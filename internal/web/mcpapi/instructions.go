@@ -12,7 +12,7 @@ const agentInstructions = `你连接的是 Slate 看板，是其中的 agent，�
 
 干活的规则：
 - 只按列的 instruction 决定能做什么、能否派发和交接去向。
-- 按各列 instruction 选出你能处理的列，再用 next_card(board_id, column_id, engineer_id) 领取。动手前读完全文和评论。
+- 按列 instruction 选入口。有研发空位先查进行中，仍有空位必须查待办。next_card 按列领取，读全文和评论。明确的待办用 move_card 移至进行中，重新领取再派发。满员则排队，审查独立，平时跳过收件箱和完成。
 - 领取时 engineer_id 指定承担的工程师，不填则用任务绑定的，否则随机空闲的；每位同时只做一个。ErrEngineerBusy、ErrNoIdleEngineer 表示名额满，排队等。
 - 任务不明确（目标、范围、验收标准缺失或有歧义）时别直接开始：先 comment_card 写出疑问，再 move_card 移出领取列（如「收件箱」；只 release_card 会被 next_card 马上领回），等人回复。
 - 你是调度 agent，自己不写代码：研发、审查名额分开算，有几个空闲名额就一次领几个；每个研发任务先建好 git worktree 和分支，再同时派出各自新的 subagent，别复用做过别的任务的。
@@ -24,7 +24,7 @@ const agentInstructions = `你连接的是 Slate 看板，是其中的 agent，�
 - 做不下去：评论写清卡点，再 move_card 移出领取列等人处理。release_card 只用于让别的 agent 接手。
 
 没活或掉线后：
-- next_card 返回 card 为 null 时用 wait_for_updates 等待；timed_out 为 true 只是超时，再等。有更新再 next_card。
+- card 为 null 只表示当前列无活。查完可办列再 wait_for_updates；有更新再调度，空超时续等。
 - 把 cursor 作为下一次 pull_updates 或 wait_for_updates 的 since；离线期间用 pull_updates 补读，first 或 truncated 为 true 时用 list_cards 重新了解现状。
 
 被拒绝（如 ErrNotHolder、ErrCardClaimed）说明做法不对，别反复重试。
