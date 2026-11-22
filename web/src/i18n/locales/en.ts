@@ -404,7 +404,8 @@ export const en = {
     tagLimit: 'This task can have at most {{max}} tags.',
     tagTooLong: 'Each tag can be at most {{max}} characters.',
     depAdd: 'Add dependency',
-    depEmpty: 'None',
+    depSearch: 'Search by #number or title',
+    depNoResults: 'No matching tasks',
     urlInvalid: 'Only http and https links are allowed.',
   },
   settings: {

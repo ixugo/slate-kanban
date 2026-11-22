@@ -215,11 +215,11 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
 
 /** 合并依赖候选：详情里的 dependencies 加上快照里其余任务 */
 function useDepOptions(snapshot: Snapshot | undefined, card: CardDetail | undefined): CardDetail['dependencies'] {
-  if (!snapshot || !card) return []
+  if (!card) return []
   const map = new Map((card.dependencies ?? []).map((d) => [d.id, d]))
-  for (const c of snapshot.cards) {
+  for (const c of snapshot?.cards ?? []) {
     if (c.id === card.id) continue
     if (!map.has(c.id)) map.set(c.id, { id: c.id, key: c.key, title: c.title, column: c.column, done: c.done })
   }
-  return [...map.values()].sort((a, b) => a.key.localeCompare(b.key))
+  return [...map.values()]
 }

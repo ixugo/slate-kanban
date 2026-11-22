@@ -401,7 +401,8 @@ export const zhTW: Messages = {
     tagLimit: '每個任務最多 {{max}} 個標籤。',
     tagTooLong: '每個標籤最多 {{max}} 個字元。',
     depAdd: '新增相依',
-    depEmpty: '無',
+    depSearch: '按 #編號或標題搜尋',
+    depNoResults: '沒有符合的任務',
     urlInvalid: '只允許 http 與 https 連結。',
   },
 

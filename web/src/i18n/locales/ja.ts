@@ -401,7 +401,8 @@ export const ja: Messages = {
     tagLimit: '1 件のタスクにつきタグは最大 {{max}} 個です。',
     tagTooLong: 'タグは最大 {{max}} 文字までです。',
     depAdd: '依存を追加',
-    depEmpty: 'なし',
+    depSearch: '#番号またはタイトルで検索',
+    depNoResults: '一致するタスクがありません',
     urlInvalid: 'http と https のみ許可されます。',
   },
 

@@ -401,7 +401,8 @@ export const zhCN: Messages = {
     tagLimit: '每个任务最多 {{max}} 个标签。',
     tagTooLong: '每个标签最多 {{max}} 个字符。',
     depAdd: '添加依赖',
-    depEmpty: '无',
+    depSearch: '按 #编号或标题搜索',
+    depNoResults: '没有匹配的任务',
     urlInvalid: '只允许 http 和 https 链接。',
   },
   settings: {

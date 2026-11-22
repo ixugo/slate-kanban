@@ -401,7 +401,8 @@ export const ko: Messages = {
     tagLimit: '작업당 태그는 최대 {{max}}개입니다.',
     tagTooLong: '태그는 최대 {{max}}자까지입니다.',
     depAdd: '의존 추가',
-    depEmpty: '없음',
+    depSearch: '#번호 또는 제목으로 검색',
+    depNoResults: '일치하는 작업이 없습니다',
     urlInvalid: 'http와 https만 허용됩니다.',
   },
 
