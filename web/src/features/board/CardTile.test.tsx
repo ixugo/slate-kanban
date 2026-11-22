@@ -70,6 +70,20 @@ describe('CardTile 是指向任务的链接', () => {
     expect(screen.getByRole('link', { name: '#2 Beta' })).toHaveAttribute('href', '/b/1?x=1&card=2')
   })
 
+  it('编号和领取者同列靠左，未读角标放在该行最右', async () => {
+    renderBoard('/b/1', {
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({
+        cards: [makeCard({ id: 1, title: 'Alpha', column_id: 1, claim_active: true, claimed_by: 'Orion', unread_count: 4 })],
+      }),
+    })
+
+    const unread = await screen.findByLabelText('4 unread updates')
+    const number = screen.getByText('#1')
+    const holder = screen.getByText('Held by Orion')
+    expect(number.parentElement).toContainElement(holder)
+    expect(number.parentElement?.parentElement?.lastElementChild).toBe(unread)
+  })
+
   it('地址里已有 card 时只替换它', async () => {
     renderBoard('/b/1?card=2')
     const link = await screen.findByRole('link', { name: '#1 Alpha' })

@@ -56,18 +56,20 @@ export function TileBody({ card }: { card: CardView }) {
   return (
     <div className="space-y-1.5">
       {cover && <TileCover src={cover} />}
-      <div className="flex items-center gap-1.5">
-        {card.priority > 0 && (
-          <span className={cn('size-1.5 shrink-0 rounded-full', PRIORITY_DOT[card.priority])} aria-hidden />
-        )}
-        <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{displayKey(card.key)}</span>
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          {card.priority > 0 && (
+            <span className={cn('size-1.5 shrink-0 rounded-full', PRIORITY_DOT[card.priority])} aria-hidden />
+          )}
+          <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{displayKey(card.key)}</span>
+          {card.claim_active && card.claimed_by && (
+            <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] font-medium text-agent">
+              <span className="signal-dot size-1.5 shrink-0 rounded-full bg-agent" aria-hidden />
+              <span className="truncate">{t('board.claimed', { name: card.claimed_by })}</span>
+            </span>
+          )}
+        </div>
         <UnreadBadge count={card.unread_count ?? 0} />
-        {card.claim_active && card.claimed_by && (
-          <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] font-medium text-agent">
-            <span className="signal-dot size-1.5 shrink-0 rounded-full bg-agent" aria-hidden />
-            <span className="truncate">{t('board.claimed', { name: card.claimed_by })}</span>
-          </span>
-        )}
       </div>
       <p className="line-clamp-3 text-[0.9375rem] leading-snug font-medium tracking-[-0.005em]">{card.title}</p>
       {(tagIds.length > 0 || card.due_at || card.human_only || card.waiting) && (
