@@ -11,6 +11,7 @@ import type { ActorKind, BoardEvent, Comment } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { LazyEditor } from '@/features/editor/LazyEditor'
 import { actorLabel, describeEvent } from '@/features/activity/describeEvent'
+import { EventPreviousValues } from '@/features/activity/EventPreviousValues'
 import { ViewChangeLink } from '@/features/activity/ViewChangeLink'
 import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
 import { COMMENT_MAX } from '@/lib/limits'
@@ -30,10 +31,10 @@ interface CardTimelineProps {
 const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent: BotIcon, system: ZapIcon }
 
 /** 时间线上的一条事件：图标、谁做了什么、补充说明和时间 */
-function EventLine({ event }: { event: BoardEvent }) {
+function EventLine({ event, renderCardReference }: { event: BoardEvent; renderCardReference: CardReferenceRenderer }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
-  const { text, detail, descriptionChangeId } = describeEvent(event, t)
+  const { text, detail, descriptionChangeId, previousValues } = describeEvent(event, t)
   const Icon = ACTOR_ICONS[event.actor_kind] ?? ZapIcon
   return (
     <li className="flex gap-2.5 px-1 text-ui">
@@ -47,6 +48,7 @@ function EventLine({ event }: { event: BoardEvent }) {
           {descriptionChangeId !== undefined && <ViewChangeLink cardId={event.card_id} changeId={descriptionChangeId} />}
         </p>
         {detail !== '' && <p className="line-clamp-2 text-xs break-words text-muted-foreground">{detail}</p>}
+        <EventPreviousValues values={previousValues} renderReference={(_, number) => renderCardReference(number, `#${number}`)} />
         <time dateTime={event.created_at} title={formatDateTime(event.created_at, lang)} className="font-mono text-[0.6875rem] text-muted-foreground">
           {formatRelative(event.created_at, lang)}
         </time>
@@ -117,7 +119,7 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference }:
       <ul className="space-y-3">
         {items.map((item) =>
           item.kind === 'event' ? (
-            <EventLine key={`e${item.id}`} event={item.event} />
+            <EventLine key={`e${item.id}`} event={item.event} renderCardReference={renderCardReference} />
           ) : (
             <li key={`c${item.id}`} className="rounded-2xl bg-secondary/60 p-3.5">
               <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

@@ -101,6 +101,28 @@ describe('describeEvent', () => {
     expect(describeEvent(ev('card.moved', { from: 'A', to: 'B', description_change_id: 7 }), tEn).descriptionChangeId).toBeUndefined()
   })
 
+  it('localizes changed fields and keeps previous values separate from the action title', () => {
+    const data = describeEvent(ev('card.updated', {
+      fields: ['branch', 'url', 'human_only', 'engineer_id', 'waits_on', 'priority'],
+      previous_values: {
+        branch: 'main', url: 'https://example.com/old', human_only: false,
+        engineer_id: 'Orion', waits_on: [{ id: 881, number: 81 }, null], priority: 0,
+      },
+    }), tZh)
+    expect(data.text).toBe('修改了分支、链接、仅人工、工程师、依赖、优先级')
+    expect(data.previousValues).toEqual([
+      { field: 'branch', label: '分支', text: 'main' },
+      { field: 'url', label: '链接', text: 'https://example.com/old' },
+      { field: 'human_only', label: '仅人工', text: '关闭 → 开启' },
+      { field: 'engineer_id', label: '工程师', text: 'Orion' },
+      { field: 'waits_on', label: '依赖', references: [{ id: 881, number: 81 }] },
+      { field: 'priority', label: '优先级', text: '无' },
+    ])
+    const historical = describeEvent(ev('card.updated', { fields: ['engineer_id', 'branch'] }), tZh)
+    expect(historical.text).toBe('修改了工程师、分支')
+    expect(historical.previousValues).toBeUndefined()
+  })
+
   it('不认识的事件类型显示成通用的一句话，不报错', () => {
     expect(describeEvent(ev('card.exploded'), tEn).text).toBe('did something (card.exploded)')
   })

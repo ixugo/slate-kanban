@@ -138,7 +138,7 @@ func TestDescriptionChangeCoexistsWithOtherFields(t *testing.T) {
 		t.Fatalf("修改失败: %v", err)
 	}
 	ev := e.lastEvent(t)
-	want := fmt.Sprintf(`{"description_change_id":%d,"fields":["title","description","priority"],"key":"TST-1","title":"新标题"}`, changeIDOf(t, ev))
+	want := fmt.Sprintf(`{"description_change_id":%d,"fields":["title","description","priority"],"key":"TST-1","previous_values":{"priority":0},"title":"新标题"}`, changeIDOf(t, ev))
 	if changeIDOf(t, ev) == 0 || ev.Payload != want {
 		t.Fatalf("事件载荷不对: %s，期望 %s", ev.Payload, want)
 	}

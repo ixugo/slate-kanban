@@ -49,6 +49,12 @@ func TestFinishCard(t *testing.T) {
 	if got := strings.Join(e.eventTypes(t, events), ","); got != "comment.added,card.updated,card.moved" {
 		t.Fatalf("事件的类型和顺序不对: %s", got)
 	}
+	update := e.events(t)[events+1]
+	wantUpdate := `{"fields":["branch","url"],"key":"TST-2","previous_values":{"branch":"","url":""},"title":"任务"}`
+	if update.Payload != wantUpdate {
+		t.Fatalf("交接修改事件 = %s，期望 %s", update.Payload, wantUpdate)
+	}
+
 	want := fmt.Sprintf(`{"from":"进行中","from_id":%d,"key":"TST-2","title":"任务","to":"审查","to_id":%d}`, e.col(colDoing), e.col(colReview))
 	if ev := e.lastEvent(t); ev.Type != kanban.EventCardMoved || ev.Actor != "claude" || ev.Payload != want {
 		t.Fatalf("移动事件不对: %+v，期望内容 %s", ev, want)

@@ -178,6 +178,7 @@ export const ja: Messages = {
     clearFilters: '絞り込みを解除',
     // 修改事件里时间类字段的叫法，比任务详情里的按钮名更完整
     field: { due_at: '期限', started_at: '開始日時', finished_at: '完了日時' },
+    previous: { label: '変更前', on: '有効', off: '無効', toggle: '{{from}} → {{to}}' },
     // 「説明を変更しました、変更を表示」：文とリンクの間の句読点、リンクの文言、比較ダイアログの文言
     change: {
       separator: '、',

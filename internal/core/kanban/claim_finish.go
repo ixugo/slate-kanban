@@ -84,14 +84,12 @@ func (u *unit) recordLinks(ctx context.Context, actor Actor, card *Card, in Fini
 	if in.URL != "" {
 		patch.URL = &in.URL
 	}
+	before := *card
 	changed, err := patch.apply(card)
 	if err != nil || len(changed) == 0 {
 		return err
 	}
-	return u.emit(ctx, actor, newEvent{
-		BoardID: card.BoardID, CardID: card.ID, Type: EventCardUpdated,
-		Payload: cardPayload(card, map[string]any{"fields": changed}),
-	})
+	return u.emitCardUpdates(ctx, actor, card, changed, 0, &before)
 }
 
 // handOver 把任务放到目标列的指定位置（默认列尾，in.Top 为真时列头）并清除领取。换了列时 card.moved 已经表达了"领取结束"，

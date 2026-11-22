@@ -178,6 +178,7 @@ export const ko: Messages = {
     clearFilters: '필터 해제',
     // 修改事件里时间类字段的叫法，比任务详情里的按钮名更完整
     field: { due_at: '마감일', started_at: '시작 시각', finished_at: '완료 시각' },
+    previous: { label: '이전', on: '켜짐', off: '꺼짐', toggle: '{{from}} → {{to}}' },
     // “설명을 변경했습니다, 변경 내용 보기”: 문장과 링크 사이의 문장부호, 링크 문구, 비교 창의 문구
     change: {
       separator: ', ',

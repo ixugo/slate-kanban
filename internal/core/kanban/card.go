@@ -299,7 +299,7 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 			return err
 		}
 	}
-	oldDescription := card.Description
+	before := *card
 	changed, err := in.apply(card)
 	if err != nil || len(changed) == 0 {
 		return err
@@ -318,34 +318,41 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 	if err := u.saveCard(ctx, actor, card); err != nil {
 		return err
 	}
-	return u.finishCardUpdate(ctx, actor, card, changed, oldDescription)
+	return u.finishCardUpdate(ctx, actor, card, changed, &before)
 }
 
 // finishCardUpdate 在任务保存之后收尾：描述变了就同步图片引用，并把这次修改记进变更日志，
 // 最后按改了什么写事件，事件载荷里带着变更记录的编号。
-func (u *unit) finishCardUpdate(ctx context.Context, actor Actor, card *Card, changed []string, oldDescription string) error {
+func (u *unit) finishCardUpdate(ctx context.Context, actor Actor, card *Card, changed []string, before *Card) error {
 	var descriptionChangeID int64
 	if slices.Contains(changed, CardFieldDescription) {
-		if err := u.syncImages(ctx, card.BoardID, oldDescription, card.Description); err != nil {
+		if err := u.syncImages(ctx, card.BoardID, before.Description, card.Description); err != nil {
 			return err
 		}
-		id, err := u.recordDescriptionChange(ctx, actor, card, oldDescription)
+		id, err := u.recordDescriptionChange(ctx, actor, card, before.Description)
 		if err != nil {
 			return err
 		}
 		descriptionChangeID = id
 	}
-	return u.emitCardUpdates(ctx, actor, card, changed, descriptionChangeID)
+	return u.emitCardUpdates(ctx, actor, card, changed, descriptionChangeID, before)
 }
 
 // emitCardUpdates 按改了什么写事件：标签的变化单独写 card.tags_updated，
 // 其余字段写 card.updated，同时改了两类就两条都写。
 // 标签变化很琐碎，拆成独立类型后，网页的活动流可以用 exclude_types 把它整条排除，而实时广播照常有。
 // descriptionChangeID 大于 0 说明这次改了描述，card.updated 的载荷里带上它，网页据此显示「查看变更」。
-func (u *unit) emitCardUpdates(ctx context.Context, actor Actor, card *Card, changed []string, descriptionChangeID int64) error {
+func (u *unit) emitCardUpdates(ctx context.Context, actor Actor, card *Card, changed []string, descriptionChangeID int64, before *Card) error {
 	rest := slices.DeleteFunc(slices.Clone(changed), func(f string) bool { return f == "tag_ids" })
 	if len(rest) > 0 {
 		extra := map[string]any{"fields": rest}
+		previous, err := u.cardUpdatePreviousValues(ctx, before, rest)
+		if err != nil {
+			return err
+		}
+		if len(previous) > 0 {
+			extra["previous_values"] = previous
+		}
 		if descriptionChangeID > 0 {
 			extra["description_change_id"] = descriptionChangeID
 		}

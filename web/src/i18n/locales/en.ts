@@ -181,6 +181,7 @@ export const en = {
     clearFilters: 'Clear filters',
     // 修改事件里时间类字段的叫法，比任务详情里的按钮名更完整
     field: { due_at: 'Due date', started_at: 'Start time', finished_at: 'Finish time' },
+    previous: { label: 'Previous', on: 'On', off: 'Off', toggle: '{{from}} → {{to}}' },
     // “changed Description, view changes”：句子和链接之间的标点、链接文字，以及对比弹窗里的文字
     change: {
       separator: ', ',

@@ -178,6 +178,7 @@ export const zhCN: Messages = {
     clearFilters: '清除筛选',
     // 修改事件里时间类字段的叫法，比任务详情里的按钮名更完整
     field: { due_at: '截止时间', started_at: '开始时间', finished_at: '完成时间' },
+    previous: { label: '之前', on: '开启', off: '关闭', toggle: '{{from}} → {{to}}' },
     // 「修改了描述，查看变更」：句子和链接之间的标点、链接文字，以及对比弹窗里的文字
     change: {
       separator: '，',

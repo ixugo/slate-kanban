@@ -8,6 +8,8 @@ import type { ActorKind, BoardEvent, CardView } from '@/lib/api/types'
 import { formatDateTime, formatRelative } from '@/lib/format'
 import { actorLabel, describeEvent, eventCard } from './describeEvent'
 import { ViewChangeLink } from './ViewChangeLink'
+import { CardReference } from '@/features/card/CardReference'
+import { EventPreviousValues } from './EventPreviousValues'
 import { displayKey } from '@/lib/cardKey'
 
 interface ActivityItemProps {
@@ -24,8 +26,8 @@ const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent
 export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
-  const [params] = useSearchParams()
-  const { text, detail, descriptionChangeId } = describeEvent(event, t)
+  const [params, setParams] = useSearchParams()
+  const { text, detail, descriptionChangeId, previousValues } = describeEvent(event, t)
   const card = eventCard(event, cardsById)
   const Icon = ACTOR_ICONS[event.actor_kind] ?? ZapIcon
   // 沿用地址里已有的其他参数，只替换 card
@@ -45,6 +47,24 @@ export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps
           {descriptionChangeId !== undefined && card?.id != null && <ViewChangeLink cardId={card.id} changeId={descriptionChangeId} />}
         </p>
         {detail !== '' && <p className="line-clamp-3 text-xs break-words text-muted-foreground">{detail}</p>}
+        <EventPreviousValues
+          values={previousValues}
+          renderReference={(id, number) => {
+            const target = cardsById.get(id)
+            const label = `#${number}`
+            if (!target) return label
+            return (
+              <CardReference label={label} card={target} onOpen={() => {
+                setParams((prev) => {
+                  const params = new URLSearchParams(prev)
+                  params.set('card', String(target.id))
+                  return params
+                })
+                onOpenCard()
+              }} />
+            )
+          }}
+        />
         {card && (
           <p className="truncate text-xs">
             {card.id === null ? (
