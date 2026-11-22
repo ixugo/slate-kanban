@@ -98,8 +98,11 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
     setReferences((previous) => (previous.at(-1) ?? rootId) === target.id ? previous : [...previous, target.id])
   }
 
-  const renderCardReference = (number: number, label: string) => {
+  const renderCardReference = (number: number, reference: string) => {
     const target = cardsByNumber.get(number)
+    const isShortReference = reference.startsWith('#')
+    if (!isShortReference && target?.key !== reference) return reference
+    const label = isShortReference ? reference : '#' + number
     return <CardReference label={label} card={target} onOpen={() => openReference(target)} />
   }
 

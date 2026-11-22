@@ -71,7 +71,7 @@ function openBoardWithCard(detail: typeof baseDetail, events: object[] = [], lib
   return api
 }
 
-function openCardReferences() {
+function openCardReferences(commentBody = 'Comment #25, `#38`, [link #44](https://example.com) and \\#55.') {
   const root = {
     ...baseDetail,
     title: 'First card',
@@ -82,7 +82,7 @@ function openCardReferences() {
       card_id: 1,
       author_kind: 'human',
       author: 'human',
-      body: 'Comment #25, `#38`, [link #44](https://example.com) and \\#55.',
+      body: commentBody,
       created_at: '2026-11-18T10:00:00Z',
       updated_at: '2026-11-18T10:00:00Z',
     }],
@@ -123,6 +123,30 @@ describe('CardDialog', () => {
     expect(api.count('GET /api/v1/cards/25')).toBe(0)
     await user.keyboard('{Escape}')
     expect(await within(dialog).findByDisplayValue('First card')).toBeInTheDocument()
+  })
+
+  it('旧同板任务键显示为可预览的编号，普通文本、代码和链接保持原样', async () => {
+    openCardReferences([
+      '旧写法TST-14，现有引用 #25。',
+      'OTHER-14 TST-98 ref/TST-14 TST-14.md',
+      '`TST-14` [TST-14](https://example.com/TST-14) https://example.com/TST-14',
+      '```text',
+      'TST-14',
+      '```',
+    ].join('\n'))
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    const comment = await within(dialog).findByText(/OTHER-14 TST-98 ref\/TST-14 TST-14\.md/)
+    const reference = within(comment).getByRole('button', { name: '#14' })
+    expect(within(comment).getByRole('button', { name: '#25' })).toBeInTheDocument()
+    expect(within(comment).getByRole('link', { name: 'TST-14' })).toHaveAttribute('href', 'https://example.com/TST-14')
+    expect(within(comment).getByRole('link', { name: 'https://example.com/TST-14' })).toBeInTheDocument()
+    expect(dialog.querySelector('pre code')).toHaveTextContent('TST-14')
+    expect([...dialog.querySelectorAll('p code')].some((node) => node.textContent === 'TST-14')).toBe(true)
+    await user.hover(reference)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Second card')
+    await user.click(reference)
+    expect(await within(dialog).findByDisplayValue('Second card')).toBeInTheDocument()
   })
 
   it('描述和评论在鼠标悬浮时只对存在的同板任务显示磁贴预览', async () => {

@@ -38,7 +38,7 @@ type claimCardIn struct {
 // finishCardIn 是 finish_card 的入参。
 type finishCardIn struct {
 	CardID   int64  `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
-	Summary  string `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在任务下"`
+	Summary  string `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在任务下；引用同板任务时在正文写 #数字，例如 #86"`
 	Branch   string `json:"branch,omitempty" jsonschema:"这次工作用的分支名；不填表示不改"`
 	URL      string `json:"url,omitempty" jsonschema:"相关链接，例如合并请求，必须以 http:// 或 https:// 开头；不填表示不改"`
 	ColumnID int64  `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；按各列 instruction 的约定选择"`
@@ -49,7 +49,7 @@ type finishCardIn struct {
 // commentCardIn 是 comment_card 的入参。
 type commentCardIn struct {
 	CardID int64  `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
-	Body   string `json:"body" jsonschema:"评论正文，1 到 20000 字；评论只能新增，不能修改"`
+	Body   string `json:"body" jsonschema:"评论正文，1 到 20000 字；引用同板任务时在正文写 #数字，例如 #86，网页上可悬浮和点击；评论只能新增，不能修改"`
 }
 
 // createCardIn 是创建任务的入参，agent 视图只有这些字段。
