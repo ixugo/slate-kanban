@@ -48,8 +48,6 @@ const TIME_ACTIONS: ActionType[] = [
   'set_finished_at',
   'clear_started_at',
   'clear_finished_at',
-  'set_due',
-  'clear_due',
 ]
 
 const CARD_ACTIONS: ActionType[] = [
@@ -260,7 +258,9 @@ function ThenRow({
           </Button>
         )}
       </div>
-      <ActionFields row={row} columns={columns} onChange={onChange} hideTimeMode />
+      {row.type !== 'set_due' && row.type !== 'clear_due' && (
+        <ActionFields row={row} columns={columns} onChange={onChange} hideTimeMode />
+      )}
     </div>
   )
 }
@@ -279,6 +279,11 @@ function ActionTypeSelect({ row, onChange }: { row: ActionFormRow; onChange: (ro
       <SelectContent>
         <SelectGroup>
           <SelectLabel>{t('settings.rules.actionGroups.time')}</SelectLabel>
+          {(row.type === 'set_due' || row.type === 'clear_due') && (
+            <SelectItem value={row.type} disabled>
+              {t('settings.rules.inactiveAction', { name: t(`settings.rules.actionTypes.${row.type}`) })}
+            </SelectItem>
+          )}
           {TIME_ACTIONS.map((type) => (
             <SelectItem key={type} value={type}>
               {t(`settings.rules.actionTypes.${type}` as TranslationKey)}

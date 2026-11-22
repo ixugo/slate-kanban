@@ -541,6 +541,7 @@ export const ko: Messages = {
         actionInvalid: '동작 매개변수를 확인하세요.',
         columnRequired: '이 프로젝트에 있는 열을 선택하세요.',
       },
+      inactiveAction: '{{name}} (비활성)',
       actionTypes: {
         set_started_at: '시작 시각 설정',
         set_finished_at: '완료 시각 설정',

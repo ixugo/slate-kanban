@@ -540,6 +540,7 @@ export const zhCN: Messages = {
         actionInvalid: '请检查动作参数。',
         columnRequired: '请选择项目里存在的列。',
       },
+      inactiveAction: '{{name}}（已停用）',
       actionTypes: {
         set_started_at: '写入开始时间',
         set_finished_at: '写入结束时间',

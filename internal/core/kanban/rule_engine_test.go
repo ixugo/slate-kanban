@@ -157,7 +157,7 @@ func TestRuleConditionUsesPostTriggerState(t *testing.T) {
 	})
 	e.mustCreateRule(t, kanban.CreateRuleInput{
 		Name: "前端才执行", Trigger: kanban.TriggerCardEntered, ColumnID: e.col(colDoing), Condition: "tag:前端",
-		Actions: []kanban.RuleAction{{Type: kanban.ActionSetDue, Days: 7}},
+		Actions: []kanban.RuleAction{{Type: kanban.ActionSetPriority, Priority: 2}},
 	})
 	c := e.card(t, colTodo, "A")
 

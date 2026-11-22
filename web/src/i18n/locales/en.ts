@@ -543,6 +543,7 @@ export const en = {
         actionInvalid: 'Check action parameters.',
         columnRequired: 'Pick a column that exists in this project.',
       },
+      inactiveAction: '{{name}} (inactive)',
       actionTypes: {
         set_started_at: 'Set started time',
         set_finished_at: 'Set finished time',

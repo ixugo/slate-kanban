@@ -541,6 +541,7 @@ export const zhTW: Messages = {
         actionInvalid: '請檢查動作參數。',
         columnRequired: '請選擇專案裡存在的欄。',
       },
+      inactiveAction: '{{name}}（已停用）',
       actionTypes: {
         set_started_at: '寫入開始時間',
         set_finished_at: '寫入結束時間',

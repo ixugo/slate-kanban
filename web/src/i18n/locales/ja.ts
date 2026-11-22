@@ -541,6 +541,7 @@ export const ja: Messages = {
         actionInvalid: 'アクションのパラメータを確認してください。',
         columnRequired: 'このプロジェクトに存在する列を選んでください。',
       },
+      inactiveAction: '{{name}}（無効）',
       actionTypes: {
         set_started_at: '開始時刻を設定',
         set_finished_at: '完了時刻を設定',

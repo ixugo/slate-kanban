@@ -19,12 +19,8 @@ func applyFieldAction(card *Card, a RuleAction, now time.Time) (changed bool, sk
 		return clearTime(&card.StartedAt), ""
 	case ActionClearFinishedAt:
 		return clearTime(&card.FinishedAt), ""
-	case ActionSetDue:
-		due := now.Add(time.Duration(a.Days) * 24 * time.Hour)
-		card.DueAt = &due
-		return true, ""
-	case ActionClearDue:
-		return clearTime(&card.DueAt), ""
+	case ActionSetDue, ActionClearDue:
+		return false, "截止时间由人设置，原有自动化动作已停用"
 	case ActionSetPriority:
 		changed = card.Priority != a.Priority
 		card.Priority = a.Priority

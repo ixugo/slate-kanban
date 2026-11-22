@@ -3,9 +3,6 @@
 
 import { toLocalInput } from '@/lib/format'
 
-/** 截止时间勾选后的默认时刻 */
-export const DEFAULT_DUE_TIME = '18:00'
-
 /** 弹窗表单的草稿：每个日期一个勾选框，加日期（截止还有时刻） */
 export interface DatesDraft {
   start: boolean
@@ -35,23 +32,26 @@ export function draftOf(card: { started_at: string | null; due_at: string | null
     startDate,
     due: dueDate !== '',
     dueDate,
-    dueTime: dueTime || DEFAULT_DUE_TIME,
+    dueTime,
   }
 }
 
-/** 勾选某一项时补默认值：没有日期就用今天，截止没有时刻就用默认时刻 */
-export function withDefaults(draft: DatesDraft, today: string = todayLocal()): DatesDraft {
+/** 勾选时，开始日期补今天，截止日期和时间补本地明天的相同时分。 */
+export function withDefaults(draft: DatesDraft, now: Date = new Date()): DatesDraft {
+  const tomorrow = new Date(now)
+  tomorrow.setDate(now.getDate() + 1)
+  const time = toLocalInput(now.toISOString()).slice(11)
   return {
     ...draft,
-    startDate: draft.start && draft.startDate === '' ? today : draft.startDate,
-    dueDate: draft.due && draft.dueDate === '' ? today : draft.dueDate,
-    dueTime: draft.dueTime === '' ? DEFAULT_DUE_TIME : draft.dueTime,
+    startDate: draft.start && !draft.startDate ? todayLocal(now) : draft.startDate,
+    dueDate: draft.due && !draft.dueDate ? todayLocal(tomorrow) : draft.dueDate,
+    dueTime: draft.due && !draft.dueTime ? time : draft.dueTime,
   }
 }
 
 /** 表单是否有问题：返回问题的类型，没问题返回 null。勾选了但日期为空，或截止日期早于开始日期 */
 export function draftProblem(draft: DatesDraft): 'empty' | 'order' | null {
-  if ((draft.start && draft.startDate === '') || (draft.due && draft.dueDate === '')) return 'empty'
+  if ((draft.start && draft.startDate === '') || (draft.due && (!draft.dueDate || !draft.dueTime))) return 'empty'
   if (draft.start && draft.due && draft.dueDate < draft.startDate) return 'order'
   return null
 }
@@ -66,7 +66,7 @@ export function datesPatch(card: { started_at: string | null; due_at: string | n
   const nextStart = !draft.start ? '' : draft.startDate === currentStart.slice(0, 10) ? currentStart : `${draft.startDate}T00:00`
   if (nextStart !== currentStart) patch.started_at = nextStart
   const currentDue = toLocalInput(card.due_at)
-  const nextDue = !draft.due ? '' : `${draft.dueDate}T${draft.dueTime || DEFAULT_DUE_TIME}`
+  const nextDue = !draft.due ? '' : `${draft.dueDate}T${draft.dueTime}`
   if (nextDue !== currentDue) patch.due_at = nextDue
   return patch
 }

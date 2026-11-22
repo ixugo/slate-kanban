@@ -16,7 +16,7 @@ type ruleActionIn struct {
 	Tag      string `json:"tag,omitempty" jsonschema:"add_tag 和 remove_tag 用：标签，1 到 30 字"`
 	Text     string `json:"text,omitempty" jsonschema:"add_comment 用：要自动写下的评论，最多 2000 字"`
 	ColumnID int64  `json:"column_id,omitempty" jsonschema:"move_to_column 用：目标列编号"`
-	Days     int    `json:"days,omitempty" jsonschema:"set_due 用：到期时间设为从现在起几天后，1 到 365"`
+	Days     int    `json:"days,omitempty" jsonschema:"旧截止动作的 days（仅兼容已有规则，不再执行）"`
 	Priority int    `json:"priority,omitempty" jsonschema:"set_priority 用：0 到 3，0 表示未设置"`
 	Flag     bool   `json:"flag,omitempty" jsonschema:"set_human_only 用：true 设为只能由人处理，false 取消"`
 }
@@ -69,7 +69,7 @@ func (a API) registerRuleTools(s *mcp.Server) {
 			"card_left（任务离开某一列）；column_id 指定发生在哪一列，不填表示任意列。" +
 			"condition 用 list_cards 的筛选语法，任务满足才执行，不填表示无条件。\n" +
 			"动作 actions 的 type：set_started_at、set_finished_at（把时间写成现在，mode 为 if_empty 只在为空时写，是默认，always 覆盖已有的值）；" +
-			"clear_started_at、clear_finished_at、clear_due（清除时间）；set_due（days：从现在起几天后到期）；" +
+			"clear_started_at、clear_finished_at（清除时间）；截止时间由人设置，旧 set_due/clear_due 不再执行；" +
 			"set_priority（priority：0 到 3）；add_tag、remove_tag（tag）；set_human_only（flag）；" +
 			"add_comment（text：自动写一条评论）；move_to_column（column_id：把任务移到另一列，会继续触发那一列的规则，连锁最多 3 层）。\n" +
 			"保存时就会校验整条规则，写错的规则会被拒绝，不会保存成永远不触发的样子。",

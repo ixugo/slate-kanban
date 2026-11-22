@@ -317,3 +317,17 @@ func TestDeleteRule(t *testing.T) {
 		t.Fatalf("只应该删掉目标规则: %v", names)
 	}
 }
+
+// TestRejectNewDeadlineRule 确认 REST/MCP 共用的规则入口拒绝新增截止时间动作。
+func TestRejectNewDeadlineRule(t *testing.T) {
+	e := newClaimEnv(t)
+	for _, action := range []kanban.RuleAction{{Type: kanban.ActionSetDue, Days: 1}, {Type: kanban.ActionClearDue}} {
+		t.Run(action.Type, func(t *testing.T) {
+			input := newRuleInput("旧截止时间动作", e.col(colDoing))
+			input.Actions = []kanban.RuleAction{action}
+			if _, err := e.core.CreateRule(t.Context(), testActor, e.board.ID, input); !errors.Is(err, kanban.ErrInvalidInput) {
+				t.Fatalf("应拒绝新增截止时间动作，实际 %v", err)
+			}
+		})
+	}
+}

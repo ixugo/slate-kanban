@@ -48,6 +48,9 @@ func (c Core) CreateRule(ctx context.Context, actor Actor, boardID int64, in Cre
 		if err := normalizeRule(r, cols); err != nil {
 			return err
 		}
+		if err := rejectNewDueActions(r.Actions, nil); err != nil {
+			return err
+		}
 		if err := u.rule.Create(ctx, r); err != nil {
 			return wrapDB("创建规则", err)
 		}
@@ -109,6 +112,9 @@ func (u *unit) updateRule(ctx context.Context, actor Actor, r *Rule, in UpdateRu
 	if err := normalizeRule(r, cols); err != nil {
 		return err
 	}
+	if err := rejectNewDueActions(r.Actions, before.Actions); err != nil {
+		return err
+	}
 	if sameRule(&before, r) {
 		return nil
 	}
@@ -117,6 +123,27 @@ func (u *unit) updateRule(ctx context.Context, actor Actor, r *Rule, in UpdateRu
 		return wrapDB("保存规则", err)
 	}
 	return u.emit(ctx, actor, newEvent{BoardID: r.BoardID, Type: EventRuleUpdated, Payload: rulePayload(r)})
+}
+
+// rejectNewDueActions 允许继续编辑含旧截止动作的规则，但不能新增或改写这些动作。
+func rejectNewDueActions(actions, previous []RuleAction) error {
+	var legacy []RuleAction
+	for _, action := range previous {
+		if action.Type == ActionSetDue || action.Type == ActionClearDue {
+			legacy = append(legacy, action)
+		}
+	}
+	for _, action := range actions {
+		if action.Type != ActionSetDue && action.Type != ActionClearDue {
+			continue
+		}
+		index := slices.Index(legacy, action)
+		if index < 0 {
+			return invalidf("截止时间不能由自动化设置或清除")
+		}
+		legacy = slices.Delete(legacy, index, index+1)
+	}
+	return nil
 }
 
 // sameRule 判断两条规则的可配置内容是否完全一样。
