@@ -60,7 +60,7 @@ export default function SettingsPage() {
     <PageShell
       title={data.name}
       back={
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="outline" size="sm" className="bg-card" asChild>
           <Link to={`/b/${boardId}`}>
             <ArrowLeftIcon />
             {t('settings.backToBoard')}
