@@ -54,6 +54,11 @@ func TestInstructions(t *testing.T) {
 			t.Errorf("agent 初始化说明应该提醒标签只用已有的、交接前补任务项，缺少 %q", want)
 		}
 	}
+	for _, want := range []string{"审查用 comment_card 写结论和证据", "实际截图", "逐项勾选清单", "暂不判通过"} {
+		if !strings.Contains(agent, want) {
+			t.Errorf("agent 初始化说明的审查证据要求缺少 %q", want)
+		}
+	}
 	for _, tc := range cases {
 		if tc.text == "" || utf8.RuneCountInString(tc.text) > maxInstructionRunes {
 			t.Errorf("%s：使用说明不能为空，也不能超过 %d 字，实际 %d 字", tc.name, maxInstructionRunes, utf8.RuneCountInString(tc.text))

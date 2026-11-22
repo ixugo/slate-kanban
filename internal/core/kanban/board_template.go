@@ -54,7 +54,7 @@ const (
 var seedEngineerTexts = [engineerSeedCount]engineerText{
 	seedDev1:   {Name: "Atlas", Prompt: seedDevPrompt},
 	seedDev2:   {Name: "Orion", Prompt: seedDevPrompt},
-	seedReview: {Name: "Sentinel", Prompt: "你是测试工程师，只验收，不改代码。先只读了解任务并向调度者回传审查方案，等方案评论成功后再开始验收。对照任务原文逐条检查，运行测试、构建和静态检查，必要时实际运行功能；给出通过或不通过的结论，不通过时写清哪里不对、怎么复现、怎么改。"},
+	seedReview: {Name: "Sentinel", Prompt: "你是测试工程师，只验收，不改代码。先只读了解任务并向调度者回传审查方案，等方案评论成功后再开始验收。对照任务原文逐条检查，运行测试、构建和静态检查，必要时实际运行功能；回传逐项验收结果和依据，页面验收时回传实际效果截图。给出通过或不通过的结论，不通过时写清哪里不对、怎么复现、怎么改。"},
 }
 
 // seedDevPrompt 是两位起步全栈工程师共用的角色提示词。
@@ -134,7 +134,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "审查",
-				Instruction: "这一列是审查区：只有这一列的任务才可以派发审查子 agent 处理，审查只验收，不修改代码。任务在这一列就直接在这里领取并审查，不要先移到「进行中」：只有研发任务才在「进行中」处理，审查不通过需要返工时才放回去。领取任务后读完描述、评论、研发的交接总结和分支，把任务原文按你的理解写成审查要求，派子 agent 逐条对照验收、跑测试，必要时实际运行。子 agent 先只读拟定审查方案并回传给你，你用 comment_card 代发到任务下，评论成功后才通知它开始验收。通过：在任务下留言写出审查结论，再把任务移到完成列，任务才算完成，这个决定只能由审查做出。不通过：在任务下留言写清楚哪里不对、怎么改，再把任务放回 agent 领取任务的那一列（通常是「进行中」），由研发返工。",
+				Instruction: "这一列是审查区：只有这一列的任务才可以派发审查子 agent 处理，审查只验收，不修改代码。任务在这一列就直接在这里领取并审查，不要先移到「进行中」：只有研发任务才在「进行中」处理，审查不通过需要返工时才放回去。领取任务后读完描述、评论、研发的交接总结和分支，把任务原文按你的理解写成审查要求，派子 agent 逐条对照验收、跑测试，必要时实际运行。子 agent 先只读拟定审查方案并回传给你，你用 comment_card 代发到任务下，评论成功后才通知它开始验收。用 comment_card 发布结论和证据：页面验收附实际截图，功能验收逐项勾选并写明依据（- [x] 通过，- [ ] 未通过或未验证）。缺少必要证据时写清原因，暂不判通过。通过：在任务下留言写出审查结论，再把任务移到完成列，任务才算完成，这个决定只能由审查做出。不通过：在任务下留言写清楚哪里不对、怎么改，再把任务放回 agent 领取任务的那一列（通常是「进行中」），由研发返工。",
 			},
 			textDone: {
 				Name:        "完成",
@@ -159,7 +159,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "審查",
-				Instruction: "這一列是審查區：只有這一列的任務才可以派發審查子 agent 處理，審查只驗收，不修改程式碼。領取任務後讀完描述、留言、研發的交接總結與分支，把任務原文依你的理解寫成審查要求，派子 agent 逐條對照驗收、跑測試，必要時實際執行。子 agent 先以唯讀方式擬定審查方案並回傳給你，由你用 comment_card 代為留言，留言成功後才通知它開始驗收。通過：在任務下留言寫出審查結論，再把任務移到完成列，任務才算完成，這個決定只能由審查做出。不通過：在任務下留言寫清楚哪裡不對、怎麼改，再把任務放回 agent 領取任務的那一列（通常是「進行中」），由研發返工。",
+				Instruction: "這一列是審查區：只有這一列的任務才可以派發審查子 agent 處理，審查只驗收，不修改程式碼。領取任務後讀完描述、留言、研發的交接總結與分支，把任務原文依你的理解寫成審查要求，派子 agent 逐條對照驗收、跑測試，必要時實際執行。子 agent 先以唯讀方式擬定審查方案並回傳給你，由你用 comment_card 代為留言，留言成功後才通知它開始驗收。用 comment_card 發布結論與證據：頁面驗收附上實際畫面截圖，功能驗收逐項勾選並寫明依據（- [x] 通過，- [ ] 未通過或未驗證）。缺少必要證據時寫明原因，暫不判通過。通過：在任務下留言寫出審查結論，再把任務移到完成列，任務才算完成，這個決定只能由審查做出。不通過：在任務下留言寫清楚哪裡不對、怎麼改，再把任務放回 agent 領取任務的那一列（通常是「進行中」），由研發返工。",
 			},
 			textDone: {
 				Name:        "完成",
@@ -184,7 +184,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "Review",
-				Instruction: "This is the review column: only tasks here may be handed to review sub-agents, and review only checks the work and never edits code. After claiming a task, read its description, comments, the developer's hand-over summary and the branch, write review requirements from the original task as you understand it, and have a sub-agent verify each point, run the tests and run the code when needed. The sub-agent first inspects the task without editing and sends you a review plan. Post it to the task with comment_card and tell the sub-agent to start review only after the comment is saved. Pass: leave a comment with the review conclusion, then move the task to the Done column; the task is complete only then, and only review may decide that. Fail: leave a comment saying what is wrong and how to fix it, then put the task back in the column where agents pick up work (usually “In progress”) for rework.",
+				Instruction: "This is the review column: only tasks here may be handed to review sub-agents, and review only checks the work and never edits code. After claiming a task, read its description, comments, the developer's hand-over summary and the branch, write review requirements from the original task as you understand it, and have a sub-agent verify each point, run the tests and run the code when needed. The sub-agent first inspects the task without editing and sends you a review plan. Post it to the task with comment_card and tell the sub-agent to start review only after the comment is saved. Use comment_card to publish the conclusion and evidence: attach screenshots of the actual pages reviewed. For functional review, record evidence and mark each checklist item (- [x] passed, - [ ] failed or unverified). If required evidence is missing, explain why and withhold a pass. Pass: leave a comment with the review conclusion, then move the task to the Done column; the task is complete only then, and only review may decide that. Fail: leave a comment saying what is wrong and how to fix it, then put the task back in the column where agents pick up work (usually “In progress”) for rework.",
 			},
 			textDone: {
 				Name:        "Done",
@@ -209,7 +209,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "レビュー",
-				Instruction: "この列はレビュー用です。サブエージェントにレビューを任せられるのは、この列のタスクだけで、レビューは検収のみでコードは変更しません。タスクを担当したら、説明、コメント、開発側の引き継ぎ要約、ブランチを読み、タスクの原文を自分の理解でレビュー要件にまとめ、サブエージェントに 1 項目ずつ検収させ、テストを実行し、必要なら実際に動かさせます。サブエージェントは最初に読み取りだけを行い、レビュー計画をあなたに返します。あなたが comment_card でタスクに計画を投稿し、保存されたことを確認してから検収を始めさせます。合格：レビュー結果をタスクにコメントしてから、タスクを完了列へ移します。それで初めてタスク完了となり、この判断はレビューだけが行えます。不合格：どこが違うか、どう直すかをコメントしてから、エージェントが作業を担当する列（通常は「進行中」）へタスクを戻し、開発側にやり直させます。",
+				Instruction: "この列はレビュー用です。サブエージェントにレビューを任せられるのは、この列のタスクだけで、レビューは検収のみでコードは変更しません。タスクを担当したら、説明、コメント、開発側の引き継ぎ要約、ブランチを読み、タスクの原文を自分の理解でレビュー要件にまとめ、サブエージェントに 1 項目ずつ検収させ、テストを実行し、必要なら実際に動かさせます。サブエージェントは最初に読み取りだけを行い、レビュー計画をあなたに返します。あなたが comment_card でタスクに計画を投稿し、保存されたことを確認してから検収を始めさせます。comment_card で結論と証拠を投稿します。画面の検収では実際の画面のスクリーンショットを添付し、機能の検収では各項目に根拠と結果（- [x] 合格、- [ ] 不合格または未確認）を記録します。必要な証拠がない場合は理由を記載し、合格判定を保留します。合格：レビュー結果をタスクにコメントしてから、タスクを完了列へ移します。それで初めてタスク完了となり、この判断はレビューだけが行えます。不合格：どこが違うか、どう直すかをコメントしてから、エージェントが作業を担当する列（通常は「進行中」）へタスクを戻し、開発側にやり直させます。",
 			},
 			textDone: {
 				Name:        "完了",
@@ -234,7 +234,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "검토",
-				Instruction: "이 열은 검토 영역입니다. 검토 하위 에이전트에게 맡길 수 있는 작업은 이 열의 작업뿐이며, 검토는 검수만 하고 코드를 수정하지 않습니다. 작업을 맡은 뒤 설명, 댓글, 개발 쪽 인수인계 요약, 브랜치를 읽고, 작업 원문을 당신의 이해대로 검토 요구 사항으로 정리해 하위 에이전트가 항목별로 검수하고 테스트를 돌리고 필요하면 실제로 실행하게 하세요. 하위 에이전트는 먼저 읽기 전용으로 조사하고 검토 계획을 조율자에게 전달합니다. 조율자가 comment_card로 작업에 계획을 남기고 저장을 확인한 뒤 검수를 시작하도록 하세요. 통과: 작업에 검토 결론을 댓글로 남긴 뒤 작업을 완료 열로 옮깁니다. 그때 비로소 작업이 완료되며, 이 결정은 검토만 내릴 수 있습니다. 통과하지 못함: 무엇이 틀렸고 어떻게 고칠지 댓글로 남긴 뒤, 에이전트가 작업을 맡는 열(보통 '진행 중')로 작업을 되돌려 개발이 다시 하게 하세요.",
+				Instruction: "이 열은 검토 영역입니다. 검토 하위 에이전트에게 맡길 수 있는 작업은 이 열의 작업뿐이며, 검토는 검수만 하고 코드를 수정하지 않습니다. 작업을 맡은 뒤 설명, 댓글, 개발 쪽 인수인계 요약, 브랜치를 읽고, 작업 원문을 당신의 이해대로 검토 요구 사항으로 정리해 하위 에이전트가 항목별로 검수하고 테스트를 돌리고 필요하면 실제로 실행하게 하세요. 하위 에이전트는 먼저 읽기 전용으로 조사하고 검토 계획을 조율자에게 전달합니다. 조율자가 comment_card로 작업에 계획을 남기고 저장을 확인한 뒤 검수를 시작하도록 하세요. comment_card로 결론과 증거를 게시하세요. 화면 검수는 실제 화면의 스크린샷을 첨부하고, 기능 검수는 체크리스트 항목별로 근거와 결과(- [x] 통과, - [ ] 실패 또는 미검증)를 기록하세요. 필요한 증거가 없으면 이유를 적고 통과 판정을 보류하세요. 통과: 작업에 검토 결론을 댓글로 남긴 뒤 작업을 완료 열로 옮깁니다. 그때 비로소 작업이 완료되며, 이 결정은 검토만 내릴 수 있습니다. 통과하지 못함: 무엇이 틀렸고 어떻게 고칠지 댓글로 남긴 뒤, 에이전트가 작업을 맡는 열(보통 '진행 중')로 작업을 되돌려 개발이 다시 하게 하세요.",
 			},
 			textDone: {
 				Name:        "완료",

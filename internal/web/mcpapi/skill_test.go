@@ -134,6 +134,13 @@ func TestSkillResource(t *testing.T) {
 		if got.URI != skillResourceURI || got.MIMEType != "text/markdown" || got.Text != skills.SlateKanban() {
 			t.Errorf("%s：读到的 skill 地址、类型或内容不对: %s %s", name, got.URI, got.MIMEType)
 		}
+		_, review, _ := strings.Cut(got.Text, "## 五、派审查")
+		review, _, _ = strings.Cut(review, "## 六、")
+		for _, want := range []string{"回传实际效果截图", "upload_image", "comment_card", "- [x] 项目与证据", "- [ ] 项目与原因", "暂不判通过"} {
+			if !strings.Contains(review, want) {
+				t.Errorf("%s：skill 的审查证据要求缺少 %q", name, want)
+			}
+		}
 	}
 }
 

@@ -114,6 +114,27 @@ func TestPlanCommentInTemplate(t *testing.T) {
 	}
 }
 
+func TestReviewEvidenceInTemplate(t *testing.T) {
+	screenshot := map[string]string{
+		"zh-CN": "实际截图",
+		"zh-TW": "畫面截圖",
+		"en":    "screenshots of the actual pages",
+		"ja":    "スクリーンショット",
+		"ko":    "스크린샷",
+	}
+	for _, locale := range supportedLocales {
+		instruction := textsFor(locale).Columns[textReview].Instruction
+		for _, want := range []string{screenshot[locale], "- [x]", "- [ ]"} {
+			if !strings.Contains(instruction, want) {
+				t.Errorf("%s 的审查列证据要求缺少 %q", locale, want)
+			}
+		}
+	}
+	if !strings.Contains(seedEngineerTexts[seedReview].Prompt, "回传实际效果截图") {
+		t.Error("默认审查工程师应把实际页面截图回传给调度者")
+	}
+}
+
 // TestDoingInstructionTagsAndTaskItems 确认每种语言的进行中列都写明两条规则：
 // 领取后只能从看板已有的标签里挑，不新建标签；交接前要在描述里补上任务项清单。
 func TestDoingInstructionTagsAndTaskItems(t *testing.T) {

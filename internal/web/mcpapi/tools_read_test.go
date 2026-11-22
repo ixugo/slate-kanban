@@ -92,6 +92,40 @@ func TestGetBoard(t *testing.T) {
 	}
 }
 
+func TestGetBoardReviewEvidenceWithCustomColumn(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	const projectPrompt = "项目发布前先核对版本记录。"
+	const instruction = "由审查工程师验收，交接前核对上线说明。"
+	human := s.human(t)
+	ok(t, human, "update_board", map[string]any{
+		"board_id": b.ID, "description": projectPrompt,
+	})
+	ok(t, human, "update_column", map[string]any{
+		"board_id": b.ID, "column_id": b.review, "instruction": instruction,
+	})
+	agent := s.agent(t, "claude")
+	for _, local := range []string{projectPrompt, instruction} {
+		if strings.Contains(agent.InitializeResult().Instructions, local) {
+			t.Errorf("全局初始化说明不应包含看板本地提示 %q", local)
+		}
+	}
+	got := ok(t, agent, "get_board", map[string]any{"board_id": b.ID}).Data
+	review := items(t, got, "columns")[3]
+	if review["instruction"] != instruction {
+		t.Errorf("自定义审查列指令应原样返回，实际 %q", review["instruction"])
+	}
+	prompt := fmt.Sprint(got["watch_prompt"])
+	if got["description"] != projectPrompt || !strings.Contains(prompt, "## 项目说明（AGENTS.md）\n\n"+projectPrompt) {
+		t.Errorf("项目提示应按看板原样返回: %q", got["description"])
+	}
+	for _, want := range []string{"所有审查入口", "upload_image", "实际截图", "- [x] 通过", "- [ ] 未通过或未验证", "暂不判通过"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("自定义看板的守候提示词缺少审查证据要求 %q", want)
+		}
+	}
+}
+
 // TestListCardsSummaries 验证任务列表只给摘要：没有描述和评论，有编号、所在列、派生状态；
 // 同时支持筛选语法，写错的筛选词是带说明的工具错误。
 func TestListCardsSummaries(t *testing.T) {

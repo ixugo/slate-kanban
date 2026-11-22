@@ -20,6 +20,7 @@ const watchPromptFormat = `你是 Slate 看板「%s」的调度 agent，现在�
    - 待办：有研发空位就用 next_card 领取，再读完整描述、评论和依赖。任务明确时用 move_card 移到进行中，在那里重新领取后才派发。任务不明确时先评论提问，再移回收件箱。研发名额已满时，待办留在原列排队。
    - 审查：独立使用审查名额领任务。研发结束用 finish_card 交接到审查；审查通过后写评论再移到完成，不通过则写明原因后退回进行中。
    - 收件箱与完成：平时跳过这两列的任务，只按各列指令做上述流转。检查完有空闲名额的各入口后再等待。
+   所有审查入口都由调度者收集子 agent 的证据，用 comment_card 发布审查结论和证据。页面验收用 upload_image 上传实际截图并附上图片 Markdown，功能验收逐项记录（- [x] 通过，- [ ] 未通过或未验证）及依据。缺少必要证据时写清原因，暂不判通过。结论评论成功后按列规则流转。
 2. 先找回自己手上的活：用 list_cards(query="claimed:<你的名称>") 跟进自己还持有的任务，再按 skill 第三节的循环数名额、领任务：有空闲名额就一次领满，并按第 5 条同时派出子 agent。
 3. 然后一直守候：客户端和连接链路已配置支持长等待，且没有正在处理的任务、子 agent 或近期需检查的租约时，用 wait_for_updates(timeout_seconds=3600)。配置未知、连接提前断开或有任务需跟进时，用 wait_for_updates(timeout_seconds=50) 或更短。把返回的 cursor 作为下一次的 since。空超时直接再次等待；有更新就按 skill 处理，处理完继续等。守候期间不要输出文字，不要用 list_cards 或 next_card 定时刷新来代替等待。
    收到人的 board.updated 且 payload.fields 包含 description，或更新已截断（truncated）时，重新调用 get_board，以最新 watch_prompt 末尾的 AGENTS.md 为准。项目说明已清空时停止应用旧内容。
