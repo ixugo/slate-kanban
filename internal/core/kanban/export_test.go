@@ -38,7 +38,7 @@ func WithRetentionForTest(keep int, every int64) Option {
 	}
 }
 
-// PlaceCardForTest 在事务里计算卡片放进某一列的位置，必要时整列重排。
+// PlaceCardForTest 在事务里计算任务放进某一列的位置，必要时整列重排。
 func (u *unit) PlaceCardForTest(ctx context.Context, cards []*Card, beforeID, afterID int64) (float64, error) {
 	pos, _, err := u.placeCard(ctx, cards, beforeID, afterID)
 	return pos, err

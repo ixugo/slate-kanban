@@ -29,14 +29,14 @@ func (s *stack) seed(t *testing.T, slug string) board {
 	return board{BoardDetail: d, idea: c[0].ID, todo: c[1].ID, doing: c[2].ID, review: c[3].ID, done: c[4].ID}
 }
 
-// card 以人的身份在看板的某一列创建一张卡片，描述固定为"描述：标题"。
+// card 以人的身份在看板的某一列创建一个任务，描述固定为"描述：标题"。
 func (s *stack) card(t *testing.T, b board, column int64, title string) *kanban.Card {
 	t.Helper()
 	c, err := s.core.CreateCard(t.Context(), humanActor, b.ID, kanban.CreateCardInput{
 		Title: title, Description: "描述：" + title, ColumnID: column,
 	})
 	if err != nil {
-		t.Fatalf("创建卡片 %s 失败: %v", title, err)
+		t.Fatalf("创建任务 %s 失败: %v", title, err)
 	}
 	return c
 }

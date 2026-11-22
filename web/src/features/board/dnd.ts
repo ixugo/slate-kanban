@@ -4,38 +4,38 @@
 import { arrayMove } from '@dnd-kit/sortable'
 import type { CardView, Column, Snapshot } from '@/lib/api/types'
 
-/** 卡片位置的基本间距，和服务端 internal/core/kanban/card_position.go 的 positionStep 一致 */
+/** 任务位置的基本间距，和服务端 internal/core/kanban/card_position.go 的 positionStep 一致 */
 export const POSITION_STEP = 1024
 
-/** 每一列里卡片 id 的顺序，键是列 id */
+/** 每一列里任务 id 的顺序，键是列 id */
 export type Items = Record<number, number[]>
 
-/** 一次移动：落在哪一列，紧挨着哪张卡片；两个邻居都没有表示这一列是空的 */
+/** 一次移动：落在哪一列，紧挨着哪个任务；两个邻居都没有表示这一列是空的 */
 export interface MovePlan {
   columnId: number
-  /** 放在这张卡片的前面 */
+  /** 放在这个任务的前面 */
   beforeId?: number
-  /** 放在这张卡片的后面 */
+  /** 放在这个任务的后面 */
   afterId?: number
 }
 
 /**
- * 列落点在 dnd-kit 里的编号。卡片编号和列编号都是数据库自增的数字，经常相同（比如 3 号卡片和 3 号列），
- * 而 dnd-kit 按编号登记落点，同号的两个会互相顶掉：卡片的落点失效，向上拖动时只能落在列上，
- * 卡片被丢到列尾或者原地不动。所以列用带前缀的字符串，卡片继续用数字。
+ * 列落点在 dnd-kit 里的编号。任务编号和列编号都是数据库自增的数字，经常相同（比如 3 号任务和 3 号列），
+ * 而 dnd-kit 按编号登记落点，同号的两个会互相顶掉：任务的落点失效，向上拖动时只能落在列上，
+ * 任务被丢到列尾或者原地不动。所以列用带前缀的字符串，任务继续用数字。
  */
 export function columnDropId(columnId: number): string {
   return `column-${columnId}`
 }
 
-/** 卡片的显示顺序：先按位置，位置相同按 id，保证每次刷新顺序一致 */
+/** 任务的显示顺序：先按位置，位置相同按 id，保证每次刷新顺序一致 */
 export function compareCards(a: CardView, b: CardView): number {
   return a.position - b.position || a.id - b.id
 }
 
 /**
- * 按列整理卡片 id 的顺序。visibleIds 为 null 表示全部可见，否则只保留里面的卡片（搜索时用）。
- * 属于不存在的列的卡片（数据不一致时才会出现）被忽略。复杂度 O(n log n)。
+ * 按列整理任务 id 的顺序。visibleIds 为 null 表示全部可见，否则只保留里面的任务（搜索时用）。
+ * 属于不存在的列的任务（数据不一致时才会出现）被忽略。复杂度 O(n log n)。
  */
 export function buildItems(columns: Column[], cards: CardView[], visibleIds: ReadonlySet<number> | null): Items {
   const items: Items = {}
@@ -55,7 +55,7 @@ export interface Settling {
 
 /**
  * 当前该画哪一份排列：拖动中用实时预览；松手后，在 base（按服务端数据算出的排列）换成新的之前，
- * 继续用松手时的排列。否则这一瞬间卡片会退回旧位置，落下动画就会飞向旧位置，再突然跳到新位置。
+ * 继续用松手时的排列。否则这一瞬间任务会退回旧位置，落下动画就会飞向旧位置，再突然跳到新位置。
  */
 export function pickShownItems(dragging: Items | null, settling: Settling | null, base: Items): Items {
   if (dragging) return dragging
@@ -63,7 +63,7 @@ export function pickShownItems(dragging: Items | null, settling: Settling | null
   return base
 }
 
-/** 找出卡片当前在哪一列；不在任何一列返回 null */
+/** 找出任务当前在哪一列；不在任何一列返回 null */
 export function findColumnOf(items: Items, cardId: number): number | null {
   for (const [columnId, ids] of Object.entries(items)) {
     if (ids.includes(cardId)) return Number(columnId)
@@ -71,7 +71,7 @@ export function findColumnOf(items: Items, cardId: number): number | null {
   return null
 }
 
-/** 把卡片从当前列拿出来，插入目标列的第 index 个位置（超出范围放到末尾），拖动过程中的实时预览用它 */
+/** 把任务从当前列拿出来，插入目标列的第 index 个位置（超出范围放到末尾），拖动过程中的实时预览用它 */
 export function moveToColumn(items: Items, cardId: number, toColumnId: number, index: number): Items {
   const fromColumnId = findColumnOf(items, cardId)
   if (fromColumnId === null || !(toColumnId in items)) return items
@@ -83,7 +83,7 @@ export function moveToColumn(items: Items, cardId: number, toColumnId: number, i
 }
 
 /**
- * 松手时的最终顺序：落在同一列另一张卡片上，就把卡片挪到那张卡片的位置；
+ * 松手时的最终顺序：落在同一列另一个任务上，就把任务挪到那个任务的位置；
  * 落在列本身上（空列或者列的空白处）不再调整，跨列的情况拖动过程中已经预览过了。
  */
 export function finalizeDrop(items: Items, cardId: number, overId: number, overIsColumn: boolean): Items {
@@ -127,7 +127,7 @@ export function computePosition(prev?: number, next?: number): number {
 
 /**
  * 在本地预测移动后的快照，用于乐观更新：换列时同步列名、完成状态；领取原样保留（人移动任务，服务端不会收回 agent 的领取）。
- * 预测不了自动化规则的副作用，接口成功后实时流会触发重取，以服务端的结果为准。找不到卡片或列时原样返回。
+ * 预测不了自动化规则的副作用，接口成功后实时流会触发重取，以服务端的结果为准。找不到任务或列时原样返回。
  */
 export function applyMoveToSnapshot(snapshot: Snapshot, cardId: number, plan: MovePlan): Snapshot {
   const card = snapshot.cards.find((c) => c.id === cardId)

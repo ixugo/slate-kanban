@@ -50,7 +50,7 @@ func TestDeleteEmptyColumn(t *testing.T) {
 	}
 }
 
-// TestDeleteColumnWithCardsNeedsTarget 验证列里有卡片又没有指定移入的列时返回 409，什么都不改。
+// TestDeleteColumnWithCardsNeedsTarget 验证列里有任务又没有指定移入的列时返回 409，什么都不改。
 func TestDeleteColumnWithCardsNeedsTarget(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -62,15 +62,15 @@ func TestDeleteColumnWithCardsNeedsTarget(t *testing.T) {
 		t.Fatalf("应该返回 ErrColumnNotEmpty: %v", err)
 	}
 	if got := e.stored(t, c.ID); got.ColumnID != e.col(colTodo) || got.Version != 1 {
-		t.Fatalf("卡片不应该被动: %+v", got)
+		t.Fatalf("任务不应该被动: %+v", got)
 	}
 	if !slices.Contains(e.columnIDs(t), e.col(colTodo)) || len(e.events(t)) != events {
 		t.Fatalf("列和事件都不应该变化")
 	}
 }
 
-// TestDeleteColumnMovesCards 验证删除有卡片的列：卡片按原顺序追加到目标列末尾，版本各加一，
-// 人删列搬走的卡片保留 agent 的领取、不写 card.released，只写一条 column.deleted（不为每张卡片写 card.moved），
+// TestDeleteColumnMovesCards 验证删除有任务的列：任务按原顺序追加到目标列末尾，版本各加一，
+// 人删列搬走的任务保留 agent 的领取、不写 card.released，只写一条 column.deleted（不为每个任务写 card.moved），
 // 并且不触发自动化规则。
 func TestDeleteColumnMovesCards(t *testing.T) {
 	ctx := context.Background()
@@ -95,11 +95,11 @@ func TestDeleteColumnMovesCards(t *testing.T) {
 			wantClaim = "claude"
 		}
 		if got.ColumnID != e.col(colReview) || got.Version != 2 || got.Priority != 0 || got.ClaimedBy != wantClaim {
-			t.Fatalf("搬过去的卡片不对（版本加一、不触发规则、领取原样保留）: %+v", got)
+			t.Fatalf("搬过去的任务不对（版本加一、不触发规则、领取原样保留）: %+v", got)
 		}
 	}
 	if got := e.stored(t, existing.ID); got.Version != 1 || got.Priority != 0 {
-		t.Fatalf("目标列原有的卡片不应该变化: %+v", got)
+		t.Fatalf("目标列原有的任务不应该变化: %+v", got)
 	}
 	want := []string{kanban.EventColumnDeleted}
 	if got := e.eventTypes(t, events); !slices.Equal(got, want) {

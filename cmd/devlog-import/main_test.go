@@ -48,8 +48,8 @@ func TestLoadRecordsRejectsBadInput(t *testing.T) {
 		"不是 JSON":  {`{`, "解析记录文件"},
 		"缺看板标识":    {`{"board":{"name":"x"},"cards":[]}`, "board.slug"},
 		"缺看板名称":    {`{"board":{"slug":"X1"},"cards":[]}`, "board.name"},
-		"卡片缺标题":    {`{"board":{"name":"x","slug":"X1"},"cards":[{"column":"待办"}]}`, "第 1 个任务"},
-		"卡片缺列":     {`{"board":{"name":"x","slug":"X1"},"cards":[{"title":"a"}]}`, "第 1 个任务"},
+		"任务缺标题":    {`{"board":{"name":"x","slug":"X1"},"cards":[{"column":"待办"}]}`, "第 1 个任务"},
+		"任务缺列":     {`{"board":{"name":"x","slug":"X1"},"cards":[{"title":"a"}]}`, "第 1 个任务"},
 		"标题重复无法去重": {`{"board":{"name":"x","slug":"X1"},"cards":[{"title":"a","column":"待办"},{"title":"a","column":"完成"}]}`, "重复"},
 	}
 	for name, tc := range cases {

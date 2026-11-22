@@ -9,7 +9,7 @@ const (
 	projectDirPlaceholder = "<项目目录>"
 	// screenSession 是终端会话的名字，分离和回来时都用它。
 	screenSession = "slate-agent"
-	// loopInterval 是 loop 检查监听是否还活着的间隔，小于卡片领取租约（默认 30 分钟），agent 掉线后卡片也不会被误释放。
+	// loopInterval 是 loop 检查监听是否还活着的间隔，小于任务领取租约（默认 30 分钟），agent 掉线后任务也不会被误释放。
 	loopInterval = "5m"
 	// codexLoopSeconds 是 Codex 的 shell 循环在一次 codex exec 结束后、重新拉起前的等待秒数，和 loopInterval 一致。
 	codexLoopSeconds = "300"

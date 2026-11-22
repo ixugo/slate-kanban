@@ -54,10 +54,10 @@ func TestAgentWorkLoop(t *testing.T) {
 	next := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data
 	detail, _ := next["card"].(map[string]any)
 	if detail == nil || detail["id"] != float64(c.ID) || detail["claimed_by"] != "claude" || detail["claim_active"] != true {
-		t.Fatalf("应该领到刚建的卡片: %v", next)
+		t.Fatalf("应该领到刚建的任务: %v", next)
 	}
 	if detail["description"] != "描述：写文档" || detail["column_instruction"] == "" {
-		t.Errorf("领到的卡片要带全文和所在列的指令: %v", detail)
+		t.Errorf("领到的任务要带全文和所在列的指令: %v", detail)
 	}
 
 	comment := ok(t, sess, "comment_card", map[string]any{"card_id": c.ID, "body": "开始处理"}).Data
@@ -84,17 +84,17 @@ func TestAgentWorkLoop(t *testing.T) {
 	}
 }
 
-// TestNextCardSkipsHumanOnly 验证只能由人处理的卡片不会被 agent 领到：取卡跳过它，指定领取被拒绝。
+// TestNextCardSkipsHumanOnly 验证只能由人处理的任务不会被 agent 领到：取卡跳过它，指定领取被拒绝。
 func TestNextCardSkipsHumanOnly(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
 	mine, err := s.core.CreateCard(t.Context(), humanActor, b.ID, kanban.CreateCardInput{Title: "人来做", ColumnID: b.doing, HumanOnly: true})
 	if err != nil {
-		t.Fatalf("创建卡片失败: %v", err)
+		t.Fatalf("创建任务失败: %v", err)
 	}
 	sess := s.agent(t, "claude")
 	if got := ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing}).Data; got["card"] != nil {
-		t.Errorf("只能由人处理的卡片不应该被领走: %v", got)
+		t.Errorf("只能由人处理的任务不应该被领走: %v", got)
 	}
 	fails(t, call(t, sess, "claim_card", map[string]any{"card_id": mine.ID}), "ErrCardHumanOnly")
 }
@@ -149,13 +149,13 @@ func TestAgentLimits(t *testing.T) {
 	ok(t, sess, "comment_card", cardArg(map[string]any{"body": "没持有也能回复人的问题"}))
 }
 
-// TestAgentWorksAcrossColumns 验证服务端不按列限制 agent：审查 agent 能领审查列的卡片，
-// 通过的移到完成列，不通过的放回进行中；agent 也能把卡片建进进行中。唯一的限制是不能动正被别的 agent 持有的卡片。
+// TestAgentWorksAcrossColumns 验证服务端不按列限制 agent：审查 agent 能领审查列的任务，
+// 通过的移到完成列，不通过的放回进行中；agent 也能把任务建进进行中。唯一的限制是不能动正被别的 agent 持有的任务。
 func TestAgentWorksAcrossColumns(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
-	pass := s.card(t, b, b.review, "通过的卡片")
-	fail := s.card(t, b, b.review, "不通过的卡片")
+	pass := s.card(t, b, b.review, "通过的任务")
+	fail := s.card(t, b, b.review, "不通过的任务")
 	reviewer := s.agent(t, "reviewer")
 
 	ok(t, reviewer, "claim_card", map[string]any{"card_id": pass.ID})
@@ -165,14 +165,14 @@ func TestAgentWorksAcrossColumns(t *testing.T) {
 	}
 	back := ok(t, reviewer, "move_card", map[string]any{"card_id": fail.ID, "column_id": b.doing}).Data
 	if back["column_id"] != float64(b.doing) {
-		t.Errorf("没有领取的卡片 agent 也应该能放回进行中: %v", back)
+		t.Errorf("没有领取的任务 agent 也应该能放回进行中: %v", back)
 	}
 	made := ok(t, reviewer, "create_card", map[string]any{"board_id": b.ID, "title": "直接建进进行中", "column_id": b.doing}).Data
 	if made["column_id"] != float64(b.doing) {
-		t.Errorf("agent 应该能把卡片建进进行中: %v", made)
+		t.Errorf("agent 应该能把任务建进进行中: %v", made)
 	}
 
-	held := s.card(t, b, b.review, "别人正在审的卡片")
+	held := s.card(t, b, b.review, "别人正在审的任务")
 	ok(t, s.agent(t, "other"), "claim_card", map[string]any{"card_id": held.ID})
 	fails(t, call(t, reviewer, "move_card", map[string]any{"card_id": held.ID, "column_id": b.done}), "ErrCardClaimed")
 }
@@ -220,7 +220,7 @@ func TestSetProjectPath(t *testing.T) {
 	}
 }
 
-// TestHumanCardTools 验证人的卡片工具带有规划类字段：优先级、仅人处理、依赖、时间都能写，
+// TestHumanCardTools 验证人的任务工具带有规划类字段：优先级、仅人处理、依赖、时间都能写，
 // 移动到完成列会触发自动化规则写上完成时间。
 func TestHumanCardTools(t *testing.T) {
 	s := newStack(t)
@@ -252,7 +252,7 @@ func TestHumanCardTools(t *testing.T) {
 	}
 }
 
-// TestViewsHaveDifferentInputs 验证同名工具在两个视图里入参不同：agent 的创建和修改卡片没有规划类字段，
+// TestViewsHaveDifferentInputs 验证同名工具在两个视图里入参不同：agent 的创建和修改任务没有规划类字段，
 // 直接传会被 Schema 拒绝；人的有。
 func TestViewsHaveDifferentInputs(t *testing.T) {
 	s := newStack(t)
@@ -357,7 +357,7 @@ func inputsOf(tags []*kanban.Tag) []kanban.TagInput {
 }
 
 // TestEngineerSlots 验证工程师名额：get_board 给出名册，领取按名额分配，满了排队，
-// 指定的工程师在忙或不在名册里都被拒绝，卡片摘要里能看到谁在做。
+// 指定的工程师在忙或不在名册里都被拒绝，任务摘要里能看到谁在做。
 func TestEngineerSlots(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")

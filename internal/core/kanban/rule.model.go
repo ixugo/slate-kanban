@@ -2,9 +2,9 @@ package kanban
 
 import "time"
 
-// Rule 自动化规则：当某件事发生（触发），并且卡片满足条件时，按顺序执行一组动作。
+// Rule 自动化规则：当某件事发生（触发），并且任务满足条件时，按顺序执行一组动作。
 // TriggerType 的取值是 card_created、card_entered、card_left；
-// ColumnID 为 0 表示任意列；Condition 使用卡片筛选语法，为空表示无条件。
+// ColumnID 为 0 表示任意列；Condition 使用任务筛选语法，为空表示无条件。
 type Rule struct {
 	ID          int64        `gorm:"primaryKey" json:"id"`
 	BoardID     int64        `gorm:"column:board_id;notNull;default:0;index:idx_rules_board_sort,priority:1;comment:所属看板" json:"board_id"`
@@ -12,7 +12,7 @@ type Rule struct {
 	Enabled     bool         `gorm:"column:enabled;notNull;default:FALSE;comment:是否启用" json:"enabled"`
 	TriggerType string       `gorm:"column:trigger_type;size:32;notNull;default:'';comment:触发类型：card_created、card_entered、card_left" json:"trigger"`
 	ColumnID    int64        `gorm:"column:column_id;notNull;default:0;comment:触发所在的列，0 表示任意列" json:"column_id"`
-	Condition   string       `gorm:"column:condition;size:500;notNull;default:'';comment:条件，使用卡片筛选语法，空表示无条件" json:"condition"`
+	Condition   string       `gorm:"column:condition;size:500;notNull;default:'';comment:条件，使用任务筛选语法，空表示无条件" json:"condition"`
 	Actions     []RuleAction `gorm:"column:actions;type:text;serializer:json;notNull;default:'[]';comment:动作列表，JSON 数组" json:"actions"`
 	Sort        int64        `gorm:"column:sort;notNull;default:0;index:idx_rules_board_sort,priority:2;comment:排序值，越小越先执行" json:"sort"`
 	CreatedAt   time.Time    `gorm:"column:created_at;notNull;default:CURRENT_TIMESTAMP;comment:创建时间" json:"created_at"`

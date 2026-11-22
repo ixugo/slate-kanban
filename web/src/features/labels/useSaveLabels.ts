@@ -1,4 +1,4 @@
-// 整体保存看板的标签库；删除标签时服务端会从所有卡片上摘掉它，所以保存后要刷新快照和卡片详情。
+// 整体保存看板的标签库；删除标签时服务端会从所有任务上摘掉它，所以保存后要刷新快照和任务详情。
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateBoard } from '@/lib/api/endpoints'

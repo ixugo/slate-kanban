@@ -88,7 +88,7 @@ describe('useBoardLive', () => {
     expect(FakeEventSource.instances).toHaveLength(0)
   })
 
-  it('一次操作带来的多条事件合并成一次刷新，并同时刷新卡片详情', () => {
+  it('一次操作带来的多条事件合并成一次刷新，并同时刷新任务详情', () => {
     const { invalidate } = setup(1)
     act(() => {
       last().emit('board', { type: 'card.moved' })
@@ -108,7 +108,7 @@ describe('useBoardLive', () => {
     expect(invalidated(invalidate, queryKeys.boards)).toBe(true)
   })
 
-  it('卡片事件不刷新看板列表', () => {
+  it('任务事件不刷新看板列表', () => {
     const { invalidate } = setup(1)
     act(() => last().emit('board', { type: 'card.created' }))
     expect(invalidated(invalidate, queryKeys.boards)).toBe(false)

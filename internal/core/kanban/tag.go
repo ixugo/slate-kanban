@@ -89,7 +89,7 @@ func normalizeTagInputs(in []TagInput) ([]TagInput, error) {
 }
 
 // applyTags 在事务里把新的标签库写到看板上：主键在库里的算修改，其余算新增（不信任调用方自带的主键），
-// 库里原有、入参里没有的算删除并从所有卡片上摘掉；入参顺序就是新的显示顺序。
+// 库里原有、入参里没有的算删除并从所有任务上摘掉；入参顺序就是新的显示顺序。
 // 每次保存后标签的 Sort 都是连续的 1 到 n，所以内容和顺序都没变时不会写库。标签库没有任何变化时返回 false。
 func (u *unit) applyTags(ctx context.Context, b *Board, in []TagInput) (bool, error) {
 	prev, err := u.tag.ListByBoard(ctx, b.ID)
@@ -134,7 +134,7 @@ func (u *unit) applyTags(ctx context.Context, b *Board, in []TagInput) (bool, er
 	return changed || removed, nil
 }
 
-// removeTags 删除 prev 里不在 kept 中的标签，并把它们从看板的卡片上摘掉，返回有没有删。
+// removeTags 删除 prev 里不在 kept 中的标签，并把它们从看板的任务上摘掉，返回有没有删。
 func (u *unit) removeTags(ctx context.Context, boardID int64, prev []*Tag, kept map[int64]bool) (bool, error) {
 	gone := make(map[int64]bool)
 	for _, t := range prev {
@@ -152,8 +152,8 @@ func (u *unit) removeTags(ctx context.Context, boardID int64, prev []*Tag, kept 
 	return true, u.untagCards(ctx, boardID, gone)
 }
 
-// untagCards 把被删掉的标签从看板的全部卡片上摘掉，只保存真的变了的卡片（版本加一，旧页面上的修改会被乐观锁挡住）。
-// 复杂度 O(卡片数 × 每张卡片的标签数)，一个看板通常是几百张卡片。
+// untagCards 把被删掉的标签从看板的全部任务上摘掉，只保存真的变了的任务（版本加一，旧页面上的修改会被乐观锁挡住）。
+// 复杂度 O(任务数 × 每个任务的标签数)，一个看板通常是几百个任务。
 func (u *unit) untagCards(ctx context.Context, boardID int64, gone map[int64]bool) error {
 	cards, err := u.card.ListByBoard(ctx, boardID)
 	if err != nil {
@@ -236,7 +236,7 @@ func (u *unit) resolveTagNames(ctx context.Context, boardID int64, names []strin
 	return ids, added, nil
 }
 
-// resolveCardTags 把卡片入参里的标签统一成主键列表：只填文字时按文字解析（缺的会新建），
+// resolveCardTags 把任务入参里的标签统一成主键列表：只填文字时按文字解析（缺的会新建），
 // 只填主键时确认每个都属于这个看板，两种都填返回 400。返回新的入参和标签库有没有新增，
 // 新增时调用方要补一条标签库变化事件。
 func (u *unit) resolveCardTags(ctx context.Context, boardID int64, in UpdateCardInput) (UpdateCardInput, bool, error) {
@@ -273,7 +273,7 @@ func (u *unit) checkTagIDs(ctx context.Context, boardID int64, ids []int64) erro
 	return nil
 }
 
-// CardTagNames 返回卡片上带文字的标签的文字，按卡片上的顺序，给只拿到卡片、没有拿到视图的调用方用（例如 MCP 的写入结果）。
+// CardTagNames 返回任务上带文字的标签的文字，按任务上的顺序，给只拿到任务、没有拿到视图的调用方用（例如 MCP 的写入结果）。
 func (c Core) CardTagNames(ctx context.Context, card *Card) ([]string, error) {
 	tags, err := c.store.Tag().ListByBoard(ctx, card.BoardID)
 	if err != nil {

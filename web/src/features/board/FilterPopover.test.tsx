@@ -22,7 +22,7 @@ const gamma = makeCard({ id: 3, title: 'Gamma', column_id: 2, claimed_by: 'codex
 const columns = [makeColumn({ id: 1, name: 'Backlog' }), makeColumn({ id: 2, name: 'Doing' }), makeColumn({ id: 3, name: 'Shipped', is_done: true })]
 const snapshot = makeSnapshot({ name: '测试看板', columns, cards: [alpha, beta, gamma] })
 
-/** 假服务端：卡片接口返回 hits 里的卡片，调用方可以随时换 hits */
+/** 假服务端：任务接口返回 hits 里的任务，调用方可以随时换 hits */
 function installBoard(hits: CardView[]): { api: FakeApi; setHits: (next: CardView[]) => void } {
   let current = hits
   const api = installFakeApi({
@@ -32,7 +32,7 @@ function installBoard(hits: CardView[]): { api: FakeApi; setHits: (next: CardVie
   return { api, setHits: (next) => void (current = next) }
 }
 
-/** 发给卡片接口的最近一次查询 */
+/** 发给任务接口的最近一次查询 */
 const lastQuery = (api: FakeApi) =>
   api.calls.filter((c) => c.path.endsWith('/cards') && c.method === 'GET').at(-1)?.query.get('query')
 
@@ -53,7 +53,7 @@ async function openFilter(user: ReturnType<typeof userEvent.setup>) {
 describe('筛选弹层', () => {
   beforeEach(() => installFakeEventSource())
 
-  it('点选标签后拼成一条查询发给服务端，只剩命中的卡片，并出现「当前筛选」小标签', async () => {
+  it('点选标签后拼成一条查询发给服务端，只剩命中的任务，并出现「当前筛选」小标签', async () => {
     const { api } = installBoard([alpha, beta])
     const user = userEvent.setup()
     renderBoard()

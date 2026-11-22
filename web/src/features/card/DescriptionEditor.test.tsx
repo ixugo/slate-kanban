@@ -51,7 +51,7 @@ describe('DescriptionEditor', () => {
     expect(onSave).toHaveBeenCalledWith('ab')
   })
 
-  it('卡片引用只链接正文，保留链接、代码和转义字面量', async () => {
+  it('任务引用只链接正文，保留链接、代码和转义字面量', async () => {
     const onCardReference = vi.fn()
     const value = '见 **#14**、`#15`、[#16](https://a.com/#16)、\\#17。'
     render(

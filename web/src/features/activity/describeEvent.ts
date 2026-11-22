@@ -18,9 +18,9 @@ export interface EventText {
   descriptionChangeId?: number
 }
 
-/** 事件涉及的卡片 */
+/** 事件涉及的任务 */
 export interface EventCard {
-  /** 卡片还在看板上时的编号，用来做链接；已经被删除为 null */
+  /** 任务还在看板上时的编号，用来做链接；已经被删除为 null */
   id: number | null
   key: string
   title: string
@@ -50,7 +50,7 @@ function fields(payload: Record<string, unknown>, key: string): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 }
 
-// 卡片修改事件载荷里的字段名对应的界面文字：时间类用更完整的叫法，其余复用卡片详情里各属性的名称。
+// 任务修改事件载荷里的字段名对应的界面文字：时间类用更完整的叫法，其余复用任务详情里各属性的名称。
 const CARD_FIELD_LABELS: Record<string, TranslationKey> = {
   title: 'card.field.title',
   description: 'card.field.description',
@@ -65,7 +65,7 @@ const CARD_FIELD_LABELS: Record<string, TranslationKey> = {
   url: 'card.field.url',
 }
 
-// 卡片修改事件的句子：写明改了哪些属性，例如「修改了优先级、截止时间」；没有字段清单的旧事件退回成笼统的一句。
+// 任务修改事件的句子：写明改了哪些属性，例如「修改了优先级、截止时间」；没有字段清单的旧事件退回成笼统的一句。
 function cardUpdatedText(payload: Record<string, unknown>, t: TFunction): string {
   const labels = fields(payload, 'fields').map((name) => {
     const key = CARD_FIELD_LABELS[name]
@@ -101,7 +101,7 @@ function firedDetail(payload: Record<string, unknown>, t: TFunction): string {
     .join(' · ')
 }
 
-// 卡片释放事件有三种原因，句子不一样：持有者主动释放、人收回、卡片换列。
+// 任务释放事件有三种原因，句子不一样：持有者主动释放、人收回、任务换列。
 function releasedText(payload: Record<string, unknown>, t: TFunction): string {
   const agent = field(payload, 'agent')
   switch (field(payload, 'why')) {
@@ -167,7 +167,7 @@ export function describeEvent(event: BoardEvent, t: TFunction): EventText {
   }
 }
 
-/** 事件涉及的卡片：卡片还在就用它现在的编号和标题（改过名也显示新名字），已经没了就用事件里记下的 */
+/** 事件涉及的任务：任务还在就用它现在的编号和标题（改过名也显示新名字），已经没了就用事件里记下的 */
 export function eventCard(event: BoardEvent, cardsById: ReadonlyMap<number, CardView>): EventCard | null {
   const live = cardsById.get(event.card_id)
   if (live) return { id: live.id, key: live.key, title: live.title }

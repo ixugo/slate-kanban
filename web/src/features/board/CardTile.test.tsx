@@ -21,10 +21,10 @@ function LocationProbe() {
   return <output data-testid="location">{pathname + search}</output>
 }
 
-/** 弹窗要读卡片详情，给一份最小的 */
+/** 弹窗要读任务详情，给一份最小的 */
 const cardDetail = (cardId: number) => ({ ...makeCard({ id: cardId, title: cardId === 1 ? 'Alpha' : 'Beta' }), dependencies: [], comments: [] })
 
-// 渲染看板和地址探针；弹窗打开时要读卡片详情，所以一并给假接口
+// 渲染看板和地址探针；弹窗打开时要读任务详情，所以一并给假接口
 const renderBoard = (route = '/b/1', extraRoutes: Record<string, FakeHandler> = {}) => {
   installFakeApi({
     'GET /api/v1/boards/:id/snapshot': snapshot,
@@ -58,7 +58,7 @@ function recordClickDefaults() {
   return { seen, stop: () => document.removeEventListener('click', onClick) }
 }
 
-describe('CardTile 是指向卡片的链接', () => {
+describe('CardTile 是指向任务的链接', () => {
   beforeEach(() => installFakeEventSource())
   afterEach(() => localStorage.clear())
 
@@ -111,7 +111,7 @@ describe('CardTile 是指向卡片的链接', () => {
     }
   })
 
-  it('回车打开卡片', async () => {
+  it('回车打开任务', async () => {
     const user = userEvent.setup()
     renderBoard()
     const link = await screen.findByRole('link', { name: '#1 Alpha' })
@@ -121,7 +121,7 @@ describe('CardTile 是指向卡片的链接', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/b/1?card=1')
   })
 
-  it('空格拾起磁贴做键盘拖拽，拖拽中按回车也不会打开卡片', async () => {
+  it('空格拾起磁贴做键盘拖拽，拖拽中按回车也不会打开任务', async () => {
     const user = userEvent.setup()
     renderBoard()
     const link = await screen.findByRole('link', { name: '#1 Alpha' })

@@ -26,7 +26,7 @@ func migrateAll(t *testing.T) *gorm.DB {
 }
 
 // TestModelsAutoMigrateCreatesIndexes 验证迁移后，设计文档里依赖的唯一索引和查询索引都存在。
-// 唯一索引保证 slug、卡片 Key、agent 游标不会重复；查询索引保证按看板取卡片、取事件走索引。
+// 唯一索引保证 slug、任务 Key、agent 游标不会重复；查询索引保证按看板取任务、取事件走索引。
 func TestModelsAutoMigrateCreatesIndexes(t *testing.T) {
 	db := migrateAll(t)
 
@@ -47,7 +47,7 @@ func TestModelsAutoMigrateCreatesIndexes(t *testing.T) {
 	}
 }
 
-// TestCardRoundTrip 验证卡片的 JSON 字段和可空时间能原样存取：
+// TestCardRoundTrip 验证任务的 JSON 字段和可空时间能原样存取：
 // 有值的标签、依赖、时间读回来保持不变，没填的时间读回来仍然是 nil。
 func TestCardRoundTrip(t *testing.T) {
 	db := migrateAll(t)
@@ -57,12 +57,12 @@ func TestCardRoundTrip(t *testing.T) {
 		TagIDs: []int64{3, 4}, WaitsOn: []int64{7, 9}, DueAt: &due, Version: 1,
 	}
 	if err := db.Create(in).Error; err != nil {
-		t.Fatalf("创建卡片失败: %v", err)
+		t.Fatalf("创建任务失败: %v", err)
 	}
 
 	var got kanban.Card
 	if err := db.First(&got, in.ID).Error; err != nil {
-		t.Fatalf("读取卡片失败: %v", err)
+		t.Fatalf("读取任务失败: %v", err)
 	}
 	got.Normalize()
 	if !slices.Equal(got.TagIDs, in.TagIDs) || !slices.Equal(got.WaitsOn, in.WaitsOn) {
@@ -76,17 +76,17 @@ func TestCardRoundTrip(t *testing.T) {
 	}
 }
 
-// TestCardNormalizeNilSlices 验证没有标签和依赖的卡片读回来后，经过 Normalize 是空切片而不是 nil，
+// TestCardNormalizeNilSlices 验证没有标签和依赖的任务读回来后，经过 Normalize 是空切片而不是 nil，
 // 这样序列化出来的 JSON 是 [] 而不是 null。
 func TestCardNormalizeNilSlices(t *testing.T) {
 	db := migrateAll(t)
 	in := &kanban.Card{BoardID: 1, ColumnID: 1, Number: 1, Key: "SLATE-2", Title: "无标签", Version: 1}
 	if err := db.Create(in).Error; err != nil {
-		t.Fatalf("创建卡片失败: %v", err)
+		t.Fatalf("创建任务失败: %v", err)
 	}
 	var got kanban.Card
 	if err := db.First(&got, in.ID).Error; err != nil {
-		t.Fatalf("读取卡片失败: %v", err)
+		t.Fatalf("读取任务失败: %v", err)
 	}
 	got.Normalize()
 	if got.TagIDs == nil || got.WaitsOn == nil {
@@ -94,12 +94,12 @@ func TestCardNormalizeNilSlices(t *testing.T) {
 	}
 }
 
-// TestCardKeyIsUnique 验证卡片 Key 的唯一索引生效：重复的 Key 必须写入失败。
+// TestCardKeyIsUnique 验证任务 Key 的唯一索引生效：重复的 Key 必须写入失败。
 func TestCardKeyIsUnique(t *testing.T) {
 	db := migrateAll(t)
 	first := &kanban.Card{BoardID: 1, ColumnID: 1, Number: 1, Key: "SLATE-3", Title: "一", Version: 1}
 	if err := db.Create(first).Error; err != nil {
-		t.Fatalf("创建第一张卡片失败: %v", err)
+		t.Fatalf("创建第一个任务失败: %v", err)
 	}
 	dup := &kanban.Card{BoardID: 2, ColumnID: 1, Number: 1, Key: "SLATE-3", Title: "二", Version: 1}
 	if err := db.Create(dup).Error; err == nil {

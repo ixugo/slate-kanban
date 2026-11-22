@@ -1,4 +1,4 @@
-// 选择依赖卡片：只能选同看板其他卡，不能依赖自己。
+// 选择依赖任务：只能选同看板其他卡，不能依赖自己。
 
 import { useTranslation } from '@/i18n/react'
 import type { CardRef } from '@/lib/api/types'

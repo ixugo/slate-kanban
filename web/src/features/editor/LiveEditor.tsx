@@ -1,6 +1,6 @@
 // 带工具栏的实时渲染编辑器（React 外壳）：输入 Markdown 立即渲染，支持常用快捷键。
 // 内核在 LiveView.ts；这里只管创建它、把文字同步给父组件，以及工具栏。
-// 本文件作为懒加载块，卡片弹窗真正要编辑时才下载，不占首屏体积。
+// 本文件作为懒加载块，任务弹窗真正要编辑时才下载，不占首屏体积。
 
 import { useEffect, useRef, useState, type FocusEvent } from 'react'
 import {

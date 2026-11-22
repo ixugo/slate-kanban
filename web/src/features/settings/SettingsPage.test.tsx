@@ -107,7 +107,7 @@ describe('SettingsPage', () => {
     await waitFor(() => expect(api.count('DELETE /api/v1/boards/:id')).toBe(1))
   })
 
-  it('删除列有卡片时必须选 move_to', async () => {
+  it('删除列有任务时必须选 move_to', async () => {
     const full = makeSnapshot({
       cards: [
         {

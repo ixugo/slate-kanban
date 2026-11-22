@@ -41,7 +41,7 @@ function setup(withCache = true) {
 describe('useMoveCard', () => {
   afterEach(() => vi.clearAllMocks())
 
-  it('请求还没返回时，缓存里已经是移动后的样子；请求参数是目标列和相邻卡片', async () => {
+  it('请求还没返回时，缓存里已经是移动后的样子；请求参数是目标列和相邻任务', async () => {
     let finish: (v: never) => void = () => {}
     moveApi.mockReturnValue(new Promise((resolve) => (finish = resolve as (v: never) => void)))
     const { result, columnOf } = setup()
@@ -52,7 +52,7 @@ describe('useMoveCard', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
   })
 
-  it('成功后让快照和卡片详情重新取一次，不弹错误', async () => {
+  it('成功后让快照和任务详情重新取一次，不弹错误', async () => {
     moveApi.mockResolvedValue(makeCard({ id: 1 }))
     const { result, invalidate } = setup()
     await act(async () => result.current.mutate({ cardId: 1, plan: { columnId: 2 } }))
@@ -63,7 +63,7 @@ describe('useMoveCard', () => {
   })
 
   it('失败后恢复到拖动之前的快照，提示错误，并重新取一次确认服务端状态', async () => {
-    const err = new Error('卡片被领取')
+    const err = new Error('任务被领取')
     moveApi.mockRejectedValue(err)
     const { result, columnOf, invalidate, cached } = setup()
     await act(async () => result.current.mutate({ cardId: 1, plan: { columnId: 2 } }))

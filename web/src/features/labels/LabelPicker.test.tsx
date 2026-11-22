@@ -37,7 +37,7 @@ function setup(tagIds: number[] = []) {
 const savedTags = (api: ReturnType<typeof setup>['api'], n = 0) => (api.calls.filter((c) => c.method === 'PATCH')[n].body as { tags: TagInput[] }).tags
 
 describe('LabelPicker', () => {
-  it('列出标签库（含没有文字的标签）；点一下加到卡片，再点取消', async () => {
+  it('列出标签库（含没有文字的标签）；点一下加到任务，再点取消', async () => {
     const { onChange } = setup([11])
     expect(screen.getAllByRole('checkbox').map((el) => el.textContent)).toEqual(['bug', '后端', ''])
     expect(screen.getByRole('checkbox', { name: 'bug' })).toHaveAttribute('aria-checked', 'true')
@@ -48,7 +48,7 @@ describe('LabelPicker', () => {
     expect(onChange).toHaveBeenLastCalledWith([])
   })
 
-  it('搜索过滤列表；没有匹配时提示；回车把输入的文字新建成无颜色标签并加到卡片；已有同文字的标签直接勾选', async () => {
+  it('搜索过滤列表；没有匹配时提示；回车把输入的文字新建成无颜色标签并加到任务；已有同文字的标签直接勾选', async () => {
     const { onChange, api } = setup()
     const input = screen.getByLabelText(en.card.field.tags)
     await userEvent.type(input, 'zzz')
@@ -63,7 +63,7 @@ describe('LabelPicker', () => {
     expect(api.count('PATCH /api/v1/boards/:id')).toBe(1)
   })
 
-  it('新建标签：文字可以留空，选颜色、保存，整体提交标签库并把它加到卡片上', async () => {
+  it('新建标签：文字可以留空，选颜色、保存，整体提交标签库并把它加到任务上', async () => {
     const { api, onChange } = setup()
     await userEvent.click(screen.getByRole('button', { name: en.label.create }))
     await userEvent.click(screen.getByRole('radio', { name: /Green, medium/ }))
@@ -100,7 +100,7 @@ describe('LabelPicker', () => {
     ])
   })
 
-  it('卡片已经有 10 个标签时再勾选只提示，不改卡片', async () => {
+  it('任务已经有 10 个标签时再勾选只提示，不改任务', async () => {
     const { onChange } = setup([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     await userEvent.click(screen.getByRole('checkbox', { name: 'bug' }))
     expect(onChange).not.toHaveBeenCalled()

@@ -11,7 +11,7 @@ var actionNow = time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
 // earlier 是一个比 actionNow 早的时间，表示"已经有值"。
 var earlier = time.Date(2026, 11, 1, 9, 30, 0, 0, time.UTC)
 
-// timeAt 返回时间的指针，方便给卡片的时间字段赋值。
+// timeAt 返回时间的指针，方便给任务的时间字段赋值。
 func timeAt(t time.Time) *time.Time { return &t }
 
 // TestApplyTimeActions 验证写时间和清时间类动作：if_empty（以及没写模式）只在为空时写，always 会覆盖，
@@ -88,7 +88,7 @@ func TestApplyPriorityAndHumanOnly(t *testing.T) {
 	}
 }
 
-// TestApplyUnknownAction 验证不认识的动作类型被跳过并说明原因，卡片不变。
+// TestApplyUnknownAction 验证不认识的动作类型被跳过并说明原因，任务不变。
 func TestApplyUnknownAction(t *testing.T) {
 	card := &Card{Priority: 2}
 	changed, skip := applyFieldAction(card, RuleAction{Type: "explode"}, actionNow)

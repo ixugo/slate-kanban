@@ -1,4 +1,4 @@
-// 看板页：工具栏、搜索与筛选、列画布、卡片弹窗与实时同步。
+// 看板页：工具栏、搜索与筛选、列画布、任务弹窗与实时同步。
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'

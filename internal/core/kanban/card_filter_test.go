@@ -19,7 +19,7 @@ func day(month time.Month, d, hour int) time.Time {
 // ptr 返回时间的指针。
 func ptr(t time.Time) *time.Time { return &t }
 
-// filterFixture 构造筛选测试用的看板：三列（待办、进行中、完成），五张各有特点的卡片。
+// filterFixture 构造筛选测试用的看板：三列（待办、进行中、完成），五个各有特点的任务。
 // loc 是日期类筛选使用的时区。
 func filterFixture(loc *time.Location) (*boardIndex, []*Card) {
 	cols := []*Column{{ID: 10, Name: "待办"}, {ID: 20, Name: "进行中"}, {ID: 30, Name: "完成", IsDone: true}}
@@ -50,7 +50,7 @@ func filterFixture(loc *time.Location) (*boardIndex, []*Card) {
 	return newBoardIndex(filterNow, loc, cols, tags, cards), cards
 }
 
-// runFilter 解析筛选并返回命中卡片的主键，按卡片主键升序。
+// runFilter 解析筛选并返回命中任务的主键，按任务主键升序。
 func runFilter(q string, ix *boardIndex, cards []*Card) ([]int64, error) {
 	f, err := parseFilter(q)
 	if err != nil {
@@ -65,7 +65,7 @@ func runFilter(q string, ix *boardIndex, cards []*Card) ([]int64, error) {
 	return hits, nil
 }
 
-// TestFilterMatches 验证每一种筛选写法命中的卡片：普通文字、各种前缀、取反、引号、组合。
+// TestFilterMatches 验证每一种筛选写法命中的任务：普通文字、各种前缀、取反、引号、组合。
 func TestFilterMatches(t *testing.T) {
 	ix, cards := filterFixture(time.UTC)
 	cases := []struct {

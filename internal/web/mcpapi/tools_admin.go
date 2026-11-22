@@ -76,7 +76,7 @@ func finished(err error) (any, error) {
 	return okOut{OK: true}, nil
 }
 
-// registerAdminTools 注册只有管理视图才有的工具：看板（项目）的修改、列、规则的管理，以及卡片和评论的删除。
+// registerAdminTools 注册只有管理视图才有的工具：看板（项目）的修改、列、规则的管理，以及任务和评论的删除。
 // 它们对应的 Core 方法都只允许人调用，agent 视图里没有这些工具，减少它的干扰。
 // 项目只能创建和修改，不提供删除：删除项目只能由人在网页上输入项目名称确认后完成，MCP 不开这个口子。
 func (a API) registerAdminTools(s *mcp.Server) {
@@ -175,12 +175,12 @@ func (a API) reorderColumns(ctx context.Context, actor kanban.Actor, in reorderC
 	return columnsOut{Columns: cols}, nil
 }
 
-// deleteColumn 删除一列，列里有卡片时先搬到 move_to 指定的列。
+// deleteColumn 删除一列，列里有任务时先搬到 move_to 指定的列。
 func (a API) deleteColumn(ctx context.Context, actor kanban.Actor, in deleteColumnIn) (any, error) {
 	return finished(a.core.DeleteColumn(ctx, actor, in.BoardID, in.ColumnID, in.MoveTo))
 }
 
-// deleteCard 删除一张卡片和它的评论。
+// deleteCard 删除一个任务和它的评论。
 func (a API) deleteCard(ctx context.Context, actor kanban.Actor, in cardIn) (any, error) {
 	return finished(a.core.DeleteCard(ctx, actor, in.CardID))
 }

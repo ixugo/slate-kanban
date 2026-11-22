@@ -11,7 +11,7 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// TestAddComment 验证人写评论：正文去掉首尾空白，记录作者类型和名称、所属看板和卡片，
+// TestAddComment 验证人写评论：正文去掉首尾空白，记录作者类型和名称、所属看板和任务，
 // 并追加 comment.added 事件；评论按写入顺序读出。
 func TestAddComment(t *testing.T) {
 	ctx := context.Background()
@@ -40,11 +40,11 @@ func TestAddComment(t *testing.T) {
 		t.Fatalf("评论列表不对: %+v %v", list, err)
 	}
 	if after := e.stored(t, c.ID); after.Version != 1 {
-		t.Fatalf("写评论不应该修改卡片: %+v", after)
+		t.Fatalf("写评论不应该修改任务: %+v", after)
 	}
 }
 
-// TestAddCommentByAgent 验证 agent 可以评论任何卡片，不需要持有；事件和评论里记录的来源是 agent。
+// TestAddCommentByAgent 验证 agent 可以评论任何任务，不需要持有；事件和评论里记录的来源是 agent。
 func TestAddCommentByAgent(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -77,7 +77,7 @@ func TestCommentSnippet(t *testing.T) {
 	}
 }
 
-// TestAddCommentRejects 验证拒绝情况：空白正文、过长、含空字符、非法 UTF-8、卡片不存在、
+// TestAddCommentRejects 验证拒绝情况：空白正文、过长、含空字符、非法 UTF-8、任务不存在、
 // 自动化和身份无效的调用；失败时不写评论也不写事件。
 func TestAddCommentRejects(t *testing.T) {
 	ctx := context.Background()
@@ -100,7 +100,7 @@ func TestAddCommentRejects(t *testing.T) {
 		t.Errorf("刚好 20000 个字符应该成功: %v", err)
 	}
 	if _, err := e.core.AddComment(ctx, testActor, 9999, "x"); !errors.Is(err, kanban.ErrCardNotFound) {
-		t.Errorf("卡片不存在应该得到 ErrCardNotFound，实际 %v", err)
+		t.Errorf("任务不存在应该得到 ErrCardNotFound，实际 %v", err)
 	}
 	if _, err := e.core.AddComment(ctx, kanban.Actor{Kind: kanban.ActorSystem, Name: "automation"}, c.ID, "x"); !errors.Is(err, kanban.ErrHumanOnly) {
 		t.Errorf("自动化应该得到 ErrHumanOnly，实际 %v", err)

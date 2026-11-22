@@ -15,7 +15,7 @@ import { useActivity } from './useActivity'
 interface ActivityPanelProps {
   boardId: number
   cardsById: ReadonlyMap<number, CardView>
-  /** 点了某张卡片的链接后调用 */
+  /** 点了某个任务的链接后调用 */
   onOpenCard: () => void
 }
 

@@ -8,7 +8,7 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// TestExportBoardComplete 验证导出含列、规则、卡片视图字段、评论和最新序号。
+// TestExportBoardComplete 验证导出含列、规则、任务视图字段、评论和最新序号。
 func TestExportBoardComplete(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -39,7 +39,7 @@ func TestExportBoardComplete(t *testing.T) {
 	}
 }
 
-// TestExportBoardEmpty 验证空看板导出：卡片是空切片，评论查询仍成功。
+// TestExportBoardEmpty 验证空看板导出：任务是空切片，评论查询仍成功。
 func TestExportBoardEmpty(t *testing.T) {
 	e := newCardEnv(t)
 	exp, err := e.core.ExportBoard(context.Background(), testActor, e.board.ID)

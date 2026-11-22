@@ -149,7 +149,7 @@ func TestListActivityFilters(t *testing.T) {
 	}
 }
 
-// TestListActivityByCard 验证按卡片筛选：只返回这张卡片的事件（建卡、评论、移动），别的卡片和与卡片无关的事件都不出现。
+// TestListActivityByCard 验证按任务筛选：只返回这个任务的事件（建卡、评论、移动），别的任务和与任务无关的事件都不出现。
 func TestListActivityByCard(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -169,7 +169,7 @@ func TestListActivityByCard(t *testing.T) {
 	}
 	for _, ev := range page.Events {
 		if ev.CardID != a.ID {
-			t.Fatalf("混进了别的卡片的事件: %+v", ev)
+			t.Fatalf("混进了别的任务的事件: %+v", ev)
 		}
 	}
 	other, err := e.core.ListActivity(ctx, e.board.ID, kanban.ActivityQuery{ActivityFilter: kanban.ActivityFilter{CardID: b.ID, Types: []string{kanban.EventCommentAdded}}})
@@ -262,7 +262,7 @@ func TestListActivityInvalid(t *testing.T) {
 	bad := map[string]kanban.ActivityQuery{
 		"负数 before":   {Before: -1},
 		"负数 limit":    {Limit: -1},
-		"负数卡片编号":      {ActivityFilter: kanban.ActivityFilter{CardID: -1}},
+		"负数任务编号":      {ActivityFilter: kanban.ActivityFilter{CardID: -1}},
 		"不认识的类型":      {ActivityFilter: kanban.ActivityFilter{Types: []string{"card.exploded"}}},
 		"空字符串类型":      {ActivityFilter: kanban.ActivityFilter{Types: []string{""}}},
 		"不认识的操作者类型":   {ActivityFilter: kanban.ActivityFilter{ActorKind: "robot"}},

@@ -40,7 +40,7 @@ func TestPullUpdates(t *testing.T) {
 	s.card(t, b, b.todo, "写文档")
 	again := ok(t, sess, "pull_updates", map[string]any{"board_id": b.ID}).Data
 	if got := types(t, again); len(got) != 1 || got[0] != "card.created" {
-		t.Fatalf("应该读到别人创建卡片的事件: %v", again)
+		t.Fatalf("应该读到别人创建任务的事件: %v", again)
 	}
 	same := ok(t, sess, "pull_updates", map[string]any{"board_id": b.ID}).Data
 	if len(items(t, same, "events")) != 1 {
@@ -52,7 +52,7 @@ func TestPullUpdates(t *testing.T) {
 	}
 
 	if _, err := s.core.CreateCard(t.Context(), agentActor, b.ID, kanban.CreateCardInput{Title: "我自己建的", ColumnID: b.todo}); err != nil {
-		t.Fatalf("agent 创建卡片失败: %v", err)
+		t.Fatalf("agent 创建任务失败: %v", err)
 	}
 	if own := ok(t, sess, "pull_updates", map[string]any{"board_id": b.ID}).Data; len(items(t, own, "events")) != 0 {
 		t.Errorf("自己的操作应该被过滤掉: %v", own)

@@ -13,17 +13,17 @@ import (
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 )
 
-// addCard 写入一张测试卡片并返回。
+// addCard 写入一个测试任务并返回。
 func addCard(t *testing.T, store kanban.CardStorer, boardID, columnID int64, key string, pos float64) *kanban.Card {
 	t.Helper()
-	c := &kanban.Card{BoardID: boardID, ColumnID: columnID, Key: key, Title: "卡片 " + key, Position: pos, Version: 1}
+	c := &kanban.Card{BoardID: boardID, ColumnID: columnID, Key: key, Title: "任务 " + key, Position: pos, Version: 1}
 	if err := store.Create(context.Background(), c); err != nil {
-		t.Fatalf("创建卡片失败: %v", err)
+		t.Fatalf("创建任务失败: %v", err)
 	}
 	return c
 }
 
-// cardKeys 返回卡片的编号列表。
+// cardKeys 返回任务的编号列表。
 func cardKeys(items []*kanban.Card) []string {
 	keys := make([]string, len(items))
 	for i, c := range items {
@@ -32,7 +32,7 @@ func cardKeys(items []*kanban.Card) []string {
 	return keys
 }
 
-// TestCardRoundTrip 验证卡片所有类型的字段都能存取：JSON 数组、时间指针、布尔值；
+// TestCardRoundTrip 验证任务所有类型的字段都能存取：JSON 数组、时间指针、布尔值；
 // 没填的标签和依赖读出来是空数组而不是 nil。
 func TestCardRoundTrip(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {

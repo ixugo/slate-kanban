@@ -14,7 +14,7 @@ type okOut struct {
 	OK bool `json:"ok"`
 }
 
-// nextCardOut 是 next_card 的输出。没有可做的卡片时 card 是 null，不是错误，此时没有 agent_notice。
+// nextCardOut 是 next_card 的输出。没有可做的任务时 card 是 null，不是错误，此时没有 agent_notice。
 type nextCardOut struct {
 	Card   *kanban.CardDetail `json:"card"`
 	Notice string             `json:"agent_notice,omitempty"`
@@ -52,7 +52,7 @@ type commentCardIn struct {
 	Body   string `json:"body" jsonschema:"评论正文，1 到 20000 字；评论只能新增，不能修改"`
 }
 
-// createCardIn 是创建卡片的入参，agent 视图只有这些字段。
+// createCardIn 是创建任务的入参，agent 视图只有这些字段。
 type createCardIn struct {
 	BoardID     int64    `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 	Title       string   `json:"title" jsonschema:"标题，1 到 200 字，单行"`
@@ -64,7 +64,7 @@ type createCardIn struct {
 	URL         string   `json:"url,omitempty" jsonschema:"关联的链接，必须以 http:// 或 https:// 开头"`
 }
 
-// createCardAdminIn 是管理视图的创建卡片入参：在 agent 的字段之外还有规划类字段，这些只有人能写。
+// createCardAdminIn 是管理视图的创建任务入参：在 agent 的字段之外还有规划类字段，这些只有人能写。
 type createCardAdminIn struct {
 	createCardIn
 	Priority   int     `json:"priority,omitempty" jsonschema:"优先级：0 未设置，1 低，2 中，3 高"`
@@ -76,7 +76,7 @@ type createCardAdminIn struct {
 	FinishedAt string  `json:"finished_at,omitempty" jsonschema:"完成时间，RFC3339 格式；通常由自动化规则写入"`
 }
 
-// updateCardIn 是修改卡片的入参，agent 视图只有这些字段。指针字段为 null 或不填都表示不改。
+// updateCardIn 是修改任务的入参，agent 视图只有这些字段。指针字段为 null 或不填都表示不改。
 type updateCardIn struct {
 	CardID      int64     `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
 	Version     *int64    `json:"version,omitempty" jsonschema:"你上次读到的 version；带上后，任务已被别人改过就返回 ErrCardVersionConflict，而不是覆盖对方的修改"`
@@ -88,7 +88,7 @@ type updateCardIn struct {
 	URL         *string   `json:"url,omitempty" jsonschema:"链接，必须以 http:// 或 https:// 开头；传空字符串清除；不填不改"`
 }
 
-// updateCardAdminIn 是管理视图的修改卡片入参：在 agent 的字段之外还有规划类字段。
+// updateCardAdminIn 是管理视图的修改任务入参：在 agent 的字段之外还有规划类字段。
 type updateCardAdminIn struct {
 	updateCardIn
 	Priority   *int     `json:"priority,omitempty" jsonschema:"优先级：0 未设置，1 低，2 中，3 高；不填不改"`
@@ -149,7 +149,7 @@ func (in updateCardAdminIn) patch() kanban.UpdateCardInput {
 }
 
 // registerWorkTools 注册干活用的工具。两个视图都有的几个（释放、交接、评论、移动）先注册；
-// 之后 agent 视图加上领取类、创建和修改卡片、写项目路径，管理视图加上带规划类字段的创建和修改。
+// 之后 agent 视图加上领取类、创建和修改任务、写项目路径，管理视图加上带规划类字段的创建和修改。
 func (a API) registerWorkTools(s *mcp.Server, v view) {
 	a.registerSharedWork(s)
 	if v == viewAdmin {
@@ -160,7 +160,7 @@ func (a API) registerWorkTools(s *mcp.Server, v view) {
 }
 
 // registerSharedWork 注册人和 agent 都有的干活工具。权限上的差别由 Core 判断：
-// agent 只能动自己持有的卡片，人可以动任何卡片。
+// agent 只能动自己持有的任务，人可以动任何任务。
 func (a API) registerSharedWork(s *mcp.Server) {
 	register(s, spec{
 		name: "release_card", kind: kindWrite,
@@ -220,7 +220,7 @@ func (a API) registerAgentWork(s *mcp.Server) {
 	}, a.setProjectPath)
 }
 
-// registerAdminCards 注册管理视图里带规划类字段的创建和修改卡片。
+// registerAdminCards 注册管理视图里带规划类字段的创建和修改任务。
 func (a API) registerAdminCards(s *mcp.Server) {
 	register(s, spec{
 		name: "create_card", kind: kindWrite,
@@ -233,7 +233,7 @@ func (a API) registerAdminCards(s *mcp.Server) {
 	}, a.updateCardAdmin)
 }
 
-// nextCard 为 agent 领取下一张该做的卡片，没有时返回 card 为 null。
+// nextCard 为 agent 领取下一个该做的任务，没有时返回 card 为 null。
 func (a API) nextCard(ctx context.Context, actor kanban.Actor, in nextCardIn) (any, error) {
 	card, err := a.core.NextCard(ctx, actor, in.BoardID, kanban.NextCardInput{ColumnID: in.ColumnID, LeaseMinutes: in.LeaseMinutes, EngineerID: in.EngineerID})
 	if err != nil {
@@ -246,7 +246,7 @@ func (a API) nextCard(ctx context.Context, actor kanban.Actor, in nextCardIn) (a
 	return out, nil
 }
 
-// claimCard 领取指定的卡片，返回卡片全文和「任务不清楚先反馈」的提示。
+// claimCard 领取指定的任务，返回任务全文和「任务不清楚先反馈」的提示。
 func (a API) claimCard(ctx context.Context, actor kanban.Actor, in claimCardIn) (any, error) {
 	detail, err := a.core.ClaimCard(ctx, actor, in.CardID, kanban.ClaimCardInput{LeaseMinutes: in.LeaseMinutes, EngineerID: in.EngineerID})
 	if err != nil {
@@ -260,7 +260,7 @@ func (a API) releaseCard(ctx context.Context, actor kanban.Actor, in cardIn) (an
 	return finished(a.core.ReleaseCard(ctx, actor, in.CardID))
 }
 
-// finishCard 完成交接，返回交接后的卡片摘要（带着新的所在列），不回显评论和描述。
+// finishCard 完成交接，返回交接后的任务摘要（带着新的所在列），不回显评论和描述。
 func (a API) finishCard(ctx context.Context, actor kanban.Actor, in finishCardIn) (any, error) {
 	detail, err := a.core.FinishCard(ctx, actor, in.CardID, kanban.FinishCardInput{
 		Summary: in.Summary, Branch: in.Branch, URL: in.URL, ColumnID: in.ColumnID,
@@ -277,18 +277,18 @@ func (a API) commentCard(ctx context.Context, actor kanban.Actor, in commentCard
 	return a.core.AddComment(ctx, actor, in.CardID, in.Body)
 }
 
-// createCard 以 agent 的字段创建卡片。
+// createCard 以 agent 的字段创建任务。
 func (a API) createCard(ctx context.Context, actor kanban.Actor, in createCardIn) (any, error) {
 	return a.makeCard(ctx, actor, in.BoardID, in.input())
 }
 
-// createCardAdmin 以管理视图的字段创建卡片，规划类字段也会写入。
+// createCardAdmin 以管理视图的字段创建任务，规划类字段也会写入。
 func (a API) createCardAdmin(ctx context.Context, actor kanban.Actor, in createCardAdminIn) (any, error) {
 	return a.makeCard(ctx, actor, in.BoardID, in.input())
 }
 
-// makeCard 创建卡片并返回简要字段。两个视图的创建共用它，权限和校验都在 Core；
-// 通过 MCP 创建的卡片放在所在列的最顶部，最新的在最上面。
+// makeCard 创建任务并返回简要字段。两个视图的创建共用它，权限和校验都在 Core；
+// 通过 MCP 创建的任务放在所在列的最顶部，最新的在最上面。
 func (a API) makeCard(ctx context.Context, actor kanban.Actor, boardID int64, in kanban.CreateCardInput) (any, error) {
 	in.Top = true
 	card, err := a.core.CreateCard(ctx, actor, boardID, in)
@@ -298,17 +298,17 @@ func (a API) makeCard(ctx context.Context, actor kanban.Actor, boardID int64, in
 	return a.briefOf(ctx, card)
 }
 
-// updateCard 以 agent 的字段修改卡片。
+// updateCard 以 agent 的字段修改任务。
 func (a API) updateCard(ctx context.Context, actor kanban.Actor, in updateCardIn) (any, error) {
 	return a.saveCard(ctx, actor, in.CardID, in.patch())
 }
 
-// updateCardAdmin 以管理视图的字段修改卡片，规划类字段也可以改。
+// updateCardAdmin 以管理视图的字段修改任务，规划类字段也可以改。
 func (a API) updateCardAdmin(ctx context.Context, actor kanban.Actor, in updateCardAdminIn) (any, error) {
 	return a.saveCard(ctx, actor, in.CardID, in.patch())
 }
 
-// saveCard 修改卡片并返回简要字段。两个视图的修改共用它，权限和校验都在 Core。
+// saveCard 修改任务并返回简要字段。两个视图的修改共用它，权限和校验都在 Core。
 func (a API) saveCard(ctx context.Context, actor kanban.Actor, cardID int64, patch kanban.UpdateCardInput) (any, error) {
 	card, err := a.core.UpdateCard(ctx, actor, cardID, patch)
 	if err != nil {
@@ -317,7 +317,7 @@ func (a API) saveCard(ctx context.Context, actor kanban.Actor, cardID int64, pat
 	return a.briefOf(ctx, card)
 }
 
-// moveCard 移动卡片并返回简要字段。
+// moveCard 移动任务并返回简要字段。
 func (a API) moveCard(ctx context.Context, actor kanban.Actor, in moveCardIn) (any, error) {
 	card, err := a.core.MoveCard(ctx, actor, in.CardID, kanban.MoveCardInput{
 		ColumnID: in.ColumnID, BeforeID: in.BeforeID, AfterID: in.AfterID, Top: true,

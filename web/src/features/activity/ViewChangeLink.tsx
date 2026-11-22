@@ -7,7 +7,7 @@ import { useTranslation } from '@/i18n/react'
 const DescriptionChangeDialog = lazy(() => import('./DescriptionChangeDialog'))
 
 interface ViewChangeLinkProps {
-  /** 被修改的卡片 */
+  /** 被修改的任务 */
   cardId: number
   /** 这次修改在变更日志里的记录编号 */
   changeId: number

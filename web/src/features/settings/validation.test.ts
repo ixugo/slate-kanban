@@ -11,7 +11,7 @@ import {
 describe('列校验与排序', () => {
   const columns = [makeColumn({ id: 1, sort: 1 }), makeColumn({ id: 2, sort: 2 }), makeColumn({ id: 3, sort: 3 })]
 
-  it('统计列内卡片数', () => {
+  it('统计列内任务数', () => {
     expect(countCardsInColumn(1, [{ column_id: 1 }, { column_id: 1 }, { column_id: 2 }])).toBe(2)
   })
 

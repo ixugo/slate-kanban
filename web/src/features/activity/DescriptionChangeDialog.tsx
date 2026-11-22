@@ -25,7 +25,7 @@ interface DescriptionChangeDialogProps {
 export default function DescriptionChangeDialog({ cardId, changeId, onClose }: DescriptionChangeDialogProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
-  // 当前看的是哪一条：初始是点开时那条，用右侧的「前一个 / 后一个」在同一张卡片的修改记录之间翻页
+  // 当前看的是哪一条：初始是点开时那条，用右侧的「前一个 / 后一个」在同一个任务的修改记录之间翻页
   const [currentId, setCurrentId] = useState(changeId)
   const change = useCardChange(cardId, currentId)
   const record = change.data

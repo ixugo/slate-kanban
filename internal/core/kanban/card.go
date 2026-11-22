@@ -8,32 +8,32 @@ import (
 	"github.com/ixugo/goddd/pkg/orm"
 )
 
-// CardStorer 是卡片的数据持久化接口。读出的卡片都已经调用过 Normalize。
-// 卡片的修改都发生在已经锁住看板行的事务里，所以更新直接用 Save，不再重复加行锁。
+// CardStorer 是任务的数据持久化接口。读出的任务都已经调用过 Normalize。
+// 任务的修改都发生在已经锁住看板行的事务里，所以更新直接用 Save，不再重复加行锁。
 type CardStorer interface {
 	// WithTx 返回绑定到事务的副本，事务内的所有读写都必须用它。
 	WithTx(orm.Tx) CardStorer
-	// Create 新增一张卡片。Key 重复时返回可用 orm.IsDuplicatedKey 判断的错误。
+	// Create 新增一个任务。Key 重复时返回可用 orm.IsDuplicatedKey 判断的错误。
 	Create(context.Context, *Card) error
-	// Save 把整张卡片写回数据库，布尔值和 0 值也会写入。
+	// Save 把整个任务写回数据库，布尔值和 0 值也会写入。
 	Save(context.Context, *Card) error
-	// Delete 按主键删除，幂等：卡片不存在也返回成功。
+	// Delete 按主键删除，幂等：任务不存在也返回成功。
 	Delete(context.Context, *Card) error
 	// GetByID 按主键读取，不存在时返回可用 orm.IsErrRecordNotFound 判断的错误。
 	GetByID(context.Context, int64) (*Card, error)
-	// GetByKey 按卡片编号（例如 SLATE-12）读取，不存在时错误同 GetByID。
+	// GetByKey 按任务编号（例如 SLATE-12）读取，不存在时错误同 GetByID。
 	GetByKey(context.Context, string) (*Card, error)
-	// ListByBoard 返回看板的全部卡片，按所在列的主键、位置、主键升序。
+	// ListByBoard 返回看板的全部任务，按所在列的主键、位置、主键升序。
 	ListByBoard(context.Context, int64) ([]*Card, error)
-	// ListByColumn 返回某一列的卡片，按位置升序，位置相同按主键升序。
+	// ListByColumn 返回某一列的任务，按位置升序，位置相同按主键升序。
 	ListByColumn(context.Context, int64) ([]*Card, error)
-	// CountByColumn 返回某一列有几张卡片。
+	// CountByColumn 返回某一列有几个任务。
 	CountByColumn(context.Context, int64) (int64, error)
 	// MaxPosition 返回某一列里最大的位置，空列返回 0。
 	MaxPosition(context.Context, int64) (float64, error)
 	// SetPosition 只更新位置，用于整列重排。
 	SetPosition(ctx context.Context, id int64, position float64) error
-	// DeleteByBoard 删除看板的全部卡片，用于删除看板。
+	// DeleteByBoard 删除看板的全部任务，用于删除看板。
 	DeleteByBoard(context.Context, int64) error
 	// IncrUnreadCount 把任务的未读数加一，不改版本号和更新时间。
 	IncrUnreadCount(ctx context.Context, id int64) error
@@ -41,7 +41,7 @@ type CardStorer interface {
 	ClearUnreadCount(ctx context.Context, id int64) error
 }
 
-// CreateCard 在看板里创建一张卡片，放在目标列的末尾。人和 agent 都可以创建：
+// CreateCard 在看板里创建一个任务，放在目标列的末尾。人和 agent 都可以创建：
 // agent 只能填标题、描述、标签、分支和链接，规划类字段只有人能填。
 // 各列允许 agent 做什么由列的提示词约定，这里不按列限制。编号在锁住看板行的事务里递增分配，所以并发创建也不会重复。
 func (c Core) CreateCard(ctx context.Context, actor Actor, boardID int64, in CreateCardInput) (*Card, error) {
@@ -75,7 +75,7 @@ func (c Core) CreateCard(ctx context.Context, actor Actor, boardID int64, in Cre
 	return out, nil
 }
 
-// buildNewCard 校验入参、分配编号和位置并写入新卡片，返回卡片和它所在列的名称（事件里要用）。
+// buildNewCard 校验入参、分配编号和位置并写入新任务，返回任务和它所在列的名称（事件里要用）。
 // 它被 CreateCard 放在事务里调用。
 func (u *unit) buildNewCard(ctx context.Context, actor Actor, boardID int64, in CreateCardInput) (*Card, string, error) {
 	cols, err := u.column.ListByBoard(ctx, boardID)
@@ -123,7 +123,7 @@ func (u *unit) buildNewCard(ctx context.Context, actor Actor, boardID int64, in 
 	return card, target.Name, nil
 }
 
-// pickCreateColumn 决定新卡片放进哪一列：指定了就必须属于这个看板，没指定就放第一列。
+// pickCreateColumn 决定新任务放进哪一列：指定了就必须属于这个看板，没指定就放第一列。
 func pickCreateColumn(cols []*Column, columnID int64) (*Column, error) {
 	if columnID == 0 {
 		if len(cols) == 0 {
@@ -147,7 +147,7 @@ func columnByID(cols []*Column, id int64) *Column {
 	return nil
 }
 
-// assignNumberAndPosition 给新卡片分配看板内的编号和目标列的位置：默认放列尾，top 为真放列头。
+// assignNumberAndPosition 给新任务分配看板内的编号和目标列的位置：默认放列尾，top 为真放列头。
 // 编号由看板上的计数器加一得到，永不回收；Key 由看板标识和编号拼成。
 func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card, top bool) error {
 	board, err := u.board.GetByID(ctx, card.BoardID)
@@ -173,7 +173,7 @@ func (u *unit) assignNumberAndPosition(ctx context.Context, card *Card, top bool
 	return err
 }
 
-// checkWaitsOn 读出看板的全部卡片，校验 deps 能不能作为 cardID 的依赖。新建卡片时 cardID 传 0。
+// checkWaitsOn 读出看板的全部任务，校验 deps 能不能作为 cardID 的依赖。新建任务时 cardID 传 0。
 func (u *unit) checkWaitsOn(ctx context.Context, boardID, cardID int64, deps []int64) error {
 	cards, err := u.card.ListByBoard(ctx, boardID)
 	if err != nil {
@@ -182,7 +182,7 @@ func (u *unit) checkWaitsOn(ctx context.Context, boardID, cardID int64, deps []i
 	return validateWaitsOn(cardID, deps, cards)
 }
 
-// GetCard 按主键读取卡片。卡片不存在返回 404。人和 agent 都可以读。
+// GetCard 按主键读取任务。任务不存在返回 404。人和 agent 都可以读。
 func (c Core) GetCard(ctx context.Context, id int64) (*Card, error) {
 	card, err := c.store.Card().GetByID(ctx, id)
 	if err != nil {
@@ -191,8 +191,8 @@ func (c Core) GetCard(ctx context.Context, id int64) (*Card, error) {
 	return card, nil
 }
 
-// boardOfCard 在事务之外查出卡片属于哪个看板，用来决定要锁哪个看板的行。
-// 卡片不会换看板，所以事务里再读卡片时只需要确认它还在。
+// boardOfCard 在事务之外查出任务属于哪个看板，用来决定要锁哪个看板的行。
+// 任务不会换看板，所以事务里再读任务时只需要确认它还在。
 func (c Core) boardOfCard(ctx context.Context, cardID int64) (int64, error) {
 	card, err := c.store.Card().GetByID(ctx, cardID)
 	if err != nil {
@@ -201,7 +201,7 @@ func (c Core) boardOfCard(ctx context.Context, cardID int64) (int64, error) {
 	return card.BoardID, nil
 }
 
-// loadCard 在事务里读取卡片，并确认它属于 boardID。卡片已经被删除（比如在查看板和锁看板之间）
+// loadCard 在事务里读取任务，并确认它属于 boardID。任务已经被删除（比如在查看板和锁看板之间）
 // 或者不属于这个看板，都按不存在处理。
 func (u *unit) loadCard(ctx context.Context, boardID, cardID int64) (*Card, error) {
 	card, err := u.card.GetByID(ctx, cardID)
@@ -214,7 +214,7 @@ func (u *unit) loadCard(ctx context.Context, boardID, cardID int64) (*Card, erro
 	return card, nil
 }
 
-// checkCardWritable 判断操作者能不能写这张卡片：人可以；agent 只能写自己持有的。
+// checkCardWritable 判断操作者能不能写这个任务：人可以；agent 只能写自己持有的。
 // 持有的判断只看 ClaimedBy，租约过期但还没被别人接手时仍然算持有，
 // 这样耗时很长的任务不会因为忘了续租而白做。
 func checkCardWritable(actor Actor, card *Card) error {
@@ -224,7 +224,7 @@ func checkCardWritable(actor Actor, card *Card) error {
 	return nil
 }
 
-// saveCard 保存一次真实的卡片修改：版本号加一，记下修改者和时间，写入数据库。
+// saveCard 保存一次真实的任务修改：版本号加一，记下修改者和时间，写入数据库。
 func (u *unit) saveCard(ctx context.Context, actor Actor, card *Card) error {
 	card.Version++
 	card.UpdatedBy = actor.Name
@@ -235,7 +235,7 @@ func (u *unit) saveCard(ctx context.Context, actor Actor, card *Card) error {
 	return nil
 }
 
-// cardPayload 返回卡片事件的公共内容：卡片编号和标题，再并入 extra 里的字段。
+// cardPayload 返回任务事件的公共内容：任务编号和标题，再并入 extra 里的字段。
 func cardPayload(card *Card, extra map[string]any) map[string]any {
 	payload := map[string]any{"key": card.Key, "title": card.Title}
 	for k, v := range extra {
@@ -244,7 +244,7 @@ func cardPayload(card *Card, extra map[string]any) map[string]any {
 	return payload
 }
 
-// saveCardChange 保存卡片并追加一条以它为主角的事件，事件内容是 cardPayload(card, extra)。
+// saveCardChange 保存任务并追加一条以它为主角的事件，事件内容是 cardPayload(card, extra)。
 func (u *unit) saveCardChange(ctx context.Context, actor Actor, card *Card, eventType string, extra map[string]any) error {
 	if err := u.saveCard(ctx, actor, card); err != nil {
 		return err
@@ -252,8 +252,8 @@ func (u *unit) saveCardChange(ctx context.Context, actor Actor, card *Card, even
 	return u.emit(ctx, actor, newEvent{BoardID: card.BoardID, CardID: card.ID, Type: eventType, Payload: cardPayload(card, extra)})
 }
 
-// UpdateCard 修改卡片，只更新入参里出现的字段，值没变的字段不算修改。
-// 人可以改全部字段；agent 只能改自己持有的卡片，并且只能改标题、描述、标签、分支和链接，
+// UpdateCard 修改任务，只更新入参里出现的字段，值没变的字段不算修改。
+// 人可以改全部字段；agent 只能改自己持有的任务，并且只能改标题、描述、标签、分支和链接，
 // 优先级、依赖、时间这些规划类字段只有人能动。
 // 入参带了 Version 并且和当前不一致返回 409；没有任何字段真的变化时不涨版本、不写事件。
 func (c Core) UpdateCard(ctx context.Context, actor Actor, cardID int64, in UpdateCardInput) (*Card, error) {
@@ -321,7 +321,7 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 	return u.finishCardUpdate(ctx, actor, card, changed, oldDescription)
 }
 
-// finishCardUpdate 在卡片保存之后收尾：描述变了就同步图片引用，并把这次修改记进变更日志，
+// finishCardUpdate 在任务保存之后收尾：描述变了就同步图片引用，并把这次修改记进变更日志，
 // 最后按改了什么写事件，事件载荷里带着变更记录的编号。
 func (u *unit) finishCardUpdate(ctx context.Context, actor Actor, card *Card, changed []string, oldDescription string) error {
 	var descriptionChangeID int64

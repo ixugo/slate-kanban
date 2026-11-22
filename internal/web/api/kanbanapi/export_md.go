@@ -36,7 +36,7 @@ func renderBoardMarkdown(data *kanban.BoardExport) []byte {
 	return buf.Bytes()
 }
 
-// cardKeyIndex 建立卡片主键到编号的映射，渲染依赖时用编号而不是内部主键。
+// cardKeyIndex 建立任务主键到编号的映射，渲染依赖时用编号而不是内部主键。
 func cardKeyIndex(cards []*kanban.ExportCard) map[int64]string {
 	out := make(map[int64]string, len(cards))
 	for _, c := range cards {
@@ -59,7 +59,7 @@ func cardsByColumn(cards []*kanban.ExportCard) map[int64][]*kanban.ExportCard {
 	return out
 }
 
-// writeExportCard 输出一张卡片：标题、元信息行、描述和评论。
+// writeExportCard 输出一个任务：标题、元信息行、描述和评论。
 func writeExportCard(buf *bytes.Buffer, card *kanban.ExportCard, keys map[int64]string) {
 	fmt.Fprintf(buf, "### %s %s\n\n", card.Key, card.Title)
 	var meta []string

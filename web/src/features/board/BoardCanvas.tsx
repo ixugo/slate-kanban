@@ -93,7 +93,7 @@ export function BoardCanvas({
       setDragItems((prev) => (prev ? moveToColumn(prev, active, targetColumnId, prev[targetColumnId]?.length ?? 0) : prev))
       return
     }
-    // 不是列就是另一张卡片，卡片的 over.id 就是卡片编号
+    // 不是列就是另一个任务，任务的 over.id 就是任务编号
     const overId = Number(over.id)
     const overColumn = findColumnOf(dragItems, overId)
     if (overColumn === null) return
@@ -118,11 +118,11 @@ export function BoardCanvas({
     }
     const overData = over.data.current as { type?: string } | undefined
     const overIsColumn = overData?.type === 'column'
-    // 落在列上时 over.id 是 columnDropId 生成的字符串，不是卡片编号；这种情况 handleDragEnd 不看 overId
+    // 落在列上时 over.id 是 columnDropId 生成的字符串，不是任务编号；这种情况 handleDragEnd 不看 overId
     const overId = overIsColumn ? 0 : Number(over.id)
     const { items: next, plan } = handleDragEnd(workItems, originalRef.current, active, overId, overIsColumn)
     // 有移动时先保持松手时的排列，等乐观更新落地再换成服务端数据；
-    // 否则这一瞬间卡片会退回旧位置，落下动画就飞向旧位置，再跳到新位置
+    // 否则这一瞬间任务会退回旧位置，落下动画就飞向旧位置，再跳到新位置
     setSettling(plan ? { items: next, base: baseItems } : null)
     setDragItems(null)
     setActiveId(null)

@@ -103,7 +103,7 @@ describe('ListView', () => {
     expect(priorityHeader).toHaveAttribute('aria-sort', 'descending')
   })
 
-  it('无卡片时显示空状态', () => {
+  it('无任务时显示空状态', () => {
     renderList({ cards: [] })
     expect(screen.getByText(en.list.empty)).toBeInTheDocument()
   })

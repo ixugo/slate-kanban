@@ -80,7 +80,7 @@ func TestGetBoard(t *testing.T) {
 	}
 }
 
-// TestListCardsSummaries 验证卡片列表只给摘要：没有描述和评论，有编号、所在列、派生状态；
+// TestListCardsSummaries 验证任务列表只给摘要：没有描述和评论，有编号、所在列、派生状态；
 // 同时支持筛选语法，写错的筛选词是带说明的工具错误。
 func TestListCardsSummaries(t *testing.T) {
 	s := newStack(t)
@@ -92,7 +92,7 @@ func TestListCardsSummaries(t *testing.T) {
 	all := ok(t, sess, "list_cards", map[string]any{"board_id": b.ID}).Data
 	cards := items(t, all, "cards")
 	if len(cards) != 2 || all["total"] != float64(2) || all["truncated"] != false {
-		t.Fatalf("应该有两张卡片: %v", all)
+		t.Fatalf("应该有两个任务: %v", all)
 	}
 	first := cards[0] // 待办列在进行中列的左边，所以先出现的是"写文档"
 	for _, banned := range []string{"description", "comments"} {
@@ -119,7 +119,7 @@ func TestListCardsLimit(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
 	for i := range 55 {
-		s.card(t, b, b.todo, fmt.Sprintf("卡片 %d", i))
+		s.card(t, b, b.todo, fmt.Sprintf("任务 %d", i))
 	}
 	sess := s.agent(t, "claude")
 	def := ok(t, sess, "list_cards", map[string]any{"board_id": b.ID}).Data
@@ -139,7 +139,7 @@ func TestListCardsLimit(t *testing.T) {
 	}
 }
 
-// TestGetCard 验证卡片详情：全文、评论、所在列的指令、依赖的卡片都在里面；卡片不存在是工具错误。
+// TestGetCard 验证任务详情：全文、评论、所在列的指令、依赖的任务都在里面；任务不存在是工具错误。
 func TestGetCard(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
@@ -148,7 +148,7 @@ func TestGetCard(t *testing.T) {
 		Title: "做登录", Description: "需要支持扫码", ColumnID: b.doing, WaitsOn: []int64{dep.ID},
 	})
 	if err != nil {
-		t.Fatalf("创建卡片失败: %v", err)
+		t.Fatalf("创建任务失败: %v", err)
 	}
 	if _, err := s.core.AddComment(t.Context(), humanActor, card.ID, "注意兼容旧版"); err != nil {
 		t.Fatalf("写评论失败: %v", err)
@@ -164,7 +164,7 @@ func TestGetCard(t *testing.T) {
 	}
 	missing := call(t, sess, "get_card", map[string]any{"card_id": 9999})
 	if !missing.IsError || !strings.HasPrefix(missing.Text, "ErrCardNotFound:") {
-		t.Errorf("卡片不存在应该是工具错误: %+v", missing)
+		t.Errorf("任务不存在应该是工具错误: %+v", missing)
 	}
 	if _, ok := got["unread_count"]; ok {
 		t.Errorf("get_card 不应带 unread_count: %v", got["unread_count"])

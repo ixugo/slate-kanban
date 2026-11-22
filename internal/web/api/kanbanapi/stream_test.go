@@ -157,10 +157,10 @@ func TestStreamLive(t *testing.T) {
 	conn := openStream(t, srv, "", "/boards/"+id(b.ID)+"/stream", nil)
 	latest := conn.ready(t)
 
-	c := s.newCard(t, b, b.Columns[1].ID, "新卡片")
+	c := s.newCard(t, b, b.Columns[1].ID, "新任务")
 	evID, typ := conn.boardEvent(t)
 	if typ != "card.created" || evID <= latest {
-		t.Fatalf("应该推来建卡片的事件，序号在 ready 之后: %d %s（latest=%d）", evID, typ, latest)
+		t.Fatalf("应该推来建任务的事件，序号在 ready 之后: %d %s（latest=%d）", evID, typ, latest)
 	}
 	s.human(t, http.MethodPost, "/cards/"+id(c.ID)+"/comments", map[string]string{"body": "留言"})
 	if _, typ := conn.boardEvent(t); typ != "comment.added" {

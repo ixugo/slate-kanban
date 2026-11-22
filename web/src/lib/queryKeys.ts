@@ -9,11 +9,11 @@ export const queryKeys = {
   board: (boardId: number) => ['board', boardId] as const,
   /** 一块看板的活动流，不同的筛选条件各存一份；挂在看板键下面，看板有更新时会跟着刷新 */
   activity: (boardId: number, filters: object) => ['board', boardId, 'activity', filters] as const,
-  /** 一张卡片的事件（卡片详情里的「评论和活动」）；挂在看板键下面，看板有更新时会跟着刷新 */
+  /** 一个任务的事件（任务详情里的「评论和活动」）；挂在看板键下面，看板有更新时会跟着刷新 */
   cardActivity: (boardId: number, cardId: number) => ['board', boardId, 'card-activity', cardId] as const,
-  /** 一张卡片的一次变更记录（修改前后的内容）；记录只增不改，读到就不会变，所以不挂在看板键下面，不跟着实时刷新 */
+  /** 一个任务的一次变更记录（修改前后的内容）；记录只增不改，读到就不会变，所以不挂在看板键下面，不跟着实时刷新 */
   cardChange: (cardId: number, changeId: number) => ['card-change', cardId, changeId] as const,
-  /** 一张卡片的详情；不带编号表示全部卡片详情，用来整体失效 */
+  /** 一个任务的详情；不带编号表示全部任务详情，用来整体失效 */
   card: (cardId?: number) => (cardId === undefined ? (['card'] as const) : (['card', cardId] as const)),
   /** 服务端版本信息 */
   version: ['version'] as const,

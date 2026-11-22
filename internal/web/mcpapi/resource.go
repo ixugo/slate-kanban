@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	// maxResourceCards 是看板资源快照里最多给出的卡片摘要数，和 list_cards 的单次上限分开，
+	// maxResourceCards 是看板资源快照里最多给出的任务摘要数，和 list_cards 的单次上限分开，
 	// 资源是订阅和整体了解看板用的，不是每次干活都读。
 	maxResourceCards = 200
 	// boardURIPrefix 是看板资源地址的固定前缀，后面跟看板编号。
@@ -25,8 +25,8 @@ const (
 	markdownMIME = "text/markdown"
 )
 
-// boardResource 是读取看板资源得到的内容：看板、列、规则，卡片只有摘要，加上读取数据之前的事件序号 seq。
-// 卡片数有上限，多了只给前面的，total 和 truncated 如实说明，要看别的卡片用 list_cards 的筛选。
+// boardResource 是读取看板资源得到的内容：看板、列、规则，任务只有摘要，加上读取数据之前的事件序号 seq。
+// 任务数有上限，多了只给前面的，total 和 truncated 如实说明，要看别的任务用 list_cards 的筛选。
 type boardResource struct {
 	*kanban.BoardDetail
 	Cards     []cardSummary `json:"cards"`
@@ -103,7 +103,7 @@ func (a API) readBoard(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.
 	}}, nil
 }
 
-// boardResourceOf 把整板快照缩成资源内容：卡片换成摘要，数量最多 maxResourceCards 张。
+// boardResourceOf 把整板快照缩成资源内容：任务换成摘要，数量最多 maxResourceCards 张。
 func boardResourceOf(snap *kanban.Snapshot) boardResource {
 	cards := snap.Cards
 	total := len(cards)

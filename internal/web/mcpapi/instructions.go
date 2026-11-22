@@ -1,7 +1,7 @@
 package mcpapi
 
 // agentInstructions 是 agent 连接时收到的使用说明。它会进入每个会话的上下文，所以只写最关键的几条：
-// 先看什么、只做哪些卡片、做完怎么交接、没活时怎么等、掉线后怎么补读。
+// 先看什么、只做哪些任务、做完怎么交接、没活时怎么等、掉线后怎么补读。
 // worktree、子 agent、项目路径这类更完整的流程放在 slate-kanban 这个 skill 里，没装时可以读 skill 资源自己安装。
 const agentInstructions = `你连接的是 Slate 看板，是其中的 agent，和人一起管理开发工作。
 

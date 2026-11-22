@@ -1,4 +1,4 @@
-// 修改卡片的本地预测：按提交的字段算出"改完大概是什么样"，供乐观更新先显示；最终以服务端返回为准。
+// 修改任务的本地预测：按提交的字段算出"改完大概是什么样"，供乐观更新先显示；最终以服务端返回为准。
 
 import type { Card, Tag, UpdateCardInput } from '@/lib/api/types'
 
@@ -8,7 +8,7 @@ function toTime(value: string): string | null {
 }
 
 /**
- * 把 input 里出现的字段套到卡片上。tags（带文字标签的文字）由标签库按 tag_ids 推出，
+ * 把 input 里出现的字段套到任务上。tags（带文字标签的文字）由标签库按 tag_ids 推出，
  * 依赖导致的 waiting、dependencies 要服务端算，这里不预测，等响应回来校准。
  */
 export function applyCardPatch<T extends Card & { tags?: string[] }>(card: T, input: UpdateCardInput, library: Tag[]): T {
@@ -34,7 +34,7 @@ export function applyCardPatch<T extends Card & { tags?: string[] }>(card: T, in
   return next
 }
 
-/** 放弃领取后的卡片：领取者、租约、承担的工程师都清掉 */
+/** 放弃领取后的任务：领取者、租约、承担的工程师都清掉 */
 export function clearClaim<T extends Card & { claim_active?: boolean }>(card: T): T {
   const next: T = { ...card, claimed_by: '', claim_expires_at: null, claim_engineer_id: 0 }
   if (next.claim_active !== undefined) next.claim_active = false

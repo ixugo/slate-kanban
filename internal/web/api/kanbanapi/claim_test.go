@@ -20,7 +20,7 @@ func TestClaimAgentOnlyREST(t *testing.T) {
 	wantFail(t, "人 next_card", s.human(t, http.MethodPost, "/boards/"+id(b.ID)+"/cards/next", nil), http.StatusForbidden, "ErrAgentOnly")
 }
 
-// TestReleaseCard 验证释放：人可以把卡片从领取状态收回。
+// TestReleaseCard 验证释放：人可以把任务从领取状态收回。
 func TestReleaseCard(t *testing.T) {
 	s := newStack(t)
 	_, c := claimed(t, s, "被收回")

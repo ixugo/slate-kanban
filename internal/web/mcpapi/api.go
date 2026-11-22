@@ -32,7 +32,7 @@ const (
 type view string
 
 const (
-	// viewAgent 是工作视图的代号：读取、拉取更新、领取和处理卡片。
+	// viewAgent 是工作视图的代号：读取、拉取更新、领取和处理任务。
 	viewAgent view = "agent"
 	// viewAdmin 是管理视图的代号：读取和全部管理操作。
 	viewAdmin view = "admin"

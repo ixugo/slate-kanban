@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// titles 按位置顺序返回某一列的卡片标题，用逗号连接。
+// titles 按位置顺序返回某一列的任务标题，用逗号连接。
 func (s *stack) titles(t *testing.T, boardID, column int64) string {
 	t.Helper()
 	snap, err := s.core.BoardSnapshot(t.Context(), boardID)
@@ -21,7 +21,7 @@ func (s *stack) titles(t *testing.T, boardID, column int64) string {
 	return strings.Join(names, ",")
 }
 
-// TestAgentPlacementDefaultsToTop 验证 agent 通过 MCP 创建、移动、交接卡片时默认放到目标列最顶部，
+// TestAgentPlacementDefaultsToTop 验证 agent 通过 MCP 创建、移动、交接任务时默认放到目标列最顶部，
 // 带 before_id / after_id 时以参数为准。
 func TestAgentPlacementDefaultsToTop(t *testing.T) {
 	s := newStack(t)
@@ -33,7 +33,7 @@ func TestAgentPlacementDefaultsToTop(t *testing.T) {
 
 	created := ok(t, sess, "create_card", map[string]any{"board_id": b.ID, "title": "新建", "column_id": b.todo})
 	if created.Data["column_id"] != float64(b.todo) {
-		t.Fatalf("新建的卡片应该在待办列: %v", created.Data)
+		t.Fatalf("新建的任务应该在待办列: %v", created.Data)
 	}
 	ok(t, sess, "next_card", map[string]any{"board_id": b.ID, "column_id": b.doing})
 	ok(t, sess, "finish_card", map[string]any{"card_id": mine.ID, "summary": "做完了"})
@@ -41,7 +41,7 @@ func TestAgentPlacementDefaultsToTop(t *testing.T) {
 		t.Fatalf("交接应该放到审查列最顶部，实际: %s", got)
 	}
 	if got := s.titles(t, b.ID, b.todo); got != "新建" {
-		t.Fatalf("创建的卡片应该放到列最顶部，实际: %s", got)
+		t.Fatalf("创建的任务应该放到列最顶部，实际: %s", got)
 	}
 }
 

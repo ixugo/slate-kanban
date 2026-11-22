@@ -1,5 +1,5 @@
-// 看板列里的卡片磁贴：整张磁贴是一个指向卡片的真实链接，只有一个 Tab 停靠点。
-// 左键点击在当前页弹出详情；中键或 Cmd/Ctrl+点击由浏览器在新标签页打开同一张卡片；空格交给 dnd-kit 拖拽。
+// 看板列里的任务磁贴：整张磁贴是一个指向任务的真实链接，只有一个 Tab 停靠点。
+// 左键点击在当前页弹出详情；中键或 Cmd/Ctrl+点击由浏览器在新标签页打开同一个任务；空格交给 dnd-kit 拖拽。
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -25,7 +25,7 @@ export const TILE_CLASS =
 
 interface CardTileProps {
   card: CardView
-  /** 搜索或筛选时不能拖：位置在结果里没有意义；点击打开卡片不受影响 */
+  /** 搜索或筛选时不能拖：位置在结果里没有意义；点击打开任务不受影响 */
   dragDisabled?: boolean
 }
 
@@ -97,7 +97,7 @@ export function TileBody({ card }: { card: CardView }) {
   )
 }
 
-/** 单张可拖拽卡片：一个指向 `?card=` 的链接，点击不刷新页面，修饰键点击交给浏览器新开标签页 */
+/** 单个可拖拽任务：一个指向 `?card=` 的链接，点击不刷新页面，修饰键点击交给浏览器新开标签页 */
 export function CardTile({ card, dragDisabled }: CardTileProps) {
   const [params] = useSearchParams()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -130,7 +130,7 @@ export function CardTile({ card, dragDisabled }: CardTileProps) {
       // 搜索时 dnd-kit 会标记 disabled，但链接仍然能点，不能让读屏说它不可用
       aria-disabled={undefined}
       aria-label={`${displayKey(card.key)} ${card.title}`}
-      // 键盘拖拽中按 Enter 会触发链接点击，这时不能打开卡片
+      // 键盘拖拽中按 Enter 会触发链接点击，这时不能打开任务
       onClick={(e) => {
         if (isDragging) e.preventDefault()
       }}

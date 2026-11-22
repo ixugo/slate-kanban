@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// applyFieldAction 把只改卡片自己字段的动作应用到内存里的卡片上，不读写数据库。
-// changed 表示卡片真的变了；skip 不为空表示动作因为参数原因无法执行，值是给人看的原因。
+// applyFieldAction 把只改任务自己字段的动作应用到内存里的任务上，不读写数据库。
+// changed 表示任务真的变了；skip 不为空表示动作因为参数原因无法执行，值是给人看的原因。
 // "时间已经有值而模式是 if_empty"这类本来就不需要改动的情况，既不算 changed，也不算 skip。
 // 评论、移动列和加减标签这几种需要读写数据库的动作不在这里处理，由规则引擎负责。
 func applyFieldAction(card *Card, a RuleAction, now time.Time) (changed bool, skip string) {

@@ -157,7 +157,7 @@ describe('切换条件', () => {
 })
 
 describe('collectTagOptions', () => {
-  it('按出现的卡片数从多到少排，同样多按名称排；大小写不同的算同一个标签，写法取第一次出现的', () => {
+  it('按出现的任务数从多到少排，同样多按名称排；大小写不同的算同一个标签，写法取第一次出现的', () => {
     const cards = [
       makeCard({ id: 1, tags: ['bug', 'ui'] }),
       makeCard({ id: 2, tags: ['Bug'] }),

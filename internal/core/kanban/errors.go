@@ -40,43 +40,43 @@ var (
 	// ErrColumnLimit 看板的列数已经到了上限。
 	ErrColumnLimit = reason.NewError("ErrColumnLimit", fmt.Sprintf("每个看板最多 %d 列", maxColumnsPerBoard))
 
-	// ErrColumnNotEmpty 要删除的列里还有卡片，又没有指定把它们移到哪一列。
+	// ErrColumnNotEmpty 要删除的列里还有任务，又没有指定把它们移到哪一列。
 	ErrColumnNotEmpty = reason.NewError("ErrColumnNotEmpty", "列里还有任务，请指定把它们移入的列").WithHTTPStatus(409)
 
 	// ErrColumnOrderStale 调整顺序的请求和当前的列集合对不上，说明请求依据的是过期的数据。
 	ErrColumnOrderStale = reason.NewError("ErrColumnOrderStale", "列已经发生变化，请刷新后重新调整顺序").WithHTTPStatus(409)
 
-	// ErrCardNotFound 卡片不存在，可能已经被删除。
+	// ErrCardNotFound 任务不存在，可能已经被删除。
 	ErrCardNotFound = reason.NewError("ErrCardNotFound", "任务不存在").WithHTTPStatus(404)
 
-	// ErrCardChangeNotFound 变更记录不存在：编号写错、不属于这张卡片，或者卡片已经被删除。
+	// ErrCardChangeNotFound 变更记录不存在：编号写错、不属于这个任务，或者任务已经被删除。
 	ErrCardChangeNotFound = reason.NewError("ErrCardChangeNotFound", "变更记录不存在").WithHTTPStatus(404)
 
-	// ErrCardVersionConflict 带着旧版本号提交修改，说明卡片已经被别人改过，需要刷新后再改。
+	// ErrCardVersionConflict 带着旧版本号提交修改，说明任务已经被别人改过，需要刷新后再改。
 	ErrCardVersionConflict = reason.NewError("ErrCardVersionConflict", "任务已被其他人修改，请刷新后重试").WithHTTPStatus(409)
 
-	// ErrNotHolder agent 要写的卡片当前不归它持有：没领取过、已被收回，或者被别的 agent 接手了。
+	// ErrNotHolder agent 要写的任务当前不归它持有：没领取过、已被收回，或者被别的 agent 接手了。
 	ErrNotHolder = reason.NewError("ErrNotHolder", "你当前没有持有这个任务，请先领取").WithHTTPStatus(409)
 
-	// ErrAgentOnly 领取、取下一张卡、拉取更新都是 agent 的概念，人在网页上直接操作，例如拖动卡片来分配工作。
+	// ErrAgentOnly 领取、取下一张卡、拉取更新都是 agent 的概念，人在网页上直接操作，例如拖动任务来分配工作。
 	ErrAgentOnly = reason.NewError("ErrAgentOnly", "该操作只给 agent 使用，人在网页上直接操作，例如拖动任务来分配工作").WithHTTPStatus(403)
 
-	// ErrCardHumanOnly 卡片被标记为只能由人处理，agent 不能领取。
+	// ErrCardHumanOnly 任务被标记为只能由人处理，agent 不能领取。
 	ErrCardHumanOnly = reason.NewError("ErrCardHumanOnly", "这个任务只能由人处理").WithHTTPStatus(403)
 
-	// ErrCardWaiting 卡片依赖的卡片还没有完成，现在不能开始。
+	// ErrCardWaiting 任务依赖的任务还没有完成，现在不能开始。
 	ErrCardWaiting = reason.NewError("ErrCardWaiting", "任务还在等待其他任务完成").WithHTTPStatus(409)
 
-	// ErrCardClaimed 卡片正被另一个 agent 持有，租约还没有到期。
+	// ErrCardClaimed 任务正被另一个 agent 持有，租约还没有到期。
 	ErrCardClaimed = reason.NewError("ErrCardClaimed", "任务已经被其他 agent 领取").WithHTTPStatus(409)
 
-	// ErrEngineerBusy 指定的工程师正在做别的卡片，一位工程师同一时间只做一张。
+	// ErrEngineerBusy 指定的工程师正在做别的任务，一位工程师同一时间只做一个任务。
 	ErrEngineerBusy = reason.NewError("ErrEngineerBusy", "这位工程师正在做别的任务").WithHTTPStatus(409)
 
 	// ErrNoIdleEngineer 同类型的工程师都在忙，没有空闲名额，要排队等。
 	ErrNoIdleEngineer = reason.NewError("ErrNoIdleEngineer", "没有空闲的工程师，请排队等待").WithHTTPStatus(409)
 
-	// ErrEngineerBound 卡片绑定了某位工程师，不能由另一位承担。
+	// ErrEngineerBound 任务绑定了某位工程师，不能由另一位承担。
 	ErrEngineerBound = reason.NewError("ErrEngineerBound", "任务绑定了另一位工程师").WithHTTPStatus(409)
 
 	// ErrRuleNotFound 自动化规则不存在，可能已经被删除。

@@ -1,4 +1,4 @@
-// 卡片详情弹窗：由 ?card= 打开根卡片，描述和评论的引用可在同一个弹窗里逐层打开。
+// 任务详情弹窗：由 ?card= 打开根任务，描述和评论的引用可在同一个弹窗里逐层打开。
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -39,7 +39,7 @@ function keepDialogWhenEditorCancels(e: KeyboardEvent) {
   if ((e.target as HTMLElement | null)?.closest?.('[data-escape-cancel]')) e.preventDefault()
 }
 
-/** URL 只记录用户打开的根卡片，切换根卡片时清空引用层。 */
+/** URL 只记录用户打开的根任务，切换根任务时清空引用层。 */
 export default function CardDialog({ boardId }: CardDialogProps) {
   const [params, setParams] = useSearchParams()
   const rootId = parseId(params.get('card'))
@@ -166,8 +166,8 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
     },
   })
 
-  // 只有服务端明确说卡片不存在（404）才提示"已经没有这张卡片"；
-  // 断网、服务器出错时如实说明原因，不能让人误以为卡片被删了。
+  // 只有服务端明确说任务不存在（404）才提示"已经没有这个任务"；
+  // 断网、服务器出错时如实说明原因，不能让人误以为任务被删了。
   const gone = error instanceof ApiError && error.status === 404
   const loaded = !isPending
   const showNotFound = loaded && (gone || (error === null && !card))
@@ -213,7 +213,7 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
   )
 }
 
-/** 合并依赖候选：详情里的 dependencies 加上快照里其余卡片 */
+/** 合并依赖候选：详情里的 dependencies 加上快照里其余任务 */
 function useDepOptions(snapshot: Snapshot | undefined, card: CardDetail | undefined): CardDetail['dependencies'] {
   if (!snapshot || !card) return []
   const map = new Map((card.dependencies ?? []).map((d) => [d.id, d]))

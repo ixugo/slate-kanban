@@ -1,6 +1,6 @@
 package kanban
 
-// maxWaitsOn 一张卡片最多依赖几张其他卡片。
+// maxWaitsOn 一个任务最多依赖几个其他任务。
 const maxWaitsOn = 20
 
 // normalizeWaitsOn 去掉重复的依赖，保留首次出现的顺序，并检查数量上限和 id 的取值。
@@ -23,10 +23,10 @@ func normalizeWaitsOn(ids []int64) ([]int64, error) {
 	return out, nil
 }
 
-// validateWaitsOn 校验一张卡片的新依赖列表是否可以保存。cardID 是这张卡片自己，新建时传 0。
-// boardCards 是同一看板的全部卡片，依赖必须都在其中（也就是同一看板），并且不能指向自己；
+// validateWaitsOn 校验一个任务的新依赖列表是否可以保存。cardID 是这个任务自己，新建时传 0。
+// boardCards 是同一看板的全部任务，依赖必须都在其中（也就是同一看板），并且不能指向自己；
 // 还要保证不会成环：从每个新依赖出发沿依赖链往下走，如果能走回 cardID，就说明 A 等 B、B 等 A，
-// 两张卡都永远不会被领取。搜索在内存里完成，复杂度是看板卡片数加依赖边数的线性级。
+// 两张卡都永远不会被领取。搜索在内存里完成，复杂度是看板任务数加依赖边数的线性级。
 func validateWaitsOn(cardID int64, deps []int64, boardCards []*Card) error {
 	graph := make(map[int64][]int64, len(boardCards))
 	for _, c := range boardCards {
@@ -65,10 +65,10 @@ func reachesTarget(graph map[int64][]int64, starts []int64, target int64) bool {
 	return false
 }
 
-// unfinishedDeps 返回卡片还没完成的依赖：依赖对应的卡片存在，并且所在的列不是完成列。
-// 依赖的卡片已经被删除时不算，因为删除卡片时会把它从别的卡片的依赖里移除，
+// unfinishedDeps 返回任务还没完成的依赖：依赖对应的任务存在，并且所在的列不是完成列。
+// 依赖的任务已经被删除时不算，因为删除任务时会把它从别的任务的依赖里移除，
 // 这里再忽略一次，是为了读到半途数据时也不会永远显示等待中。
-// byID 是同一看板全部卡片按主键的索引，doneCols 是完成列的主键集合。
+// byID 是同一看板全部任务按主键的索引，doneCols 是完成列的主键集合。
 func unfinishedDeps(card *Card, byID map[int64]*Card, doneCols map[int64]bool) []*Card {
 	var out []*Card
 	for _, id := range card.WaitsOn {

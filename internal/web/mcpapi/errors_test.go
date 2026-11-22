@@ -49,7 +49,7 @@ func TestToolError(t *testing.T) {
 		},
 		{
 			name:       "数据库错误",
-			err:        reason.ErrDB.Withf("读取卡片: SELECT * FROM cards secret-sql"),
+			err:        reason.ErrDB.Withf("读取任务: SELECT * FROM cards secret-sql"),
 			want:       "ErrStore: 数据发生错误",
 			wantLogged: true,
 			notContain: []string{"secret-sql", "SELECT"},
@@ -93,7 +93,7 @@ func TestToolError(t *testing.T) {
 // TestToolErrorKeepsDetailsInLog 验证记日志时保留完整的错误，方便排查。
 func TestToolErrorKeepsDetailsInLog(t *testing.T) {
 	buf := captureLog(t)
-	_ = toolError(t.Context(), reason.ErrDB.Withf("读取卡片: secret-sql"))
+	_ = toolError(t.Context(), reason.ErrDB.Withf("读取任务: secret-sql"))
 	if !strings.Contains(buf.String(), "secret-sql") {
 		t.Errorf("日志里应该有完整的错误: %s", buf)
 	}

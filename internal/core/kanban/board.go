@@ -36,7 +36,7 @@ type BoardStorer interface {
 	// Lock 锁住看板行并返回最新数据，是同一看板的写事务排队的入口。
 	// 只有 PostgreSQL 会真正加行锁；SQLite 只有一个连接，写事务本来就是串行的。
 	Lock(context.Context, int64) (*Board, error)
-	// IncrCardSeq 把卡片编号计数加一并返回新值，看板不存在时返回找不到记录的错误。
+	// IncrCardSeq 把任务编号计数加一并返回新值，看板不存在时返回找不到记录的错误。
 	IncrCardSeq(context.Context, int64) (int64, error)
 }
 
@@ -266,7 +266,7 @@ func checkBoardPatchAllowed(actor Actor, in UpdateBoardInput) error {
 	return ErrHumanOnly.WithMsg("agent 只能在项目路径为空时写入项目路径，其他修改只允许人执行")
 }
 
-// DeleteBoard 删除看板和它的全部数据：评论、卡片、规则、列、agent 的读取进度和事件。只有人能操作。
+// DeleteBoard 删除看板和它的全部数据：评论、任务、规则、列、agent 的读取进度和事件。只有人能操作。
 // 全部在一个事务里按依赖顺序删除，任何一步失败整体回滚，不会留下孤儿数据。
 // 删除是幂等的：看板已经不存在也返回成功。事件随看板一起删了，所以提交后只广播一次唤醒信号，
 // 让还在等待这个看板更新的人醒来，重新查询时得到"看板不存在"。
@@ -301,7 +301,7 @@ func (c Core) removeResourceDir(slug string) {
 }
 
 // deleteBoard 在事务里按依赖顺序删除看板的全部数据，最后删看板自己，并标记要广播，返回被删看板的 slug。
-// 一个看板的卡片数量预期在几千张以内，每类数据一条删除语句，所以是常数条语句。
+// 一个看板的任务数量预期在几千个以内，每类数据一条删除语句，所以是常数条语句。
 func (u *unit) deleteBoard(ctx context.Context, id int64) (string, error) {
 	b, err := u.board.GetByID(ctx, id)
 	if err != nil {

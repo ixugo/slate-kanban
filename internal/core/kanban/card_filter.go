@@ -14,7 +14,7 @@ const (
 	maxFilterTerms = 30
 )
 
-// testFunc 判断一张卡片是否满足某个筛选词。ix 提供列、依赖和当前时间这些判断所需的上下文。
+// testFunc 判断一个任务是否满足某个筛选词。ix 提供列、依赖和当前时间这些判断所需的上下文。
 type testFunc func(card *Card, ix *boardIndex) bool
 
 // filterTerm 是一个解析好的筛选词。negate 为真表示取反，也就是词前面加了减号。
@@ -23,12 +23,12 @@ type filterTerm struct {
 	test   testFunc
 }
 
-// filter 是解析好的筛选条件：所有词都满足才算命中。没有任何词时命中全部卡片。
+// filter 是解析好的筛选条件：所有词都满足才算命中。没有任何词时命中全部任务。
 type filter struct {
 	terms []filterTerm
 }
 
-// match 判断一张卡片是否命中筛选条件。
+// match 判断一个任务是否命中筛选条件。
 func (f *filter) match(card *Card, ix *boardIndex) bool {
 	for _, t := range f.terms {
 		if t.test(card, ix) == t.negate {
@@ -54,7 +54,7 @@ var termBuilders = map[string]func(text, value string) (testFunc, error){
 }
 
 // parseFilter 把筛选字符串解析成筛选条件，语法见 kanban.card.go.md 的"筛选语法"。
-// 空字符串得到命中全部卡片的条件；字符串太长、词太多、前缀或值不认识、引号没有闭合都返回 ErrInvalidInput，
+// 空字符串得到命中全部任务的条件；字符串太长、词太多、前缀或值不认识、引号没有闭合都返回 ErrInvalidInput，
 // 错误里写出出错的那个词，让人和 agent 都知道该改哪里。
 func parseFilter(q string) (*filter, error) {
 	if err := checkText("筛选条件", q, 0, maxFilterLen); err != nil {
@@ -203,7 +203,7 @@ func textTerm(needle string) testFunc {
 	}
 }
 
-// buildTag 解析 tag:xxx，卡片带有这个标签（不区分大小写）。
+// buildTag 解析 tag:xxx，任务带有这个标签（不区分大小写）。
 func buildTag(_, value string) (testFunc, error) {
 	return func(c *Card, ix *boardIndex) bool {
 		return slices.ContainsFunc(ix.tagNames(c), func(tag string) bool { return strings.EqualFold(tag, value) })
@@ -219,7 +219,7 @@ func buildColumn(_, value string) (testFunc, error) {
 	}, nil
 }
 
-// buildKey 解析 key:xxx，卡片编号等于 xxx（不区分大小写）。
+// buildKey 解析 key:xxx，任务编号等于 xxx（不区分大小写）。
 func buildKey(_, value string) (testFunc, error) {
 	return func(c *Card, _ *boardIndex) bool { return strings.EqualFold(c.Key, value) }, nil
 }
@@ -236,7 +236,7 @@ func buildDesc(_, value string) (testFunc, error) {
 	return func(c *Card, _ *boardIndex) bool { return containsFold(c.Description, needle) }, nil
 }
 
-// buildClaimed 解析 claimed:xxx，卡片正被名为 xxx 的 agent 领取并且租约有效。
+// buildClaimed 解析 claimed:xxx，任务正被名为 xxx 的 agent 领取并且租约有效。
 func buildClaimed(_, value string) (testFunc, error) {
 	return func(c *Card, ix *boardIndex) bool {
 		return claimActive(c, ix.now) && strings.EqualFold(c.ClaimedBy, value)

@@ -1,4 +1,4 @@
-// 修改卡片字段：带 version。先把预测结果写进详情和看板快照，请求失败再还原；冲突时提示并刷新详情。
+// 修改任务字段：带 version。先把预测结果写进详情和看板快照，请求失败再还原；冲突时提示并刷新详情。
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { updateCard } from '@/lib/api/endpoints'
@@ -17,7 +17,7 @@ interface PatchArgs {
   input: UpdateCardInput
 }
 
-/** 返回 PATCH 卡片的变更 */
+/** 返回 PATCH 任务的变更 */
 export function useCardUpdate() {
   const queryClient = useQueryClient()
   const toastError = useErrorToast()

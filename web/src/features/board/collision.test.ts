@@ -29,8 +29,8 @@ function makeArgs(entries: Entry[], collisionRect: ClientRect, pointer: { x: num
 
 const firstId = (collisions: Collision[]) => collisions[0]?.id
 
-// 场景取自真实看板：「进行中」里一张卡片（宽 268、高 75），右边隔一列是又高又窄的收起窄边（宽 48、高 578）。
-// 拖动的卡片浮层（宽 268）中心压在窄边中心上，但四个角离「进行中」那张卡片自己的位置更近，所以只看四个角永远选不中窄边。
+// 场景取自真实看板：「进行中」里一个任务（宽 268、高 75），右边隔一列是又高又窄的收起窄边（宽 48、高 578）。
+// 拖动的任务浮层（宽 268）中心压在窄边中心上，但四个角离「进行中」那个任务自己的位置更近，所以只看四个角永远选不中窄边。
 const card: Entry = { id: 5, data: {}, rect: rect(322, 196, 268, 75) }
 const railData = { type: 'column', columnId: 3, collapsed: true }
 const rail: Entry = { id: 'column-3', data: railData, rect: rect(608, 126, 48, 578) }
@@ -38,7 +38,7 @@ const floating = rect(497, 378, 268, 75)
 const onRail = { x: 632, y: 415 }
 
 describe('boardCollision', () => {
-  it('前提：只看四个角时，选中的是卡片而不是窄边', () => {
+  it('前提：只看四个角时，选中的是任务而不是窄边', () => {
     expect(firstId(closestCorners(makeArgs([card, rail], floating, onRail)))).toBe(5)
   })
 
@@ -54,7 +54,7 @@ describe('boardCollision', () => {
     expect(firstId(boardCollision(makeArgs([card, rail], floating, null)))).toBe(5)
   })
 
-  it('展开的列不享受指针优先：指针落在它上面时，仍然选四个角最近的卡片', () => {
+  it('展开的列不享受指针优先：指针落在它上面时，仍然选四个角最近的任务', () => {
     const open: Entry = { ...rail, data: { ...railData, collapsed: false } }
 
     expect(firstId(boardCollision(makeArgs([card, open], floating, onRail)))).toBe(5)

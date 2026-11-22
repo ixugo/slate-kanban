@@ -7,15 +7,15 @@ import (
 )
 
 const (
-	// defaultListLimit 是 list_cards 不指定数量时返回的卡片数。调度 agent 同时处理的任务不会太多，
+	// defaultListLimit 是 list_cards 不指定数量时返回的任务数。调度 agent 同时处理的任务不会太多，
 	// 每次只要一小批，用筛选条件取下一批，不占太多上下文。
 	defaultListLimit = 10
-	// maxListLimit 是 list_cards 一次最多返回的卡片数。
+	// maxListLimit 是 list_cards 一次最多返回的任务数。
 	maxListLimit = 30
 )
 
-// cardBrief 是卡片自己的字段：没有描述和评论（描述最长 2 万字，刚写进去的内容不用再回显一遍，
-// 一个看板几十张卡片全带上也会撑爆 agent 的上下文），也没有要靠整个看板才能算出来的派生状态。
+// cardBrief 是任务自己的字段：没有描述和评论（描述最长 2 万字，刚写进去的内容不用再回显一遍，
+// 一个看板几十个任务全带上也会撑爆 agent 的上下文），也没有要靠整个看板才能算出来的派生状态。
 // 写入类工具的结果用它。
 type cardBrief struct {
 	ID        int64    `json:"id"`
@@ -27,7 +27,7 @@ type cardBrief struct {
 	TagIDs    []int64  `json:"tag_ids"`
 	HumanOnly bool     `json:"human_only"`
 	ClaimedBy string   `json:"claimed_by"`
-	// EngineerID 是卡片绑定或分配的研发工程师，ClaimEngineerID 是现在领取它的工程师，0 时不出现。
+	// EngineerID 是任务绑定或分配的研发工程师，ClaimEngineerID 是现在领取它的工程师，0 时不出现。
 	EngineerID      int64      `json:"engineer_id,omitempty"`
 	ClaimEngineerID int64      `json:"claim_engineer_id,omitempty"`
 	WaitsOn         []int64    `json:"waits_on"`
@@ -40,7 +40,7 @@ type cardBrief struct {
 	UpdatedAt       time.Time  `json:"updated_at"`
 }
 
-// cardSummary 是卡片的摘要：cardBrief 加上所在列的名称和三个派生状态。要看全文用 get_card。
+// cardSummary 是任务的摘要：cardBrief 加上所在列的名称和三个派生状态。要看全文用 get_card。
 type cardSummary struct {
 	cardBrief
 	Column      string `json:"column"`
@@ -49,7 +49,7 @@ type cardSummary struct {
 	ClaimActive bool   `json:"claim_active"`
 }
 
-// briefOf 取出一张卡片的简要字段。tags 是卡片上带文字的标签的文字（由调用方算好传入），
+// briefOf 取出一个任务的简要字段。tags 是任务上带文字的标签的文字（由调用方算好传入），
 // tag_ids 是全部标签的主键（含没有文字的）。标签和依赖保证是数组而不是 null，agent 不用到处判空。
 func briefOf(c *kanban.Card, tags []string) cardBrief {
 	b := cardBrief{
@@ -71,12 +71,12 @@ func briefOf(c *kanban.Card, tags []string) cardBrief {
 	return b
 }
 
-// summarize 把一张卡片的视图缩成摘要。
+// summarize 把一个任务的视图缩成摘要。
 func summarize(v *kanban.CardView) cardSummary {
 	return cardSummary{cardBrief: briefOf(v.Card, v.Tags), Column: v.Column, Done: v.Done, Waiting: v.Waiting, ClaimActive: v.ClaimActive}
 }
 
-// summarizeAll 把一组卡片视图缩成摘要，保持顺序；没有卡片时返回空切片而不是 nil。
+// summarizeAll 把一组任务视图缩成摘要，保持顺序；没有任务时返回空切片而不是 nil。
 func summarizeAll(views []*kanban.CardView) []cardSummary {
 	out := make([]cardSummary, len(views))
 	for i, v := range views {

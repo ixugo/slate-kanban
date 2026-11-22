@@ -1,4 +1,4 @@
-// 卡片时间信息：只读，有值才显示一行。
+// 任务时间信息：只读，有值才显示一行。
 
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail } from '@/lib/api/types'

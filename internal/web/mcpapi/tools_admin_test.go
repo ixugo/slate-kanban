@@ -98,7 +98,7 @@ func TestBoardToolInputs(t *testing.T) {
 }
 
 // TestColumnTools 验证人管理列：新增、修改（含清除下一列）、重排、删除；
-// 重名和过期的顺序被拒绝；有卡片的列要指明移到哪一列；删除是幂等的。
+// 重名和过期的顺序被拒绝；有任务的列要指明移到哪一列；删除是幂等的。
 func TestColumnTools(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
@@ -133,13 +133,13 @@ func TestColumnTools(t *testing.T) {
 	fails(t, call(t, human, "delete_column", map[string]any{"board_id": b.ID, "column_id": b.todo}), "ErrColumnNotEmpty")
 	ok(t, human, "delete_column", map[string]any{"board_id": b.ID, "column_id": b.todo, "move_to": b.idea})
 	if moved := ok(t, human, "get_card", map[string]any{"card_id": card.ID}).Data; moved["column_id"] != float64(b.idea) {
-		t.Errorf("删列时卡片应该搬到指定的列: %v", moved)
+		t.Errorf("删列时任务应该搬到指定的列: %v", moved)
 	}
 	ok(t, human, "delete_column", map[string]any{"board_id": b.ID, "column_id": colID})
 	ok(t, human, "delete_column", map[string]any{"board_id": b.ID, "column_id": colID})
 }
 
-// TestRuleTools 验证人管理自动化规则：用工具建好的规则真的会在卡片进入列时执行；停用后不再执行；
+// TestRuleTools 验证人管理自动化规则：用工具建好的规则真的会在任务进入列时执行；停用后不再执行；
 // 修改动作后按新动作执行；配置写错在保存时就被拒绝；删除是幂等的。
 func TestRuleTools(t *testing.T) {
 	s := newStack(t)
@@ -160,7 +160,7 @@ func TestRuleTools(t *testing.T) {
 	}
 	first := s.card(t, b, b.todo, "排期")
 	if tags := tagsOf(first); len(tags) != 1 || tags[0] != "待排期" {
-		t.Errorf("规则应该给新卡片加上标签: %v", tags)
+		t.Errorf("规则应该给新任务加上标签: %v", tags)
 	}
 
 	off := ok(t, human, "update_rule", map[string]any{"rule_id": ruleID, "enabled": false}).Data
@@ -194,7 +194,7 @@ func TestRuleTools(t *testing.T) {
 	ok(t, human, "delete_rule", map[string]any{"rule_id": ruleID})
 }
 
-// TestDeleteCardAndComment 验证人删除卡片和评论：删除后读不到，重复删除也成功。
+// TestDeleteCardAndComment 验证人删除任务和评论：删除后读不到，重复删除也成功。
 func TestDeleteCardAndComment(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")

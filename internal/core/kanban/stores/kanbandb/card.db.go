@@ -11,7 +11,7 @@ import (
 
 var _ kanban.CardStorer = Card{}
 
-// Card 是卡片的数据库实现，和 DB 同一个底层结构，通过类型转换得到。
+// Card 是任务的数据库实现，和 DB 同一个底层结构，通过类型转换得到。
 type Card DB
 
 // WithTx 返回绑定到事务的副本。
@@ -19,13 +19,13 @@ func (d Card) WithTx(tx orm.Tx) kanban.CardStorer {
 	return Card{db: orm.GormDB(tx)}
 }
 
-// Create 新增一张卡片。写入前先 Normalize，让库里存的是 [] 而不是 null。
+// Create 新增一个任务。写入前先 Normalize，让库里存的是 [] 而不是 null。
 func (d Card) Create(ctx context.Context, model *kanban.Card) error {
 	model.Normalize()
 	return d.db.WithContext(ctx).Create(model).Error
 }
 
-// Save 把整张卡片写回数据库。model.ID 必须非零，否则 panic，防止 Save 变成新增或误改。
+// Save 把整个任务写回数据库。model.ID 必须非零，否则 panic，防止 Save 变成新增或误改。
 func (d Card) Save(ctx context.Context, model *kanban.Card) error {
 	if model.ID == 0 {
 		panic("kanbandb.Card.Save: model.ID is zero, primary key is required")
@@ -52,7 +52,7 @@ func (d Card) GetByID(ctx context.Context, id int64) (*kanban.Card, error) {
 	return &out, nil
 }
 
-// GetByKey 按卡片编号读取。
+// GetByKey 按任务编号读取。
 func (d Card) GetByKey(ctx context.Context, key string) (*kanban.Card, error) {
 	var out kanban.Card
 	if err := d.db.WithContext(ctx).Where("key = ?", key).Take(&out).Error; err != nil {
@@ -62,8 +62,8 @@ func (d Card) GetByKey(ctx context.Context, key string) (*kanban.Card, error) {
 	return &out, nil
 }
 
-// ListByBoard 返回看板的全部卡片。一次查询取回，调用方在内存里按列的顺序和筛选条件处理，
-// 单个看板的卡片数量预期在几百到几千张，这样比为每种筛选各写一条 SQL 简单可靠。
+// ListByBoard 返回看板的全部任务。一次查询取回，调用方在内存里按列的顺序和筛选条件处理，
+// 单个看板的任务数量预期在几百到几千个，这样比为每种筛选各写一条 SQL 简单可靠。
 func (d Card) ListByBoard(ctx context.Context, boardID int64) ([]*kanban.Card, error) {
 	items := make([]*kanban.Card, 0)
 	err := d.db.WithContext(ctx).Where("board_id = ?", boardID).
@@ -75,7 +75,7 @@ func (d Card) ListByBoard(ctx context.Context, boardID int64) ([]*kanban.Card, e
 	return items, nil
 }
 
-// ListByColumn 返回某一列的卡片，按位置升序。
+// ListByColumn 返回某一列的任务，按位置升序。
 func (d Card) ListByColumn(ctx context.Context, columnID int64) ([]*kanban.Card, error) {
 	items := make([]*kanban.Card, 0)
 	err := d.db.WithContext(ctx).Where("column_id = ?", columnID).
@@ -87,7 +87,7 @@ func (d Card) ListByColumn(ctx context.Context, columnID int64) ([]*kanban.Card,
 	return items, nil
 }
 
-// CountByColumn 返回某一列有几张卡片。
+// CountByColumn 返回某一列有几个任务。
 func (d Card) CountByColumn(ctx context.Context, columnID int64) (int64, error) {
 	var n int64
 	err := d.db.WithContext(ctx).Model(&kanban.Card{}).Where("column_id = ?", columnID).Count(&n).Error
@@ -108,7 +108,7 @@ func (d Card) SetPosition(ctx context.Context, id int64, position float64) error
 		UpdateColumn("position", position).Error
 }
 
-// DeleteByBoard 删除看板的全部卡片。
+// DeleteByBoard 删除看板的全部任务。
 func (d Card) DeleteByBoard(ctx context.Context, boardID int64) error {
 	return d.db.WithContext(ctx).Where("board_id = ?", boardID).Delete(&kanban.Card{}).Error
 }
@@ -125,7 +125,7 @@ func (d Card) ClearUnreadCount(ctx context.Context, id int64) error {
 		UpdateColumn("unread_count", 0).Error
 }
 
-// normalizeCards 对一批卡片调用 Normalize。
+// normalizeCards 对一批任务调用 Normalize。
 func normalizeCards(items []*kanban.Card) {
 	for _, c := range items {
 		c.Normalize()

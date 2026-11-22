@@ -53,7 +53,7 @@ func TestReleaseCardRevokedByHuman(t *testing.T) {
 	}
 }
 
-// TestReleaseCardIsIdempotent 验证幂等：没被领取、卡片不存在、重复释放都成功，并且不写事件。
+// TestReleaseCardIsIdempotent 验证幂等：没被领取、任务不存在、重复释放都成功，并且不写事件。
 func TestReleaseCardIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)

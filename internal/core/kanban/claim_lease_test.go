@@ -8,7 +8,7 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// claimedFor 让 testAgent 用指定的租约分钟数领取一张进行中的新卡片，返回卡片主键。
+// claimedFor 让 testAgent 用指定的租约分钟数领取一个进行中的新任务，返回任务主键。
 func (e *cardEnv) claimedFor(t *testing.T, minutes int) int64 {
 	t.Helper()
 	c := e.card(t, colDoing, "任务")
@@ -18,12 +18,12 @@ func (e *cardEnv) claimedFor(t *testing.T, minutes int) int64 {
 	return c.ID
 }
 
-// expiry 读出卡片当前的租约到期时间，没有则让测试失败。
+// expiry 读出任务当前的租约到期时间，没有则让测试失败。
 func (e *cardEnv) expiry(t *testing.T, id int64) time.Time {
 	t.Helper()
 	c := e.stored(t, id)
 	if c.ClaimExpiresAt == nil {
-		t.Fatalf("卡片 %d 没有租约", id)
+		t.Fatalf("任务 %d 没有租约", id)
 	}
 	return *c.ClaimExpiresAt
 }

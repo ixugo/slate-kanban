@@ -16,7 +16,7 @@ import {
 const columns = [makeColumn({ id: 1 }), makeColumn({ id: 2 }), makeColumn({ id: 3, is_done: true })]
 
 describe('buildItems', () => {
-  it('每列的卡片按位置排序，位置相同按 id，空列也有一个空数组', () => {
+  it('每列的任务按位置排序，位置相同按 id，空列也有一个空数组', () => {
     const cards = [
       makeCard({ id: 5, column_id: 1, position: 3000 }),
       makeCard({ id: 7, column_id: 1, position: 1000 }),
@@ -26,13 +26,13 @@ describe('buildItems', () => {
     expect(buildItems(columns, cards, null)).toEqual({ 1: [4, 7, 5], 2: [6], 3: [] })
   })
 
-  it('只保留可见的卡片（搜索时）', () => {
+  it('只保留可见的任务（搜索时）', () => {
     const cards = [makeCard({ id: 1, column_id: 1 }), makeCard({ id: 2, column_id: 1 }), makeCard({ id: 3, column_id: 2 })]
     expect(buildItems(columns, cards, new Set([2, 3]))).toEqual({ 1: [2], 2: [3], 3: [] })
     expect(buildItems(columns, cards, new Set())).toEqual({ 1: [], 2: [], 3: [] })
   })
 
-  it('属于不存在的列的卡片被忽略，不会报错', () => {
+  it('属于不存在的列的任务被忽略，不会报错', () => {
     expect(buildItems(columns, [makeCard({ id: 1, column_id: 99 })], null)).toEqual({ 1: [], 2: [], 3: [] })
   })
 
@@ -46,7 +46,7 @@ describe('buildItems', () => {
 describe('findColumnOf / moveToColumn', () => {
   const items: Items = { 1: [10, 11, 12], 2: [20], 3: [] }
 
-  it('找到卡片所在的列，找不到返回 null', () => {
+  it('找到任务所在的列，找不到返回 null', () => {
     expect(findColumnOf(items, 20)).toBe(2)
     expect(findColumnOf(items, 99)).toBeNull()
   })
@@ -67,7 +67,7 @@ describe('findColumnOf / moveToColumn', () => {
     expect(moveToColumn(two, 10, 2, -1)).toEqual({ 1: [], 2: [10, 20, 21], 3: [] })
   })
 
-  it('卡片或目标列不存在时原样返回，并且不修改原数据', () => {
+  it('任务或目标列不存在时原样返回，并且不修改原数据', () => {
     expect(moveToColumn(items, 99, 2, 0)).toBe(items)
     expect(moveToColumn(items, 10, 99, 0)).toBe(items)
     moveToColumn(items, 10, 2, 0)
@@ -101,7 +101,7 @@ describe('pickShownItems', () => {
 describe('finalizeDrop', () => {
   const items: Items = { 1: [10, 11, 12], 2: [20], 3: [] }
 
-  it('同一列里落在另一张卡片上：挪到它的位置（向下、向上）', () => {
+  it('同一列里落在另一个任务上：挪到它的位置（向下、向上）', () => {
     expect(finalizeDrop(items, 10, 12, false)).toEqual({ 1: [11, 12, 10], 2: [20], 3: [] })
     expect(finalizeDrop(items, 12, 10, false)).toEqual({ 1: [12, 10, 11], 2: [20], 3: [] })
   })
@@ -111,13 +111,13 @@ describe('finalizeDrop', () => {
     expect(finalizeDrop(items, 11, 2, true)).toBe(items)
   })
 
-  it('列 id 和卡片 id 数字相同时，落在列上也不会被当成落在那张卡片上', () => {
+  it('列 id 和任务 id 数字相同时，落在列上也不会被当成落在那个任务上', () => {
     const clash: Items = { 1: [1, 2, 3], 2: [] }
     expect(finalizeDrop(clash, 3, 1, true)).toBe(clash)
     expect(finalizeDrop(clash, 3, 1, false)).toEqual({ 1: [3, 1, 2], 2: [] })
   })
 
-  it('落在别的列的卡片上（预览阶段没来得及移动）不改变顺序', () => {
+  it('落在别的列的任务上（预览阶段没来得及移动）不改变顺序', () => {
     expect(finalizeDrop(items, 10, 20, false)).toBe(items)
     expect(finalizeDrop(items, 99, 10, false)).toBe(items)
   })
@@ -177,7 +177,7 @@ describe('planMove', () => {
     expect(planMove(moved, solo, 10)).toEqual({ columnId: 2 })
   })
 
-  it('卡片不在任何一列时返回 null', () => {
+  it('任务不在任何一列时返回 null', () => {
     expect(planMove(original, original, 99)).toBeNull()
   })
 
@@ -225,7 +225,7 @@ describe('applyMoveToSnapshot', () => {
     expect(pos(next, 1)).toBe(2048 + POSITION_STEP)
   })
 
-  it('跨列插到两张卡片之间：位置取中点，列名和完成状态同步', () => {
+  it('跨列插到两个任务之间：位置取中点，列名和完成状态同步', () => {
     const snap = makeSnapshot({
       cards: [
         makeCard({ id: 1, column_id: 1 }),
@@ -269,7 +269,7 @@ describe('applyMoveToSnapshot', () => {
     expect(pos(next, 1)).toBe(2048 + POSITION_STEP)
   })
 
-  it('找不到卡片或列时原样返回；不修改原快照', () => {
+  it('找不到任务或列时原样返回；不修改原快照', () => {
     expect(applyMoveToSnapshot(snapshot, 99, { columnId: 1 })).toBe(snapshot)
     expect(applyMoveToSnapshot(snapshot, 1, { columnId: 99 })).toBe(snapshot)
     applyMoveToSnapshot(snapshot, 1, { columnId: 2 })

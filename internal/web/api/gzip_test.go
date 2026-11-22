@@ -15,7 +15,7 @@ import (
 func gzipEngine() *gin.Engine {
 	g := gin.New()
 	g.Use(gzipMiddleware())
-	big := strings.Repeat(`{"title":"一张卡片"},`, 400)
+	big := strings.Repeat(`{"title":"一个任务"},`, 400)
 	g.GET("/big", func(c *gin.Context) { c.Data(http.StatusOK, "application/json; charset=utf-8", []byte("["+big+"{}]")) })
 	g.GET("/small", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 	g.GET("/image", func(c *gin.Context) { c.Data(http.StatusOK, "image/webp", []byte(big)) })
@@ -103,7 +103,7 @@ func TestGzipSkips(t *testing.T) {
 	}
 	// 已带 Content-Encoding 的响应不能被二次压缩
 	rec := doGzip(g, http.MethodGet, "/encoded", "gzip")
-	if strings.Count(rec.Header().Get("Content-Encoding"), "gzip") != 1 || rec.Body.Len() != len(strings.Repeat(`{"title":"一张卡片"},`, 400)) {
+	if strings.Count(rec.Header().Get("Content-Encoding"), "gzip") != 1 || rec.Body.Len() != len(strings.Repeat(`{"title":"一个任务"},`, 400)) {
 		t.Fatalf("已有编码的响应应保持原样: %v", rec.Header())
 	}
 }

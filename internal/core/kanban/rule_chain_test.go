@@ -9,13 +9,13 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// moveRule 创建一条"卡片进入 from 列就移到 to 列"的规则，from 和 to 是列的下标。
+// moveRule 创建一条"任务进入 from 列就移到 to 列"的规则，from 和 to 是列的下标。
 func (e *cardEnv) moveRule(t *testing.T, name string, from, to int) *kanban.Rule {
 	t.Helper()
 	return e.enterRule(t, name, e.col(from), kanban.RuleAction{Type: kanban.ActionMoveToColumn, ColumnID: e.col(to)})
 }
 
-// TestRuleMoveToColumn 验证移动列动作：卡片被移到目标列末尾，卡片只保存一次（版本只加一），
+// TestRuleMoveToColumn 验证移动列动作：任务被移到目标列末尾，任务只保存一次（版本只加一），
 // 事件顺序是人的移动、规则的移动（操作者是 system）、规则的执行记录。
 func TestRuleMoveToColumn(t *testing.T) {
 	e := newClaimEnv(t)
@@ -29,7 +29,7 @@ func TestRuleMoveToColumn(t *testing.T) {
 		t.Fatalf("应该在审查列末尾，版本只加一次: %+v", moved)
 	}
 	if stored := e.stored(t, c.ID); stored.ColumnID != e.col(colReview) || stored.Position != 2048 {
-		t.Fatalf("库里的卡片不对: %+v", stored)
+		t.Fatalf("库里的任务不对: %+v", stored)
 	}
 	want := []string{kanban.EventCardMoved, kanban.EventCardMoved, kanban.EventAutomationFired}
 	if got := e.eventTypes(t, events); !slices.Equal(got, want) {
@@ -66,7 +66,7 @@ func TestRuleMoveChainsToOtherRules(t *testing.T) {
 	}
 }
 
-// TestRuleLoopProtection 验证规则互相把卡片移来移去不会死循环：同一条规则一次操作里只执行一次，
+// TestRuleLoopProtection 验证规则互相把任务移来移去不会死循环：同一条规则一次操作里只执行一次，
 // 所以进入进行中移去审查、进入审查又移回进行中，到这里就停了，两条规则各执行一次。
 func TestRuleLoopProtection(t *testing.T) {
 	e := newClaimEnv(t)
@@ -103,8 +103,8 @@ func TestRuleDepthLimit(t *testing.T) {
 	}
 }
 
-// TestRuleMoveOnCreate 验证创建卡片时规则可以把它移走：创建出来就在目标列，
-// 卡片只保存一次（第二版），事件是创建、规则的移动、规则的执行记录。
+// TestRuleMoveOnCreate 验证创建任务时规则可以把它移走：创建出来就在目标列，
+// 任务只保存一次（第二版），事件是创建、规则的移动、规则的执行记录。
 func TestRuleMoveOnCreate(t *testing.T) {
 	e := newClaimEnv(t)
 	e.mustCreateRule(t, kanban.CreateRuleInput{
@@ -123,7 +123,7 @@ func TestRuleMoveOnCreate(t *testing.T) {
 	}
 }
 
-// TestRuleMoveToSameColumnIsNoop 验证目标列就是卡片当前所在的列时什么都不做：没有事件，版本只因为人的移动涨一次。
+// TestRuleMoveToSameColumnIsNoop 验证目标列就是任务当前所在的列时什么都不做：没有事件，版本只因为人的移动涨一次。
 func TestRuleMoveToSameColumnIsNoop(t *testing.T) {
 	e := newClaimEnv(t)
 	e.moveRule(t, "原地不动", colDoing, colDoing)

@@ -13,7 +13,7 @@ const (
 	maxBoardDescLen = 2000
 	// maxProjectPathLen 项目路径的最大字符数，和数据库列长度一致。
 	maxProjectPathLen = 512
-	// minSlugLen、maxSlugLen 是看板标识的长度范围。标识会拼进每张卡片的编号，所以要短。
+	// minSlugLen、maxSlugLen 是看板标识的长度范围。标识会拼进每个任务的编号，所以要短。
 	minSlugLen = 2
 	maxSlugLen = 10
 	// slugBaseLen 自动生成标识时，最多取名称里的几个字母或数字。
@@ -46,15 +46,15 @@ type CreateBoardInput struct {
 }
 
 // UpdateBoardInput 是修改看板的入参。指针字段为 nil 表示不修改，只更新请求里出现的字段。
-// slug 不在其中：它已经拼进了所有卡片的编号，创建后不允许修改。
+// slug 不在其中：它已经拼进了所有任务的编号，创建后不允许修改。
 type UpdateBoardInput struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	ProjectPath *string `json:"project_path"`
-	// Tags 整体替换标签库：库里原有、入参里没有的算删除（同时从所有卡片上摘掉），
+	// Tags 整体替换标签库：库里原有、入参里没有的算删除（同时从所有任务上摘掉），
 	// 主键相同的算修改文字或颜色，入参顺序就是显示顺序。只允许人修改。
 	Tags *[]TagInput `json:"tags"`
-	// Engineers 整体替换工程师名册：名册里原有、入参里没有的算解聘（同时从所有卡片上摘掉），
+	// Engineers 整体替换工程师名册：名册里原有、入参里没有的算解聘（同时从所有任务上摘掉），
 	// 主键相同的算修改，入参顺序就是显示顺序。只允许人修改。
 	Engineers *[]EngineerInput `json:"engineers"`
 }

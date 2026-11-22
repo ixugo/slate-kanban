@@ -5,8 +5,8 @@ import (
 	"errors"
 )
 
-// ReleaseCard 释放卡片上的领取。agent 只能释放自己持有的，人可以收回任何卡片的领取。
-// 释放是幂等的：卡片不存在、没有被领取都返回成功，也不写事件。
+// ReleaseCard 释放任务上的领取。agent 只能释放自己持有的，人可以收回任何任务的领取。
+// 释放是幂等的：任务不存在、没有被领取都返回成功，也不写事件。
 // 原持有者被人收回以后再写这张卡，会收到 409，从而知道自己已经不持有了。
 func (c Core) ReleaseCard(ctx context.Context, actor Actor, cardID int64) error {
 	if err := requireWriter(actor); err != nil {

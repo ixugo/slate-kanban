@@ -49,7 +49,7 @@ func TestPostgresJSONRoundTripSpecialChars(t *testing.T) {
 	})
 }
 
-// TestPostgresConcurrentIncrCardSeq 验证并发自增卡片编号不出现重复或空洞（依赖原子 UPDATE）。
+// TestPostgresConcurrentIncrCardSeq 验证并发自增任务编号不出现重复或空洞（依赖原子 UPDATE）。
 func TestPostgresConcurrentIncrCardSeq(t *testing.T) {
 	db := kanbantest.NewPostgresDB(t)
 	ctx := context.Background()
@@ -115,7 +115,7 @@ func TestPostgresConcurrentClaimOneWinner(t *testing.T) {
 	}
 	card, err := core.CreateCard(ctx, human, detail.ID, kanban.CreateCardInput{Title: "争用", ColumnID: doingID})
 	if err != nil {
-		t.Fatalf("创建卡片失败: %v", err)
+		t.Fatalf("创建任务失败: %v", err)
 	}
 
 	var wg sync.WaitGroup
@@ -145,7 +145,7 @@ func TestPostgresConcurrentClaimOneWinner(t *testing.T) {
 	}
 	got, err := db.Card().GetByID(ctx, card.ID)
 	if err != nil || got.ClaimedBy == "" {
-		t.Fatalf("卡片应该处于被领取状态: %+v %v", got, err)
+		t.Fatalf("任务应该处于被领取状态: %+v %v", got, err)
 	}
 }
 

@@ -44,7 +44,7 @@ type unit struct {
 // newEvent 是追加一条事件时由调用方提供的内容，操作者、时间和序号由 emit 补全。
 type newEvent struct {
 	BoardID int64
-	CardID  int64 // 和卡片无关的事件填 0
+	CardID  int64 // 和任务无关的事件填 0
 	Type    string
 	Payload any // 会被编码成 JSON 对象；nil 表示没有内容，存成空对象
 }

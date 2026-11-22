@@ -18,19 +18,19 @@ import (
 // changeNow 是变更日志测试里固定的时钟。
 var changeNow = time.Date(2026, 11, 21, 10, 30, 0, 0, time.UTC)
 
-// descCard 以人的身份在待办列创建一张带描述的卡片，失败就让测试终止。
+// descCard 以人的身份在待办列创建一个带描述的任务，失败就让测试终止。
 func (e *cardEnv) descCard(t *testing.T, title, description string) *kanban.Card {
 	t.Helper()
 	c, err := e.core.CreateCard(context.Background(), testActor, e.board.ID, kanban.CreateCardInput{
 		Title: title, Description: description, ColumnID: e.col(colTodo),
 	})
 	if err != nil {
-		t.Fatalf("创建卡片 %s 失败: %v", title, err)
+		t.Fatalf("创建任务 %s 失败: %v", title, err)
 	}
 	return c
 }
 
-// setDescription 以 actor 的身份把卡片描述改成 text，失败就让测试终止。
+// setDescription 以 actor 的身份把任务描述改成 text，失败就让测试终止。
 func (e *cardEnv) setDescription(t *testing.T, actor kanban.Actor, cardID int64, text string) {
 	t.Helper()
 	if _, err := e.core.UpdateCard(context.Background(), actor, cardID, kanban.UpdateCardInput{Description: &text}); err != nil {
@@ -144,7 +144,7 @@ func TestDescriptionChangeCoexistsWithOtherFields(t *testing.T) {
 	}
 }
 
-// TestDescriptionChangeRecordsAgent 验证 agent 改自己持有的卡片的描述，记录里的修改者是这个 agent。
+// TestDescriptionChangeRecordsAgent 验证 agent 改自己持有的任务的描述，记录里的修改者是这个 agent。
 func TestDescriptionChangeRecordsAgent(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -191,12 +191,12 @@ func TestDescriptionChangeRollsBackWithEvent(t *testing.T) {
 		t.Fatalf("回滚后不该留下变更记录，实际: %v", err)
 	}
 	if stored := e.stored(t, c.ID); stored.Description != "旧描述" || stored.Version != c.Version {
-		t.Fatalf("回滚后卡片应该保持原样: %+v", stored)
+		t.Fatalf("回滚后任务应该保持原样: %+v", stored)
 	}
 }
 
-// TestGetCardChangeScopedToCard 验证读取变更记录必须带对卡片编号：
-// 拿别的卡片的记录编号、不存在的编号都得到 ErrCardChangeNotFound，读不到别的卡片的内容。
+// TestGetCardChangeScopedToCard 验证读取变更记录必须带对任务编号：
+// 拿别的任务的记录编号、不存在的编号都得到 ErrCardChangeNotFound，读不到别的任务的内容。
 func TestGetCardChangeScopedToCard(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -206,17 +206,17 @@ func TestGetCardChangeScopedToCard(t *testing.T) {
 	aChange := changeIDOf(t, e.lastEvent(t))
 
 	if _, err := e.core.GetCardChange(ctx, b.ID, aChange); !errors.Is(err, kanban.ErrCardChangeNotFound) {
-		t.Fatalf("用别的卡片读取应该得到 ErrCardChangeNotFound，实际 %v", err)
+		t.Fatalf("用别的任务读取应该得到 ErrCardChangeNotFound，实际 %v", err)
 	}
 	if _, err := e.core.GetCardChange(ctx, a.ID, 9999); !errors.Is(err, kanban.ErrCardChangeNotFound) {
 		t.Fatalf("不存在的编号应该得到 ErrCardChangeNotFound，实际 %v", err)
 	}
 	if got, err := e.core.GetCardChange(ctx, a.ID, aChange); err != nil || got.NewValue != "A 新" {
-		t.Fatalf("用自己的卡片应该能读到: %+v %v", got, err)
+		t.Fatalf("用自己的任务应该能读到: %+v %v", got, err)
 	}
 }
 
-// TestDeleteCardRemovesItsChanges 验证删除卡片会一并删掉它的变更记录，别的卡片的记录不受影响。
+// TestDeleteCardRemovesItsChanges 验证删除任务会一并删掉它的变更记录，别的任务的记录不受影响。
 func TestDeleteCardRemovesItsChanges(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -228,13 +228,13 @@ func TestDeleteCardRemovesItsChanges(t *testing.T) {
 	keptChange := changeIDOf(t, e.lastEvent(t))
 
 	if err := e.core.DeleteCard(ctx, testActor, gone.ID); err != nil {
-		t.Fatalf("删除卡片失败: %v", err)
+		t.Fatalf("删除任务失败: %v", err)
 	}
 	if _, err := e.core.GetCardChange(ctx, gone.ID, goneChange); !errors.Is(err, kanban.ErrCardChangeNotFound) {
-		t.Fatalf("卡片删除后它的变更记录应该没了，实际 %v", err)
+		t.Fatalf("任务删除后它的变更记录应该没了，实际 %v", err)
 	}
 	if _, err := e.core.GetCardChange(ctx, kept.ID, keptChange); err != nil {
-		t.Fatalf("别的卡片的变更记录不该受影响: %v", err)
+		t.Fatalf("别的任务的变更记录不该受影响: %v", err)
 	}
 }
 
@@ -261,8 +261,8 @@ func TestDeleteBoardRemovesItsChanges(t *testing.T) {
 	}
 }
 
-// TestGetCardChangeNeighbors 验证读取变更记录时带上同一张卡片前一条和后一条记录的编号，
-// 第一条没有前一条、最后一条没有后一条（为 0），别的卡片的记录不会算作邻居。
+// TestGetCardChangeNeighbors 验证读取变更记录时带上同一个任务前一条和后一条记录的编号，
+// 第一条没有前一条、最后一条没有后一条（为 0），别的任务的记录不会算作邻居。
 func TestGetCardChangeNeighbors(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t, kanban.WithClock(func() time.Time { return changeNow }))
@@ -272,7 +272,7 @@ func TestGetCardChangeNeighbors(t *testing.T) {
 	for _, text := range []string{"v2", "v3", "v4"} {
 		e.setDescription(t, testActor, c.ID, text)
 		ids = append(ids, changeIDOf(t, e.lastEvent(t)))
-		e.setDescription(t, testActor, other.ID, "o-"+text) // 穿插别的卡片的修改，邻居不能落到它上面
+		e.setDescription(t, testActor, other.ID, "o-"+text) // 穿插别的任务的修改，邻居不能落到它上面
 	}
 	want := [][2]int64{{0, ids[1]}, {ids[0], ids[2]}, {ids[1], 0}}
 	for i, id := range ids {

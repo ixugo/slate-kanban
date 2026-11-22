@@ -21,7 +21,7 @@ const HEADING_CLASS = [
 
 const CODE_CLASS = 'rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[0.9em]'
 
-/** 调用方可为普通正文中的卡片编号提供交互。 */
+/** 调用方可为普通正文中的任务编号提供交互。 */
 export type CardReferenceRenderer = (number: number, label: string) => ReactNode
 
 /** 渲染时要用到的上下文：id 前缀用来给任务项的文字起不重复的 id，onToggleTask 不为空时勾选框可点 */
@@ -31,7 +31,7 @@ interface Ctx {
   renderCardReference?: CardReferenceRenderer
 }
 
-/** 仅在普通正文中把独立的 #数字 连到同板卡片。 */
+/** 仅在普通正文中把独立的 #数字 连到同板任务。 */
 function renderReferences(text: string, key: string, render: CardReferenceRenderer): ReactNode {
   const parts: ReactNode[] = []
   let end = 0

@@ -7,11 +7,11 @@ import (
 )
 
 const (
-	// maxCardTitleLen 卡片标题的最大字符数，和数据库列长度一致。
+	// maxCardTitleLen 任务标题的最大字符数，和数据库列长度一致。
 	maxCardTitleLen = 200
-	// maxCardDescLen 卡片描述的最大字符数。描述会进入 agent 的上下文，所以不能无限长。
+	// maxCardDescLen 任务描述的最大字符数。描述会进入 agent 的上下文，所以不能无限长。
 	maxCardDescLen = 20000
-	// maxCardTags 一张卡片最多几个标签。
+	// maxCardTags 一个任务最多几个标签。
 	maxCardTags = 10
 	// maxCardTagLen 单个标签的最大字符数。
 	maxCardTagLen = 30
@@ -23,7 +23,7 @@ const (
 	maxCardPriority = 3
 )
 
-// CreateCardInput 是创建卡片的入参。ColumnID 为 0 表示放进看板的第一列。
+// CreateCardInput 是创建任务的入参。ColumnID 为 0 表示放进看板的第一列。
 // 时间字段用 RFC3339 格式的字符串，空字符串表示没有。
 type CreateCardInput struct {
 	Title       string `json:"title"`
@@ -42,11 +42,11 @@ type CreateCardInput struct {
 	FinishedAt string  `json:"finished_at"`
 	Branch     string  `json:"branch"`
 	URL        string  `json:"url"`
-	// Top 为真表示新卡片放到所在列的最顶部，不填（默认）放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
+	// Top 为真表示新任务放到所在列的最顶部，不填（默认）放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
 	Top bool `json:"-"`
 }
 
-// UpdateCardInput 是修改卡片的入参。指针字段为 nil 表示不修改，所以"清空"和"不改"是分得开的：
+// UpdateCardInput 是修改任务的入参。指针字段为 nil 表示不修改，所以"清空"和"不改"是分得开的：
 // 标签和依赖传空数组表示清空，时间传空字符串表示清除。标签用 TagIDs（主键）或 Tags（文字）指定，两者只填一个；
 // Tags 在入库前由 resolveCardTags 换成 TagIDs，apply 只认 TagIDs。
 // Version 是调用方上次读到的版本号，带了而且和当前不一致就说明有人先改过，返回 409。
@@ -67,8 +67,8 @@ type UpdateCardInput struct {
 	Version     *int64    `json:"version"`
 }
 
-// MoveCardInput 是移动卡片的入参。ColumnID 为 0 表示留在当前列（只调整顺序）。
-// BeforeID 和 AfterID 最多填一个：放到那张卡片的前面或后面；都不填就放到目标列的末尾。
+// MoveCardInput 是移动任务的入参。ColumnID 为 0 表示留在当前列（只调整顺序）。
+// BeforeID 和 AfterID 最多填一个：放到那个任务的前面或后面；都不填就放到目标列的末尾。
 type MoveCardInput struct {
 	ColumnID int64 `json:"column_id"`
 	BeforeID int64 `json:"before_id"`
@@ -78,7 +78,7 @@ type MoveCardInput struct {
 }
 
 // asPatch 把创建入参转成"所有字段都出现"的修改入参，创建和修改因此共用同一套校验和赋值。
-// agent 创建卡片时规划类字段（优先级、HumanOnly、依赖和三个时间）不会进入修改入参，
+// agent 创建任务时规划类字段（优先级、HumanOnly、依赖和三个时间）不会进入修改入参，
 // 调用方要先用 planningSet 拒绝 agent 填了它们的请求。
 func (in CreateCardInput) asPatch(agent bool) UpdateCardInput {
 	patch := UpdateCardInput{
@@ -119,9 +119,9 @@ func assign[T comparable](dst *T, src *T, field string, changed *[]string) {
 	}
 }
 
-// apply 校验入参里出现的每个字段并写到卡片上，返回真正发生变化的字段名（和 JSON 字段名一致）。
-// 它修改的是调用方读出的卡片副本，校验失败时调用方丢弃这个副本即可，数据库不受影响。
-// 依赖是否存在、是否成环要用到整个看板的卡片，不在这里检查。
+// apply 校验入参里出现的每个字段并写到任务上，返回真正发生变化的字段名（和 JSON 字段名一致）。
+// 它修改的是调用方读出的任务副本，校验失败时调用方丢弃这个副本即可，数据库不受影响。
+// 依赖是否存在、是否成环要用到整个看板的任务，不在这里检查。
 func (in UpdateCardInput) apply(c *Card) ([]string, error) {
 	var changed []string
 	for _, step := range []func(*Card) ([]string, error){in.applyTexts, in.applyFlags, in.applyLists, in.applyTimes} {
@@ -241,7 +241,7 @@ func (in UpdateCardInput) applyTimes(c *Card) ([]string, error) {
 	return changed, nil
 }
 
-// normalizeTagIDs 整理卡片的标签主键：必须是正数，去重并保持顺序，最多 10 个。返回的永远不是 nil。
+// normalizeTagIDs 整理任务的标签主键：必须是正数，去重并保持顺序，最多 10 个。返回的永远不是 nil。
 func normalizeTagIDs(ids []int64) ([]int64, error) {
 	out := make([]int64, 0, len(ids))
 	for _, id := range ids {

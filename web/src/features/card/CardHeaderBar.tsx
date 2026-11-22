@@ -1,4 +1,4 @@
-// 卡片弹窗顶部：所在列（下拉，选了就移动卡片）、卡片编号、删除按钮。对齐 Trello 卡片顶部的「列名按钮」。
+// 任务弹窗顶部：所在列（下拉，选了就移动任务）、任务编号、删除按钮。对齐 Trello 卡片顶部的「列名按钮」。
 
 import { Trash2Icon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
@@ -28,7 +28,7 @@ interface CardHeaderBarProps {
   deleteBusy: boolean
 }
 
-/** 弹窗顶栏；卡片还没加载出来时只显示通用标题 */
+/** 弹窗顶栏；任务还没加载出来时只显示通用标题 */
 export function CardHeaderBar({ card, columns, onColumn, onDelete, deleteBusy }: CardHeaderBarProps) {
   const { t } = useTranslation()
   const { columnName } = useTemplateText()

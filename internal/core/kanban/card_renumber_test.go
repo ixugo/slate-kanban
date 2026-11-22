@@ -17,7 +17,7 @@ func TestPlaceCardRenumbersWhenGapTooSmall(t *testing.T) {
 	for i, pos := range []float64{1, 1 + 1e-7, 5} {
 		c := &kanban.Card{BoardID: e.board.ID, ColumnID: 1, Key: string(rune('A'+i)) + "-1", Title: "t", Position: pos, Version: 1}
 		if err := store.Create(ctx, c); err != nil {
-			t.Fatalf("创建卡片失败: %v", err)
+			t.Fatalf("创建任务失败: %v", err)
 		}
 		cards = append(cards, c)
 	}
@@ -42,7 +42,7 @@ func TestPlaceCardRenumbersWhenGapTooSmall(t *testing.T) {
 	}
 }
 
-// TestPlaceCardWithoutRenumber 验证间隙够用时直接取中点，不改动任何卡片的位置。
+// TestPlaceCardWithoutRenumber 验证间隙够用时直接取中点，不改动任何任务的位置。
 func TestPlaceCardWithoutRenumber(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t)
@@ -57,6 +57,6 @@ func TestPlaceCardWithoutRenumber(t *testing.T) {
 		t.Fatalf("应该直接得到 1536，实际 %v, %v", got, err)
 	}
 	if cards[0].Position != 1024 || cards[1].Position != 2048 {
-		t.Fatalf("不应该改动卡片位置: %+v %+v", cards[0], cards[1])
+		t.Fatalf("不应该改动任务位置: %+v %+v", cards[0], cards[1])
 	}
 }

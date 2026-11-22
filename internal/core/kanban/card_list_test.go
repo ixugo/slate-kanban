@@ -9,7 +9,7 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// listTitles 返回列表里卡片标题，用逗号连接。
+// listTitles 返回列表里任务标题，用逗号连接。
 func listTitles(l *kanban.CardList) string {
 	names := make([]string, 0, len(l.Cards))
 	for _, c := range l.Cards {
@@ -18,7 +18,7 @@ func listTitles(l *kanban.CardList) string {
 	return strings.Join(names, ",")
 }
 
-// listEnv 建一个有四张卡片的看板：待办 A、D（D 在等 A），进行中 B（被 claude 领取），完成 C。
+// listEnv 建一个有四个任务的看板：待办 A、D（D 在等 A），进行中 B（被 claude 领取），完成 C。
 func listEnv(t *testing.T) *cardEnv {
 	t.Helper()
 	ctx := context.Background()
@@ -43,7 +43,7 @@ func TestListCards(t *testing.T) {
 
 	all, err := e.core.ListCards(ctx, e.board.ID, kanban.ListCardsInput{})
 	if err != nil || listTitles(all) != "A,D,B,C" || all.Total != 4 || all.Truncated {
-		t.Fatalf("全部卡片不对: %s total=%d truncated=%v err=%v", listTitles(all), all.Total, all.Truncated, err)
+		t.Fatalf("全部任务不对: %s total=%d truncated=%v err=%v", listTitles(all), all.Total, all.Truncated, err)
 	}
 	byTitle := map[string]*kanban.CardView{}
 	for _, v := range all.Cards {

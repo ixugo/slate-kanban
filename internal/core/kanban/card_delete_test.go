@@ -8,8 +8,8 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// TestDeleteCard 验证删除：卡片和它的评论都没了，写 card.deleted 事件；
-// 别的卡片不受影响；编号不会回收，下一张新卡片继续往后编。
+// TestDeleteCard 验证删除：任务和它的评论都没了，写 card.deleted 事件；
+// 别的任务不受影响；编号不会回收，下一个新任务继续往后编。
 func TestDeleteCard(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -22,13 +22,13 @@ func TestDeleteCard(t *testing.T) {
 		t.Fatalf("删除失败: %v", err)
 	}
 	if _, err := e.db.Card().GetByID(ctx, b.ID); err == nil {
-		t.Fatal("卡片应该已经被删除")
+		t.Fatal("任务应该已经被删除")
 	}
 	if comments, err := e.db.Comment().ListByCard(ctx, b.ID); err != nil || len(comments) != 0 {
 		t.Fatalf("评论应该一起删除: %v %v", comments, err)
 	}
 	if got := e.stored(t, a.ID); got.Version != 1 {
-		t.Fatalf("别的卡片不应该受影响: %+v", got)
+		t.Fatalf("别的任务不应该受影响: %+v", got)
 	}
 	want := `{"key":"TST-2","title":"B"}`
 	if ev := e.lastEvent(t); ev.Type != kanban.EventCardDeleted || ev.CardID != b.ID || ev.Payload != want {
@@ -39,8 +39,8 @@ func TestDeleteCard(t *testing.T) {
 	}
 }
 
-// TestDeleteCardRemovesDependency 验证删除被依赖的卡片：其他卡片依赖里的它被移除且版本加一，
-// 没有依赖它的卡片不受影响，也不会为这些连带清理另写事件。
+// TestDeleteCardRemovesDependency 验证删除被依赖的任务：其他任务依赖里的它被移除且版本加一，
+// 没有依赖它的任务不受影响，也不会为这些连带清理另写事件。
 func TestDeleteCardRemovesDependency(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -72,7 +72,7 @@ func TestDeleteCardRemovesDependency(t *testing.T) {
 	}
 }
 
-// TestDeleteCardIsIdempotent 验证幂等：重复删除、删除不存在的卡片都返回成功，并且不写事件。
+// TestDeleteCardIsIdempotent 验证幂等：重复删除、删除不存在的任务都返回成功，并且不写事件。
 func TestDeleteCardIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -92,7 +92,7 @@ func TestDeleteCardIsIdempotent(t *testing.T) {
 	}
 }
 
-// TestDeleteCardHumanOnly 验证权限：agent、自动化和身份无效的调用都被拒绝，卡片原样保留。
+// TestDeleteCardHumanOnly 验证权限：agent、自动化和身份无效的调用都被拒绝，任务原样保留。
 func TestDeleteCardHumanOnly(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -113,6 +113,6 @@ func TestDeleteCardHumanOnly(t *testing.T) {
 		}
 	}
 	if got := e.stored(t, a.ID); got.Version != 1 {
-		t.Fatalf("被拒绝的删除不应该改动卡片: %+v", got)
+		t.Fatalf("被拒绝的删除不应该改动任务: %+v", got)
 	}
 }

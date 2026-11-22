@@ -51,7 +51,7 @@ func TestWaitFirstReturnsImmediately(t *testing.T) {
 	}
 }
 
-// TestWaitWakesOnNewEvent 验证阻塞等待：等待期间别人建了卡片，等待立刻醒来并带回这条事件。
+// TestWaitWakesOnNewEvent 验证阻塞等待：等待期间别人建了任务，等待立刻醒来并带回这条事件。
 func TestWaitWakesOnNewEvent(t *testing.T) {
 	e := newCardEnv(t)
 	e.pull(t, testAgent, nil, 0)
@@ -59,7 +59,7 @@ func TestWaitWakesOnNewEvent(t *testing.T) {
 	later(100*time.Millisecond, func() {
 		c, err := e.core.CreateCard(context.Background(), testActor, e.board.ID, kanban.CreateCardInput{Title: "等待中新建", ColumnID: e.col(colTodo)})
 		if err != nil {
-			t.Errorf("创建卡片失败: %v", err)
+			t.Errorf("创建任务失败: %v", err)
 		}
 		created <- c
 	})
@@ -192,7 +192,7 @@ func TestWaitTruncatedReturnsImmediately(t *testing.T) {
 	e := newCardEnv(t, kanban.WithRetentionForTest(5, 1))
 	e.pull(t, testAgent, nil, 0)
 	for i := range 8 {
-		e.card(t, colTodo, fmt.Sprintf("卡片 %d", i))
+		e.card(t, colTodo, fmt.Sprintf("任务 %d", i))
 	}
 	got := e.wait(t, testAgent, nil, 0, longWait)
 	if !got.Truncated || got.TimedOut {
@@ -223,7 +223,7 @@ func TestWaitManyAgentsWakeTogether(t *testing.T) {
 	}
 	later(100*time.Millisecond, func() {
 		if _, err := e.core.CreateCard(context.Background(), testActor, e.board.ID, kanban.CreateCardInput{Title: "大家都看这个", ColumnID: e.col(colTodo)}); err != nil {
-			t.Errorf("创建卡片失败: %v", err)
+			t.Errorf("创建任务失败: %v", err)
 		}
 	})
 	wg.Wait()

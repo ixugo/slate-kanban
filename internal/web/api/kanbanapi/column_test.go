@@ -16,7 +16,7 @@ func columnIDs(cols []column) []int64 {
 }
 
 // TestColumnLifecycle 验证列的增改排删：新增带上给 agent 的指令；修改只更新出现的字段；
-// 排序按请求里的顺序返回；有卡片的列不指定 move_to 删不掉，指定后卡片搬过去；删除幂等。
+// 排序按请求里的顺序返回；有任务的列不指定 move_to 删不掉，指定后任务搬过去；删除幂等。
 func TestColumnLifecycle(t *testing.T) {
 	s := newStack(t)
 	b := s.newBoard(t, "COL")
@@ -44,7 +44,7 @@ func TestColumnLifecycle(t *testing.T) {
 	wantFail(t, "少了一列", s.human(t, http.MethodPut, base+"/order", map[string]any{"ids": reversed[1:]}), http.StatusConflict, "ErrColumnOrderStale")
 
 	s.newCard(t, b, colID, "留在灰度里")
-	wantFail(t, "有卡片不指定去向", s.human(t, http.MethodDelete, base+"/"+id(colID), nil), http.StatusConflict, "ErrColumnNotEmpty")
+	wantFail(t, "有任务不指定去向", s.human(t, http.MethodDelete, base+"/"+id(colID), nil), http.StatusConflict, "ErrColumnNotEmpty")
 	target := cols[0].ID
 	for range 2 {
 		wantEmptyObject(t, "删除", s.human(t, http.MethodDelete, base+"/"+id(colID)+"?move_to="+id(target), nil))
@@ -53,7 +53,7 @@ func TestColumnLifecycle(t *testing.T) {
 		Cards []card `json:"cards"`
 	}](t, s.human(t, http.MethodGet, "/boards/"+id(b.ID)+"/cards", nil))
 	if len(list.Cards) != 1 || list.Cards[0].ColumnID != target {
-		t.Fatalf("卡片应该搬到了 move_to 指定的列: %+v", list.Cards)
+		t.Fatalf("任务应该搬到了 move_to 指定的列: %+v", list.Cards)
 	}
 }
 

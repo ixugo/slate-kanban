@@ -135,7 +135,7 @@ func TestBoardDeleteIsIdempotent(t *testing.T) {
 	})
 }
 
-// TestBoardIncrCardSeq 验证卡片编号计数从 1 开始连续递增，看板不存在时返回找不到。
+// TestBoardIncrCardSeq 验证任务编号计数从 1 开始连续递增，看板不存在时返回找不到。
 func TestBoardIncrCardSeq(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
 		ctx := context.Background()

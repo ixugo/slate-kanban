@@ -1,4 +1,4 @@
-// 列表视图：表格展示卡片，遵守搜索可见集，不支持拖拽；数据量在几百张以内不虚拟滚动。
+// 列表视图：表格展示任务，遵守搜索可见集，不支持拖拽；数据量在几百张以内不虚拟滚动。
 
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -33,7 +33,7 @@ const PRIORITY_DOT = ['', 'bg-p-low', 'bg-p-mid', 'bg-p-high'] as const
 interface ListViewProps {
   columns: Column[]
   cards: CardView[]
-  /** 非 null 时只展示其中的卡片 id */
+  /** 非 null 时只展示其中的任务 id */
   visibleIds: ReadonlySet<number> | null
   listAddOpen: boolean
   onListAddOpen: () => void

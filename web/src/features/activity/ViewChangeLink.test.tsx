@@ -41,7 +41,7 @@ function descriptionEvent(extra: Partial<BoardEvent> = {}): BoardEvent {
   }
 }
 
-// 渲染活动流里的一条；cards 决定这张卡片「现在还在不在」
+// 渲染活动流里的一条；cards 决定这个任务「现在还在不在」
 function renderItem(event: BoardEvent, cards = [makeCard({ id: 5 })]) {
   const cardsById = new Map(cards.map((c) => [c.id, c]))
   return renderApp(
@@ -117,7 +117,7 @@ describe('活动里的「查看变更」', () => {
     expect(api.count(CHANGE_ROUTE)).toBe(1)
   })
 
-  it('同一张卡片有多次修改时，右侧「前一个 / 后一个」翻页；没有更多时禁用', async () => {
+  it('同一个任务有多次修改时，右侧「前一个 / 后一个」翻页；没有更多时禁用', async () => {
     const records: Record<string, CardChange> = {
       '6': { ...change, id: 6, old_value: 'first old', new_value: 'first new', prev_id: 0, next_id: 7 },
       '7': { ...change, id: 7, prev_id: 6, next_id: 8 },
@@ -178,7 +178,7 @@ describe('活动里的「查看变更」', () => {
     expect(screen.queryByRole('button', { name: en.activity.change.link })).toBeNull()
   })
 
-  it('卡片已经删除时，没有链接', () => {
+  it('任务已经删除时，没有链接', () => {
     installFakeApi({})
     renderItem(descriptionEvent(), [])
     expect(screen.queryByRole('button', { name: en.activity.change.link })).toBeNull()

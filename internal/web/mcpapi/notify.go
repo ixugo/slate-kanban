@@ -13,7 +13,7 @@ import (
 
 const (
 	// defaultNotifyDelay 是通知的合并窗口：被唤醒后等这么久再发，这段时间内同一个看板的多次更新只发一条。
-	// 自动化规则连锁触发、人批量改卡片时，agent 不会被一串通知淹没，而 200 毫秒对"有更新"的提示来说感觉不到延迟。
+	// 自动化规则连锁触发、人批量改任务时，agent 不会被一串通知淹没，而 200 毫秒对"有更新"的提示来说感觉不到延迟。
 	defaultNotifyDelay = 200 * time.Millisecond
 	// observerKey 是在 Core 里注册观察者用的名字，同一个 Core 上只能注册一次。
 	observerKey = "mcp"

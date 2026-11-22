@@ -6,7 +6,7 @@ import "time"
 // 有几个研发类工程师就最多同时做几张研发卡，有几个测试就最多同时审几张卡。
 // 研发类的几种只是专长不同，领取规则完全一样，调度 agent 可以按专长选人。
 const (
-	// EngineerDev 全栈工程师，领取「进行中」这类 agent 取卡列的卡片。
+	// EngineerDev 全栈工程师，领取「进行中」这类 agent 取卡列的任务。
 	EngineerDev = "dev"
 	// EngineerFrontend 前端工程师，和全栈一样做研发。
 	EngineerFrontend = "frontend"
@@ -14,7 +14,7 @@ const (
 	EngineerBackend = "backend"
 	// EngineerUI UI 工程师，和全栈一样做研发。
 	EngineerUI = "ui"
-	// EngineerReview 测试工程师，领取其他列（通常是「审查」）的卡片。
+	// EngineerReview 测试工程师，领取其他列（通常是「审查」）的任务。
 	EngineerReview = "review"
 )
 

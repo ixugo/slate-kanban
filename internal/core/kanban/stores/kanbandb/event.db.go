@@ -79,7 +79,7 @@ func (d Event) Actors(ctx context.Context, boardID int64) ([]kanban.ActivityActo
 	return actors, nil
 }
 
-// ListByCard 返回卡片的事件，最新的在前。
+// ListByCard 返回任务的事件，最新的在前。
 func (d Event) ListByCard(ctx context.Context, cardID int64, limit int) ([]*kanban.Event, error) {
 	items := make([]*kanban.Event, 0)
 	err := d.db.WithContext(ctx).Where("card_id = ?", cardID).

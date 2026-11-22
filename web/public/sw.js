@@ -151,7 +151,7 @@ async function cacheFirstAssets(request) {
 /**
  * 文档导航：先走网络，失败或超时则回退缓存的 `/`（index.html 壳）。
  * 所有网页路由返回的都是同一份壳，所以成功拿到 HTML 时只更新 `/` 这一份，
- * 不按地址（带卡片参数、搜索词的各种 URL）堆积缓存；不是 HTML 的响应绝不覆盖壳。
+ * 不按地址（带任务参数、搜索词的各种 URL）堆积缓存；不是 HTML 的响应绝不覆盖壳。
  */
 async function networkFirstNavigation(request) {
   const shellCache = await caches.open(SHELL_CACHE)

@@ -1,4 +1,4 @@
-// 删除列：列里有卡片时必须选 move_to。
+// 删除列：列里有任务时必须选 move_to。
 
 import { Loader2Icon } from 'lucide-react'
 import { useState } from 'react'

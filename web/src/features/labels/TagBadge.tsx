@@ -1,4 +1,4 @@
-// 卡片上的一枚标签：有文字时是带颜色的小标签，没有文字时只是一条颜色条；没配颜色就用默认的灰色。
+// 任务上的一枚标签：有文字时是带颜色的小标签，没有文字时只是一条颜色条；没配颜色就用默认的灰色。
 
 import { Badge } from '@/components/ui/badge'
 import { useTranslation } from '@/i18n/react'
@@ -10,7 +10,7 @@ import { useTag } from './useLabels'
 interface TagBadgeProps {
   /** 标签主键 */
   id: number
-  /** 大号用在卡片弹窗的标签区；默认是磁贴和列表里的小号 */
+  /** 大号用在任务弹窗的标签区；默认是磁贴和列表里的小号 */
   size?: 'sm' | 'lg'
   className?: string
 }

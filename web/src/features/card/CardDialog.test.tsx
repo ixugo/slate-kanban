@@ -26,7 +26,7 @@ const baseDetail = {
   claim_expires_at: '2026-11-18T12:00:00Z',
 }
 
-// 看板页里的卡片弹窗是懒加载的：先把它的模块加载好，第一个测试就不用在 findBy 的限时里等模块首次编译。
+// 看板页里的任务弹窗是懒加载的：先把它的模块加载好，第一个测试就不用在 findBy 的限时里等模块首次编译。
 beforeAll(async () => {
   await import('@/features/card/CardDialog')
 }, 30000)
@@ -109,7 +109,7 @@ function openCardReferences() {
 }
 
 describe('CardDialog', () => {
-  it('评论里的编号打开同板卡片，Markdown 链接、代码和转义保留', async () => {
+  it('评论里的编号打开同板任务，Markdown 链接、代码和转义保留', async () => {
     const api = openCardReferences()
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
@@ -414,7 +414,7 @@ describe('CardDialog', () => {
     expect(within(dialog).getByText(en.card.timeline.title)).toBeInTheDocument()
   })
 
-  it('「评论和活动」把评论和这张卡片的事件按时间排在一起，可收起详情', async () => {
+  it('「评论和活动」把评论和这个任务的事件按时间排在一起，可收起详情', async () => {
     const at = '2026-11-18T10:00:00Z'
     const later = '2026-11-18T11:00:00Z'
     const api = openBoardWithCard(
@@ -437,7 +437,7 @@ describe('CardDialog', () => {
     expect(within(dialog).getByRole('button', { name: en.card.timeline.showDetails })).toBeInTheDocument()
   })
 
-  it('「评论和活动」里改了描述的那条带「查看变更」，点开在卡片弹窗上叠一层左右对比', async () => {
+  it('「评论和活动」里改了描述的那条带「查看变更」，点开在任务弹窗上叠一层左右对比', async () => {
     const api = openBoardWithCard(baseDetail, [
       {
         id: 9,
@@ -467,13 +467,13 @@ describe('CardDialog', () => {
     expect(await within(diff).findByText(en.activity.change.before)).toBeInTheDocument()
     expect(api.calls.filter((c) => c.path === '/api/v1/cards/1/changes/4')).toHaveLength(1)
 
-    // Esc 只关掉最上面的对比弹窗，卡片弹窗还在
+    // Esc 只关掉最上面的对比弹窗，任务弹窗还在
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog', { name: en.activity.change.title })).toBeNull())
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  // 打开一个详情请求会失败的卡片，用来检查弹窗对不同失败原因的提示
+  // 打开一个详情请求会失败的任务，用来检查弹窗对不同失败原因的提示
   function openBoardWithBrokenDetail(detail: () => { status?: number; body?: unknown }) {
     installFakeEventSource()
     installFakeApi({
@@ -488,13 +488,13 @@ describe('CardDialog', () => {
     )
   }
 
-  it('服务端说卡片不存在（404）时提示卡片已被删除', async () => {
+  it('服务端说任务不存在（404）时提示任务已被删除', async () => {
     openBoardWithBrokenDetail(() => ({ status: 404, body: { reason: 'ErrCardNotFound', msg: '没有' } }))
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText(en.card.notFound)).toBeInTheDocument()
   })
 
-  it('断网时如实提示连不上服务器，不说卡片已被删除', async () => {
+  it('断网时如实提示连不上服务器，不说任务已被删除', async () => {
     openBoardWithBrokenDetail(() => {
       throw new TypeError('Failed to fetch')
     })
@@ -503,7 +503,7 @@ describe('CardDialog', () => {
     expect(within(dialog).queryByText(en.card.notFound)).toBeNull()
   })
 
-  it('服务器出错（500）时也不说卡片已被删除', async () => {
+  it('服务器出错（500）时也不说任务已被删除', async () => {
     openBoardWithBrokenDetail(() => ({ status: 500, body: { reason: 'ErrInternal', msg: '服务器出错了' } }))
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText(en.errors.ErrInternal)).toBeInTheDocument()

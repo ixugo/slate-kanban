@@ -1,4 +1,4 @@
-// 活动流里的一条：谁、做了什么、涉及哪张卡片、多久以前。
+// 活动流里的一条：谁、做了什么、涉及哪个任务、多久以前。
 
 import { BotIcon, UserIcon, ZapIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -12,9 +12,9 @@ import { displayKey } from '@/lib/cardKey'
 
 interface ActivityItemProps {
   event: BoardEvent
-  /** 看板上现有的卡片，用来取卡片现在的标题并判断能不能点开 */
+  /** 看板上现有的任务，用来取任务现在的标题并判断能不能点开 */
   cardsById: ReadonlyMap<number, CardView>
-  /** 点了卡片链接后调用，让抽屉关掉、露出卡片弹窗 */
+  /** 点了任务链接后调用，让抽屉关掉、露出任务弹窗 */
   onOpenCard: () => void
 }
 
@@ -41,7 +41,7 @@ export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps
         <p className="text-sm leading-snug break-words">
           <span className="font-medium">{actorLabel({ kind: event.actor_kind, name: event.actor }, t)}</span>{' '}
           <span className="text-muted-foreground">{text}</span>
-          {/* 卡片已经删除时，它的变更记录也一并删除了，所以不再给「查看变更」 */}
+          {/* 任务已经删除时，它的变更记录也一并删除了，所以不再给「查看变更」 */}
           {descriptionChangeId !== undefined && card?.id != null && <ViewChangeLink cardId={card.id} changeId={descriptionChangeId} />}
         </p>
         {detail !== '' && <p className="line-clamp-3 text-xs break-words text-muted-foreground">{detail}</p>}

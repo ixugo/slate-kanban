@@ -132,17 +132,17 @@ describe('actorLabel', () => {
 describe('eventCard', () => {
   const cards = new Map([[7, makeCard({ id: 7, key: 'SLATE-7', title: '现在的标题' })]])
 
-  it('卡片还在时用它现在的编号和标题，事件里记的旧标题不算', () => {
+  it('任务还在时用它现在的编号和标题，事件里记的旧标题不算', () => {
     const e = ev('card.created', { key: 'SLATE-7', title: '旧标题' }, { card_id: 7 })
     expect(eventCard(e, cards)).toEqual({ id: 7, key: 'SLATE-7', title: '现在的标题' })
   })
 
-  it('卡片已经没了，用事件里记的编号和标题，并且不能点开', () => {
+  it('任务已经没了，用事件里记的编号和标题，并且不能点开', () => {
     const e = ev('card.deleted', { key: 'SLATE-9', title: '已删除' }, { card_id: 9 })
     expect(eventCard(e, cards)).toEqual({ id: null, key: 'SLATE-9', title: '已删除' })
   })
 
-  it('和卡片无关的事件没有卡片', () => {
+  it('和任务无关的事件没有任务', () => {
     expect(eventCard(ev('column.created', { name: '待办' }), cards)).toBeNull()
   })
 })

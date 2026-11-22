@@ -36,17 +36,17 @@ func (d DB) Column() kanban.ColumnStorer {
 	return Column(d)
 }
 
-// Card 返回卡片存储。
+// Card 返回任务存储。
 func (d DB) Card() kanban.CardStorer {
 	return Card(d)
 }
 
-// CardChange 返回卡片变更日志存储。
+// CardChange 返回任务变更日志存储。
 func (d DB) CardChange() kanban.CardChangeStorer {
 	return CardChange(d)
 }
 
-// Comment 返回卡片评论存储。
+// Comment 返回任务评论存储。
 func (d DB) Comment() kanban.CommentStorer {
 	return Comment(d)
 }

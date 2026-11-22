@@ -17,7 +17,7 @@ type ActorKind string
 const (
 	// ActorHuman 网页上的人，拥有看板的全部管理权限。
 	ActorHuman ActorKind = "human"
-	// ActorAgent 通过 MCP 或令牌接入的 AI，只能处理自己领取的卡片。
+	// ActorAgent 通过 MCP 或令牌接入的 AI，只能处理自己领取的任务。
 	ActorAgent ActorKind = "agent"
 	// ActorSystem 系统自己，例如自动化规则产生的改动。
 	ActorSystem ActorKind = "system"

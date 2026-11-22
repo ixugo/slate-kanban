@@ -74,7 +74,7 @@ type AttachmentStorer interface {
 	DeleteByToken(context.Context, string) error
 	// DeleteByBoard 删除看板的全部图片，用于删除看板。
 	DeleteByBoard(context.Context, int64) error
-	// IsReferenced 看板里是否还有卡片描述或评论引用这个编号。
+	// IsReferenced 看板里是否还有任务描述或评论引用这个编号。
 	IsReferenced(ctx context.Context, boardID int64, token string) (bool, error)
 }
 

@@ -1,4 +1,4 @@
-// 卡片属性里的「工程师」小按钮：把卡片绑定给一位全栈工程师，不绑定则领取时随机分配。
+// 任务属性里的「工程师」小按钮：把任务绑定给一位全栈工程师，不绑定则领取时随机分配。
 
 import { useState } from 'react'
 import { CheckIcon, UserIcon } from 'lucide-react'

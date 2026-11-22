@@ -21,8 +21,8 @@ func (e *cardEnv) eventTypes(t *testing.T, from int) []string {
 	return types
 }
 
-// TestFinishCard 验证 agent 完成交接的完整结果：总结作为评论、分支和链接写到卡片上、
-// 卡片去了下一列的末尾、领取清除、版本只涨一次，事件按评论、更新、移动的顺序且没有单独的释放事件。
+// TestFinishCard 验证 agent 完成交接的完整结果：总结作为评论、分支和链接写到任务上、
+// 任务去了下一列的末尾、领取清除、版本只涨一次，事件按评论、更新、移动的顺序且没有单独的释放事件。
 func TestFinishCard(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -41,7 +41,7 @@ func TestFinishCard(t *testing.T) {
 	}
 	if d.Column != "审查" || d.ClaimedBy != "" || d.ClaimActive || d.Branch != "feat/task" || d.URL != "https://example.com/pr/1" ||
 		d.Version != 3 || d.Position != 2048 || d.UpdatedBy != "claude" {
-		t.Fatalf("交接后的卡片不对: %+v", d.CardView.Card)
+		t.Fatalf("交接后的任务不对: %+v", d.CardView.Card)
 	}
 	if len(d.Comments) != 1 || d.Comments[0].Body != "已实现并通过测试" || d.Comments[0].Author != "claude" {
 		t.Fatalf("总结评论不对: %+v", d.Comments)
@@ -55,7 +55,7 @@ func TestFinishCard(t *testing.T) {
 	}
 }
 
-// TestFinishCardByHuman 验证人也能完成交接：不必持有，评论的作者是人；人完成 agent 持有的卡片会把它的领取清掉。
+// TestFinishCardByHuman 验证人也能完成交接：不必持有，评论的作者是人；人完成 agent 持有的任务会把它的领取清掉。
 func TestFinishCardByHuman(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -111,7 +111,7 @@ func TestFinishCardTargetColumn(t *testing.T) {
 		t.Fatalf("别的看板的列应该得到 ErrInvalidInput，实际 %v", err)
 	}
 	if got := e.stored(t, id); got.ColumnID != e.col(colDoing) || got.ClaimedBy != "claude" {
-		t.Fatalf("被拒绝的交接不应该改动卡片: %+v", got)
+		t.Fatalf("被拒绝的交接不应该改动任务: %+v", got)
 	}
 }
 
@@ -134,7 +134,7 @@ func TestFinishCardWithoutNextColumn(t *testing.T) {
 	}
 }
 
-// TestFinishCardInSameColumn 验证目标列就是当前列：卡片不动，领取清除，因为没有 card.moved，所以补一条 card.released；
+// TestFinishCardInSameColumn 验证目标列就是当前列：任务不动，领取清除，因为没有 card.moved，所以补一条 card.released；
 // 总结评论照常写入。
 func TestFinishCardInSameColumn(t *testing.T) {
 	ctx := context.Background()
@@ -153,7 +153,7 @@ func TestFinishCardInSameColumn(t *testing.T) {
 }
 
 // TestFinishCardRollsBack 验证原子性：分支或链接不合法时整个交接回滚，
-// 总结评论没有写入，卡片还在原来的列并且仍被持有，也没有任何事件。
+// 总结评论没有写入，任务还在原来的列并且仍被持有，也没有任何事件。
 func TestFinishCardRollsBack(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -175,14 +175,14 @@ func TestFinishCardRollsBack(t *testing.T) {
 		t.Fatalf("回滚后不应该留下评论: %+v", list)
 	}
 	if got := e.stored(t, c.ID); got.ColumnID != e.col(colDoing) || got.ClaimedBy != "claude" || got.Version != 2 || got.Branch != "" {
-		t.Fatalf("回滚后卡片应该原样: %+v", got)
+		t.Fatalf("回滚后任务应该原样: %+v", got)
 	}
 	if after := len(e.events(t)); after != events {
 		t.Fatalf("回滚后不应该有事件，事件数 %d → %d", events, after)
 	}
 }
 
-// TestFinishCardRejects 验证拒绝情况：总结为空或过长、不是持有者的 agent、卡片不存在、自动化、身份无效。
+// TestFinishCardRejects 验证拒绝情况：总结为空或过长、不是持有者的 agent、任务不存在、自动化、身份无效。
 func TestFinishCardRejects(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -205,7 +205,7 @@ func TestFinishCardRejects(t *testing.T) {
 		{"总结过长", testAgent, mine.ID, kanban.FinishCardInput{Summary: strings.Repeat("a", 20001)}, kanban.ErrInvalidInput},
 		{"别的 agent", codex, mine.ID, ok, kanban.ErrNotHolder},
 		{"agent 完成没人领的卡", testAgent, free.ID, ok, kanban.ErrNotHolder},
-		{"卡片不存在", testAgent, 9999, ok, kanban.ErrCardNotFound},
+		{"任务不存在", testAgent, 9999, ok, kanban.ErrCardNotFound},
 		{"自动化", kanban.Actor{Kind: kanban.ActorSystem, Name: "automation"}, mine.ID, ok, kanban.ErrHumanOnly},
 		{"身份无效", kanban.Actor{}, mine.ID, ok, kanban.ErrInvalidActor},
 	}
@@ -219,6 +219,6 @@ func TestFinishCardRejects(t *testing.T) {
 		t.Errorf("失败的交接不应该写事件，事件数 %d → %d", events, after)
 	}
 	if got := e.stored(t, mine.ID); got.ColumnID != e.col(colDoing) || got.ClaimedBy != "claude" {
-		t.Errorf("失败的交接不应该改动卡片: %+v", got)
+		t.Errorf("失败的交接不应该改动任务: %+v", got)
 	}
 }

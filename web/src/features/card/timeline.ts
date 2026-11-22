@@ -1,9 +1,9 @@
-// 卡片详情「评论和活动」的数据整理：把评论和这张卡片的事件合成一条按时间从新到旧的时间线。
+// 任务详情「评论和活动」的数据整理：把评论和这个任务的事件合成一条按时间从新到旧的时间线。
 
 import type { BoardEvent, Comment } from '@/lib/api/types'
 
-/** 时间线上要显示的卡片事件类型：建卡、修改、换列、认领、释放、自动化。
- * 不含评论事件（评论本身已经列出，重复了）和卡片内顺序调整（太碎）。 */
+/** 时间线上要显示的任务事件类型：建卡、修改、换列、认领、释放、自动化。
+ * 不含评论事件（评论本身已经列出，重复了）和任务内顺序调整（太碎）。 */
 export const CARD_EVENT_TYPES = ['card.created', 'card.updated', 'card.moved', 'card.claimed', 'card.released', 'automation.fired'] as const
 
 /** 时间线上的一项：一条评论，或一条事件 */

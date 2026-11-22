@@ -7,7 +7,7 @@ import (
 	"github.com/ixugo/goddd/pkg/orm"
 )
 
-// CardRef 是依赖列表里一张卡片的概要，足够让人和 agent 看出它是什么、做完了没有。
+// CardRef 是依赖列表里一个任务的概要，足够让人和 agent 看出它是什么、做完了没有。
 type CardRef struct {
 	ID     int64  `json:"id"`
 	Key    string `json:"key"`
@@ -16,8 +16,8 @@ type CardRef struct {
 	Done   bool   `json:"done"`
 }
 
-// CardDetail 是一张卡片的完整信息：卡片本身和派生状态，所在列给 agent 的工作指令，
-// 依赖的卡片，以及全部评论。agent 领到活之后靠它知道该做什么、该怎么做、前面聊过什么。
+// CardDetail 是一个任务的完整信息：任务本身和派生状态，所在列给 agent 的工作指令，
+// 依赖的任务，以及全部评论。agent 领到活之后靠它知道该做什么、该怎么做、前面聊过什么。
 type CardDetail struct {
 	*CardView
 	ColumnInstruction string     `json:"column_instruction"`
@@ -25,8 +25,8 @@ type CardDetail struct {
 	Comments          []*Comment `json:"comments"`
 }
 
-// GetCardDetail 读取一张卡片的完整信息，人和 agent 都可以读。卡片不存在返回 404。
-// 只读取这张卡片自己的依赖，不会把整个看板的卡片都读出来。
+// GetCardDetail 读取一个任务的完整信息，人和 agent 都可以读。任务不存在返回 404。
+// 只读取这个任务自己的依赖，不会把整个看板的任务都读出来。
 func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, error) {
 	card, err := c.store.Card().GetByID(ctx, cardID)
 	if err != nil {
@@ -66,7 +66,7 @@ func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, err
 	return detail, nil
 }
 
-// loadDependencies 按依赖列表的顺序读出卡片依赖的卡片，已经不存在的跳过。
+// loadDependencies 按依赖列表的顺序读出任务依赖的任务，已经不存在的跳过。
 // 依赖最多 maxWaitsOn 个，所以逐个按主键读取的开销有限。cards 可以是事务内的存储，也可以是普通存储。
 func loadDependencies(ctx context.Context, cards CardStorer, card *Card) ([]*Card, error) {
 	deps := make([]*Card, 0, len(card.WaitsOn))

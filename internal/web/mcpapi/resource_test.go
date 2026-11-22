@@ -34,7 +34,7 @@ func readBoard(t *testing.T, sess *mcp.ClientSession, uri string) map[string]any
 func boardURIOf(id int64) string { return "slate://boards/" + strconv.FormatInt(id, 10) }
 
 // TestBoardResource 验证看板资源：两个视图都有同一个资源模板；读取得到整板快照，
-// 卡片只有摘要（没有描述），带着事件序号 seq，调用方可以接着用 pull_updates 取之后的增量。
+// 任务只有摘要（没有描述），带着事件序号 seq，调用方可以接着用 pull_updates 取之后的增量。
 func TestBoardResource(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
@@ -51,7 +51,7 @@ func TestBoardResource(t *testing.T) {
 			t.Fatalf("%s：快照内容不对: %v", name, got)
 		}
 		if _, has := cards[0]["description"]; has || cards[0]["title"] != "写文档" || cards[0]["column"] != "待办" {
-			t.Errorf("%s：卡片应该是摘要：没有描述，有所在列: %v", name, cards[0])
+			t.Errorf("%s：任务应该是摘要：没有描述，有所在列: %v", name, cards[0])
 		}
 		if seq, _ := got["seq"].(float64); seq < 1 {
 			t.Errorf("%s：快照应该带着事件序号: %v", name, got["seq"])
@@ -59,14 +59,14 @@ func TestBoardResource(t *testing.T) {
 	}
 }
 
-// TestBoardResourceCapsCards 验证快照里的卡片数有上限：卡片多了只给前 200 张的摘要，
+// TestBoardResourceCapsCards 验证快照里的任务数有上限：任务多了只给前 200 个任务的摘要，
 // 并如实告诉调用方总数和被截断，调用方再用 list_cards 的筛选去看。
 func TestBoardResourceCapsCards(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
 	for i := range 205 {
-		if _, err := s.core.CreateCard(t.Context(), humanActor, b.ID, kanban.CreateCardInput{Title: fmt.Sprintf("卡片 %d", i), ColumnID: b.todo}); err != nil {
-			t.Fatalf("创建卡片失败: %v", err)
+		if _, err := s.core.CreateCard(t.Context(), humanActor, b.ID, kanban.CreateCardInput{Title: fmt.Sprintf("任务 %d", i), ColumnID: b.todo}); err != nil {
+			t.Fatalf("创建任务失败: %v", err)
 		}
 	}
 	got := readBoard(t, s.agent(t, "claude"), boardURIOf(b.ID))
