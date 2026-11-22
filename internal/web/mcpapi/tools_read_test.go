@@ -53,7 +53,8 @@ func TestGetBoard(t *testing.T) {
 		t.Errorf("watch_prompt 应该带着填好的看板名并指向 skill: %q", prompt)
 	}
 	// 持续监听靠 wait_for_updates 长连接推送，loop 只检查监听是否还活着；不能回到“本轮不要等待、定时拉取”的旧写法
-	if !strings.Contains(prompt, "wait_for_updates(timeout_seconds=50)") || strings.Contains(prompt, "不要调用 wait_for_updates") ||
+	if !strings.Contains(prompt, "wait_for_updates(timeout_seconds=3600)") ||
+		!strings.Contains(prompt, "wait_for_updates(timeout_seconds=50)") || strings.Contains(prompt, "不要调用 wait_for_updates") ||
 		!strings.Contains(prompt, "检查监听是否还活着") {
 		t.Errorf("watch_prompt 应该让 agent 用 wait_for_updates 持续监听，loop 只检查监听: %q", prompt)
 	}

@@ -86,7 +86,7 @@ func TestWaitForUpdatesWakes(t *testing.T) {
 	done := make(chan result, 1)
 	start := time.Now()
 	go func() {
-		res, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "wait_for_updates", Arguments: map[string]any{"board_id": b.ID, "timeout_seconds": 20}})
+		res, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "wait_for_updates", Arguments: map[string]any{"board_id": b.ID, "timeout_seconds": 3600}})
 		if err != nil {
 			t.Errorf("等待失败: %v", err)
 			done <- result{}
@@ -142,7 +142,7 @@ func TestWaitForUpdatesReturnsImmediatelyWhenFirst(t *testing.T) {
 func TestWaitForUpdatesBadTimeout(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
-	got := call(t, s.agent(t, "claude"), "wait_for_updates", map[string]any{"board_id": b.ID, "timeout_seconds": -5})
+	got := call(t, s.agent(t, "claude"), "wait_for_updates", map[string]any{"board_id": b.ID, "timeout_seconds": -10_000_000_000})
 	if !got.IsError {
 		t.Errorf("负数的等待秒数应该是工具错误: %+v", got)
 	}
@@ -175,7 +175,7 @@ func TestWaitCancelledByClient(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		_, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "wait_for_updates", Arguments: map[string]any{"board_id": b.ID, "timeout_seconds": 30}})
+		_, err := sess.CallTool(ctx, &mcp.CallToolParams{Name: "wait_for_updates", Arguments: map[string]any{"board_id": b.ID, "timeout_seconds": 3600}})
 		done <- err
 	}()
 	eventually(t, "阻塞等待进入 Core", serverWaiting)
@@ -222,7 +222,7 @@ func TestWaitInterruptedByShutdown(t *testing.T) {
 
 	done := make(chan result, 1)
 	go func() {
-		res, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "wait_for_updates", Arguments: map[string]any{"board_id": b.ID, "timeout_seconds": 30}})
+		res, err := sess.CallTool(t.Context(), &mcp.CallToolParams{Name: "wait_for_updates", Arguments: map[string]any{"board_id": b.ID, "timeout_seconds": 3600}})
 		if err != nil {
 			t.Errorf("等待失败: %v", err)
 			done <- result{}

@@ -11,9 +11,8 @@ import (
 	"slate-kanban/internal/lifecycle"
 )
 
-// maxTimeoutSeconds 是请求里等待秒数的上限，只用来防止换算成纳秒时溢出；
-// 真正的等待上限由 Core 决定，超过的会被它压到上限。
-const maxTimeoutSeconds = 3600
+// maxTimeoutSeconds 保留 REST 阻塞等待的 50 秒上限。
+const maxTimeoutSeconds = 50
 
 // eventRoutes 注册快照、事件、agent 拉取更新和实时流的路由。
 func (a API) eventRoutes(r gin.IRouter) {

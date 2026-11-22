@@ -8,9 +8,8 @@ import (
 const (
 	// defaultWaitTimeout 阻塞等待更新时，没指定超时的默认等待时间。
 	defaultWaitTimeout = 30 * time.Second
-	// maxWaitTimeout 阻塞等待的最长时间。常见的反向代理和客户端会在一分钟左右切断空闲连接，
-	// 所以上限定在 50 秒，超时后调用方立刻再等一次即可。
-	maxWaitTimeout = 50 * time.Second
+	// MaxWaitTimeout 是阻塞等待的最长时间。客户端可按连接链路的超时选择更短的等待。
+	MaxWaitTimeout = time.Hour
 )
 
 // WaitInput 是 agent 阻塞等待更新的参数：拉取参数加一个最长等待时间。
@@ -28,7 +27,7 @@ func normalizeWaitTimeout(d time.Duration) (time.Duration, error) {
 	case d == 0:
 		return defaultWaitTimeout, nil
 	}
-	return min(d, maxWaitTimeout), nil
+	return min(d, MaxWaitTimeout), nil
 }
 
 // WaitUpdates 和 PullUpdates 一样返回 agent 还没读到的事件，区别是现在没有值得通知的事件时会阻塞等待，

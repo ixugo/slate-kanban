@@ -15,9 +15,10 @@ func TestNormalizeWaitTimeout(t *testing.T) {
 	}{
 		{0, defaultWaitTimeout, false},
 		{time.Millisecond, time.Millisecond, false},
-		{maxWaitTimeout, maxWaitTimeout, false},
-		{maxWaitTimeout + time.Second, maxWaitTimeout, false},
-		{time.Hour, maxWaitTimeout, false},
+		{50 * time.Second, 50 * time.Second, false},
+		{MaxWaitTimeout, MaxWaitTimeout, false},
+		{MaxWaitTimeout + time.Second, MaxWaitTimeout, false},
+		{time.Hour, time.Hour, false},
 		{-time.Second, 0, true},
 	}
 	for _, c := range cases {
