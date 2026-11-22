@@ -34,6 +34,7 @@ import {
   testWebhook,
   updateWebhook,
 } from '@/lib/api/endpoints'
+import { applyOptimistic, rollbackOptimistic } from '@/lib/optimistic'
 import { queryKeys } from '@/lib/queryKeys'
 import { toast } from '@/lib/toast'
 import { useErrorToast } from '@/lib/useErrorToast'
@@ -83,19 +84,29 @@ export function WebhooksSection({ boardId, columns }: Props) {
   const [editing, setEditing] = useState<WebhookView | 'new' | null>(null)
   const [deleting, setDeleting] = useState<WebhookView | null>(null)
 
+  // 开关和删除都先改列表再请求：失败时列表还原并提示
   const toggle = useMutation({
     mutationFn: ({ id, enabled }: { id: number; enabled: boolean }) => updateWebhook(id, { enabled }),
-    onSuccess: invalidate,
-    onError: toastError,
+    onMutate: ({ id, enabled }) =>
+      applyOptimistic<WebhookView[]>(queryClient, key, (old) => old.map((w) => (w.id === id ? { ...w, enabled } : w))),
+    onError: (err, _v, previous) => {
+      rollbackOptimistic(queryClient, key, previous)
+      toastError(err)
+    },
+    onSettled: invalidate,
   })
   const remove = useMutation({
     mutationFn: (id: number) => deleteWebhook(id),
-    onSuccess: () => {
-      invalidate()
+    onMutate: (id) => {
       setDeleting(null)
-      toast.success(t('settings.webhooks.deletedToast'))
+      return applyOptimistic<WebhookView[]>(queryClient, key, (old) => old.filter((w) => w.id !== id))
     },
-    onError: toastError,
+    onSuccess: () => toast.success(t('settings.webhooks.deletedToast')),
+    onError: (err, _id, previous) => {
+      rollbackOptimistic(queryClient, key, previous)
+      toastError(err)
+    },
+    onSettled: invalidate,
   })
   const sendTest = useMutation({
     mutationFn: (id: number) => testWebhook(id),
