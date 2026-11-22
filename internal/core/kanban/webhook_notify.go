@@ -77,6 +77,9 @@ func (c Core) deliverBoardWebhooks(ctx context.Context, boardID int64, events []
 	for _, w := range hooks {
 		for _, ev := range events {
 			if !webhookMatchesEvent(w, ev) {
+				slog.DebugContext(ctx, "webhook 订阅条件不匹配，跳过",
+					"board_id", boardID, "webhook_id", w.ID, "event_id", ev.ID,
+					"event_type", ev.Type, "actor_kind", ev.ActorKind)
 				continue
 			}
 			wg.Add(1)
@@ -88,7 +91,11 @@ func (c Core) deliverBoardWebhooks(ctx context.Context, boardID int64, events []
 						"board_id", boardID, "webhook_id", wh.ID, "webhook_name", wh.Name,
 						"event_id", event.ID, "event_type", event.Type, "url", wh.URL,
 						"secret_set", wh.Secret != "", "err", err)
+					return
 				}
+				slog.InfoContext(ctx, "webhook 推送成功",
+					"board_id", boardID, "webhook_id", wh.ID, "event_id", event.ID,
+					"event_type", event.Type, "actor_kind", event.ActorKind)
 			}(w, ev)
 		}
 	}
