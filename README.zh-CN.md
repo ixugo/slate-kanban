@@ -27,7 +27,7 @@ cd slate
 
 - macOS 提示无法打开时，执行一次 `xattr -d com.apple.quarantine slate`。
 - 想让 Slate 在后台运行并随登录自启（macOS 和 Linux），执行 `./slate -d`；停止并删除服务用 `./slate -stop`。
-- 有新 release 时，网页会弹出提示。点击 **立即更新**，然后重启 Slate。
+- 有新 release 时，网页会弹出提示。点击 **立即更新**，Slate 会自动重启，页面随后自动刷新。（以 Windows 服务运行时需要手动重启服务。）
 
 ## 开始使用
 

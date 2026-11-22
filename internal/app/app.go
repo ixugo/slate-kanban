@@ -22,9 +22,13 @@ import (
 // Run 装配依赖并启动 HTTP 服务，阻塞到收到退出信号或 stop 被关闭（stop 为 nil 时只看信号）；收到信号后先通知长连接结束，再等普通请求处理完并关闭。
 // 相对路径（配置、数据库、日志）都以启动时的工作目录为基准，
 // 以服务方式运行时请由服务管理器设置 WorkingDirectory。
-func Run(bc *conf.Bootstrap, stop <-chan struct{}) {
+// 返回值是要重启成的新程序路径：非空表示是自动更新请求的重启，调用方要在 Run 返回（资源已释放）后调用 Restart；空表示正常退出。
+func Run(bc *conf.Bootstrap, stop <-chan struct{}) (restartExe string) {
 	log, clean := SetupLog(bc)
 	defer clean()
+
+	requestRestart, restartCh := newRestartRequester()
+	bc.Runtime.RequestRestart = requestRestart
 
 	handler, cleanUp, err := WireApp(bc, log)
 	if err != nil {
@@ -57,6 +61,8 @@ func Run(bc *conf.Bootstrap, stop <-chan struct{}) {
 		slog.Info(`<-shutdown`, "signal", s.String())
 	case <-stop:
 		slog.Info(`<-shutdown`, "signal", "service stop")
+	case restartExe = <-restartCh:
+		slog.Info(`<-shutdown`, "signal", "restart after update", "exe", restartExe)
 	case err := <-svc.Notify():
 		system.ErrPrintf("err: %s\n", err.Error())
 		slog.Error(`<-shutdown by server.Notify`, "err", err)
@@ -65,6 +71,7 @@ func Run(bc *conf.Bootstrap, stop <-chan struct{}) {
 	if err := svc.Shutdown(); err != nil {
 		slog.Error(`server.Shutdown`, "err", err)
 	}
+	return restartExe
 }
 
 // SetupLog 初始化日志

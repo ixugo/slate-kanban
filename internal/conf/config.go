@@ -14,6 +14,8 @@ type Runtime struct {
 	BuildVersion string `toml:"-" json:"-"`
 	ConfigDir    string `toml:"-" json:"-"`
 	ConfigPath   string `toml:"-" json:"-"`
+	// RequestRestart 由 app.Run 在启动时填入：请求服务关闭后用 exe 指向的新程序重启；返回 false 表示当前环境不支持。
+	RequestRestart func(exe string) bool `toml:"-" json:"-"`
 }
 
 type Server struct {

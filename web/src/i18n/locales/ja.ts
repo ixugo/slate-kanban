@@ -692,6 +692,7 @@ export const ja: Messages = {
     now: '今すぐ更新',
     updating: '更新中…',
     done: '{{version}} に更新しました。Slate を再起動してからページを再読み込みしてください。',
+    restarting: '{{version}} に更新しました。Slate を再起動中です。ページは自動で再読み込みされます…',
     download: 'ダウンロード',
   },
   agents: {

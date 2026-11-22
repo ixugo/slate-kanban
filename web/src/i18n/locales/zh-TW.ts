@@ -689,6 +689,7 @@ export const zhTW: Messages = {
     now: '立即更新',
     updating: '更新中…',
     done: '已更新到 {{version}}。請重新啟動 Slate，再重新整理頁面。',
+    restarting: '已更新到 {{version}}，正在重新啟動 Slate，頁面會自動重新整理…',
     download: '前往下載',
   },
   agents: {

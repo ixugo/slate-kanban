@@ -104,7 +104,13 @@ func runApp(stop <-chan struct{}) {
 	versionapi.DBVersion = buildVersion
 	versionapi.DBRemark = gitBranch + "_" + gitHash
 
-	app.Run(&bc, stop)
+	// Run 返回时端口、数据库和日志都已释放；自动更新要求重启时，在这里换成新程序
+	if exe := app.Run(&bc, stop); exe != "" {
+		if err := app.Restart(exe); err != nil {
+			fmt.Fprintf(os.Stderr, "更新后自动重启失败，请手动重启 Slate: %v\n", err)
+			os.Exit(1)
+		}
+	}
 }
 
 // resolveConfigDir 决定配置目录：没指定就用 ~/.slate-kanban，指定了按启动目录转成绝对路径
