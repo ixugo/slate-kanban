@@ -34,6 +34,7 @@ interface CardDialogBodyProps {
   lang: string
   boardId: number
   onPatch: (input: UpdateCardInput) => void
+  onSaveDependencies: (ids: number[], version: number) => Promise<number>
   onDesc: (description: string) => void
   renderCardReference: CardReferenceRenderer
   patchBusy: boolean
@@ -64,7 +65,7 @@ function ClaimBanner({ card, engineers, lang, onRelease, busy }: { card: CardDet
 }
 
 /** 两栏布局主体 */
-export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDesc, renderCardReference, patchBusy, onRelease, releaseBusy }: CardDialogBodyProps) {
+export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onSaveDependencies, onDesc, renderCardReference, patchBusy, onRelease, releaseBusy }: CardDialogBodyProps) {
   const { t } = useTranslation()
   const readOnly = Boolean(card.archived_at)
   const version = card.version
@@ -107,7 +108,7 @@ export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDes
         )}
         {readOnly
           ? <ArchivedCardMeta card={card} engineers={engineers} lang={lang} renderCardReference={renderCardReference} />
-          : <CardMeta card={card} depOptions={depOptions} engineers={engineers} onPatch={patch} renderCardReference={renderCardReference} />}
+          : <CardMeta card={card} depOptions={depOptions} engineers={engineers} onPatch={patch} onSaveDependencies={onSaveDependencies} renderCardReference={renderCardReference} />}
         <section>
           {readOnly ? (
             <>

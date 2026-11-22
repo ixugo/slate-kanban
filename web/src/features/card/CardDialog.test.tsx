@@ -92,7 +92,7 @@ function openCardReferences(commentBody = 'Comment #25, `#38`, [link #44](https:
     }],
   }
   const second = { ...baseDetail, id: 22, number: 14, key: 'TST-14', title: 'Second card', description: 'Read #25.', tag_ids: [7], due_at: '2026-12-01T00:00:00Z' }
-  const third = { ...baseDetail, id: 33, number: 25, title: 'Third card', description: '' }
+  const third = { ...baseDetail, id: 33, number: 25, key: 'TST-25', title: 'Third card', description: '' }
   const api = installFakeApi({
     'GET /api/v1/boards/:id/snapshot': makeSnapshot({
       tags: [{ id: 7, text: 'Urgent', color: 'red-3' }],
@@ -113,6 +113,47 @@ function openCardReferences(commentBody = 'Comment #25, `#38`, [link #44](https:
 }
 
 describe('CardDialog', () => {
+  it('依赖弹层保持打开，首个保存未返回时仍可勾选第二项', async () => {
+    const api = openCardReferences()
+    let current = { ...baseDetail, waits_on: [] as number[] }
+    api.set('GET /api/v1/cards/1', () => ({ body: current }))
+    api.set('PATCH /api/v1/cards/1', (call: FakeCall) => {
+      const input = call.body as { version: number; waits_on: number[] }
+      if (input.version !== current.version) return { status: 409, body: { reason: 'ErrCardVersionConflict' } }
+      current = { ...current, waits_on: input.waits_on, version: current.version + 1 }
+      return { body: current }
+    })
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!
+    let finishFirst!: () => void
+    const firstResponse = new Promise<void>((resolve) => { finishFirst = resolve })
+    let firstPatch = true
+    vi.mocked(fetch).mockImplementation(async (...args) => {
+      if (args[1]?.method === 'PATCH' && firstPatch) {
+        firstPatch = false
+        await firstResponse
+      }
+      return originalFetch(...args)
+    })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: en.card.field.deps }))
+    const search = await screen.findByRole('textbox', { name: en.card.depSearch })
+    const list = () => within(screen.getByRole('list', { name: en.card.depAdd }))
+    try {
+      await user.click(list().getByLabelText('#14 Second card'))
+      expect(screen.getByRole('textbox', { name: en.card.depSearch })).toBe(search)
+      const second = list().getByLabelText('#25 Third card')
+      await user.click(second)
+      expect(second).toHaveAttribute('aria-checked', 'true')
+    } finally {
+      finishFirst()
+    }
+    await waitFor(() => expect(current.waits_on).toEqual([22, 33]))
+    expect(api.calls.filter((call) => call.method === 'PATCH').map((call) => call.body)).toEqual([
+      { version: 2, waits_on: [22] },
+      { version: 3, waits_on: [22, 33] },
+    ])
+  })
+
   it('首次点击归档即发送请求，并在当前详情显示归档状态', async () => {
     const api = openBoardWithCard(baseDetail)
     const archiveRoute = 'POST /api/v1/cards/:id/archive'

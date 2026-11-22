@@ -243,6 +243,10 @@ function CardDialogStack({ boardId, rootId, closeAll, openFork }: CardDialogProp
               lang={lang}
               boardId={boardId}
               onPatch={onPatch}
+              onSaveDependencies={async (waits_on, version) => {
+                const updated = await patch.mutateAsync({ cardId, boardId, input: { waits_on, version } })
+                return updated.version
+              }}
               onDesc={(description) => onPatch({ description, version: card.version })}
               renderCardReference={renderCardReference}
               patchBusy={patch.isPending && patch.variables?.cardId === cardId}

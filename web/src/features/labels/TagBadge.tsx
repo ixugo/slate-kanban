@@ -27,12 +27,12 @@ export function TagBadge({ id, size = 'sm', className, archivedTag, renderText }
   if (!tag) return null
   const style = labelStyle(tag.color)
   if (!tag.text) {
-    return <span role="img" aria-label={tagName(tag, t)} style={style} className={cn(size === 'lg' ? 'inline-block h-8 w-14 rounded-md' : 'inline-block h-2 w-9 rounded-full', !style && 'bg-muted-foreground/40', className)} />
+    return <span role="img" aria-label={tagName(tag, t)} style={style} className={cn(size === 'lg' ? 'inline-block h-[30px] w-14 rounded-md' : 'inline-block h-2 w-9 rounded-full', !style && 'bg-muted-foreground/40', className)} />
   }
   const label = tagText(tag.text, t)
   const text = renderText?.(tag.text, label) ?? label
   return (
-    <Badge variant="secondary" style={style} className={cn('max-w-[8rem] truncate', size === 'lg' && 'h-8 max-w-[14rem] rounded-md px-3 text-sm font-semibold', className)}>
+    <Badge variant="secondary" style={style} className={cn('max-w-[8rem] truncate', size === 'lg' && 'h-[30px] max-w-[14rem] rounded-md px-3 text-sm font-semibold', className)}>
       {typeof text === 'string' ? text : <span className="truncate">{text}</span>}
     </Badge>
   )

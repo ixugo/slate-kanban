@@ -31,7 +31,7 @@ function Harness() {
   const [card, setCard] = useState<CardDetail>({ ...makeCard({ id: 1, tag_ids: [] }), dependencies: [], comments: [], column_instruction: '' } as CardDetail)
   return (
     <LabelsProvider boardId={1} tags={LIBRARY}>
-      <CardMeta card={card} depOptions={[]} engineers={[]} renderCardReference={(_, label) => label} onPatch={(p) => setCard({ ...card, ...(p as Partial<CardDetail>) })} />
+      <CardMeta card={card} depOptions={[]} engineers={[]} renderCardReference={(_, label) => label} onSaveDependencies={vi.fn()} onPatch={(p) => setCard({ ...card, ...(p as Partial<CardDetail>) })} />
     </LabelsProvider>
   )
 }
