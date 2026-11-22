@@ -155,6 +155,10 @@ func (in UpdateCardInput) applyTexts(c *Card) ([]string, error) {
 		if err := checkLine("分支名", branch, 0, maxCardBranchLen); err != nil {
 			return nil, err
 		}
+		if c.Branch != branch && len(c.MergedCommits) > 0 {
+			c.MergedCommits = []string{}
+			changed = append(changed, "merged_commits")
+		}
 		assign(&c.Branch, &branch, "branch", &changed)
 	}
 	if in.URL != nil {

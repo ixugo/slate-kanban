@@ -84,6 +84,20 @@ describe('CardTile 是指向任务的链接', () => {
     expect(number.parentElement?.parentElement?.lastElementChild).toBe(unread)
   })
 
+  it('本地分支在磁贴上展示只读合并状态及提交', async () => {
+    renderBoard('/b/1', {
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({
+        cards: [
+          { ...alpha, key: 'SLATE-1', branch: 'slate/slate-1-alpha', merged_commits: ['abc123', 'def456'] },
+          makeCard({ id: 2, title: 'Beta', key: 'SLATE-2', branch: 'slate/slate-2-beta' }),
+          makeCard({ id: 3, title: 'Gamma', key: 'SLATE-3', branch: 'fix/gamma' }),
+        ],
+      }),
+    })
+    expect(await screen.findByText(en.card.field.merged)).toHaveAttribute('title', 'Merged · abc123, def456')
+    expect(screen.getAllByText(en.card.field.mergePending)).toHaveLength(1)
+  })
+
   it('地址里已有 card 时只替换它', async () => {
     renderBoard('/b/1?card=2')
     const link = await screen.findByRole('link', { name: '#1 Alpha' })

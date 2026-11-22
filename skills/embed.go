@@ -30,3 +30,14 @@ var watchScript string
 func WatchScript() string {
 	return watchScript
 }
+
+// IntegrateURI 是调度 agent 获取本地 Git 合并脚本的地址。
+const IntegrateURI = "slate://scripts/slate-integrate.py"
+
+//go:embed slate-kanban/integrate.py
+var integrateScript string
+
+// IntegrateScript 返回随服务版本发布的本地 Git 合并脚本。
+func IntegrateScript() string {
+	return integrateScript
+}

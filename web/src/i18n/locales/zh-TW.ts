@@ -377,6 +377,8 @@ export const zhTW: Messages = {
       engineer: '工程師',
       deps: '相依',
       branch: '分支',
+      merged: '已合併',
+      mergePending: '待合併',
       url: '連結',
     },
     engineerAuto: '領取時隨機分配',

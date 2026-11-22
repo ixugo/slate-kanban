@@ -35,6 +35,7 @@ type Card struct {
 	EngineerID      int64      `gorm:"column:engineer_id;notNull;default:0;comment:绑定或分配的研发工程师，指向 board_engineers 表，0 表示还没有" json:"engineer_id"`
 	ClaimEngineerID int64      `gorm:"column:claim_engineer_id;notNull;default:0;comment:当前领取这张卡的工程师，领取放开后清零" json:"claim_engineer_id"`
 	Branch          string     `gorm:"column:branch;size:200;notNull;default:'';comment:关联的代码分支" json:"branch"`
+	MergedCommits   []string   `gorm:"column:merged_commits;type:text;serializer:json;notNull;default:'[]';comment:审查完成时记录的合并提交前六位" json:"merged_commits,omitempty"`
 	URL             string     `gorm:"column:url;size:500;notNull;default:'';comment:关联的链接，例如合并请求" json:"url"`
 	UnreadCount     int        `gorm:"column:unread_count;notNull;default:0;comment:网页未读动态计数" json:"-"`
 	Version         int64      `gorm:"column:version;notNull;default:1;comment:乐观锁版本号，每次真实修改加一" json:"version"`
@@ -59,5 +60,8 @@ func (c *Card) Normalize() {
 	}
 	if c.WaitsOn == nil {
 		c.WaitsOn = []int64{}
+	}
+	if c.MergedCommits == nil {
+		c.MergedCommits = []string{}
 	}
 }

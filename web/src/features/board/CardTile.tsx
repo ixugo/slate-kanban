@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { TagBadge } from '@/features/labels/TagBadge'
 import { displayKey } from '@/lib/cardKey'
 import { firstImageSrc } from '@/lib/md/cover'
+import { CardMergeBadge } from '@/features/card/CardMergeBadge'
 import { UnreadBadge } from './UnreadBadge'
 import type { SearchHighlights } from './searchHighlights'
 
@@ -64,6 +65,7 @@ export function TileBody({ card, highlights }: { card: CardView; highlights?: Se
             <span className={cn('size-1.5 shrink-0 rounded-full', PRIORITY_DOT[card.priority])} aria-hidden />
           )}
           <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{highlights?.key(card.key) ?? displayKey(card.key)}</span>
+          <CardMergeBadge card={card} compact />
           {card.claim_active && card.claimed_by && (
             <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] font-medium text-agent">
               <span className="signal-dot size-1.5 shrink-0 rounded-full bg-agent" aria-hidden />

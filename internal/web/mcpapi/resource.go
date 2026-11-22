@@ -88,6 +88,11 @@ func (a API) registerResources(s *mcp.Server) {
 		MIMEType:    "text/x-python",
 		URI:         skills.CodexWatchURI,
 	}, a.readWatchScript)
+	s.AddResource(&mcp.Resource{
+		Name: "slate-integrate", Title: "Slate 审查通过后的本机 Git 合并脚本",
+		Description: "调度 agent 按 Slate 技能在本机合并审查通过的任务，并在看板确认后清理。",
+		MIMEType:    "text/x-python", URI: skills.IntegrateURI,
+	}, a.readIntegrateScript)
 }
 
 // readSkill 返回编译进服务的 skill 全文。skill 和服务端是同一个版本，所以里面提到的工具一定存在。
@@ -100,6 +105,12 @@ func (a API) readSkill(_ context.Context, _ *mcp.ReadResourceRequest) (*mcp.Read
 func (a API) readWatchScript(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{
 		{URI: req.Params.URI, MIMEType: "text/x-python", Text: skills.WatchScript()},
+	}}, nil
+}
+
+func (a API) readIntegrateScript(_ context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{
+		{URI: req.Params.URI, MIMEType: "text/x-python", Text: skills.IntegrateScript()},
 	}}, nil
 }
 

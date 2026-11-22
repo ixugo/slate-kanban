@@ -14,6 +14,7 @@ import type { CardReferenceRenderer } from '@/lib/markdown'
 import { CARD_BRANCH_MAX, CARD_URL_MAX } from '@/lib/limits'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import { CardMergeBadge } from './CardMergeBadge'
 import { DatesChip, DatesSection } from './CardDates'
 import { hasDates } from './datesDraft'
 import { DependencyPicker } from './DependencyPicker'
@@ -268,6 +269,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch, renderCardRefer
           max={CARD_BRANCH_MAX}
           onCommit={(next) => onPatch({ branch: next.trim().slice(0, CARD_BRANCH_MAX), version: card.version })}
         />
+        <CardMergeBadge card={card} />
         <TextChip icon={<LinkIcon />} name={t('card.field.url')} value={card.url} max={CARD_URL_MAX} onCommit={saveUrl} display={hostOf} />
         <Button
           type="button"

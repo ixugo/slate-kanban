@@ -20,7 +20,7 @@ const agentInstructions = `你连接的是 Slate 看板，是其中的 agent，�
 - 用 comment_card 汇报或提问，用 create_card 记新任务。
 - 领取后按任务内容用 update_card 调标签，只贴 get_board 里已有的标签，不要新建；交接前在描述末尾补「任务项」清单（- [x] 已做，- [ ] 未做）。
 - 图片用 get_image 看；配图先 upload_image，再把返回的 markdown 写进描述或评论。
-- 研发用 finish_card 写总结并交接到下一列。审查用 comment_card 写结论和证据，页面附实际截图，功能附逐项勾选清单与依据。缺少必要证据时说明原因，暂不判通过。结论评论成功后按列规则 move_card。
+- 研发用 finish_card 写总结并交接到下一列。审查用 comment_card 写结论和证据，页面附实际截图，功能附逐项勾选清单与依据。缺少必要证据时说明原因，暂不判通过。结论评论成功后，适用本机专属 Slate 分支且审查通过时按技能先 cherry-pick，再用 finish_card 记录提交并交接到完成。其他通过的任务按列规则 move_card 到完成，确认不通过则退回进行中。
 - 做不下去：评论写清卡点，再 move_card 移出领取列等人处理。release_card 只用于让别的 agent 接手。
 
 没活或掉线后：

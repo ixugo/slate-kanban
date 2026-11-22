@@ -377,6 +377,8 @@ export const ko: Messages = {
       engineer: '엔지니어',
       deps: '의존',
       branch: '브랜치',
+      merged: '병합됨',
+      mergePending: '병합 대기',
       url: '링크',
     },
     engineerAuto: '맡을 때 무작위 배정',

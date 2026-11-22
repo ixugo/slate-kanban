@@ -143,6 +143,8 @@ export interface Card {
   /** 现在领取这张卡的工程师，0 表示没有 */
   claim_engineer_id: number
   branch: string
+  /** 审查 agent 记录的主工作区合并提交前六位；没有合并记录时省略 */
+  merged_commits?: string[]
   url: string
   /** 乐观锁版本号 */
   version: number

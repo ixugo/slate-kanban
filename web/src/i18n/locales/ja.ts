@@ -377,6 +377,8 @@ export const ja: Messages = {
       engineer: 'エンジニア',
       deps: '依存',
       branch: 'ブランチ',
+      merged: '取り込み済み',
+      mergePending: '未取り込み',
       url: 'リンク',
     },
     engineerAuto: '担当時にランダム割り当て',

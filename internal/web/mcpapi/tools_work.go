@@ -37,13 +37,15 @@ type claimCardIn struct {
 
 // finishCardIn 是 finish_card 的入参。
 type finishCardIn struct {
-	CardID   int64  `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
-	Summary  string `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在任务下；引用同板任务时在正文写 #数字，例如 #86"`
-	Branch   string `json:"branch,omitempty" jsonschema:"这次工作用的分支名；不填表示不改"`
-	URL      string `json:"url,omitempty" jsonschema:"相关链接，例如合并请求，必须以 http:// 或 https:// 开头；不填表示不改"`
-	ColumnID int64  `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；按各列 instruction 的约定选择"`
-	BeforeID int64  `json:"before_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的前面；和 after_id 最多填一个；都不填放到目标列最顶部"`
-	AfterID  int64  `json:"after_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的后面；和 before_id 最多填一个"`
+	CardID        int64    `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
+	MergedCommits []string `json:"merged_commits,omitempty" jsonschema:"仅审查通过的本地任务：已合入主工作区的提交哈希前六位，保持顺序；同时传 version，工具会把列表加进评论"`
+	Version       *int64   `json:"version,omitempty" jsonschema:"记录合并结果时必填，使用审查时读到的任务版本"`
+	Summary       string   `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在任务下；引用同板任务时在正文写 #数字，例如 #86"`
+	Branch        string   `json:"branch,omitempty" jsonschema:"这次工作用的分支名；不填表示不改"`
+	URL           string   `json:"url,omitempty" jsonschema:"相关链接，例如合并请求，必须以 http:// 或 https:// 开头；不填表示不改"`
+	ColumnID      int64    `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；按各列 instruction 的约定选择"`
+	BeforeID      int64    `json:"before_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的前面；和 after_id 最多填一个；都不填放到目标列最顶部"`
+	AfterID       int64    `json:"after_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的后面；和 before_id 最多填一个"`
 }
 
 // commentCardIn 是 comment_card 的入参。
@@ -171,7 +173,8 @@ func (a API) registerSharedWork(s *mcp.Server) {
 		name: "finish_card", kind: kindWrite,
 		desc: "完成交接：把 summary 写成评论、记下分支和链接、把任务移到下一列（通常是「审查」）并结束你的领取，全部在一次操作里完成。" +
 			"做完一个任务就调用它，不要自己用 move_card 去拖；调用前先用 update_card 在描述末尾补上「任务项」清单（- [x] 已实现，- [ ] 未做），让人看描述就知道做了什么；是否算完成由审查决定，具体按各列的 instruction。" +
-			"summary 要让审查的人不看代码也能知道做了什么、怎么验证的、有什么风险。",
+			"summary 要让审查的人不看代码也能知道做了什么、怎么验证的、有什么风险。" +
+			"本机任务已按技能完成 cherry-pick 后，测试工程师名额的持卡 agent 可以用 merged_commits 和 version 同步记录合并提交及审查结论，并移入完成列。",
 	}, a.finishCard)
 	register(s, spec{
 		name: "comment_card", kind: kindWrite,
@@ -265,6 +268,7 @@ func (a API) finishCard(ctx context.Context, actor kanban.Actor, in finishCardIn
 	detail, err := a.core.FinishCard(ctx, actor, in.CardID, kanban.FinishCardInput{
 		Summary: in.Summary, Branch: in.Branch, URL: in.URL, ColumnID: in.ColumnID,
 		BeforeID: in.BeforeID, AfterID: in.AfterID, Top: true,
+		MergedCommits: in.MergedCommits, Version: in.Version,
 	})
 	if err != nil {
 		return nil, err

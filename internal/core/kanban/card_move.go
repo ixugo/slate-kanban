@@ -150,6 +150,9 @@ func (u *unit) commitMove(ctx context.Context, actor Actor, card *Card, from, to
 	if err != nil {
 		return err
 	}
+	if from.IsDone && !to.IsDone {
+		card.MergedCommits = []string{}
+	}
 	if err := u.newRuleRun(card).moved(ctx, from.ID, to.ID, 0); err != nil {
 		return err
 	}

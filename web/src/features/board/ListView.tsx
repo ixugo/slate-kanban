@@ -22,6 +22,7 @@ import {
   type SortState,
 } from './sortCards'
 import { displayKey } from '@/lib/cardKey'
+import { CardMergeBadge } from '@/features/card/CardMergeBadge'
 import { UnreadBadge } from './UnreadBadge'
 import type { SearchHighlights } from './searchHighlights'
 
@@ -167,6 +168,7 @@ export default function ListView({
                     <td className="whitespace-nowrap px-3 py-2.5 font-mono text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
                         <span>{highlights?.key(card.key) ?? displayKey(card.key)}</span>
+                        <CardMergeBadge card={card} compact />
                         <UnreadBadge count={card.unread_count ?? 0} />
                       </span>
                     </td>

@@ -380,6 +380,8 @@ export const en = {
       engineer: 'Engineer',
       deps: 'Dependencies',
       branch: 'Branch',
+      merged: 'Merged',
+      mergePending: 'Not merged',
       url: 'Link',
     },
     engineerAuto: 'Assigned at random when claimed',

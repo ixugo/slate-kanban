@@ -377,6 +377,8 @@ export const zhCN: Messages = {
       engineer: '工程师',
       deps: '依赖',
       branch: '分支',
+      merged: '已合并',
+      mergePending: '待合并',
       url: '链接',
     },
     engineerAuto: '领取时随机分配',
