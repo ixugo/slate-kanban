@@ -45,6 +45,9 @@ type Options struct {
 	ExePath string
 	// GOOS 和 GOARCH 决定下载哪个平台的包，空则用当前平台。
 	GOOS, GOARCH string
+	// Restart 在程序替换成功后被调用，参数是新程序的路径；返回 true 表示已安排用新程序重启当前进程，
+	// 返回 false 表示当前环境没法自动重启。空则不重启。
+	Restart func(exe string) bool
 }
 
 // API 是自动更新接口。
@@ -100,19 +103,21 @@ func (a API) check(c *gin.Context, _ *struct{}) (*Info, error) {
 	return a.u.info(c.Request.Context()), nil
 }
 
-// apply 下载并替换程序，成功后返回新版本号；替换后需要重启程序才生效。
+// apply 下载并替换程序，成功后返回新版本号；能自动重启时服务端会在响应发出后用新程序重启，否则需要用户手动重启。
 func (a API) apply(c *gin.Context, _ *struct{}) (*Applied, error) {
-	version, err := a.u.apply(c.Request.Context())
+	out, err := a.u.apply(c.Request.Context())
 	if err != nil {
 		slog.Warn("自动更新失败", "err", err)
 		return nil, err
 	}
-	return &Applied{Version: version}, nil
+	return out, nil
 }
 
 // Applied 是更新成功后的返回。
 type Applied struct {
 	Version string `json:"version"`
+	// Restarting 为真表示服务端已安排自动重启，网页等新版本起来后刷新即可；为假要提示用户手动重启。
+	Restarting bool `json:"restarting"`
 }
 
 // CheckState 说明本次检查走到了哪一步，方便网页区分「已是最新」和「GitHub 连不上」。

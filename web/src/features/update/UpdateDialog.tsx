@@ -8,6 +8,7 @@ import { applyUpdate } from '@/lib/api/endpoints'
 import type { UpdateInfo } from '@/lib/api/types'
 import { describeError } from '@/lib/errors'
 import { Markdown } from '@/lib/markdown'
+import { useReloadAfterRestart } from './useReloadAfterRestart'
 import { saveIgnored } from './version'
 
 interface Props {
@@ -21,10 +22,12 @@ function safeUrl(url: string): string {
   return url.startsWith('https://') ? url : ''
 }
 
-/** 更新弹窗；更新成功后提示重启，因为替换的是磁盘上的程序，正在运行的进程要重启才生效 */
+/** 更新弹窗；更新成功后服务端会自动重启，页面等新版本起来后自动刷新；不能自动重启时提示用户手动重启 */
 export default function UpdateDialog({ info, onClose, onCloseAutoFocus }: Props) {
   const { t } = useTranslation()
   const update = useMutation({ mutationFn: applyUpdate })
+  const restarting = update.data?.restarting === true
+  const restartTimedOut = useReloadAfterRestart(restarting, update.data?.version ?? '')
   const link = safeUrl(info.url)
   const ignore = () => {
     saveIgnored(info.latest)
@@ -38,7 +41,11 @@ export default function UpdateDialog({ info, onClose, onCloseAutoFocus }: Props)
           <DialogDescription>{t('update.versions', { current: info.current, latest: info.latest })}</DialogDescription>
         </DialogHeader>
         {info.notes !== '' && <Markdown source={info.notes} className="max-h-72 overflow-auto text-ui" />}
-        {update.isSuccess && <p role="status">{t('update.done', { version: update.data.version })}</p>}
+        {update.isSuccess && (
+          <p role="status">
+            {t(restarting && !restartTimedOut ? 'update.restarting' : 'update.done', { version: update.data.version })}
+          </p>
+        )}
         {update.isError && <p role="alert" className="text-destructive">{describeError(update.error, t).message}</p>}
         {!update.isSuccess && (
           <DialogFooter>

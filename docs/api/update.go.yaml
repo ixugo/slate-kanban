@@ -35,7 +35,7 @@ paths:
       tags:
         - admin/自动更新
       summary: 立即更新
-      description: 下载当前平台的包，用 checksums.txt 校验 sha256 后替换本地程序，不做备份；替换后需要重启程序才生效。容器里、已经是最新版本、新版本的安装包还没上传完、校验不通过都会失败，失败时不改动现有程序。
+      description: 下载当前平台的包，用 checksums.txt 校验 sha256 后替换本地程序，不做备份；替换成功后服务会在响应发出后自动重启（以 Windows 服务运行时除外，响应里 restarting 为 false，需手动重启）。容器里、已经是最新版本、新版本的安装包还没上传完、校验不通过都会失败，失败时不改动现有程序。
       operationId: applyUpdate
       responses:
         "200":
@@ -98,6 +98,12 @@ components:
         version:
           type: string
           description: 已经替换成功的版本号，程序重启后才生效
+        restarting:
+          type: boolean
+          description: 服务端是否已安排自动重启：为 true 时响应发出后服务会优雅关闭并用新程序重启（类 Unix 原地 exec，PID 不变），网页等新版本起来后刷新即可；为 false（例如以 Windows 服务运行）需要用户手动重启
+      required:
+        - version
+        - restarting
       description: 自动更新的结果
     UpdateInfo:
       type: object

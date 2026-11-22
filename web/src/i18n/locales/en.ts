@@ -691,6 +691,7 @@ export const en = {
     now: 'Update now',
     updating: 'Updating…',
     done: 'Updated to {{version}}. Restart Slate, then refresh the page.',
+    restarting: 'Updated to {{version}}. Restarting Slate; the page will refresh automatically…',
     download: 'Download',
   },
   agents: {

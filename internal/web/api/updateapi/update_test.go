@@ -334,6 +334,46 @@ func TestApply(t *testing.T) {
 			}
 		})
 	}
+	t.Run("替换成功后请求重启，响应带 restarting", func(t *testing.T) {
+		g := newFakeGitHub(t, "v1.2.0", "linux", "NEW")
+		var calls []string
+		a, exe := newAPI(t, g, "v1.1.0", func(o *Options) {
+			o.Restart = func(path string) bool { calls = append(calls, path); return true }
+		})
+		code, body := do(a, http.MethodPost)
+		if code != http.StatusOK || !strings.Contains(string(body), `"restarting":true`) {
+			t.Fatalf("响应应带 restarting=true: %d %s", code, body)
+		}
+		want, _ := filepath.EvalSymlinks(exe)
+		if len(calls) != 1 || calls[0] != want {
+			t.Fatalf("应带着程序路径请求一次重启，期望 %q，实际 %v", want, calls)
+		}
+	})
+	t.Run("环境不支持重启时 restarting 为假", func(t *testing.T) {
+		g := newFakeGitHub(t, "v1.2.0", "linux", "NEW")
+		for name, restart := range map[string]func(string) bool{
+			"没有重启函数": nil,
+			"重启函数拒绝": func(string) bool { return false },
+		} {
+			a, _ := newAPI(t, g, "v1.1.0", func(o *Options) { o.Restart = restart })
+			code, body := do(a, http.MethodPost)
+			if code != http.StatusOK || !strings.Contains(string(body), `"restarting":false`) {
+				t.Errorf("%s：更新应成功且 restarting=false: %d %s", name, code, body)
+			}
+		}
+	})
+	t.Run("更新失败不请求重启", func(t *testing.T) {
+		g := newFakeGitHub(t, "v1.2.0", "linux", "NEW")
+		g.files["/dl/v1.2.0/checksums.txt"] = []byte(strings.Repeat("0", 64) + "  slate_v1.2.0_linux_amd64.tar.gz\n")
+		called := false
+		a, _ := newAPI(t, g, "v1.1.0", func(o *Options) { o.Restart = func(string) bool { called = true; return true } })
+		if code, _ := do(a, http.MethodPost); code == http.StatusOK {
+			t.Fatal("校验和不对应该失败")
+		}
+		if called {
+			t.Fatal("更新失败时不该请求重启")
+		}
+	})
 	t.Run("校验和不对", func(t *testing.T) {
 		g := newFakeGitHub(t, "v1.2.0", "linux", "NEW")
 		g.files["/dl/v1.2.0/checksums.txt"] = []byte(strings.Repeat("0", 64) + "  slate_v1.2.0_linux_amd64.tar.gz\n")

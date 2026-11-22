@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
 import type { UpdateInfo } from '@/lib/api/types'
 import { installFakeApi } from '@/test/fakeApi'
@@ -8,7 +8,10 @@ import { renderApp } from '@/test/renderApp'
 import { UpdatePrompt } from './UpdatePrompt'
 import { IGNORED_KEY } from './version'
 
-afterEach(() => localStorage.clear())
+afterEach(() => {
+  localStorage.clear()
+  vi.unstubAllGlobals()
+})
 
 const info: UpdateInfo = {
   current: 'v1.0.0',
@@ -70,6 +73,23 @@ describe('UpdatePrompt', () => {
     expect(await screen.findByText('Updated to v1.1.0. Restart Slate, then refresh the page.')).toBeInTheDocument()
     expect(api.count('POST /api/v1/update')).toBe(1)
     expect(screen.queryByRole('button', { name: en.update.now })).not.toBeInTheDocument()
+  })
+
+  it('服务端自动重启时显示重启中，新版本起来后自动刷新页面', async () => {
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...window.location, reload })
+    const api = installFakeApi({
+      'GET /api/v1/update': info,
+      'POST /api/v1/update': () => {
+        // 更新接口返回后，服务端「重启」：之后查到的当前版本变成新版本
+        api.set('GET /api/v1/update', { ...info, current: 'v1.1.0', has_update: false })
+        return { body: { version: 'v1.1.0', restarting: true } }
+      },
+    })
+    renderApp(<UpdatePrompt />)
+    await userEvent.click(await screen.findByRole('button', { name: en.update.now }))
+    expect(await screen.findByText('Updated to v1.1.0. Restarting Slate; the page will refresh automatically…')).toBeInTheDocument()
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1), { timeout: 5000 })
   })
 
   it('更新失败时显示错误并允许重试', async () => {

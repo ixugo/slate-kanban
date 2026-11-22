@@ -473,9 +473,10 @@ export interface UpdateInfo {
   check_state?: UpdateCheckState
 }
 
-/** 立即更新成功的结果：程序已被替换，重启后才是这个版本 */
+/** 立即更新成功的结果：程序已被替换；restarting 为真表示服务端会自动重启，为假要用户手动重启 */
 export interface UpdateApplied {
   version: string
+  restarting: boolean
 }
 
 /** 访问口令的状态：required 表示服务端启用了口令；authenticated 表示当前浏览器是否已通过 */

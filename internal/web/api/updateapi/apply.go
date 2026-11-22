@@ -58,40 +58,46 @@ func (u *updater) canApply(rel *release) bool {
 	return !u.opt.Container && u.packagesReady(rel)
 }
 
-// apply 取最新 release，下载、校验并替换程序，返回新版本号。每一步失败都不会改动现有程序。
-func (u *updater) apply(ctx context.Context) (string, error) {
+// apply 取最新 release，下载、校验并替换程序，替换成功后请求重启。每一步失败都不会改动现有程序，也不会请求重启。
+func (u *updater) apply(ctx context.Context) (*Applied, error) {
 	if !u.applying.TryLock() {
-		return "", reason.ErrConflict.WithMsg("正在更新，请稍候")
+		return nil, reason.ErrConflict.WithMsg("正在更新，请稍候")
 	}
 	defer u.applying.Unlock()
 	rel, err := u.latest(ctx, true)
 	if err != nil {
-		return "", reason.ErrNetworkError.WithMsg("无法从 GitHub 获取最新版本：" + err.Error())
+		return nil, reason.ErrNetworkError.WithMsg("无法从 GitHub 获取最新版本：" + err.Error())
 	}
 	if !u.newerThanRunning(rel.Tag) {
-		return "", reason.ErrBadRequest.WithMsg("已经是最新版本")
+		return nil, reason.ErrBadRequest.WithMsg("已经是最新版本")
 	}
 	if !u.packagesReady(rel) {
-		return "", reason.ErrBadRequest.WithMsg("新版本的安装包还没上传完，请稍后再试")
+		return nil, reason.ErrBadRequest.WithMsg("新版本的安装包还没上传完，请稍后再试")
 	}
 	if !u.canApply(rel) {
-		return "", reason.ErrBadRequest.WithMsg("当前环境不支持自动更新，请到 release 页面手动下载")
+		return nil, reason.ErrBadRequest.WithMsg("当前环境不支持自动更新，请到 release 页面手动下载")
 	}
-	if err := u.install(ctx, rel); err != nil {
-		return "", reason.ErrServer.WithMsg("更新失败：" + err.Error())
+	exe, err := u.install(ctx, rel)
+	if err != nil {
+		return nil, reason.ErrServer.WithMsg("更新失败：" + err.Error())
 	}
 	u.mu.Lock()
 	u.applied = rel.Tag
 	u.mu.Unlock()
-	return rel.Tag, nil
+	return &Applied{Version: rel.Tag, Restarting: u.opt.Restart != nil && u.opt.Restart(exe)}, nil
 }
 
-// install 下载包和校验文件，比对 sha256，解出程序并替换当前程序；临时文件在任何结果下都会清理。
-func (u *updater) install(ctx context.Context, rel *release) error {
+// install 下载包和校验文件，比对 sha256，解出程序并替换当前程序，返回被替换的程序路径；临时文件在任何结果下都会清理。
+func (u *updater) install(ctx context.Context, rel *release) (string, error) {
 	exe, err := u.exePath()
 	if err != nil {
-		return err
+		return "", err
 	}
+	return exe, u.replaceWith(ctx, rel, exe)
+}
+
+// replaceWith 把 release 里当前平台的包下载、校验、解压后替换到 exe 位置。
+func (u *updater) replaceWith(ctx context.Context, rel *release, exe string) error {
 	dir := filepath.Dir(exe)
 	name := u.archiveName(rel.Tag)
 	archive, sum, err := u.download(ctx, u.assetURL(rel, name), dir)

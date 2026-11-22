@@ -27,7 +27,7 @@ cd slate
 
 - macOS 提示無法開啟時，執行一次 `xattr -d com.apple.quarantine slate`。
 - 想讓 Slate 在背景執行並隨登入自動啟動（macOS 與 Linux），執行 `./slate -d`；停止並刪除服務用 `./slate -stop`。
-- 有新 release 時，網頁會跳出提示。點選 **立即更新**，然後重新啟動 Slate。
+- 有新 release 時，網頁會跳出提示。點選 **立即更新**，Slate 會自動重新啟動，頁面隨後自動重新整理。（以 Windows 服務執行時需要手動重新啟動服務。）
 
 ## 開始使用
 

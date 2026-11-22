@@ -27,7 +27,7 @@ cd slate
 
 - If macOS refuses to open the file, run `xattr -d com.apple.quarantine slate` once.
 - To run Slate in the background and start it at login (macOS and Linux), use `./slate -d`. Stop it and remove the service with `./slate -stop`.
-- When a new release is out, Slate shows a notice in the browser. Choose **Update now**, then restart Slate.
+- When a new release is out, Slate shows a notice in the browser. Choose **Update now**: Slate restarts itself and the page refreshes automatically. (Running as a Windows service, restart the service by hand.)
 
 ## Get started
 
