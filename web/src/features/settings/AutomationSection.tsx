@@ -111,7 +111,7 @@ export function AutomationSection({ boardId, columns: rawColumns, rules }: Props
                       <Switch
                         checked={rule.enabled}
                         aria-label={`${t('settings.rules.enabled')}: ${ruleName(rule.name)}`}
-                        onCheckedChange={(v) => toggleRule.mutate({ ruleId: rule.id, enabled: v }, { onError: toastError })}
+                        onCheckedChange={(v) => toggleRule.mutate({ ruleId: rule.id, enabled: v })}
                       />
                       <Button
                         type="button"
@@ -163,16 +163,11 @@ export function AutomationSection({ boardId, columns: rawColumns, rules }: Props
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <Button
               variant="destructive"
-              disabled={deleteRule.isPending}
               onClick={() => {
                 if (!deleting) return
-                deleteRule.mutate(deleting.id, {
-                  onSuccess: () => {
-                    toast.success(t('settings.rules.deletedToast'))
-                    setDeleting(null)
-                  },
-                  onError: toastError,
-                })
+                // 乐观删除：规则和对话框先消失，失败时规则回来并提示原因
+                deleteRule.mutate(deleting.id, { onSuccess: () => toast.success(t('settings.rules.deletedToast')) })
+                setDeleting(null)
               }}
             >
               {t('common.delete')}

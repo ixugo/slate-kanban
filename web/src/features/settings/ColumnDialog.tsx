@@ -70,10 +70,9 @@ export function ColumnDialog({ boardId, columns, column, open, onOpenChange }: P
       next_column_id: values.nextColumnId,
     }
     if (column) {
-      updateColumn.mutate(
-        { columnId: column.id, input: payload },
-        { onSuccess: () => onOpenChange(false), onError: toastError },
-      )
+      // 乐观更新：列先改好、对话框先关，失败时还原并提示
+      updateColumn.mutate({ columnId: column.id, input: payload })
+      onOpenChange(false)
     } else {
       createColumn.mutate(payload, { onSuccess: () => onOpenChange(false), onError: toastError })
     }

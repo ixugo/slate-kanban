@@ -1,4 +1,4 @@
-// 设置页的变更：看板、列、规则；成功后刷新快照，改名称时顺带刷新看板列表。
+// 设置页的变更：看板、列、规则。改名、改列、改规则、删规则先改快照再请求，失败还原并提示；成功后刷新快照，改名称时顺带刷新看板列表。
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -20,10 +20,12 @@ import type {
   UpdateRuleInput,
 } from '@/lib/api/types'
 import { queryKeys } from '@/lib/queryKeys'
+import { useErrorToast } from '@/lib/useErrorToast'
 
 /** 绑定到一块看板的全部变更钩子 */
 export function useSettingsMutations(boardId: number) {
   const queryClient = useQueryClient()
+  const toastError = useErrorToast()
   const boardKey = queryKeys.board(boardId)
 
   const invalidateBoard = () => {
@@ -43,7 +45,21 @@ export function useSettingsMutations(boardId: number) {
 
   const updateBoardM = useMutation({
     mutationFn: (input: Parameters<typeof updateBoard>[1]) => updateBoard(boardId, input),
-    onSuccess: () => invalidateBoardAndList(),
+    // 名称和说明先改快照；工程师和标签的新增要服务端分配编号，不预测
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: boardKey })
+      const previous = patchSnapshot((s) => ({
+        ...s,
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+      }))
+      return { previous }
+    },
+    onError: (err, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(boardKey, ctx.previous)
+      toastError(err)
+    },
+    onSettled: () => invalidateBoardAndList(),
   })
 
   const deleteBoardM = useMutation({
@@ -62,7 +78,19 @@ export function useSettingsMutations(boardId: number) {
   const updateColumnM = useMutation({
     mutationFn: ({ columnId, input }: { columnId: number; input: UpdateColumnInput }) =>
       updateColumn(boardId, columnId, input),
-    onSuccess: invalidateBoard,
+    onMutate: async ({ columnId, input }) => {
+      await queryClient.cancelQueries({ queryKey: boardKey })
+      const previous = patchSnapshot((s) => ({
+        ...s,
+        columns: s.columns.map((c) => (c.id === columnId ? { ...c, ...input } : c)),
+      }))
+      return { previous }
+    },
+    onError: (err, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(boardKey, ctx.previous)
+      toastError(err)
+    },
+    onSettled: invalidateBoard,
   })
 
   const reorderColumnsM = useMutation({
@@ -80,8 +108,9 @@ export function useSettingsMutations(boardId: number) {
       }))
       return { previous }
     },
-    onError: (_e, _v, ctx) => {
+    onError: (err, _v, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(boardKey, ctx.previous)
+      toastError(err)
     },
     onSettled: invalidateBoard,
   })
@@ -116,15 +145,25 @@ export function useSettingsMutations(boardId: number) {
       }))
       return { previous }
     },
-    onError: (_e, _v, ctx) => {
+    onError: (err, _v, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(boardKey, ctx.previous)
+      toastError(err)
     },
     onSettled: invalidateBoard,
   })
 
   const deleteRuleM = useMutation({
     mutationFn: (ruleId: number) => deleteRule(ruleId),
-    onSuccess: invalidateBoard,
+    onMutate: async (ruleId) => {
+      await queryClient.cancelQueries({ queryKey: boardKey })
+      const previous = patchSnapshot((s) => ({ ...s, rules: s.rules.filter((r) => r.id !== ruleId) }))
+      return { previous }
+    },
+    onError: (err, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(boardKey, ctx.previous)
+      toastError(err)
+    },
+    onSettled: invalidateBoard,
   })
 
   const toggleRuleM = useMutation({
@@ -137,8 +176,9 @@ export function useSettingsMutations(boardId: number) {
       }))
       return { previous }
     },
-    onError: (_e, _v, ctx) => {
+    onError: (err, _v, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(boardKey, ctx.previous)
+      toastError(err)
     },
     onSettled: invalidateBoard,
   })

@@ -6,7 +6,6 @@ import { useTranslation } from '@/i18n/react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { CardView, Column } from '@/lib/api/types'
-import { useErrorToast } from '@/lib/useErrorToast'
 import { ColumnDialog } from './ColumnDialog'
 import { DeleteColumnDialog } from './DeleteColumnDialog'
 import { useSettingsMutations } from './useSettingsMutations'
@@ -22,7 +21,6 @@ interface Props {
 /** 列管理区块 */
 export function ColumnsSection({ boardId, columns, cards }: Props) {
   const { t } = useTranslation()
-  const toastError = useErrorToast()
   const { reorderColumns } = useSettingsMutations(boardId)
   const [editor, setEditor] = useState<Column | 'new' | null>(null)
   const [deleting, setDeleting] = useState<Column | null>(null)
@@ -32,7 +30,7 @@ export function ColumnsSection({ boardId, columns, cards }: Props) {
   const move = (columnId: number, dir: 'up' | 'down') => {
     const ids = dir === 'up' ? moveColumnUp(columns, columnId) : moveColumnDown(columns, columnId)
     if (!ids) return
-    reorderColumns.mutate(ids, { onError: toastError })
+    reorderColumns.mutate(ids)
   }
 
   return (

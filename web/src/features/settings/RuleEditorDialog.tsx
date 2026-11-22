@@ -94,10 +94,9 @@ export function RuleEditorDialog({ boardId, columns, rule, open, onOpenChange }:
       const { patch, errors: found } = formToUpdateInput(state, columns, resolveName)
       setErrors(found)
       if (Object.keys(found).length > 0) return
-      updateRule.mutate(
-        { ruleId: rule.id, input: patch },
-        { onSuccess: () => onOpenChange(false), onError: toastError },
-      )
+      // 乐观更新：规则先改好、对话框先关，失败时还原并提示
+      updateRule.mutate({ ruleId: rule.id, input: patch })
+      onOpenChange(false)
       return
     }
     const { input, errors: found } = formToCreateInput({ ...state, enabled: true }, columns, resolveName)

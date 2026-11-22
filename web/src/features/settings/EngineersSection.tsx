@@ -22,7 +22,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import type { Engineer, EngineerInput, EngineerKind } from '@/lib/api/types'
 import { ENGINEER_NAME_MAX, ENGINEER_PROMPT_MAX } from '@/lib/limits'
-import { useErrorToast } from '@/lib/useErrorToast'
 import { randomAvatarSeed } from './avatar'
 import { EngineerAvatar } from './EngineerAvatar'
 import { ENGINEER_KINDS, KIND_META } from './engineerKinds'
@@ -42,13 +41,12 @@ function toInputs(list: Engineer[]): EngineerInput[] {
 /** 工程师管理区块 */
 export function EngineersSection({ boardId, engineers }: Props) {
   const { t } = useTranslation()
-  const toastError = useErrorToast()
   const { updateBoard } = useSettingsMutations(boardId)
   const [editing, setEditing] = useState<Draft | null>(null)
   const [dismissing, setDismissing] = useState<Engineer | null>(null)
 
   const save = (next: EngineerInput[], done: () => void) =>
-    updateBoard.mutate({ engineers: next }, { onSuccess: done, onError: toastError })
+    updateBoard.mutate({ engineers: next }, { onSuccess: done })
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">

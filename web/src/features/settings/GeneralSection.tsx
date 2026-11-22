@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import type { Board } from '@/lib/api/types'
 import { BOARD_DESC_MAX, BOARD_NAME_MAX } from '@/lib/limits'
-import { useErrorToast } from '@/lib/useErrorToast'
 import { DeleteBoardDialog } from './DeleteBoardDialog'
 import { useSettingsMutations } from './useSettingsMutations'
 import { validateGeneralForm, type GeneralFormErrors } from './validation'
@@ -21,7 +20,6 @@ interface Props {
 /** 常规设置表单 */
 export function GeneralSection({ board }: Props) {
   const { t } = useTranslation()
-  const toastError = useErrorToast()
   const { updateBoard } = useSettingsMutations(board.id)
   const [name, setName] = useState(board.name)
   const [description, setDescription] = useState(board.description)
@@ -33,13 +31,10 @@ export function GeneralSection({ board }: Props) {
     const found = validateGeneralForm({ name, description })
     setErrors(found)
     if (Object.keys(found).length > 0) return
-    updateBoard.mutate(
-      {
-        name: name.trim(),
-        description: description.trim(),
-      },
-      { onError: toastError },
-    )
+    updateBoard.mutate({
+      name: name.trim(),
+      description: description.trim(),
+    })
   }
 
   const fieldError = (key: keyof GeneralFormErrors, id: string) =>
