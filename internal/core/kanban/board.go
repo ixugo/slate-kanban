@@ -67,11 +67,12 @@ func (c Core) CreateBoard(ctx context.Context, actor Actor, in CreateBoardInput)
 func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardInput, slug string) (*BoardDetail, error) {
 	var tplBody *ProjectTemplateBody
 	if in.ProjectTemplateID > 0 {
-		_, body, err := c.loadProjectTemplateBody(ctx, in.ProjectTemplateID)
+		body, err := c.loadProjectTemplateBody(ctx, in.ProjectTemplateID)
 		if err != nil {
 			return nil, err
 		}
 		tplBody = body
+		in.Template = TemplateDev
 	}
 	var out *BoardDetail
 	err := c.run(ctx, 0, func(u *unit) error {
@@ -90,7 +91,7 @@ func (c Core) createBoardOnce(ctx context.Context, actor Actor, in CreateBoardIn
 		var engineers []*Engineer
 		var cols []*Column
 		var rules []*Rule
-		if in.ProjectTemplateID > 0 {
+		if tplBody != nil {
 			var err error
 			tags, engineers, cols, err = u.materializeProjectTemplate(ctx, b.ID, tplBody)
 			if err != nil {

@@ -115,8 +115,8 @@ func TestImportProjectTemplate_replaceReplacesContent(t *testing.T) {
 		t.Fatalf("覆盖后内容不对: %+v", got.Columns)
 	}
 	list, err := core.ListProjectTemplates(ctx, testActor)
-	if err != nil || len(list) != 1 {
-		t.Fatalf("列表应仍只有一条: %v %+v", err, list)
+	if err != nil || len(list) != 2 {
+		t.Fatalf("列表应只有内置模板和覆盖后的模板: %v %+v", err, list)
 	}
 }
 
@@ -144,8 +144,8 @@ func TestImportProjectTemplate_concurrentReplace(t *testing.T) {
 		}
 	}
 	list, err := core.ListProjectTemplates(ctx, testActor)
-	if err != nil || len(list) != 1 || list[0].Name != name {
-		t.Fatalf("应只剩一条模板: %v %+v", err, list)
+	if err != nil || len(list) != 2 || list[1].Name != name {
+		t.Fatalf("应只剩内置模板和一个同名模板: %v %+v", err, list)
 	}
 }
 
@@ -236,18 +236,28 @@ func TestDeleteProjectTemplate_removesRow(t *testing.T) {
 	}
 }
 
-// TestListProjectTemplates_excludesBuiltinNames 列表只有自定义模板。
-func TestListProjectTemplates_excludesBuiltinNames(t *testing.T) {
+// TestBuiltinProjectTemplateUsesLocalizedDevelopmentFlow 验证内置模板可以用列表 ID 创建带五列和规则的本地化项目。
+func TestBuiltinProjectTemplateUsesLocalizedDevelopmentFlow(t *testing.T) {
 	core, _ := newBare(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	list, err := core.ListProjectTemplates(ctx, testActor)
-	if err != nil {
-		t.Fatalf("列表: %v", err)
+	if err != nil || len(list) != 1 || list[0].Name != kanban.TemplateDev {
+		t.Fatalf("应包含内置研发模板: %v %+v", err, list)
 	}
-	for _, item := range list {
-		switch item.Name {
-		case kanban.TemplateDev, kanban.TemplateSimple, kanban.TemplateEmpty:
-			t.Fatalf("内置名不应出现: %q", item.Name)
-		}
+	board, err := core.CreateBoard(ctx, testActor, kanban.CreateBoardInput{
+		Name: "普通项目", Template: kanban.TemplateEmpty, ProjectTemplateID: list[0].ID, Locale: "zh-CN",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(board.Columns) != 5 || board.Columns[0].Name != "收件箱" || len(board.Rules) != 3 {
+		t.Fatalf("研发模板应恢复本地化列和规则: columns=%+v rules=%+v", columnNames(board.Columns), board.Rules)
+	}
+	boards, err := core.ListBoards(ctx)
+	if err != nil || len(boards) != 1 || boards[0].ID != board.ID {
+		t.Fatalf("项目列表只含实际创建的项目: %v %+v", err, boards)
+	}
+	if err := core.DeleteProjectTemplate(ctx, testActor, list[0].ID); err == nil {
+		t.Fatal("不允许删除内置模板")
 	}
 }

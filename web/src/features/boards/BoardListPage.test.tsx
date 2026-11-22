@@ -79,7 +79,13 @@ describe('BoardListPage', () => {
 
 describe('新建项目', () => {
   const open = async () => {
-    const api = installFakeApi({ 'GET /api/v1/boards': [makeBoard({ id: 1, name: 'Existing' })] })
+    const api = installFakeApi({
+      'GET /api/v1/boards': [makeBoard({ id: 1, name: 'Existing' })],
+      'GET /api/v1/templates': [
+        { id: 1, name: 'dev', builtin: true },
+        { id: 2, name: 'Team', builtin: false },
+      ],
+    })
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: en.boards.new }))
     return { api, dialog: await screen.findByRole('dialog') }
@@ -102,24 +108,34 @@ describe('新建项目', () => {
     expect(api.count('POST /api/v1/boards')).toBe(0)
   })
 
-  it('表单里没有项目路径输入框，模板只有一个开关，默认打开表示研发流程', async () => {
+  it('用一个选择框列出模板，默认选中研发模板，不重复显示内置项', async () => {
     const { dialog } = await open()
     expect(within(dialog).queryByLabelText(/path|路径/i)).not.toBeInTheDocument()
-    expect(within(dialog).queryAllByRole('radio')).toHaveLength(0)
-    const toggle = within(dialog).getByRole('switch', { name: en.boards.create.templateSwitch })
-    expect(toggle).toBeChecked()
-    expect(within(dialog).getByText(en.boards.create.templates.dev)).toBeInTheDocument()
-    await userEvent.click(toggle)
-    expect(toggle).not.toBeChecked()
-    expect(within(dialog).getByText(en.boards.create.templates.empty)).toBeInTheDocument()
+    const select = within(dialog).getByRole('combobox', { name: en.boards.create.template })
+    expect(select).toHaveValue('dev')
+    expect(await within(select).findByRole('option', { name: 'Team' })).toBeInTheDocument()
+    expect(within(select).getAllByRole('option').map(({ textContent }) => textContent)).toEqual([
+      en.boards.create.templates.dev, en.boards.create.templates.empty, 'Team',
+    ])
   })
 
-  it('提交：编号前缀自动大写，名称去掉首尾空白，关掉开关就用空白模板，带上当前界面语言，成功后跳到新项目', async () => {
+  it('选自定义模板后提交模板 ID', async () => {
+    const { api, dialog } = await open()
+    api.set('POST /api/v1/boards', makeSnapshot({ id: 9 }))
+    const option = await within(dialog).findByRole('option', { name: 'Team' })
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: en.boards.create.template }), option)
+    await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'From Team')
+    await userEvent.click(within(dialog).getByRole('button', { name: en.boards.create.submit }))
+    await waitFor(() => expect(api.count('POST /api/v1/boards')).toBe(1))
+    expect(api.calls.find((c) => c.method === 'POST')?.body).toEqual({ name: 'From Team', project_template_id: 2 })
+  })
+
+  it('提交：编号前缀自动大写，名称去掉首尾空白，选中空白模板，带上当前界面语言，成功后跳到新项目', async () => {
     const { api, dialog } = await open()
     api.set('POST /api/v1/boards', makeSnapshot({ id: 7 }))
     await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), '  My App  ')
     await userEvent.type(within(dialog).getByLabelText(new RegExp(en.boards.create.slug)), 'myapp')
-    await userEvent.click(within(dialog).getByRole('switch', { name: en.boards.create.templateSwitch }))
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: en.boards.create.template }), 'empty')
     await userEvent.click(within(dialog).getByRole('button', { name: en.boards.create.submit }))
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/b/7'))
     // 创建成功后项目列表缓存失效，切换菜单里能看到新项目

@@ -22,10 +22,11 @@ func TestTemplateImportListDelete(t *testing.T) {
 	}
 	list := s.human(t, http.MethodGet, "/templates", nil)
 	var items []struct {
-		Name string `json:"name"`
+		Name    string `json:"name"`
+		Builtin bool   `json:"builtin"`
 	}
 	list.JSON(t, &items)
-	if len(items) != 1 || items[0].Name != "REST流" {
+	if len(items) != 2 || !items[0].Builtin || items[1].Name != "REST流" || items[1].Builtin {
 		t.Fatalf("列表: %+v", items)
 	}
 	dup := s.human(t, http.MethodPost, "/templates", body)
@@ -37,7 +38,14 @@ func TestTemplateImportListDelete(t *testing.T) {
 	var tpl struct {
 		ID int64 `json:"id"`
 	}
-	resp.JSON(t, &tpl)
+	replace.JSON(t, &tpl)
+	var original struct {
+		ID int64 `json:"id"`
+	}
+	resp.JSON(t, &original)
+	if tpl.ID != original.ID {
+		t.Fatalf("覆盖后模板 ID 改变: %d -> %d", original.ID, tpl.ID)
+	}
 	del := s.human(t, http.MethodDelete, "/templates/"+id(tpl.ID), nil)
 	if del.Code != http.StatusOK {
 		t.Fatalf("删除: %d", del.Code)

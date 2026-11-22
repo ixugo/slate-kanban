@@ -8,7 +8,7 @@ export const ko: Messages = {
     templates: {
       body: '사용자 지정 프로젝트 템플릿을 가져오고, 내보내고, 관리합니다. 프로젝트 설정에서 내보낸 뒤 새 프로젝트를 만들 때 선택할 수 있습니다.',
       import: 'JSON 가져오기',
-      empty: '사용자 지정 템플릿이 없습니다.',
+      builtin: '기본 제공',
       loadFailed: '템플릿 목록을 불러올 수 없습니다.',
       invalidFile: '유효한 프로젝트 템플릿 JSON 파일이 아닙니다.',
       delete: '템플릿 "{{name}}" 삭제',
@@ -98,10 +98,7 @@ export const ko: Messages = {
       descriptionLabel: '설명',
       descriptionPlaceholder: '이 프로젝트의 용도 (선택)',
       template: '템플릿',
-      templateSwitch: '개발 흐름 템플릿 사용',
-      templates: { dev: '개발 흐름', empty: '비어 있음' },
-      customTemplate: '사용자 지정 템플릿',
-      customTemplateNone: '사용 안 함 (아래 시작 템플릿 사용)',
+      templates: { dev: '개발 템플릿', empty: '비어 있음' },
       submit: '프로젝트 만들기',
       submitting: '만드는 중…',
       errors: {

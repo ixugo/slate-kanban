@@ -17,7 +17,7 @@ import (
 	"slate-kanban/internal/web/restactor"
 )
 
-// templateRoutes 注册自定义项目模板相关路由。
+// templateRoutes 注册项目模板相关路由。
 func (a API) templateRoutes(r gin.IRouter) {
 	r.GET("/templates", route(a.listTemplates))
 	r.POST("/templates", a.importTemplate)
@@ -30,7 +30,7 @@ type importTemplateQuery struct {
 	Replace bool `form:"replace"`
 }
 
-// listTemplates 返回全部自定义项目模板摘要。
+// listTemplates 返回内置与自定义项目模板摘要。
 func (a API) listTemplates(ctx context.Context, actor kanban.Actor, _ *struct{}) ([]kanban.ProjectTemplateSummary, error) {
 	return a.core.ListProjectTemplates(ctx, actor)
 }

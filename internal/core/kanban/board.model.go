@@ -10,6 +10,7 @@ type Board struct {
 	Name        string      `gorm:"column:name;size:100;notNull;default:'';comment:看板名称" json:"name"`
 	Slug        string      `gorm:"column:slug;size:10;notNull;default:'';uniqueIndex:uq_boards_slug;comment:看板短标识，任务编号的前缀，创建后不可修改" json:"slug"`
 	Description string      `gorm:"column:description;type:text;notNull;default:'';comment:看板说明" json:"description"`
+	IsTemplate  bool        `gorm:"column:is_template;notNull;default:false;comment:是否为模板项目" json:"-"`
 	ProjectPath string      `gorm:"column:project_path;size:512;notNull;default:'';comment:看板关联的本地项目路径" json:"project_path"`
 	Tags        []*Tag      `gorm:"-" json:"tags"`      // 标签库，存在 tags 表里，由 Core 读出看板时填入
 	Engineers   []*Engineer `gorm:"-" json:"engineers"` // 工程师名册，存在 board_engineers 表里，由 Core 读出看板时填入

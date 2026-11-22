@@ -324,19 +324,20 @@ export interface CreateBoardInput {
   description?: string
   template?: BoardTemplate
   locale?: string
-  /** 非 0 时从该自定义项目模板复制结构，忽略 template */
+  /** 非 0 时用该项目模板建立新项目，忽略 template */
   project_template_id?: number
 }
 
-/** 自定义项目模板列表项 */
+/** 项目模板列表项 */
 export interface ProjectTemplateSummary {
   id: number
   name: string
   updated_at: string
+  builtin: boolean
 }
 
 /** 导入模板成功后的详情 */
-export interface ProjectTemplateDetail extends ProjectTemplateSummary {
+export interface ProjectTemplateDetail extends Omit<ProjectTemplateSummary, 'builtin'> {
   tags: { text: string; color: string }[]
   engineers: { name: string; kind: EngineerKind; prompt: string; avatar?: string }[]
   columns: { name: string; instruction: string; is_done: boolean; next_column: number }[]

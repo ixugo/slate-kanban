@@ -8,7 +8,7 @@ export const zhTW: Messages = {
     templates: {
       body: '匯入、匯出與管理自訂專案範本。可從專案設定把現有專案匯出為範本；新建專案時可選用這裡的範本。',
       import: '匯入 JSON',
-      empty: '還沒有自訂範本。',
+      builtin: '內建',
       loadFailed: '無法載入範本列表。',
       invalidFile: '不是合法的專案範本 JSON 檔。',
       delete: '刪除範本「{{name}}」',
@@ -98,10 +98,7 @@ export const zhTW: Messages = {
       descriptionLabel: '說明',
       descriptionPlaceholder: '這個專案用來做什麼？（選填）',
       template: '起步範本',
-      templateSwitch: '使用研發流程範本',
-      templates: { dev: '研發流程', empty: '空白' },
-      customTemplate: '自訂範本',
-      customTemplateNone: '不使用（用下方的起步範本）',
+      templates: { dev: '研發範本', empty: '空白' },
       submit: '建立專案',
       submitting: '建立中…',
       errors: {

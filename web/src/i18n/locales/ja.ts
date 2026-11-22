@@ -8,7 +8,7 @@ export const ja: Messages = {
     templates: {
       body: 'カスタムプロジェクトテンプレートのインポート、エクスポート、管理。プロジェクト設定からエクスポートし、新規作成時にここから選べます。',
       import: 'JSON をインポート',
-      empty: 'カスタムテンプレートはまだありません。',
+      builtin: '組み込み',
       loadFailed: 'テンプレート一覧を読み込めませんでした。',
       invalidFile: '有効なプロジェクトテンプレート JSON ではありません。',
       delete: 'テンプレート「{{name}}」を削除',
@@ -98,10 +98,7 @@ export const ja: Messages = {
       descriptionLabel: '説明',
       descriptionPlaceholder: 'このプロジェクトの用途（任意）',
       template: 'テンプレート',
-      templateSwitch: '開発フローのテンプレートを使う',
-      templates: { dev: '開発フロー', empty: '空白' },
-      customTemplate: 'カスタムテンプレート',
-      customTemplateNone: '使わない（下の起步テンプレートを使用）',
+      templates: { dev: '開発テンプレート', empty: '空白' },
       submit: 'プロジェクトを作成',
       submitting: '作成中…',
       errors: {

@@ -11,7 +11,7 @@ export const en = {
     templates: {
       body: 'Import, export, and manage custom project templates. Export a project from its settings; pick a template here when creating a project.',
       import: 'Import JSON',
-      empty: 'No custom templates yet.',
+      builtin: 'Built in',
       loadFailed: 'Could not load templates.',
       invalidFile: 'Not a valid project template JSON file.',
       delete: 'Delete template "{{name}}"',
@@ -101,10 +101,7 @@ export const en = {
       descriptionLabel: 'Description',
       descriptionPlaceholder: 'What is this project for? (optional)',
       template: 'Template',
-      templateSwitch: 'Use the Development template',
-      templates: { dev: 'Development', empty: 'Blank' },
-      customTemplate: 'Custom template',
-      customTemplateNone: 'None (use built-in template below)',
+      templates: { dev: 'Development template', empty: 'Blank' },
       submit: 'Create project',
       submitting: 'Creating…',
       errors: {

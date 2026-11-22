@@ -8,7 +8,7 @@ export const zhCN: Messages = {
     templates: {
       body: '导入、导出和管理自定义项目模板。从项目设置可把现有项目导出为模板；新建项目时可选用这里的模板。',
       import: '导入 JSON',
-      empty: '还没有自定义模板。',
+      builtin: '内置',
       loadFailed: '无法加载模板列表。',
       invalidFile: '不是合法的项目模板 JSON 文件。',
       delete: '删除模板「{{name}}」',
@@ -98,10 +98,7 @@ export const zhCN: Messages = {
       descriptionLabel: '说明',
       descriptionPlaceholder: '这个项目用来做什么？（选填）',
       template: '起步模板',
-      templateSwitch: '使用研发流程模板',
-      templates: { dev: '研发流程', empty: '空白' },
-      customTemplate: '自定义模板',
-      customTemplateNone: '不使用（用下面的起步模板）',
+      templates: { dev: '研发模板', empty: '空白' },
       submit: '创建项目',
       submitting: '创建中…',
       errors: {
