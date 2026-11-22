@@ -39,7 +39,7 @@ Event 的 JSON 序列化会把它直接输出成 JSON 对象，不再套一层�
 | column.deleted | 删除列 | column_id, name, moved_to_id, moved_cards |
 | column.reordered | 调整列顺序 | ids |
 | card.created | 创建任务 | key, title, column_id, column |
-| card.updated | 修改任务字段（不含标签） | key, title, fields（真正变化的字段名，如 title、priority、due_at）；改了描述时还有 description_change_id（任务变更日志的记录编号，见 kanban.cardchange.go.md） |
+| card.updated | 修改任务字段（不含标签） | key, title, fields（真正变化的字段名，如 title、priority、due_at）；相关字段有旧值时带 previous_values；改了描述时还有 description_change_id（任务变更日志的记录编号，见 kanban.cardchange.go.md） |
 | card.tags_updated | 修改任务上的标签（`tag_ids` 变化） | key, title, fields（固定 `["tag_ids"]`） |
 | card.moved | 任务换列 | key, title, from_id, from, to_id, to |
 | card.reordered | 任务在同一列内调整顺序 | key, column_id |
@@ -169,6 +169,7 @@ limit 默认 200、最大 1000。起点早于保留范围时同样标记 truncat
 
 - 筛选条件有五个，都可以不填，同时填表示都要满足：`types`（事件类型，取并集）、`exclude_types`（不要这些类型的事件，和 `types` 重叠时以排除为准，网页用它把标签类事件挡掉）、`actor_kind`（human、agent、system 之一）、`actor`（操作者名称，名称首尾空白会被去掉）、`card_id`（只看和这个任务有关的事件，任务详情的「评论和活动」用；负数返回 400）。
 - 事件类型（`types` 和 `exclude_types` 都一样）必须是上面列出的已知类型，不认识的返回 400，而不是悄悄返回一个永远为空的列表。类型重复写多次会被合并，保证查询里的 IN / NOT IN 列表最多 21 项。
+- `card.updated.previous_values` 仅在分支、链接、仅人工、工程师、依赖或优先级实际改变时出现。对象以变化字段为键，分别记录旧分支/链接、旧开关布尔值、旧工程师名称、按原顺序排列的 `{id, number}` 依赖引用、旧优先级数值。空字符串、空列表、false 和 0 是有效旧值。交接修改分支或链接也携带旧值。历史事件没有该字段时仍按 `fields` 展示。
 - 改标签单独成 `card.tags_updated`、改标签库单独成 `board.labels_updated`：同一次修改既改标签又改别的字段时，两条事件都会写（先 `card.updated` 后 `card.tags_updated`）。拆开的目的是标签变化琐碎，网页读活动流时用 `exclude_types` 整条排除，而实时广播和 agent 的更新拉取仍然能收到。
 - 筛选发生在数据库里，再翻页。所以每一页都是满的，不会出现「翻了一页却全被过滤掉」。每个看板最多保留 10000 条事件，筛选条件很少命中时最坏也只扫这么多行。
 - 多读一条来判断 `has_more`：读 `limit + 1` 条，多出来的那条只用来说明后面还有，不返回。`limit` 默认 50，最大 200。

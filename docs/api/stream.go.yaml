@@ -16,7 +16,10 @@ paths:
       tags:
         - admin/实时流
       summary: 实时事件流
-      description: 用 Server-Sent Events 推送看板事件。事件名：ready（连上后的第一条，带当前最新序号 latest）、board（一条看板事件，data 是 Event，id 是事件序号）、reset（续传起点不可用，应重新读取快照）、error（流开始之后出错，例如看板被删除）。服务每 20 秒发一行保活注释；单次连接最长 10 分钟，到点服务端主动结束，客户端带着最后收到的序号重连即可。服务关闭时流直接结束，不发事件。续传起点用 after 参数或标准的 Last-Event-ID 请求头，都不带则从当前最新处开始。
+      description: |
+        用 Server-Sent Events 推送看板事件。事件名：ready（连上后的第一条，带当前最新序号 latest）、board（一条看板事件，data 是 Event，id 是事件序号）、reset（续传起点不可用，应重新读取快照）、error（流开始之后出错，例如看板被删除）。服务每 20 秒发一行保活注释；单次连接最长 10 分钟，到点服务端主动结束，客户端带着最后收到的序号重连即可。服务关闭时流直接结束，不发事件。续传起点用 after 参数或标准的 Last-Event-ID 请求头，都不带则从当前最新处开始。
+        更新说明（2026-11-22）
+        - board 事件中的 card.updated 新增可选 previous_values。
       operationId: streamBoard
       parameters:
         - name: board_id
@@ -64,6 +67,38 @@ paths:
                 $ref: "#/components/schemas/Error"
 components:
   schemas:
+    CardUpdatePreviousValues:
+      type: object
+      description: 新的 card.updated 事件可携带实际变更字段的旧值。历史事件可能没有该字段。
+      properties:
+        branch:
+          type: string
+          description: 原分支，之前未设置时为空字符串
+        url:
+          type: string
+          description: 原链接，之前未设置时为空字符串
+        human_only:
+          type: boolean
+          description: 原仅人工状态
+        engineer_id:
+          type: string
+          description: 原绑定工程师的名称，之前未绑定时为空字符串
+        waits_on:
+          type: array
+          description: 原依赖任务，按变更前顺序排列
+          items:
+            type: object
+            required: [id, number]
+            properties:
+              id:
+                type: integer
+                description: 任务主键
+              number:
+                type: integer
+                description: 看板内的任务编号
+        priority:
+          type: integer
+          description: 原优先级，0 表示未设置
     Error:
       type: object
       properties:
@@ -134,8 +169,13 @@ components:
           type: string
           description: 操作者名称
         payload:
-          type: string
-          description: 事件内容，是一段 JSON 对象的文本，字段随事件类型而不同
+          oneOf:
+            - type: object
+              properties:
+                previous_values:
+                  $ref: "#/components/schemas/CardUpdatePreviousValues"
+            - type: string
+          description: 事件载荷的字段随事件类型而变化。旧载荷无法解析时可能是字符串。
         created_at:
           type: string
           format: date-time

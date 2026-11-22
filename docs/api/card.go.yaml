@@ -16,7 +16,7 @@ paths:
       tags:
         - admin/任务
       summary: 任务列表
-      description: 按筛选条件列出看板里的任务，顺序和看板上看到的一致。query 的语法和网页搜索框一致，写错返回 400 并指出是哪个词有问题。
+      description: 按筛选条件列出看板里尚未归档的任务，顺序和看板上看到的一致。query 的语法和网页搜索框一致，写错返回 400 并指出是哪个词有问题。
       operationId: listCards
       parameters:
         - name: board_id
@@ -301,7 +301,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: 状态冲突
+          description: 状态冲突，或任务已归档
           content:
             application/json:
               schema:
@@ -334,6 +334,12 @@ paths:
                 $ref: "#/components/schemas/Error"
         "401":
           description: 需要访问口令（只在设置了访问口令时出现）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 任务已归档
           content:
             application/json:
               schema:
@@ -482,7 +488,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
         "409":
-          description: 状态冲突
+          description: 状态冲突，或任务已归档
           content:
             application/json:
               schema:
@@ -538,6 +544,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "409":
+          description: 任务已归档
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   "/api/v1/comments/{comment_id}":
     delete:
       tags:
@@ -571,8 +583,193 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "409":
+          description: 任务已归档
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/archive":
+    post:
+      tags:
+        - admin/任务
+      summary: 归档任务
+      description: 保留任务正文、评论、归档时的标签和依赖并释放当前领取。重复归档返回当前归档状态。
+      operationId: archiveCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 任务主键
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "401":
+          description: 需要访问口令
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/cards/{card_id}/fork":
+    post:
+      tags:
+        - admin/任务
+      summary: 延续任务（Fork）
+      description: 在同一看板的收件箱创建新任务，继承标题、优先级、标签、依赖、链接和仅人工。描述引用原任务，评论为空。Fork 保留指定落点和继承字段，不触发创建自动化。
+      operationId: forkCard
+      parameters:
+        - name: card_id
+          in: path
+          required: true
+          description: 任务主键
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "401":
+          description: 需要访问口令
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: 找不到收件箱，或原任务的标签或依赖已被删除
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/{board_id}/archived-cards":
+    get:
+      tags:
+        - admin/任务
+      summary: 归档任务列表
+      description: 按归档时间和任务主键倒序分页，每页最多 20 条。
+      operationId: listArchivedCards
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+            minimum: 1
+        - name: before
+          in: query
+          required: false
+          description: 上一页最后一条的任务主键，不填从最新归档开始
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArchivedCardsPage"
+        "400":
+          description: 游标参数无效
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 看板或归档游标不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/{board_id}/cards/by-number/{number}":
+    get:
+      tags:
+        - admin/任务
+      summary: 按序号读取任务
+      description: 读取指定看板内的任务详情，包括归档任务。
+      operationId: getCardByNumber
+      parameters:
+        - name: board_id
+          in: path
+          required: true
+          description: 看板编号
+          schema:
+            type: integer
+            minimum: 1
+        - name: number
+          in: path
+          required: true
+          description: 看板内的任务序号
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardDetail"
+        "400":
+          description: 序号无效
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 看板或任务不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
+    ArchivedCardsPage:
+      type: object
+      required: [cards, has_more]
+      properties:
+        cards:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/Card"
+        has_more:
+          type: boolean
+          description: 还有更早的归档任务
     Card:
       type: object
       properties:
@@ -636,6 +833,10 @@ components:
             - "null"
           format: date-time
           description: 完成时间
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+          description: 归档时间，空值表示尚未归档
         claimed_by:
           type: string
           description: 当前持有这个任务的 agent 名称，没有则为空
@@ -779,6 +980,28 @@ components:
             - "null"
           format: date-time
           description: 完成时间
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+          description: 归档时间，空值表示尚未归档
+        archived_tags:
+          type: array
+          description: 归档时的标签，已有旧归档在缺少快照时显示仍存在的标签
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: 标签编号
+              text:
+                type: string
+                description: 标签名称
+              color:
+                type: string
+                description: 标签颜色
+        archived_engineer:
+          type: string
+          description: 归档时绑定的工程师名称
         claimed_by:
           type: string
           description: 当前持有这个任务的 agent 名称，没有则为空
@@ -881,6 +1104,9 @@ components:
         done:
           type: boolean
           description: 是否已完成
+        missing:
+          type: boolean
+          description: 此历史依赖已删除，仅显示归档时的概要
       description: 依赖列表里一个任务的概要
     CardView:
       type: object
@@ -945,6 +1171,10 @@ components:
             - "null"
           format: date-time
           description: 完成时间
+        archived_at:
+          type: [string, "null"]
+          format: date-time
+          description: 归档时间，空值表示尚未归档
         claimed_by:
           type: string
           description: 当前持有这个任务的 agent 名称，没有则为空

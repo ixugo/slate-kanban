@@ -55,7 +55,10 @@ paths:
       tags:
         - admin/事件
       summary: 事件列表
-      description: 返回起点序号之后的事件，不做过滤，用于断线补发。truncated 为 true 表示起点之后有事件已被清理，应该重新读取快照。
+      description: |
+        返回起点序号之后的事件，不做过滤，用于断线补发。truncated 为 true 表示起点之后有事件已被清理，应该重新读取快照。
+        更新说明（2026-11-22）
+        - payload 中的 card.updated 新增可选 previous_values，历史事件仍兼容。
       operationId: listEvents
       parameters:
         - name: board_id
@@ -106,7 +109,10 @@ paths:
       tags:
         - admin/事件
       summary: 活动流
-      description: 从新到旧返回看板的事件，可以按事件类型、操作者和任务筛选。types 和 exclude_types 里出现空项（比如多写了逗号）或不认识的类型，返回 400。
+      description: |
+        从新到旧返回看板的事件，可以按事件类型、操作者和任务筛选。types 和 exclude_types 里出现空项（比如多写了逗号）或不认识的类型，返回 400。
+        更新说明（2026-11-22）
+        - payload 中的 card.updated 新增可选 previous_values，历史事件仍兼容。
       operationId: listActivity
       parameters:
         - name: board_id
@@ -191,7 +197,10 @@ paths:
       tags:
         - admin/事件
       summary: 拉取更新
-      description: 返回 agent 还没看过的更新，并按 since 确认上一批。拉取更新是给 agent 用的；REST 固定以人的身份调用，所以会返回 403。
+      description: |
+        返回 agent 还没看过的更新，并按 since 确认上一批。拉取更新是给 agent 用的；REST 固定以人的身份调用，所以会返回 403。
+        更新说明（2026-11-22）
+        - payload 中的 card.updated 新增可选 previous_values，历史事件仍兼容。
       operationId: pullUpdates
       parameters:
         - name: board_id
@@ -249,7 +258,10 @@ paths:
       tags:
         - admin/事件
       summary: 等待更新
-      description: 和拉取更新一样，但没有新更新时会等到有更新或超时，超时时 timed_out 为 true。等待期间服务开始关闭会返回 503，稍后重试即可。拉取更新是给 agent 用的；REST 固定以人的身份调用，所以会返回 403。
+      description: |
+        和拉取更新一样，但没有新更新时会等到有更新或超时，超时时 timed_out 为 true。等待期间服务开始关闭会返回 503，稍后重试即可。拉取更新是给 agent 用的；REST 固定以人的身份调用，所以会返回 403。
+        更新说明（2026-11-22）
+        - payload 中的 card.updated 新增可选 previous_values，历史事件仍兼容。
       operationId: waitUpdates
       parameters:
         - name: board_id
@@ -313,6 +325,38 @@ paths:
                 $ref: "#/components/schemas/Error"
 components:
   schemas:
+    CardUpdatePreviousValues:
+      type: object
+      description: 新的 card.updated 事件可携带实际变更字段的旧值。历史事件可能没有该字段。
+      properties:
+        branch:
+          type: string
+          description: 原分支，之前未设置时为空字符串
+        url:
+          type: string
+          description: 原链接，之前未设置时为空字符串
+        human_only:
+          type: boolean
+          description: 原仅人工状态
+        engineer_id:
+          type: string
+          description: 原绑定工程师的名称，之前未绑定时为空字符串
+        waits_on:
+          type: array
+          description: 原依赖任务，按变更前顺序排列
+          items:
+            type: object
+            required: [id, number]
+            properties:
+              id:
+                type: integer
+                description: 任务主键
+              number:
+                type: integer
+                description: 看板内的任务编号
+        priority:
+          type: integer
+          description: 原优先级，0 表示未设置
     ActivityActor:
       type: object
       properties:
@@ -592,8 +636,13 @@ components:
           type: string
           description: 操作者名称
         payload:
-          type: string
-          description: 事件内容，是一段 JSON 对象的文本，字段随事件类型而不同
+          oneOf:
+            - type: object
+              properties:
+                previous_values:
+                  $ref: "#/components/schemas/CardUpdatePreviousValues"
+            - type: string
+          description: 事件载荷的字段随事件类型而变化。旧载荷无法解析时可能是字符串。
         created_at:
           type: string
           format: date-time

@@ -16,7 +16,7 @@ paths:
       tags:
         - admin/项目模板
       summary: 项目模板列表
-      description: 返回全部自定义项目模板，不分页。不含内置起步模板 dev、simple、empty。
+      description: 返回内置研发模板和导入的自定义项目模板，不分页。不含普通项目。内置研发模板名称为 dev，由客户端本地化显示。
       operationId: listProjectTemplates
       responses:
         "200":
@@ -37,7 +37,7 @@ paths:
       tags:
         - admin/项目模板
       summary: 导入项目模板
-      description: 上传 slate-project-template JSON。replace=true 时覆盖同名模板（事务内先删后建）。
+      description: 上传 slate-project-template JSON。replace=true 时覆盖同名模板的定义，保留原模板编号。
       operationId: importProjectTemplate
       parameters:
         - name: replace
@@ -75,7 +75,8 @@ paths:
     delete:
       tags:
         - admin/项目模板
-      summary: 删除项目模板
+      summary: 删除自定义项目模板
+      description: 已删除或不存在的模板也返回成功。内置研发模板不能删除。
       operationId: deleteProjectTemplate
       parameters:
         - name: template_id
@@ -90,8 +91,8 @@ paths:
             application/json:
               schema:
                 type: object
-        "404":
-          description: 不存在
+        "400":
+          description: 不能删除内置研发模板
           content:
             application/json:
               schema:
@@ -134,6 +135,9 @@ components:
         updated_at:
           type: string
           format: date-time
+        builtin:
+          type: boolean
+          description: 是否为应用自带的研发模板
     ProjectTemplateDetail:
       type: object
       properties:
