@@ -19,9 +19,6 @@ const (
 	// noAssetTTL 是「release 里还没有任何安装包」时的缓存时间：发布工作流先建 release、后上传包，
 	// 这段窗口期内的结果不能锁一小时，否则包上传完了网页也一直显示不能更新。
 	noAssetTTL = time.Minute
-	// releaseCooldown 是新 release 发布后的冷却时间：刚发布的几分钟里安装包可能还没传完，
-	// 满这么久之后才提示更新、才允许更新。
-	releaseCooldown = 5 * time.Minute
 	// failTTL 是查询失败后不再重试的时间，GitHub 不通时不用每次打开网页都等一次超时。
 	failTTL = 5 * time.Minute
 	// maxFeedBytes 是 release 订阅源响应体的大小上限。
@@ -37,19 +34,19 @@ type asset struct {
 	URL  string
 }
 
-// release 是最新发布的信息：版本号来自 releases/latest 的跳转，时间和说明来自订阅源，
+// release 是最新发布的信息：版本号来自 releases/latest 的跳转，说明来自订阅源，
 // 安装包是否已经上传则逐个探测下载地址得知。这些都是 github.com 网页地址，没有 API 的匿名额度限制。
 type release struct {
-	Tag         string
-	Body        string
-	URL         string
-	PublishedAt time.Time
-	Assets      []asset
+	Tag    string
+	Body   string
+	URL    string
+	Assets []asset
 }
 
-// settled 判断 release 是否已过冷却期：发布时间读不到时当作已过，不因为缺字段就永远不提示。
-func (u *updater) settled(rel *release) bool {
-	return rel.PublishedAt.IsZero() || u.now().Sub(rel.PublishedAt) > releaseCooldown
+// packagesReady 判断当前平台的包和校验文件是否都已上传：发布工作流先建 release、后传包，
+// 以包真实存在为准，比按时间猜更准，包一传完就能提示和更新，不用多等。
+func (u *updater) packagesReady(rel *release) bool {
+	return u.assetURL(rel, u.archiveName(rel.Tag)) != "" && u.assetURL(rel, checksumsName) != ""
 }
 
 // parseVersion 把 v1.2.3 或 1.2.3 解析成三段数字；后面带的预发布或构建信息（-rc1、+abc）直接忽略。
@@ -161,8 +158,7 @@ func (u *updater) latestTag(ctx context.Context) (string, error) {
 // feed 是 releases.atom 里用得到的部分。
 type feed struct {
 	Entries []struct {
-		Updated time.Time `xml:"updated"`
-		Link    struct {
+		Link struct {
 			Href string `xml:"href,attr"`
 		} `xml:"link"`
 		Content string `xml:"content"`
@@ -175,7 +171,7 @@ var htmlTag = regexp.MustCompile(`<[^>]*>`)
 // blankLines 匹配连续三个以上的换行，说明里的段落间只保留一个空行。
 var blankLines = regexp.MustCompile(`\n{3,}`)
 
-// fillFromFeed 从订阅源找到这个 tag 的条目，取更新时间（冷却期以它为准）和说明文字。
+// fillFromFeed 从订阅源找到这个 tag 的条目，取说明文字。
 func (u *updater) fillFromFeed(ctx context.Context, rel *release) error {
 	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
 	defer cancel()
@@ -197,7 +193,6 @@ func (u *updater) fillFromFeed(ctx context.Context, rel *release) error {
 	}
 	for _, e := range f.Entries {
 		if strings.HasSuffix(e.Link.Href, "/releases/tag/"+rel.Tag) {
-			rel.PublishedAt = e.Updated
 			rel.Body = releaseNotes(e.Content)
 			return nil
 		}

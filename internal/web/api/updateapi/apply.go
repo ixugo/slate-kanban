@@ -55,8 +55,7 @@ func (u *updater) assetURL(rel *release, name string) string {
 
 // canApply 判断能不能自动更新：不在容器里，并且 release 里有当前平台的包和校验文件。
 func (u *updater) canApply(rel *release) bool {
-	return !u.opt.Container &&
-		u.assetURL(rel, u.archiveName(rel.Tag)) != "" && u.assetURL(rel, checksumsName) != ""
+	return !u.opt.Container && u.packagesReady(rel)
 }
 
 // apply 取最新 release，下载、校验并替换程序，返回新版本号。每一步失败都不会改动现有程序。
@@ -72,8 +71,8 @@ func (u *updater) apply(ctx context.Context) (string, error) {
 	if !u.newerThanRunning(rel.Tag) {
 		return "", reason.ErrBadRequest.WithMsg("已经是最新版本")
 	}
-	if !u.settled(rel) {
-		return "", reason.ErrBadRequest.WithMsg("新版本刚发布，安装包可能还没传完，请 5 分钟后再试")
+	if !u.packagesReady(rel) {
+		return "", reason.ErrBadRequest.WithMsg("新版本的安装包还没上传完，请稍后再试")
 	}
 	if !u.canApply(rel) {
 		return "", reason.ErrBadRequest.WithMsg("当前环境不支持自动更新，请到 release 页面手动下载")

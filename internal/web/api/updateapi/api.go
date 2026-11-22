@@ -1,6 +1,6 @@
 // Package updateapi 提供程序自动更新：网页打开时问服务端有没有新版本，点「立即更新」时由服务端从
 // GitHub release 下载对应平台的包、校验后替换本地程序。所有构建（包括本机自己编译的）都会检查、
-// 提示并能自动更新；新 release 发布满 5 分钟后才提示，容器里的程序只提示、引导去下载。
+// 提示并能自动更新；新 release 里当前平台的包上传完才提示，容器里的程序只提示、引导去下载。
 package updateapi
 
 import (
@@ -41,8 +41,6 @@ type Options struct {
 	DownloadPrefix string
 	// Client 是发请求用的客户端，空则用默认客户端。
 	Client *http.Client
-	// Now 返回当前时间，用来判断 release 是否过了冷却期，空则用 time.Now。
-	Now func() time.Time
 	// ExePath 是要被替换的程序路径，空则取当前进程的可执行文件。
 	ExePath string
 	// GOOS 和 GOARCH 决定下载哪个平台的包，空则用当前平台。
@@ -57,7 +55,6 @@ type API struct {
 // updater 保存更新需要的状态：配置、最新版本的缓存和已经替换完成的版本。
 type updater struct {
 	opt Options
-	now func() time.Time // 取当前时间；测试里可以改成快进的时钟
 
 	mu       sync.Mutex // 保护下面的缓存字段，同一时刻只放一个请求去问 GitHub
 	cached   *release
@@ -79,9 +76,6 @@ func New(opt Options) API {
 	if opt.Client == nil {
 		opt.Client = &http.Client{}
 	}
-	if opt.Now == nil {
-		opt.Now = time.Now
-	}
 	if opt.GOOS == "" {
 		opt.GOOS = runtime.GOOS
 	}
@@ -92,7 +86,7 @@ func New(opt Options) API {
 		_, err := os.Stat("/.dockerenv")
 		opt.Container = err == nil
 	}
-	return API{u: &updater{opt: opt, now: opt.Now}}
+	return API{u: &updater{opt: opt}}
 }
 
 // Register 注册更新接口，和其他 REST 接口同组挂在 /api/v1 下，启用口令时同样需要认证。
@@ -131,7 +125,7 @@ const (
 	CheckStateUnreachable CheckState = "unreachable"
 )
 
-// info 汇总网页需要的信息；所有构建都会去查最新版本，新 release 过了冷却期才算有更新。
+// info 汇总网页需要的信息；所有构建都会去查最新版本，当前平台的包上传完才算有更新。
 func (u *updater) info(ctx context.Context) *Info {
 	out := &Info{Current: u.opt.Current}
 	rel, err := u.latest(ctx, false)
@@ -144,7 +138,7 @@ func (u *updater) info(ctx context.Context) *Info {
 	out.Latest = rel.Tag
 	out.URL = rel.URL
 	out.Notes = truncateRunes(rel.Body, maxNotesRunes)
-	out.HasUpdate = u.newerThanRunning(rel.Tag) && u.settled(rel)
+	out.HasUpdate = u.newerThanRunning(rel.Tag) && u.packagesReady(rel)
 	out.CanApply = out.HasUpdate && u.canApply(rel)
 	return out
 }
