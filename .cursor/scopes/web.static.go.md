@@ -11,7 +11,7 @@
 - 无文件且非 API 路径 → `index.html`（前端路由）
 - API 类：`/api/`、`/mcp`、`/mcp/`（含下面的子路径）、`/health`、`/install.md`、`/skills/`、`/app/` → 不 SPA 回退，未匹配时 JSON 404
 - 可压缩类型预 gzip（BestCompression）内存缓存；`ETag` + `If-None-Match` 304
-- 网页静态文件之外的响应由 `internal/web/api/gzip.go` 的 `gzipMiddleware` 压缩：客户端带 `Accept-Encoding: gzip`，类型是文本类（JSON、text/*、SVG 等），响应体不小于 1 KiB，状态 200 且没有 `Content-Encoding`、`Content-Range`。PNG、JPEG、WebP 等已压缩的图片、`text/event-stream` 事件流、HEAD、分段响应都原样返回。看板和卡片列表是几百 KB 的 JSON，压缩后体积约降到十分之一。
+- 网页静态文件之外的响应由 `internal/web/api/gzip.go` 的 `gzipMiddleware` 压缩：客户端带 `Accept-Encoding: gzip`，类型是文本类（JSON、text/*、SVG 等），响应体不小于 1 KiB，状态 200 且没有 `Content-Encoding`、`Content-Range`。PNG、JPEG、WebP 等已压缩的图片、`text/event-stream` 事件流、HEAD、分段响应都原样返回。看板和任务列表是几百 KB 的 JSON，压缩后体积约降到十分之一。
 - `/assets/*`：`Cache-Control: public, max-age=31536000, immutable`；其它 `no-cache`（含 `/sw.js`、`/manifest.webmanifest`）
 - `.webmanifest` → `application/manifest+json`；`.png` → `image/png`
 - `/sw.js`、`/manifest.webmanifest`、`/icons/*` 缺失时 **404**，不回退 `index.html`（见 `web.pwa.md`）
