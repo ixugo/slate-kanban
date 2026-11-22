@@ -27,11 +27,12 @@ interface CardHeaderBarProps {
   onDelete: () => void
   deleteBusy: boolean
   onArchive: () => void
+  onFork: () => void
   actionBusy: boolean
 }
 
 /** 弹窗顶栏；任务还没加载出来时只显示通用标题 */
-export function CardHeaderBar({ card, columns, onColumn, onDelete, deleteBusy, onArchive, actionBusy }: CardHeaderBarProps) {
+export function CardHeaderBar({ card, columns, onColumn, onDelete, deleteBusy, onArchive, onFork, actionBusy }: CardHeaderBarProps) {
   const { t } = useTranslation()
   const { columnName } = useTemplateText()
 
@@ -58,8 +59,9 @@ export function CardHeaderBar({ card, columns, onColumn, onDelete, deleteBusy, o
         {card ? displayKey(card.key) : t('card.title')}
       </DialogTitle>
       <DialogDescription className="sr-only">{t('card.title')}</DialogDescription>
-      {card && !card.archived_at && (
+      {card && (
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          <Button type="button" variant="ghost" size="sm" disabled={actionBusy} onClick={onFork}>Fork</Button>
           {!card.archived_at && (
             <AlertDialog>
               <AlertDialogTrigger asChild>

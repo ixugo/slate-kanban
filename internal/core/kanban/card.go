@@ -55,26 +55,32 @@ func (c Core) CreateCard(ctx context.Context, actor Actor, boardID int64, in Cre
 	}
 	var out *Card
 	err := c.run(ctx, boardID, func(u *unit) error {
-		card, columnName, err := u.buildNewCard(ctx, actor, boardID, in)
+		var err error
+		out, err = u.createCard(ctx, actor, boardID, in)
 		if err != nil {
 			return err
 		}
-		out = card
-		err = u.emit(ctx, actor, newEvent{
-			BoardID: boardID, CardID: card.ID, Type: EventCardCreated,
-			Payload: map[string]any{
-				"key": card.Key, "title": card.Title, "column_id": card.ColumnID, "column": columnName,
-			},
-		})
-		if err != nil {
-			return err
-		}
-		return u.fireCreateRules(ctx, actor, card)
+		return u.fireCreateRules(ctx, actor, out)
 	})
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+// createCard 写入新任务与创建事件，由调用方决定是否运行创建自动化。
+func (u *unit) createCard(ctx context.Context, actor Actor, boardID int64, in CreateCardInput) (*Card, error) {
+	card, columnName, err := u.buildNewCard(ctx, actor, boardID, in)
+	if err != nil {
+		return nil, err
+	}
+	if err := u.emit(ctx, actor, newEvent{
+		BoardID: boardID, CardID: card.ID, Type: EventCardCreated,
+		Payload: cardPayload(card, map[string]any{"column_id": card.ColumnID, "column": columnName}),
+	}); err != nil {
+		return nil, err
+	}
+	return card, nil
 }
 
 // buildNewCard 校验入参、分配编号和位置并写入新任务，返回任务和它所在列的名称（事件里要用）。

@@ -789,6 +789,8 @@ export const en = {
     ErrCardHumanOnly: 'This task is for people only.',
     ErrCardWaiting: 'This task is still waiting for other tasks to finish.',
     ErrCardArchived: 'This task is archived and cannot be changed.',
+    ErrInboxNotFound: 'No inbox column found. Create an inbox first.',
+    ErrForkRelationUnavailable: 'A tag or dependency from the original task was deleted. Fork would produce an incomplete copy.',
     ErrCardClaimed: 'This task is already held by another agent.',
     ErrEngineerBusy: 'This engineer is working on another task.',
     ErrNoIdleEngineer: 'All engineers are busy. Please wait in line.',

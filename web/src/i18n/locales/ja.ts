@@ -791,6 +791,8 @@ export const ja: Messages = {
     ErrCardHumanOnly: 'このタスクは人だけが扱えます。',
     ErrCardWaiting: 'このタスクは他のタスクの完了を待っています。',
     ErrCardArchived: 'アーカイブ済みのタスクは変更できません。',
+    ErrInboxNotFound: '受信トレイ列が見つかりません。先に受信トレイを作成してください。',
+    ErrForkRelationUnavailable: '元のタスクのラベルまたは依存タスクが削除されたため、完全に Fork できません。',
     ErrCardClaimed: 'このタスクはすでに別のエージェントが担当しています。',
     ErrEngineerBusy: 'このエンジニアは別のタスクを担当中です。',
     ErrNoIdleEngineer: '手の空いているエンジニアがいません。順番をお待ちください。',

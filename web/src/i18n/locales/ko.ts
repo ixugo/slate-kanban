@@ -790,6 +790,8 @@ export const ko: Messages = {
     ErrCardHumanOnly: '이 작업은 사람만 처리할 수 있습니다.',
     ErrCardWaiting: '이 작업은 다른 작업이 끝나기를 기다리고 있습니다.',
     ErrCardArchived: '보관된 작업은 수정할 수 없습니다.',
+    ErrInboxNotFound: '받은 편지함 열을 찾을 수 없습니다. 먼저 받은 편지함을 만드세요.',
+    ErrForkRelationUnavailable: '원본 작업의 라벨 또는 의존 작업이 삭제되어 완전하게 Fork할 수 없습니다.',
     ErrCardClaimed: '이 작업은 이미 다른 에이전트가 맡고 있습니다.',
     ErrEngineerBusy: '이 엔지니어는 다른 작업을 처리 중입니다.',
     ErrNoIdleEngineer: '여유 있는 엔지니어가 없습니다. 차례를 기다려 주세요.',

@@ -52,6 +52,11 @@ var (
 	// ErrCardArchived 已归档的任务处于只读状态。
 	ErrCardArchived = reason.NewError("ErrCardArchived", "任务已归档，无法修改").WithHTTPStatus(409)
 
+	// ErrForkRelationUnavailable 原任务有已删除的标签或依赖，无法完整 Fork。
+	ErrForkRelationUnavailable = reason.NewError("ErrForkRelationUnavailable", "原任务的标签或依赖已被删除，无法完整 Fork").WithHTTPStatus(409)
+
+	// ErrInboxNotFound Fork 要求看板有可识别的收件箱列。
+	ErrInboxNotFound = reason.NewError("ErrInboxNotFound", "找不到收件箱列，请先创建收件箱").WithHTTPStatus(409)
 
 	// ErrCardChangeNotFound 变更记录不存在：编号写错、不属于这个任务，或者任务已经被删除。
 	ErrCardChangeNotFound = reason.NewError("ErrCardChangeNotFound", "变更记录不存在").WithHTTPStatus(404)

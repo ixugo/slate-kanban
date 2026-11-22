@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
 import { ApiError } from '@/lib/api/client'
-import { archiveCard, deleteCard, releaseCard } from '@/lib/api/endpoints'
+import { archiveCard, deleteCard, forkCard, releaseCard } from '@/lib/api/endpoints'
 import { describeError } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -51,11 +51,19 @@ export default function CardDialog({ boardId }: CardDialogProps) {
     })
   }, [setParams])
 
+  const openFork = (id: number) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('card', String(id))
+      return next
+    })
+  }
+
   if (rootId === null) return null
-  return <CardDialogStack key={`${boardId}:${rootId}`} boardId={boardId} rootId={rootId} closeAll={closeAll} />
+  return <CardDialogStack key={`${boardId}:${rootId}`} boardId={boardId} rootId={rootId} closeAll={closeAll} openFork={openFork} />
 }
 
-function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { rootId: number; closeAll: () => void }) {
+function CardDialogStack({ boardId, rootId, closeAll, openFork }: CardDialogProps & { rootId: number; closeAll: () => void; openFork: (id: number) => void }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const [references, setReferences] = useState<number[]>([])
@@ -162,6 +170,15 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
     onError: toastError,
   })
 
+  const fork = useMutation({
+    mutationFn: forkCard,
+    onSuccess: (created) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
+      openFork(created.id)
+    },
+    onError: toastError,
+  })
+
   // 删除：弹窗先关、磁贴先消失，失败再把磁贴放回来（弹窗不再弹出，只提示原因）
   const remove = useMutation({
     mutationFn: deleteCard,
@@ -211,7 +228,8 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
           onDelete={() => remove.mutate(cardId)}
           deleteBusy={remove.isPending && remove.variables === cardId}
           onArchive={() => archive.mutate(cardId)}
-          actionBusy={archive.isPending}
+          onFork={() => fork.mutate(cardId)}
+          actionBusy={archive.isPending || fork.isPending}
         />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-hidden">
           {isPending && <Skeleton className="m-6 h-40 rounded-2xl" />}

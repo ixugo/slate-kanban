@@ -134,6 +134,10 @@ export function archiveCard(cardId: number): Promise<Card> {
   return request<Card>(`/cards/${cardId}/archive`, { method: 'POST' })
 }
 
+export function forkCard(cardId: number): Promise<Card> {
+  return request<Card>(`/cards/${cardId}/fork`, { method: 'POST' })
+}
+
 /** 一个任务的完整信息：依赖、评论、所在列的 agent 指令 */
 export function getCardDetail(cardId: number, signal?: Signal): Promise<CardDetail> {
   return request<CardDetail>(`/cards/${cardId}`, { signal })

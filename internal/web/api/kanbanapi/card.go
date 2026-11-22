@@ -21,6 +21,7 @@ func (a API) cardRoutes(r gin.IRouter) {
 	r.POST("/cards/:card_id/move", route(a.moveCard))
 	r.POST("/cards/:card_id/read", route(a.markCardRead))
 	r.POST("/cards/:card_id/archive", route(a.archiveCard))
+	r.POST("/cards/:card_id/fork", route(a.forkCard))
 	r.POST("/cards/:card_id/comments", route(a.addComment))
 	r.DELETE("/comments/:comment_id", route(a.deleteComment))
 }
@@ -94,6 +95,11 @@ func (a API) listArchivedCards(ctx context.Context, _ kanban.Actor, in *archiveP
 // archiveCard 归档任务，保留历史并结束当前领取。
 func (a API) archiveCard(ctx context.Context, actor kanban.Actor, in *cardPath) (*kanban.Card, error) {
 	return a.core.ArchiveCard(ctx, actor, in.CardID)
+}
+
+// forkCard 在任务所属看板的收件箱创建延续任务。
+func (a API) forkCard(ctx context.Context, actor kanban.Actor, in *cardPath) (*kanban.Card, error) {
+	return a.core.ForkCard(ctx, actor, in.CardID)
 }
 
 // updateCard 修改任务，只更新请求里出现的字段。agent 只能改自己持有的任务，由 Core 判断。

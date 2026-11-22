@@ -786,6 +786,8 @@ export const zhTW: Messages = {
     ErrCardHumanOnly: '這個任務只能由人處理。',
     ErrCardWaiting: '這個任務還在等其他任務完成。',
     ErrCardArchived: '任務已封存，無法修改。',
+    ErrInboxNotFound: '找不到收件匣欄，請先建立收件匣。',
+    ErrForkRelationUnavailable: '原任務的標籤或相依項目已刪除，無法完整 Fork。',
     ErrCardClaimed: '這個任務已被另一個 agent 領取。',
     ErrEngineerBusy: '這位工程師正在做別的任務。',
     ErrNoIdleEngineer: '工程師都在忙，請排隊等待。',

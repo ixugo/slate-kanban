@@ -785,6 +785,8 @@ export const zhCN: Messages = {
     ErrCardHumanOnly: '这个任务只能由人处理。',
     ErrCardWaiting: '这个任务还在等其他任务完成。',
     ErrCardArchived: '任务已归档，无法修改。',
+    ErrInboxNotFound: '找不到收件箱列，请先创建收件箱。',
+    ErrForkRelationUnavailable: '原任务的标签或依赖已被删除，无法完整 Fork。',
     ErrCardClaimed: '这个任务已被另一个 agent 领取。',
     ErrEngineerBusy: '这位工程师正在做别的任务。',
     ErrNoIdleEngineer: '工程师都在忙，请排队等待。',

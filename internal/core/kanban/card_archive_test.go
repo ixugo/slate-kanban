@@ -92,6 +92,52 @@ func TestArchivedCardsPageUsesArchiveOrder(t *testing.T) {
 	}
 }
 
+func TestForkCopiesOnlyContinuationFields(t *testing.T) {
+	ctx := t.Context()
+	e := newCardEnv(t)
+	dep := e.card(t, colDone, "已完成的依赖")
+	source, err := e.core.CreateCard(ctx, testActor, e.board.ID, kanban.CreateCardInput{
+		ColumnID: e.col(colDoing), Title: "继续此任务", Description: "原描述", Priority: 3,
+		TagIDs: []int64{e.board.Tags[0].ID}, WaitsOn: []int64{dep.ID},
+		URL: "https://example.com/task", HumanOnly: true, Branch: "source",
+		DueAt: "2026-11-24T08:00:00Z",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.core.AddComment(ctx, testActor, source.ID, "原评论"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.core.ArchiveCard(ctx, testActor, source.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.mustCreateRule(t, kanban.CreateRuleInput{
+		Name: "移走新建任务", Trigger: kanban.TriggerCardEntered, ColumnID: e.col(colIdea),
+		Actions: []kanban.RuleAction{{Type: kanban.ActionMoveToColumn, ColumnID: e.col(colTodo)}},
+	})
+	got, err := e.core.ForkCard(ctx, testActor, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID == source.ID || got.ColumnID != e.col(colIdea) || got.Title != source.Title || got.Priority != source.Priority ||
+		got.HumanOnly != source.HumanOnly || got.URL != source.URL || !slices.Equal(got.TagIDs, source.TagIDs) || !slices.Equal(got.WaitsOn, source.WaitsOn) ||
+		got.Description != fmt.Sprintf("接着任务 #%d 继续", source.Number) || got.Branch != "" || got.DueAt != nil || got.ArchivedAt != nil {
+		t.Fatalf("Fork 的字段不对: %+v", got)
+	}
+	detail, err := e.core.GetCardDetail(ctx, got.ID)
+	if err != nil || len(detail.Comments) != 0 {
+		t.Fatalf("Fork 不应复制评论: %+v %v", detail, err)
+	}
+	if _, err := e.core.UpdateColumn(ctx, testActor, e.board.ID, e.col(colIdea), kanban.UpdateColumnInput{
+		Name: new("其他列"), Instruction: new("不作为收件箱"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.core.ForkCard(ctx, testActor, source.ID); !errors.Is(err, kanban.ErrInboxNotFound) {
+		t.Fatalf("不应放到无收件箱看板的任意列: %v", err)
+	}
+}
+
 func TestArchiveRetainsDeletedRelations(t *testing.T) {
 	ctx := t.Context()
 	e := newClaimEnv(t)
@@ -109,6 +155,13 @@ func TestArchiveRetainsDeletedRelations(t *testing.T) {
 	}
 	target := makeCard("归档任务")
 	active := makeCard("活跃任务")
+	tagOnly, err := e.core.CreateCard(ctx, testActor, e.board.ID, kanban.CreateCardInput{Title: "仅有标签", TagIDs: []int64{tag.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.core.ArchiveCard(ctx, testActor, tagOnly.ID); err != nil {
+		t.Fatal(err)
+	}
 	archived, err := e.core.ArchiveCard(ctx, testActor, target.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -125,8 +178,14 @@ func TestArchiveRetainsDeletedRelations(t *testing.T) {
 	if err != nil || len(detail.Dependencies) != 1 || detail.Dependencies[0].Title != dep.Title || detail.Dependencies[0].Missing {
 		t.Fatalf("重命名应保留历史依赖文案: %+v %v", detail, err)
 	}
+	if _, err := e.core.ForkCard(ctx, testActor, target.ID); err != nil {
+		t.Fatalf("关联存在时仍可复制：%v", err)
+	}
 	if err := e.core.DeleteCard(ctx, testActor, dep.ID); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := e.core.ForkCard(ctx, testActor, target.ID); !errors.Is(err, kanban.ErrForkRelationUnavailable) {
+		t.Fatalf("缺少依赖时应拒绝不完整的 Fork：%v", err)
 	}
 	if _, err := e.core.UpdateBoard(ctx, testActor, e.board.ID, kanban.UpdateBoardInput{Tags: new([]kanban.TagInput{})}); err != nil {
 		t.Fatal(err)
@@ -150,6 +209,13 @@ func TestArchiveRetainsDeletedRelations(t *testing.T) {
 	updated, err := e.core.GetCard(ctx, active.ID)
 	if err != nil || len(updated.TagIDs) != 0 || len(updated.WaitsOn) != 0 {
 		t.Fatalf("活跃任务应继续正常清理：%+v %v", updated, err)
+	}
+	if _, err := e.core.ForkCard(ctx, testActor, tagOnly.ID); !errors.Is(err, kanban.ErrForkRelationUnavailable) {
+		t.Fatalf("缺少标签时应拒绝不完整的 Fork：%v", err)
+	}
+	inbox, err := e.core.ListCards(ctx, e.board.ID, kanban.ListCardsInput{Query: "col:收件箱"})
+	if err != nil || inbox.Total != 1 {
+		t.Fatalf("只应写入唯一一次成功的 Fork：%+v %v", inbox, err)
 	}
 }
 
