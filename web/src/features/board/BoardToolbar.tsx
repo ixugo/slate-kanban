@@ -18,8 +18,7 @@ interface BoardToolbarProps {
   searchRef: RefObject<HTMLInputElement | null>
   query: string
   onQueryChange: (q: string) => void
-  matched: number
-  total: number
+  noResults: boolean
   truncated: boolean
   syntaxError: string
   searching: boolean
@@ -41,8 +40,7 @@ export function BoardToolbar({
   searchRef,
   query,
   onQueryChange,
-  matched,
-  total,
+  noResults,
   truncated,
   syntaxError,
   searching,
@@ -111,8 +109,7 @@ export function BoardToolbar({
           ref={searchRef}
           query={query}
           onChange={onQueryChange}
-          matched={matched}
-          total={total}
+          noResults={noResults}
           truncated={truncated}
           syntaxError={syntaxError}
           searching={searching}

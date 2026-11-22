@@ -126,7 +126,6 @@ export const ja: Messages = {
     addCard: 'タスクを追加',
     addCardPlaceholder: 'タイトル（Enter で追加）',
     columnDone: '完了',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: '/ で検索、n でタスク追加',
     viewToggle: 'ボードまたはリスト表示',
     viewBoard: 'ボード表示',

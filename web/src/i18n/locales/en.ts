@@ -129,7 +129,6 @@ export const en = {
     addCard: 'Add a task',
     addCardPlaceholder: 'Title, press Enter',
     columnDone: 'Done',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: 'Press / to search, n to add a task',
     viewToggle: 'Board or list view',
     viewBoard: 'Board view',

@@ -75,8 +75,6 @@ export default function BoardPage() {
   const searching = search.visibleIds !== null
   // 搜索或筛选时不能拖（可见集不完整）；离线时整个看板只读，也不能拖
   const dragDisabled = searching || !online
-  const totalCards = snapshot?.cards.length ?? 0
-  const matched = search.visibleIds?.size ?? totalCards
 
   const focusFirstAdd = useCallback(() => {
     const first = columns[0]
@@ -160,8 +158,7 @@ export default function BoardPage() {
           searchRef={searchRef}
           query={search.query}
           onQueryChange={search.setQuery}
-          matched={matched}
-          total={totalCards}
+          noResults={(search.visibleIds?.size ?? snapshot.cards.length) === 0}
           truncated={search.truncated}
           syntaxError={search.syntaxError}
           searching={search.searching}

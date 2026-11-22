@@ -126,7 +126,6 @@ export const zhCN: Messages = {
     addCard: '添加任务',
     addCardPlaceholder: '标题，回车提交',
     columnDone: '完成',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: '按 / 搜索，按 n 新建任务',
     viewToggle: '看板或列表视图',
     viewBoard: '看板视图',

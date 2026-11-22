@@ -126,7 +126,6 @@ export const ko: Messages = {
     addCard: '작업 추가',
     addCardPlaceholder: '제목(Enter로 추가)',
     columnDone: '완료',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: '/ 검색, n 새 작업',
     viewToggle: '보드 또는 목록 보기',
     viewBoard: '보드 보기',

@@ -126,7 +126,6 @@ export const zhTW: Messages = {
     addCard: '新增任務',
     addCardPlaceholder: '標題，按 Enter 送出',
     columnDone: '完成',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: '按 / 搜尋，按 n 新增任務',
     viewToggle: '看板或列表檢視',
     viewBoard: '看板檢視',
