@@ -354,8 +354,6 @@ export const ja: Messages = {
       action: 'アーカイブ',
       description: 'アーカイブ済みのタスクを表示',
       empty: 'アーカイブ済みのタスクはありません。',
-      confirmTitle: 'このタスクをアーカイブしますか？',
-      confirmBody: 'アーカイブ後もタスクとコメントを閲覧できます。編集とコメントの追加はできません。',
       readOnly: 'アーカイブ済み · 閲覧のみ',
       missingDependency: '削除済み',
       title: 'アーカイブ済みタスク',

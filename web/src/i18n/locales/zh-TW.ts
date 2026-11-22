@@ -354,8 +354,6 @@ export const zhTW: Messages = {
       action: '封存',
       description: '查看已封存的任務',
       empty: '目前沒有封存的任務。',
-      confirmTitle: '要封存這個任務嗎？',
-      confirmBody: '封存後可檢視任務和留言，編輯與留言將關閉。',
       readOnly: '已封存 · 唯讀',
       missingDependency: '已刪除',
       title: '已封存任務',

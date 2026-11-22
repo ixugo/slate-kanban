@@ -357,8 +357,6 @@ export const en = {
       action: 'Archive',
       description: 'Browse archived tasks',
       empty: 'There are no archived tasks yet.',
-      confirmTitle: 'Archive this task?',
-      confirmBody: 'You can still view the task and its comments. Editing and commenting will be turned off.',
       readOnly: 'Archived · Read only',
       missingDependency: 'Deleted',
       title: 'Archived tasks',

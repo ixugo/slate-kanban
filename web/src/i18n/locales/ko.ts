@@ -354,8 +354,6 @@ export const ko: Messages = {
       action: '보관',
       description: '보관된 작업 보기',
       empty: '보관된 작업이 없습니다.',
-      confirmTitle: '이 작업을 보관할까요?',
-      confirmBody: '보관 후에도 작업과 댓글을 볼 수 있습니다. 수정과 댓글 작성은 할 수 없습니다.',
       readOnly: '보관됨 · 읽기 전용',
       missingDependency: '삭제됨',
       title: '보관된 작업',

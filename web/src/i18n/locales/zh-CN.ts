@@ -354,8 +354,6 @@ export const zhCN: Messages = {
       action: '归档',
       description: '查看归档任务',
       empty: '还没有归档任务。',
-      confirmTitle: '归档这个任务？',
-      confirmBody: '归档后可查看任务和评论，编辑与评论将关闭。',
       readOnly: '已归档 · 只读',
       missingDependency: '已删除',
       title: '已归档任务',

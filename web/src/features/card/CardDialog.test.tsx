@@ -109,6 +109,28 @@ function openCardReferences(commentBody = 'Comment #25, `#38`, [link #44](https:
 }
 
 describe('CardDialog', () => {
+  it('首次点击归档即发送请求，并在当前详情显示归档状态', async () => {
+    const api = openBoardWithCard(baseDetail)
+    const archiveRoute = 'POST /api/v1/cards/:id/archive'
+    const archived = { ...baseDetail, archived_at: '2026-11-23T03:00:00Z', claim_active: false }
+    api.set(archiveRoute, () => {
+      api.set('GET /api/v1/cards/:id', archived)
+      return { body: archived }
+    })
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    const more = await within(dialog).findByRole('button', { name: en.common.more })
+    await user.click(more)
+    await user.click(within(dialog).getByRole('button', { name: en.card.archive.action }))
+
+    await waitFor(() => expect(api.count(archiveRoute)).toBe(1))
+    expect(await within(dialog).findByText(en.card.archive.readOnly)).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: en.card.archive.action })).toBeNull()
+    expect(more).toHaveFocus()
+    expect(within(dialog).getByRole('button', { name: en.common.delete })).toHaveAttribute('data-variant', 'destructive')
+    api.expectNoUnmatched()
+  })
+
   it('评论里的编号打开同板任务，Markdown 链接、代码和转义保留', async () => {
     const api = openCardReferences()
     const user = userEvent.setup()

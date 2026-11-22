@@ -1,43 +1,32 @@
-// 任务弹窗顶部：所在列（下拉，选了就移动任务）、任务编号、删除按钮。对齐 Trello 卡片顶部的「列名按钮」。
+// 任务弹窗顶部：所在列、任务编号和更多操作。
 
-import { ArchiveIcon, Trash2Icon } from 'lucide-react'
+import { XIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, Column } from '@/lib/api/types'
 import { useTemplateText } from '@/lib/useTemplateText'
-import { Button } from '@/components/ui/button'
-import { DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { DialogClose, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { displayKey } from '@/lib/cardKey'
+import { CardActions } from './CardActions'
 
 interface CardHeaderBarProps {
   card: CardDetail | undefined
   columns: Column[]
   onColumn: (columnId: number) => void
   onDelete: () => void
-  deleteBusy: boolean
   onArchive: () => void
   onFork: () => void
   actionBusy: boolean
 }
 
 /** 弹窗顶栏；任务还没加载出来时只显示通用标题 */
-export function CardHeaderBar({ card, columns, onColumn, onDelete, deleteBusy, onArchive, onFork, actionBusy }: CardHeaderBarProps) {
+export function CardHeaderBar({ card, columns, onColumn, onDelete, onArchive, onFork, actionBusy }: CardHeaderBarProps) {
   const { t } = useTranslation()
   const { columnName } = useTemplateText()
 
   return (
-    <div className="flex shrink-0 items-center gap-1.5 border-b border-border/60 py-3 pr-12 pl-4 sm:gap-3 sm:pr-16 sm:pl-6">
+    <div className="flex shrink-0 items-center gap-1.5 border-b border-border/60 py-3 pr-4 pl-4 sm:gap-3 sm:pl-6">
       {card?.archived_at && (
         <span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-xs text-muted-foreground">{t('card.archive.readOnly')}</span>
       )}
@@ -59,51 +48,16 @@ export function CardHeaderBar({ card, columns, onColumn, onDelete, deleteBusy, o
         {card ? displayKey(card.key) : t('card.title')}
       </DialogTitle>
       <DialogDescription className="sr-only">{t('card.title')}</DialogDescription>
-      {card && (
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          <Button type="button" variant="ghost" size="sm" disabled={actionBusy} onClick={onFork}>Fork</Button>
-          {!card.archived_at && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="ghost" size="icon-sm" disabled={actionBusy} aria-label={t('card.archive.action')} title={t('card.archive.action')}>
-                  <ArchiveIcon />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t('card.archive.confirmTitle')}</AlertDialogTitle>
-                  <AlertDialogDescription>{t('card.archive.confirmBody')}</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={onArchive}>{t('card.archive.action')}</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-          {!card.archived_at && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label={t('common.delete')}>
-                  <Trash2Icon />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t('card.deleteTitle')}</AlertDialogTitle>
-                  <AlertDialogDescription>{t('card.deleteBody')}</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction disabled={deleteBusy} onClick={onDelete}>
-                    {t('common.delete')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
-      )}
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-5">
+        {card && (
+          <CardActions archived={Boolean(card.archived_at)} busy={actionBusy} onFork={onFork} onArchive={onArchive} onDelete={onDelete} />
+        )}
+        <DialogClose asChild>
+          <Button type="button" variant="secondary" size="icon-sm" aria-label={t('common.close')}>
+            <XIcon className="size-3.5" />
+          </Button>
+        </DialogClose>
+      </div>
     </div>
   )
 }
