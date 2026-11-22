@@ -77,3 +77,27 @@ func TestDeleteBoardRemovesWebhooks(t *testing.T) {
 }
 
 func ptrBool(v bool) *bool { return &v }
+
+func TestCreateDisabledWebhook(t *testing.T) {
+	restore := kanban.SetWebhookNotifyHookForTest(func(kanban.Core, context.Context, []*kanban.Event) {})
+	defer restore()
+	ctx := t.Context()
+	e := newCardEnv(t)
+	w, err := e.core.CreateWebhook(ctx, testActor, e.board.ID, kanban.CreateWebhookInput{
+		Name: "停用通知", Type: kanban.WebhookTypeWeCom,
+		URL: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test", Enabled: new(false),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.Enabled {
+		t.Fatal("新建时显式禁用应返回停用状态")
+	}
+	saved, err := e.db.Webhook().GetByID(ctx, w.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Enabled {
+		t.Fatal("新建时显式禁用应持久化为停用状态")
+	}
+}
