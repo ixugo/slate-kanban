@@ -98,7 +98,7 @@ func NewMCP(bc *conf.Bootstrap, core kanban.Core) (mcpapi.API, func()) {
 	return mcpapi.New(core, bc.Runtime.BuildVersion)
 }
 
-// ProvideUpdateAPI 按当前版本和是否官方构建生成自动更新接口，供 Wire 装配。
+// ProvideUpdateAPI 按当前版本生成自动更新接口，供 Wire 装配。
 func ProvideUpdateAPI(bc *conf.Bootstrap) updateapi.API {
-	return updateapi.New(updateapi.Options{Current: bc.Runtime.BuildVersion, Official: bc.Runtime.Official})
+	return updateapi.New(updateapi.Options{Current: bc.Runtime.BuildVersion})
 }

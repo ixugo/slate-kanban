@@ -278,8 +278,7 @@ RELEASE_DIST := dist
 RELEASE_FLAT_TAGS := v0.1.0 v0.1.1
 # 没有启动脚本的历史 tag：v0.1.0 的源码和发布包里都没有 start/stop 脚本
 RELEASE_NO_SCRIPT_TAGS := v0.1.0
-# 写入 main.gitBranch 的值，必须和 main.go 里 officialBranch 的值一致：
-# 只有这样的程序才会被认作官方发布包，才会检查更新
+# 写入 main.gitBranch 的值，标明这是 release 发布包（只用于版本信息展示，不影响更新检查）
 RELEASE_GIT_BRANCH := release
 # upx 压缩程序，只压 linux 和 windows；本机没装 upx 时传空（make release/assets TAG=... UPX_BIN=）可跳过压缩
 UPX_BIN ?= upx

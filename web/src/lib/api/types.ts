@@ -454,7 +454,7 @@ export interface VersionInfo {
 /** 服务端告诉网页这次更新检查进行到了哪一步 */
 export type UpdateCheckState = 'ok' | 'unreachable'
 
-/** 自动更新的检查结果：只有官方 release 构建才可能有更新；can_apply 为假时只能引导用户去 release 页面手动下载 */
+/** 自动更新的检查结果：所有构建都会检查；新 release 发布满 5 分钟才算有更新；can_apply 为假时只能引导用户去 release 页面手动下载 */
 export interface UpdateInfo {
   current: string
   latest: string

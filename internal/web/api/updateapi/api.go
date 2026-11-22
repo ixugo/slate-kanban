@@ -1,6 +1,6 @@
 // Package updateapi 提供程序自动更新：网页打开时问服务端有没有新版本，点「立即更新」时由服务端从
-// GitHub release 下载对应平台的包、校验后替换本地程序。所有构建都会检查并提示新版本，
-// 但只有官方 release 构建能自动替换；本机自己编译的版本、容器里的程序只提示、引导去下载。
+// GitHub release 下载对应平台的包、校验后替换本地程序。所有构建（包括本机自己编译的）都会检查、
+// 提示并能自动更新；新 release 发布满 5 分钟后才提示，容器里的程序只提示、引导去下载。
 package updateapi
 
 import (
@@ -19,10 +19,8 @@ import (
 const (
 	// repo 是发布程序包的 GitHub 仓库。
 	repo = "ixugo/slate-kanban"
-	// defaultAPIBase 是 GitHub API 的地址。
-	defaultAPIBase = "https://api.github.com"
-	// defaultDownloadPrefix 是允许下载的包地址前缀；包地址来自 release 里的字段，不在这个前缀下的一律不下载。
-	defaultDownloadPrefix = "https://github.com/" + repo + "/releases/download/"
+	// defaultWebBase 是 GitHub 网站的地址：版本号、说明和安装包都从网页地址取，不用有匿名额度限制的 API。
+	defaultWebBase = "https://github.com"
 	// maxNotesRunes 是返回给网页的更新说明长度上限（按字符数），免得一份超长的说明撑爆弹窗。
 	maxNotesRunes = 4000
 	// checkTimeout 是向 GitHub 查询最新版本的超时时间；GitHub 不通时不让网页等太久。
@@ -31,20 +29,20 @@ const (
 	downloadTimeout = 5 * time.Minute
 )
 
-// Options 是创建更新接口的配置；除了 Current 和 Official，其余字段只有测试需要改。
+// Options 是创建更新接口的配置；除了 Current，其余字段只有测试需要改。
 type Options struct {
 	// Current 是当前程序的版本号，例如 v1.2.3。
 	Current string
-	// Official 表示这是官方 release 构建；为假时仍会查询并提示新版本，但不能自动更新。
-	Official bool
 	// Container 表示程序跑在容器里；容器里替换文件重启就丢，所以只提示不更新。
 	Container bool
-	// APIBase 是 GitHub API 地址，空则用默认。
-	APIBase string
-	// DownloadPrefix 是允许下载的包地址前缀，空则用默认。
+	// WebBase 是 GitHub 网站地址，空则用默认。
+	WebBase string
+	// DownloadPrefix 是安装包地址前缀，下载地址是「前缀 + tag + / + 文件名」，空则用 WebBase 下的 release 下载路径。
 	DownloadPrefix string
 	// Client 是发请求用的客户端，空则用默认客户端。
 	Client *http.Client
+	// Now 返回当前时间，用来判断 release 是否过了冷却期，空则用 time.Now。
+	Now func() time.Time
 	// ExePath 是要被替换的程序路径，空则取当前进程的可执行文件。
 	ExePath string
 	// GOOS 和 GOARCH 决定下载哪个平台的包，空则用当前平台。
@@ -59,6 +57,7 @@ type API struct {
 // updater 保存更新需要的状态：配置、最新版本的缓存和已经替换完成的版本。
 type updater struct {
 	opt Options
+	now func() time.Time // 取当前时间；测试里可以改成快进的时钟
 
 	mu       sync.Mutex // 保护下面的缓存字段，同一时刻只放一个请求去问 GitHub
 	cached   *release
@@ -71,14 +70,17 @@ type updater struct {
 
 // New 创建更新接口，补齐配置的默认值。
 func New(opt Options) API {
-	if opt.APIBase == "" {
-		opt.APIBase = defaultAPIBase
+	if opt.WebBase == "" {
+		opt.WebBase = defaultWebBase
 	}
 	if opt.DownloadPrefix == "" {
-		opt.DownloadPrefix = defaultDownloadPrefix
+		opt.DownloadPrefix = opt.WebBase + "/" + repo + "/releases/download/"
 	}
 	if opt.Client == nil {
 		opt.Client = &http.Client{}
+	}
+	if opt.Now == nil {
+		opt.Now = time.Now
 	}
 	if opt.GOOS == "" {
 		opt.GOOS = runtime.GOOS
@@ -90,7 +92,7 @@ func New(opt Options) API {
 		_, err := os.Stat("/.dockerenv")
 		opt.Container = err == nil
 	}
-	return API{u: &updater{opt: opt}}
+	return API{u: &updater{opt: opt, now: opt.Now}}
 }
 
 // Register 注册更新接口，和其他 REST 接口同组挂在 /api/v1 下，启用口令时同样需要认证。
@@ -129,7 +131,7 @@ const (
 	CheckStateUnreachable CheckState = "unreachable"
 )
 
-// info 汇总网页需要的信息；不论官方还是本机编译的构建都会去查最新版本。
+// info 汇总网页需要的信息；所有构建都会去查最新版本，新 release 过了冷却期才算有更新。
 func (u *updater) info(ctx context.Context) *Info {
 	out := &Info{Current: u.opt.Current}
 	rel, err := u.latest(ctx, false)
@@ -142,7 +144,7 @@ func (u *updater) info(ctx context.Context) *Info {
 	out.Latest = rel.Tag
 	out.URL = rel.URL
 	out.Notes = truncateRunes(rel.Body, maxNotesRunes)
-	out.HasUpdate = u.newerThanRunning(rel.Tag)
+	out.HasUpdate = u.newerThanRunning(rel.Tag) && u.settled(rel)
 	out.CanApply = out.HasUpdate && u.canApply(rel)
 	return out
 }

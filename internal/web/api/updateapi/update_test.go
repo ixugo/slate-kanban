@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,6 +52,8 @@ func TestNewer(t *testing.T) {
 type fakeGitHub struct {
 	*httptest.Server
 	releaseHits atomic.Int32
+	publishedAt atomic.Int64      // release 的发布时间（Unix 秒），默认是一小时前
+	noAssets    atomic.Bool       // 为真时 release 里没有任何文件，模拟发布工作流还没传完包
 	status      int               // release 接口的状态码，0 表示 200
 	files       map[string][]byte // 路径 → 内容
 	tag         string
@@ -61,6 +64,7 @@ type fakeGitHub struct {
 func newFakeGitHub(t *testing.T, tag, goos, binary string) *fakeGitHub {
 	t.Helper()
 	g := &fakeGitHub{tag: tag, goos: goos, files: map[string][]byte{}}
+	g.publishedAt.Store(time.Now().Add(-time.Hour).Unix())
 	// 新版发布包把文件放在同名的目录里，测试也用这种布局；旧版平铺包另由 TestExtractBinary 覆盖
 	name := fmt.Sprintf("slate_%s_%s_amd64.tar.gz", tag, goos)
 	bin := "slate"
@@ -71,27 +75,31 @@ func newFakeGitHub(t *testing.T, tag, goos, binary string) *fakeGitHub {
 		pack = zipOf(t, strings.TrimSuffix(name, ".zip")+"/"+bin, binary)
 	}
 	sum := sha256.Sum256(pack)
-	g.files["/dl/"+name] = pack
-	g.files["/dl/checksums.txt"] = []byte(hex.EncodeToString(sum[:]) + "  " + name + "\n")
+	g.files["/dl/"+tag+"/"+name] = pack
+	g.files["/dl/"+tag+"/checksums.txt"] = []byte(hex.EncodeToString(sum[:]) + "  " + name + "\n")
 	mux := http.NewServeMux()
-	mux.HandleFunc("/repos/"+repo+"/releases/latest", func(w http.ResponseWriter, _ *http.Request) {
+	// 只提供 github.com 网页端点，没有 /repos/... 的 API：代码要是还去访问 API，会得到 404
+	mux.HandleFunc("/"+repo+"/releases/latest", func(w http.ResponseWriter, r *http.Request) {
 		g.releaseHits.Add(1)
 		if g.status != 0 {
 			w.WriteHeader(g.status)
 			return
 		}
-		base := "http://" + g.Listener.Addr().String() + "/dl/"
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"tag_name": tag, "body": "更新说明", "html_url": "https://example.test/r",
-			"assets": []map[string]string{
-				{"name": name, "browser_download_url": base + name},
-				{"name": "checksums.txt", "browser_download_url": base + "checksums.txt"},
-			},
-		})
+		http.Redirect(w, r, "http://"+g.Listener.Addr().String()+"/"+repo+"/releases/tag/"+tag, http.StatusFound)
+	})
+	mux.HandleFunc("/"+repo+"/releases.atom", func(w http.ResponseWriter, _ *http.Request) {
+		updated := time.Unix(g.publishedAt.Load(), 0).UTC().Format(time.RFC3339)
+		_, _ = fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?><feed xmlns="http://www.w3.org/2005/Atom">`+
+			`<entry><updated>%s</updated><link rel="alternate" type="text/html" href="https://github.com/%s/releases/tag/%s"/>`+
+			`<title>%s</title><content type="html">&lt;p&gt;更新说明&lt;/p&gt;
+
+&lt;p&gt;第二段 &amp;amp; 符号&lt;/p&gt;</content></entry>`+
+			`<entry><updated>2000-01-01T00:00:00Z</updated><link rel="alternate" type="text/html" href="https://github.com/%s/releases/tag/v0.0.1"/>`+
+			`<title>v0.0.1</title><content>No content.</content></entry></feed>`, updated, repo, tag, tag, repo)
 	})
 	mux.HandleFunc("/dl/", func(w http.ResponseWriter, r *http.Request) {
 		data, ok := g.files[r.URL.Path]
-		if !ok {
+		if !ok || g.noAssets.Load() {
 			http.NotFound(w, r)
 			return
 		}
@@ -183,7 +191,7 @@ func newAPI(t *testing.T, g *fakeGitHub, current string, mod func(*Options)) (AP
 		t.Fatal(err)
 	}
 	opt := Options{
-		Current: current, Official: true, APIBase: g.URL, DownloadPrefix: g.URL + "/dl/",
+		Current: current, WebBase: g.URL, DownloadPrefix: g.URL + "/dl/",
 		ExePath: exe, GOOS: g.goos, GOARCH: "amd64",
 	}
 	if mod != nil {
@@ -223,7 +231,7 @@ func TestCheck(t *testing.T) {
 		g := newFakeGitHub(t, "v1.2.0", "linux", "new")
 		a, _ := newAPI(t, g, "v1.1.0", nil)
 		got := infoOf(t, a)
-		if !got.HasUpdate || !got.CanApply || got.Latest != "v1.2.0" || got.Notes != "更新说明" || got.Current != "v1.1.0" {
+		if !got.HasUpdate || !got.CanApply || got.Latest != "v1.2.0" || got.Notes != "更新说明\n\n第二段 & 符号" || got.Current != "v1.1.0" {
 			t.Fatalf("信息不对: %+v", got)
 		}
 		infoOf(t, a)
@@ -250,12 +258,23 @@ func TestCheck(t *testing.T) {
 			t.Fatalf("失败后短时间内不应再请求，实际 %d 次", n)
 		}
 	})
-	t.Run("本机编译版本也检查并提示，但不能自动更新", func(t *testing.T) {
-		g := newFakeGitHub(t, "v9.0.0", "linux", "new")
-		a, _ := newAPI(t, g, "v0.0.51", func(o *Options) { o.Official = false })
+	t.Run("发布不足 5 分钟不提示，也不能更新；满 5 分钟后才提示", func(t *testing.T) {
+		g := newFakeGitHub(t, "v1.2.0", "linux", "NEW")
+		g.publishedAt.Store(time.Now().Add(-2 * time.Minute).Unix())
+		a, exe := newAPI(t, g, "v1.1.0", nil)
 		got := infoOf(t, a)
-		if !got.HasUpdate || got.CanApply || got.Latest != "v9.0.0" || got.CheckState != CheckStateOK || g.releaseHits.Load() != 1 {
-			t.Fatalf("非官方构建应查询并提示但不能更新: %+v 请求 %d 次", got, g.releaseHits.Load())
+		if got.HasUpdate || got.CanApply || got.Latest != "v1.2.0" || got.CheckState != CheckStateOK {
+			t.Fatalf("刚发布不足 5 分钟不该提示更新: %+v", got)
+		}
+		if code, _ := do(a, http.MethodPost); code == http.StatusOK {
+			t.Fatal("刚发布不足 5 分钟时不该能更新")
+		}
+		if data, _ := os.ReadFile(exe); string(data) != "old" {
+			t.Fatalf("被拒绝时不能动现有程序，实际 %q", data)
+		}
+		a.u.now = func() time.Time { return time.Now().Add(4 * time.Minute) }
+		if got := infoOf(t, a); !got.HasUpdate || !got.CanApply {
+			t.Fatalf("发布满 5 分钟后应提示并可更新: %+v", got)
 		}
 	})
 	t.Run("check_state 区分成功与 GitHub 失败", func(t *testing.T) {
@@ -269,6 +288,23 @@ func TestCheck(t *testing.T) {
 		a403, _ := newAPI(t, g403, "v1.1.0", nil)
 		if got := infoOf(t, a403); got.CheckState != CheckStateUnreachable {
 			t.Fatalf("GitHub 失败应为 unreachable: %+v", got)
+		}
+	})
+	t.Run("release 还没传完包时只短暂缓存，包传完后马上能更新", func(t *testing.T) {
+		g := newFakeGitHub(t, "v1.2.0", "linux", "new")
+		g.noAssets.Store(true)
+		a, _ := newAPI(t, g, "v1.1.0", nil)
+		if got := infoOf(t, a); !got.HasUpdate || got.CanApply {
+			t.Fatalf("没有包时应提示有更新但不能立即更新: %+v", got)
+		}
+		infoOf(t, a)
+		if n := g.releaseHits.Load(); n != 1 {
+			t.Fatalf("短缓存期内不应重复请求，实际 %d 次", n)
+		}
+		g.noAssets.Store(false)
+		a.u.cachedAt = time.Now().Add(-2 * noAssetTTL)
+		if got := infoOf(t, a); !got.CanApply {
+			t.Fatalf("短缓存过期后应读到新上传的包: %+v", got)
 		}
 	})
 	t.Run("容器里只提示不能更新", func(t *testing.T) {
@@ -302,7 +338,7 @@ func TestApply(t *testing.T) {
 	}
 	t.Run("校验和不对", func(t *testing.T) {
 		g := newFakeGitHub(t, "v1.2.0", "linux", "NEW")
-		g.files["/dl/checksums.txt"] = []byte(strings.Repeat("0", 64) + "  slate_v1.2.0_linux_amd64.tar.gz\n")
+		g.files["/dl/v1.2.0/checksums.txt"] = []byte(strings.Repeat("0", 64) + "  slate_v1.2.0_linux_amd64.tar.gz\n")
 		a, exe := newAPI(t, g, "v1.1.0", nil)
 		if code, _ := do(a, http.MethodPost); code == http.StatusOK {
 			t.Fatal("校验和不对应该失败")
@@ -314,7 +350,6 @@ func TestApply(t *testing.T) {
 	})
 	t.Run("被拒绝的情形", func(t *testing.T) {
 		for name, mod := range map[string]func(*Options){
-			"非官方": func(o *Options) { o.Official = false },
 			"容器":  func(o *Options) { o.Container = true },
 			"已最新": func(o *Options) { o.Current = "v1.2.0" },
 		} {
@@ -326,13 +361,6 @@ func TestApply(t *testing.T) {
 			if got, _ := os.ReadFile(exe); string(got) != "old" {
 				t.Errorf("%s：被拒绝时不能动现有程序", name)
 			}
-		}
-	})
-	t.Run("包地址不在允许的前缀下", func(t *testing.T) {
-		g := newFakeGitHub(t, "v1.2.0", "linux", "NEW")
-		a, _ := newAPI(t, g, "v1.1.0", func(o *Options) { o.DownloadPrefix = "https://github.com/ixugo/slate-kanban/releases/download/" })
-		if got := infoOf(t, a); !got.HasUpdate || got.CanApply {
-			t.Fatalf("前缀不符时不能更新: %+v", got)
 		}
 	})
 }

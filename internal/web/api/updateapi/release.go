@@ -2,8 +2,9 @@ package updateapi
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"regexp"
@@ -13,29 +14,42 @@ import (
 )
 
 const (
-	// cacheTTL 是最新版本的缓存时间：匿名访问 GitHub API 每小时只有 60 次，网页每次打开都问一次会被限流。
+	// cacheTTL 是最新版本的缓存时间：网页每次打开都去问 GitHub 太浪费，也怕被网站的访问频率限制拦住。
 	cacheTTL = time.Hour
+	// noAssetTTL 是「release 里还没有任何安装包」时的缓存时间：发布工作流先建 release、后上传包，
+	// 这段窗口期内的结果不能锁一小时，否则包上传完了网页也一直显示不能更新。
+	noAssetTTL = time.Minute
+	// releaseCooldown 是新 release 发布后的冷却时间：刚发布的几分钟里安装包可能还没传完，
+	// 满这么久之后才提示更新、才允许更新。
+	releaseCooldown = 5 * time.Minute
 	// failTTL 是查询失败后不再重试的时间，GitHub 不通时不用每次打开网页都等一次超时。
 	failTTL = 5 * time.Minute
-	// maxReleaseBytes 是 release 信息响应体的大小上限。
-	maxReleaseBytes = 1 << 20
+	// maxFeedBytes 是 release 订阅源响应体的大小上限。
+	maxFeedBytes = 1 << 20
 )
 
 // tagPattern 限定 tag 只能是安全字符：它会被拼进包名、日志和提示里。
 var tagPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
 
-// asset 是 release 里的一个文件。
+// asset 是 release 里确认存在的一个文件。
 type asset struct {
-	Name string `json:"name"`
-	URL  string `json:"browser_download_url"`
+	Name string
+	URL  string
 }
 
-// release 是 GitHub 返回的最新发布。
+// release 是最新发布的信息：版本号来自 releases/latest 的跳转，时间和说明来自订阅源，
+// 安装包是否已经上传则逐个探测下载地址得知。这些都是 github.com 网页地址，没有 API 的匿名额度限制。
 type release struct {
-	Tag    string  `json:"tag_name"`
-	Body   string  `json:"body"`
-	URL    string  `json:"html_url"`
-	Assets []asset `json:"assets"`
+	Tag         string
+	Body        string
+	URL         string
+	PublishedAt time.Time
+	Assets      []asset
+}
+
+// settled 判断 release 是否已过冷却期：发布时间读不到时当作已过，不因为缺字段就永远不提示。
+func (u *updater) settled(rel *release) bool {
+	return rel.PublishedAt.IsZero() || u.now().Sub(rel.PublishedAt) > releaseCooldown
 }
 
 // parseVersion 把 v1.2.3 或 1.2.3 解析成三段数字；后面带的预发布或构建信息（-rc1、+abc）直接忽略。
@@ -80,7 +94,7 @@ func (u *updater) latest(ctx context.Context, force bool) (*release, error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	now := time.Now()
-	if !force && u.cached != nil && now.Sub(u.cachedAt) < cacheTTL {
+	if !force && u.cached != nil && now.Sub(u.cachedAt) < u.cacheTTLOf(u.cached) {
 		return u.cached, nil
 	}
 	if !force && !u.failedAt.IsZero() && now.Sub(u.failedAt) < failTTL {
@@ -95,29 +109,141 @@ func (u *updater) latest(ctx context.Context, force bool) (*release, error) {
 	return rel, nil
 }
 
-// fetchLatest 请求 GitHub 的 releases/latest，并校验 tag 的字符。
+// cacheTTLOf 返回这份 release 信息该缓存多久：还没有任何安装包说明正在发布，只缓存很短的时间。
+func (u *updater) cacheTTLOf(rel *release) time.Duration {
+	if len(rel.Assets) == 0 {
+		return noAssetTTL
+	}
+	return cacheTTL
+}
+
+// fetchLatest 汇总最新 release：先问版本号，再读订阅源里的更新时间和说明，最后探测安装包是否已上传。
 func (u *updater) fetchLatest(ctx context.Context) (*release, error) {
-	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.opt.APIBase+"/repos/"+repo+"/releases/latest", http.NoBody)
+	tag, err := u.latestTag(ctx)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
+	rel := &release{Tag: tag, URL: u.opt.WebBase + "/" + repo + "/releases/tag/" + tag}
+	if err := u.fillFromFeed(ctx, rel); err != nil {
+		return nil, err
+	}
+	if err := u.fillAssets(ctx, rel); err != nil {
+		return nil, err
+	}
+	return rel, nil
+}
+
+// latestTag 请求 releases/latest 并读它的跳转地址，得到最新版本的 tag；不跟随跳转，只取 Location。
+func (u *updater) latestTag(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.opt.WebBase+"/"+repo+"/releases/latest", http.NoBody)
+	if err != nil {
+		return "", err
+	}
+	client := *u.opt.Client
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	if res.StatusCode < 300 || res.StatusCode >= 400 {
+		return "", fmt.Errorf("GitHub 返回 %d，可能还没有发布过 release", res.StatusCode)
+	}
+	_, tag, ok := strings.Cut(res.Header.Get("Location"), "/releases/tag/")
+	if !ok || !tagPattern.MatchString(tag) {
+		return "", fmt.Errorf("release 的 tag 不合法")
+	}
+	return tag, nil
+}
+
+// feed 是 releases.atom 里用得到的部分。
+type feed struct {
+	Entries []struct {
+		Updated time.Time `xml:"updated"`
+		Link    struct {
+			Href string `xml:"href,attr"`
+		} `xml:"link"`
+		Content string `xml:"content"`
+	} `xml:"entry"`
+}
+
+// htmlTag 匹配 HTML 标签，订阅源里的说明是 HTML，网页只显示文字。
+var htmlTag = regexp.MustCompile(`<[^>]*>`)
+
+// blankLines 匹配连续三个以上的换行，说明里的段落间只保留一个空行。
+var blankLines = regexp.MustCompile(`\n{3,}`)
+
+// fillFromFeed 从订阅源找到这个 tag 的条目，取更新时间（冷却期以它为准）和说明文字。
+func (u *updater) fillFromFeed(ctx context.Context, rel *release) error {
+	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.opt.WebBase+"/"+repo+"/releases.atom", http.NoBody)
+	if err != nil {
+		return err
+	}
 	res, err := u.opt.Client.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub 返回 %d", res.StatusCode)
+		return fmt.Errorf("读取 release 订阅源失败：GitHub 返回 %d", res.StatusCode)
 	}
-	var rel release
-	if err := json.NewDecoder(io.LimitReader(res.Body, maxReleaseBytes)).Decode(&rel); err != nil {
-		return nil, fmt.Errorf("解析 release 信息: %w", err)
+	var f feed
+	if err := xml.NewDecoder(io.LimitReader(res.Body, maxFeedBytes)).Decode(&f); err != nil {
+		return fmt.Errorf("解析 release 订阅源: %w", err)
 	}
-	if !tagPattern.MatchString(rel.Tag) {
-		return nil, fmt.Errorf("release 的 tag 不合法")
+	for _, e := range f.Entries {
+		if strings.HasSuffix(e.Link.Href, "/releases/tag/"+rel.Tag) {
+			rel.PublishedAt = e.Updated
+			rel.Body = releaseNotes(e.Content)
+			return nil
+		}
 	}
-	return &rel, nil
+	return fmt.Errorf("订阅源里没有 %s", rel.Tag)
+}
+
+// releaseNotes 把订阅源里的 HTML 说明转成纯文字：段落之间留空行，标签去掉，实体还原；GitHub 没有说明时给的占位文字当作空。
+func releaseNotes(content string) string {
+	text := html.UnescapeString(content)
+	text = strings.NewReplacer("</p>", "\n\n", "<br>", "\n", "<br/>", "\n", "</li>", "\n").Replace(text)
+	text = html.UnescapeString(htmlTag.ReplaceAllString(text, ""))
+	text = strings.TrimSpace(blankLines.ReplaceAllString(text, "\n\n"))
+	if text == "No content." {
+		return ""
+	}
+	return text
+}
+
+// fillAssets 探测当前平台的安装包和校验文件是否已经上传：发请求问下载地址，200 才算存在。
+func (u *updater) fillAssets(ctx context.Context, rel *release) error {
+	for _, name := range []string{u.archiveName(rel.Tag), checksumsName} {
+		url := u.opt.DownloadPrefix + rel.Tag + "/" + name
+		ok, err := u.exists(ctx, url)
+		if err != nil {
+			return err
+		}
+		if ok {
+			rel.Assets = append(rel.Assets, asset{Name: name, URL: url})
+		}
+	}
+	return nil
+}
+
+// exists 用 HEAD 探测一个地址是否存在（跟随跳转，GitHub 的下载地址会跳到对象存储）。
+func (u *updater) exists(ctx context.Context, url string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
+	if err != nil {
+		return false, err
+	}
+	res, err := u.opt.Client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	res.Body.Close()
+	return res.StatusCode == http.StatusOK, nil
 }
