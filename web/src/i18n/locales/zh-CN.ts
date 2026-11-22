@@ -229,6 +229,7 @@ export const zhCN: Messages = {
     noResults: '没有匹配的任务',
     truncated: '仅显示前 {{limit}} 条匹配',
     dragOff: '清空搜索后可拖动任务',
+    clear: '清空搜索',
     terms: {
       tag: 'tag:名称 — 含有该标签',
       col: 'col:名称 — 在这一列',

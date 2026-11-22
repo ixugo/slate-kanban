@@ -229,6 +229,7 @@ export const ja: Messages = {
     noResults: '一致するタスクがありません',
     truncated: '最初の {{limit}} 件のみ表示',
     dragOff: '検索をクリアするとドラッグできます',
+    clear: '検索をクリア',
     terms: {
       tag: 'tag:name — このタグを持つ',
       col: 'col:name — この列にある',

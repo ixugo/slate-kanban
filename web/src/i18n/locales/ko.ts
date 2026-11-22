@@ -229,6 +229,7 @@ export const ko: Messages = {
     noResults: '일치하는 작업 없음',
     truncated: '처음 {{limit}}개만 표시',
     dragOff: '검색을 지우면 드래그 가능',
+    clear: '검색 지우기',
     terms: {
       tag: 'tag:name — 이 태그 포함',
       col: 'col:name — 이 열에 있음',

@@ -232,6 +232,7 @@ export const en = {
     noResults: 'No tasks match',
     truncated: 'Showing the first {{limit}} matches only',
     dragOff: 'Clear search to drag tasks',
+    clear: 'Clear search',
     terms: {
       tag: 'tag:name — task has this tag',
       col: 'col:name — task is in this column',

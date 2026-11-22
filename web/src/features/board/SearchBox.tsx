@@ -1,7 +1,7 @@
 // 看板工具栏搜索框：防抖查询、结果统计、语法错误提示；后面可以接上「筛选」按钮。
 
-import { SearchIcon } from 'lucide-react'
-import { forwardRef, useId, type ReactNode } from 'react'
+import { SearchIcon, XIcon } from 'lucide-react'
+import { forwardRef, useId, useRef, type ReactNode } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { FILTER_MAX, SEARCH_LIMIT } from '@/lib/limits'
 import { SearchHelp } from './SearchHelp'
@@ -26,6 +26,18 @@ export const SearchBox = forwardRef<HTMLInputElement, SearchBoxProps>(function S
 ) {
   const { t } = useTranslation()
   const errId = useId()
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  /** 同时把输入框交给外部的 ref（快捷键 / 要聚焦它）和本组件自己的 ref（清空后要把焦点放回去） */
+  const setRefs = (el: HTMLInputElement | null) => {
+    inputRef.current = el
+    if (typeof ref === 'function') ref(el)
+    else if (ref) ref.current = el
+  }
+  /** 清空搜索文字，并把焦点放回输入框方便继续输入 */
+  const clear = () => {
+    onChange('')
+    inputRef.current?.focus()
+  }
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-md">
       <div className="flex items-center gap-1">
@@ -35,14 +47,25 @@ export const SearchBox = forwardRef<HTMLInputElement, SearchBoxProps>(function S
             aria-hidden
           />
           <input
-            ref={ref}
+            ref={setRefs}
             value={query}
             onChange={(e) => onChange(e.target.value.slice(0, FILTER_MAX))}
             placeholder={t('search.placeholder')}
             aria-invalid={syntaxError ? true : undefined}
             aria-describedby={syntaxError ? errId : undefined}
-            className="h-9 w-full rounded-full border border-input bg-field pr-4 pl-9 text-base transition-[border-color,box-shadow] duration-200 outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 md:text-ui"
+            className="h-9 w-full rounded-full border border-input bg-field pr-9 pl-9 text-base transition-[border-color,box-shadow] duration-200 outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/20 md:text-ui"
           />
+          {query && (
+            <button
+              type="button"
+              onClick={clear}
+              aria-label={t('search.clear')}
+              title={t('search.clear')}
+              className="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:bg-secondary hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            >
+              <XIcon className="size-3.5" aria-hidden />
+            </button>
+          )}
         </div>
         <SearchHelp onExample={onChange} />
         {actions}

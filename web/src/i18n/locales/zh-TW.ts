@@ -229,6 +229,7 @@ export const zhTW: Messages = {
     noResults: '沒有符合的任務',
     truncated: '僅顯示前 {{limit}} 筆符合結果',
     dragOff: '清空搜尋後可拖曳任務',
+    clear: '清空搜尋',
     terms: {
       tag: 'tag:名稱 — 含有該標籤',
       col: 'col:名稱 — 在這一欄',
