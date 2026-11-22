@@ -2,7 +2,8 @@
 
 import type { RefObject } from 'react'
 import { Link } from 'react-router-dom'
-import { ActivityIcon, ArchiveIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
+import { ActivityIcon, ArchiveIcon, EllipsisIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
+import { DropdownMenu } from 'radix-ui'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import type { Board } from '@/lib/api/types'
@@ -30,7 +31,6 @@ interface BoardToolbarProps {
   gone?: boolean
   viewMode: BoardViewMode
   onViewModeChange: (mode: BoardViewMode) => void
-  /** 点「活动」按钮：打开活动抽屉 */
   onActivityOpen: () => void
   onArchiveOpen: () => void
 }
@@ -56,6 +56,7 @@ export function BoardToolbar({
   onArchiveOpen,
 }: BoardToolbarProps) {
   const { t } = useTranslation()
+  const menuItemClass = 'flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 outline-none data-highlighted:bg-accent [&_svg]:size-4 [&_svg]:shrink-0'
   return (
     <form
       className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-3 sm:flex-row sm:items-start sm:px-6"
@@ -63,20 +64,6 @@ export function BoardToolbar({
     >
       <div className="flex min-h-9 min-w-0 items-center gap-2.5">
         <h1 className="truncate text-title font-semibold tracking-tight">{board.name}</h1>
-        <Button type="button" variant="ghost" size="sm" aria-label={t('activity.open')} onClick={onActivityOpen}>
-          <ActivityIcon />
-          <span className="hidden sm:inline">{t('activity.open')}</span>
-        </Button>
-        <Button type="button" variant="ghost" size="sm" aria-label={t('card.archive.title')} onClick={onArchiveOpen}>
-          <ArchiveIcon />
-          <span className="hidden sm:inline">{t('card.archive.title')}</span>
-        </Button>
-        <Button type="button" variant="ghost" size="sm" asChild>
-          <Link to={`/b/${board.id}/settings`}>
-            <SettingsIcon />
-            <span className="hidden sm:inline">{t('board.settings')}</span>
-          </Link>
-        </Button>
         <div
           className="flex shrink-0 rounded-lg border bg-muted/50 p-0.5"
           role="group"
@@ -120,7 +107,41 @@ export function BoardToolbar({
           syntaxError={syntaxError}
           searching={searching}
           active={searchActive}
-          actions={<FilterPopover {...filter} />}
+          actions={(
+            <>
+              <FilterPopover {...filter} />
+              <DropdownMenu.Root modal={false}>
+                <DropdownMenu.Trigger asChild>
+                  <Button type="button" variant="outline" size="icon" className="size-9 border-input bg-field" aria-label={t('common.more')}>
+                    <EllipsisIcon aria-hidden />
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={4}
+                    collisionPadding={12}
+                    className="z-50 min-w-36 rounded-xl material-panel p-1 text-ui text-popover-foreground"
+                  >
+                    <DropdownMenu.Item asChild className={menuItemClass}>
+                      <Link to={`/b/${board.id}/settings`}>
+                        <SettingsIcon aria-hidden />
+                        {t('board.settings')}
+                      </Link>
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item className={menuItemClass} onSelect={onActivityOpen}>
+                      <ActivityIcon aria-hidden />
+                      {t('activity.open')}
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item className={menuItemClass} onSelect={onArchiveOpen}>
+                      <ArchiveIcon aria-hidden />
+                      {t('card.archive.title')}
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </>
+          )}
         />
         <LiveStatus state={liveState} onRetry={onLiveRetry} gone={gone} />
       </div>
