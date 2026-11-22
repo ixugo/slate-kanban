@@ -2,6 +2,9 @@ package kanban
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -9,8 +12,9 @@ const archivePageSize = 20
 
 // ArchivedCardsPage 是归档任务的一页，最新归档的任务在前。
 type ArchivedCardsPage struct {
-	Cards   []*Card `json:"cards"`
-	HasMore bool    `json:"has_more"`
+	Cards      []*Card `json:"cards"`
+	HasMore    bool    `json:"has_more"`
+	NextCursor string  `json:"next_cursor,omitempty"`
 }
 
 // archiveRelations 保留归档时的显示信息。Tags 非 nil 表示已捕获快照，即使当时没有标签。
@@ -116,17 +120,32 @@ func (c Core) ArchiveCard(ctx context.Context, actor Actor, cardID int64) (*Card
 	return out, nil
 }
 
-// ListArchivedCards 只读取指定看板的归档任务。下一页用上一页最后一个任务主键定位。
-func (c Core) ListArchivedCards(ctx context.Context, boardID, beforeID int64) (*ArchivedCardsPage, error) {
-	if beforeID < 0 {
+// ArchivedCardsQuery 用稳定游标续页。Before 是旧客户端传入的上一页末尾任务主键。
+type ArchivedCardsQuery struct {
+	Before int64
+	Cursor string
+}
+
+// ListArchivedCards 按归档时间和任务主键倒序读取，续页不依赖上一页任务仍然存在。
+func (c Core) ListArchivedCards(ctx context.Context, boardID int64, query ArchivedCardsQuery) (*ArchivedCardsPage, error) {
+	if query.Before < 0 {
 		return nil, invalidf("before 不能是负数")
+	}
+	if query.Before != 0 && query.Cursor != "" {
+		return nil, invalidf("before 和 cursor 只能提供一个")
 	}
 	if _, err := c.store.Board().GetByID(ctx, boardID); err != nil {
 		return nil, mapNotFound(err, ErrBoardNotFound, "读取看板")
 	}
 	var before *Card
-	if beforeID > 0 {
-		card, err := c.GetCard(ctx, beforeID)
+	if query.Cursor != "" {
+		position, err := parseArchiveCursor(boardID, query.Cursor)
+		if err != nil {
+			return nil, err
+		}
+		before = position
+	} else if query.Before > 0 {
+		card, err := c.GetCard(ctx, query.Before)
 		if err != nil {
 			return nil, err
 		}
@@ -139,5 +158,22 @@ func (c Core) ListArchivedCards(ctx context.Context, boardID, beforeID int64) (*
 	if err != nil {
 		return nil, wrapDB("读取归档任务", err)
 	}
-	return &ArchivedCardsPage{Cards: cards[:min(len(cards), archivePageSize)], HasMore: len(cards) > archivePageSize}, nil
+	page := &ArchivedCardsPage{Cards: cards[:min(len(cards), archivePageSize)], HasMore: len(cards) > archivePageSize}
+	if page.HasMore {
+		last := page.Cards[len(page.Cards)-1]
+		page.NextCursor = fmt.Sprintf("%d/%d/%s", boardID, last.ID, last.ArchivedAt.Format(time.RFC3339Nano))
+	}
+	return page, nil
+}
+
+func parseArchiveCursor(boardID int64, value string) (*Card, error) {
+	board, position, hasBoard := strings.Cut(value, "/")
+	id, timestamp, hasPosition := strings.Cut(position, "/")
+	cursorBoardID, boardErr := strconv.ParseInt(board, 10, 64)
+	cardID, idErr := strconv.ParseInt(id, 10, 64)
+	archivedAt, timeErr := time.Parse(time.RFC3339Nano, timestamp)
+	if !hasBoard || !hasPosition || boardErr != nil || idErr != nil || timeErr != nil || cursorBoardID != boardID || cardID <= 0 {
+		return nil, invalidf("归档列表游标无效")
+	}
+	return &Card{ID: cardID, ArchivedAt: &archivedAt}, nil
 }

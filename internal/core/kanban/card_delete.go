@@ -28,9 +28,6 @@ func (c Core) DeleteCard(ctx context.Context, actor Actor, cardID int64) error {
 		if err != nil {
 			return err
 		}
-		if err := checkCardUnarchived(card); err != nil {
-			return err
-		}
 		return u.deleteCard(ctx, actor, card)
 	})
 }

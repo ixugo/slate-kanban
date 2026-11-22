@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"slate-kanban/internal/core/kanban"
 )
@@ -43,7 +44,6 @@ func TestArchiveFreezesTaskAndKeepsDependencies(t *testing.T) {
 	_, finishErr := e.core.FinishCard(ctx, testActor, source.ID, kanban.FinishCardInput{Summary: "不能交接"})
 	for name, err := range map[string]error{
 		"update": updateErr, "claim": claimErr, "comment": addErr, "move": moveErr, "finish": finishErr,
-		"delete":         e.core.DeleteCard(ctx, testActor, source.ID),
 		"delete comment": e.core.DeleteComment(ctx, testActor, comment.ID),
 	} {
 		if !errors.Is(err, kanban.ErrCardArchived) {
@@ -66,7 +66,9 @@ func TestArchiveFreezesTaskAndKeepsDependencies(t *testing.T) {
 
 func TestArchivedCardsPageUsesArchiveOrder(t *testing.T) {
 	ctx := t.Context()
-	e := newClaimEnv(t)
+	e := newCardEnv(t, kanban.WithClock(func() time.Time {
+		return claimNow.In(time.FixedZone("UTC+8", 8*60*60))
+	}))
 	for i := range 21 {
 		card := e.card(t, colIdea, fmt.Sprintf("归档 %d", i))
 		if _, err := e.core.ArchiveCard(ctx, testActor, card.ID); err != nil {
@@ -74,8 +76,8 @@ func TestArchivedCardsPageUsesArchiveOrder(t *testing.T) {
 		}
 	}
 	active := e.card(t, colTodo, "活跃任务")
-	first, err := e.core.ListArchivedCards(ctx, e.board.ID, 0)
-	if err != nil || !first.HasMore || len(first.Cards) != 20 {
+	first, err := e.core.ListArchivedCards(ctx, e.board.ID, kanban.ArchivedCardsQuery{})
+	if err != nil || !first.HasMore || len(first.Cards) != 20 || first.NextCursor == "" {
 		t.Fatalf("第一页不对: %+v %v", first, err)
 	}
 	for i, card := range first.Cards {
@@ -83,12 +85,23 @@ func TestArchivedCardsPageUsesArchiveOrder(t *testing.T) {
 			t.Fatalf("同一归档时间应按任务主键倒序: %+v", card)
 		}
 	}
-	last, err := e.core.ListArchivedCards(ctx, e.board.ID, first.Cards[19].ID)
+	last, err := e.core.ListArchivedCards(ctx, e.board.ID, kanban.ArchivedCardsQuery{Before: first.Cards[19].ID})
 	if err != nil || last.HasMore || len(last.Cards) != 1 || last.Cards[0].Number != 1 {
 		t.Fatalf("最后一页不对: %+v %v", last, err)
 	}
-	if _, err := e.core.ListArchivedCards(ctx, e.board.ID, active.ID); !errors.Is(err, kanban.ErrCardNotFound) {
+	if _, err := e.core.ListArchivedCards(ctx, e.board.ID, kanban.ArchivedCardsQuery{Before: active.ID}); !errors.Is(err, kanban.ErrCardNotFound) {
 		t.Fatalf("普通任务不应作为归档游标: %v", err)
+	}
+	if err := e.core.DeleteCard(ctx, testActor, first.Cards[19].ID); err != nil {
+		t.Fatal(err)
+	}
+	last, err = e.core.ListArchivedCards(ctx, e.board.ID, kanban.ArchivedCardsQuery{Cursor: first.NextCursor})
+	if err != nil || last.HasMore || last.NextCursor != "" || len(last.Cards) != 1 || last.Cards[0].Number != 1 {
+		t.Fatalf("游标基准任务删除后仍须正常续页: %+v %v", last, err)
+	}
+	other := newCardEnvOn(t, e.core, e.db, "OTHER")
+	if _, err := e.core.ListArchivedCards(ctx, other.board.ID, kanban.ArchivedCardsQuery{Cursor: first.NextCursor}); !errors.Is(err, kanban.ErrInvalidInput) {
+		t.Fatalf("归档游标不能跨看板使用: %v", err)
 	}
 }
 
@@ -240,5 +253,54 @@ func TestLegacyArchiveUsesSurvivingRelations(t *testing.T) {
 	if err != nil || len(detail.ArchivedTags) != 1 || detail.ArchivedTags[0].ID != tag.ID ||
 		len(detail.Dependencies) != 1 || detail.Dependencies[0].ID != dep.ID {
 		t.Fatalf("无快照的旧数据应回退到仍存在的关联：%+v %v", detail, err)
+	}
+}
+
+func TestHumanDeletesArchivedTaskWithoutChangingArchivedDependents(t *testing.T) {
+	ctx := t.Context()
+	e := newCardEnv(t)
+	target := e.card(t, colDone, "被归档依赖")
+	if _, err := e.core.AddComment(ctx, testActor, target.ID, "删除时一起清理"); err != nil {
+		t.Fatal(err)
+	}
+	create := func(title string) *kanban.Card {
+		t.Helper()
+		card, err := e.core.CreateCard(ctx, testActor, e.board.ID, kanban.CreateCardInput{Title: title, WaitsOn: []int64{target.ID}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return card
+	}
+	active := create("活跃任务")
+	dependent := create("归档任务")
+	if _, err := e.core.ArchiveCard(ctx, testActor, target.ID); err != nil {
+		t.Fatal(err)
+	}
+	frozen, err := e.core.ArchiveCard(ctx, testActor, dependent.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.core.DeleteCard(ctx, codex, target.ID); !errors.Is(err, kanban.ErrHumanOnly) {
+		t.Fatalf("归档任务仍只允许人删除: %v", err)
+	}
+	for range 2 {
+		if err := e.core.DeleteCard(ctx, testActor, target.ID); err != nil {
+			t.Fatalf("人删除归档任务应幂等: %v", err)
+		}
+	}
+	if _, err := e.core.GetCard(ctx, target.ID); !errors.Is(err, kanban.ErrCardNotFound) {
+		t.Fatalf("被删除归档还能读取: %v", err)
+	}
+	if comments, err := e.db.Comment().ListByCard(ctx, target.ID); err != nil || len(comments) != 0 {
+		t.Fatalf("评论未清理: %+v %v", comments, err)
+	}
+	updated, err := e.core.GetCard(ctx, active.ID)
+	if err != nil || len(updated.WaitsOn) != 0 {
+		t.Fatalf("活跃任务依赖未清理: %+v %v", updated, err)
+	}
+	detail, err := e.core.GetCardDetail(ctx, dependent.ID)
+	if err != nil || detail.Version != frozen.Version || !slices.Equal(detail.WaitsOn, []int64{target.ID}) ||
+		len(detail.Dependencies) != 1 || !detail.Dependencies[0].Missing {
+		t.Fatalf("其他归档任务的历史依赖丢失: %+v %v", detail, err)
 	}
 }

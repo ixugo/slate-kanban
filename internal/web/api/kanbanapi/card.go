@@ -35,7 +35,8 @@ type listCardsInput struct {
 
 type archivePageInput struct {
 	boardPath
-	Before int64 `form:"before" json:"-"`
+	Before int64  `form:"before" json:"-"`
+	Cursor string `form:"cursor" json:"-"`
 }
 
 type cardNumberInput struct {
@@ -89,7 +90,7 @@ func (a API) getCardByNumber(ctx context.Context, _ kanban.Actor, in *cardNumber
 
 // listArchivedCards 返回一页 20 个归档任务。
 func (a API) listArchivedCards(ctx context.Context, _ kanban.Actor, in *archivePageInput) (*kanban.ArchivedCardsPage, error) {
-	return a.core.ListArchivedCards(ctx, in.BoardID, in.Before)
+	return a.core.ListArchivedCards(ctx, in.BoardID, kanban.ArchivedCardsQuery{Before: in.Before, Cursor: in.Cursor})
 }
 
 // archiveCard 归档任务，保留历史并结束当前领取。

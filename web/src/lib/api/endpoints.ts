@@ -122,8 +122,9 @@ export function createCard(boardId: number, input: CreateCardInput): Promise<Car
   return request<Card>(`/boards/${boardId}/cards`, { method: 'POST', body: input })
 }
 
-export function listArchivedCards(boardId: number, before?: number, signal?: Signal): Promise<ArchivedCardsPage> {
-  return request<ArchivedCardsPage>(`/boards/${boardId}/archived-cards`, { query: { before }, signal })
+export function listArchivedCards(boardId: number, cursor?: string | number, signal?: Signal): Promise<ArchivedCardsPage> {
+  const query = typeof cursor === 'number' ? { before: cursor } : { cursor }
+  return request<ArchivedCardsPage>(`/boards/${boardId}/archived-cards`, { query, signal })
 }
 
 export function getCardByNumber(boardId: number, number: number, signal?: Signal): Promise<CardDetail> {

@@ -25,8 +25,8 @@ export default function ArchiveDrawer({ boardId, open, onOpenChange }: ArchiveDr
     queryKey: queryKeys.archivedCards(boardId),
     enabled: open,
     queryFn: ({ pageParam, signal }) => listArchivedCards(boardId, pageParam, signal),
-    initialPageParam: undefined as number | undefined,
-    getNextPageParam: (last) => last.has_more ? last.cards.at(-1)?.id : undefined,
+    initialPageParam: undefined as string | number | undefined,
+    getNextPageParam: (last) => last.has_more ? last.next_cursor ?? last.cards.at(-1)?.id : undefined,
   })
   const { fetchNextPage, hasNextPage, isFetching, isFetchNextPageError } = list
 

@@ -233,6 +233,7 @@ export interface Snapshot extends BoardDetail {
 export interface ArchivedCardsPage {
   cards: Card[]
   has_more: boolean
+  next_cursor?: string
 }
 
 export interface CardList {
