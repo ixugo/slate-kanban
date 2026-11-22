@@ -49,8 +49,8 @@ func (e *cardEnv) storedCursor(t *testing.T, agent string) int64 {
 // 之后的新事件正常送达。
 func TestPullFirstTimeStartsAtLatest(t *testing.T) {
 	e := newCardEnv(t)
-	e.card(t, colTodo, "历史卡片 A")
-	e.card(t, colTodo, "历史卡片 B")
+	e.card(t, colTodo, "历史任务 A")
+	e.card(t, colTodo, "历史任务 B")
 	latest := e.lastEvent(t).ID
 
 	first := e.pull(t, testAgent, nil, 0)
@@ -61,7 +61,7 @@ func TestPullFirstTimeStartsAtLatest(t *testing.T) {
 		t.Fatalf("进度应该已经记下: %d，期望 %d", got, latest)
 	}
 
-	c := e.card(t, colTodo, "新卡片 C")
+	c := e.card(t, colTodo, "新任务 C")
 	next := e.pull(t, testAgent, nil, 0)
 	if next.First || len(next.Events) != 1 || next.Events[0].CardID != c.ID || next.Events[0].Type != kanban.EventCardCreated {
 		t.Fatalf("第二次应该只收到新事件: %+v", next)

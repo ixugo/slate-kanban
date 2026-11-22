@@ -1,4 +1,4 @@
-// 列表视图的卡片排序：纯函数，默认跟看板列顺序一致，支持按列/优先级/截止等切换升降序。
+// 列表视图的任务排序：纯函数，默认跟看板列顺序一致，支持按列/优先级/截止等切换升降序。
 
 import type { CardView, Column } from '@/lib/api/types'
 
@@ -14,7 +14,7 @@ export interface SortState {
   dir: SortDir
 }
 
-/** 列表默认排序：先按列的 sort，再按卡片 position（与看板视图一致） */
+/** 列表默认排序：先按列的 sort，再按任务 position（与看板视图一致） */
 export const DEFAULT_SORT: SortState = { key: 'column', dir: 'asc' }
 
 /** 找不到列时用的兜底排序值，保证未知列_id 排在已知列后面 */
@@ -71,7 +71,7 @@ function compareColumn(a: CardView, b: CardView, columns: Column[], dir: SortDir
   return a.id - b.id
 }
 
-/** 按主键字段比较一对卡片；标题按本地化不区分大小写 */
+/** 按主键字段比较一对任务；标题按本地化不区分大小写 */
 function compareByKey(
   a: CardView,
   b: CardView,
@@ -104,8 +104,8 @@ function compareByKey(
 }
 
 /**
- * 对卡片数组做稳定排序。
- * 假设卡片量在几十到几百张（不做虚拟滚动）；复杂度 O(n log n)。
+ * 对任务数组做稳定排序。
+ * 假设任务量在几十到几百个（不做虚拟滚动）；复杂度 O(n log n)。
  */
 export function sortCards(cards: CardView[], columns: Column[], state: SortState): CardView[] {
   const indexed = cards.map((card, index) => ({ card, index }))

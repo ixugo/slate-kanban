@@ -26,7 +26,7 @@ const baseDetail = {
   claim_expires_at: '2026-11-18T12:00:00Z',
 }
 
-// 看板页里的卡片弹窗是懒加载的：先把它的模块加载好，第一个测试就不用在 findBy 的限时里等模块首次编译。
+// 看板页里的任务弹窗是懒加载的：先把它的模块加载好，第一个测试就不用在 findBy 的限时里等模块首次编译。
 beforeAll(async () => {
   await import('@/features/card/CardDialog')
 }, 30000)
@@ -71,7 +71,7 @@ function openBoardWithCard(detail: typeof baseDetail, events: object[] = [], lib
   return api
 }
 
-function openCardReferences() {
+function openCardReferences(commentBody = 'Comment #25, `#38`, [link #44](https://example.com) and \\#55.') {
   const root = {
     ...baseDetail,
     title: 'First card',
@@ -82,7 +82,7 @@ function openCardReferences() {
       card_id: 1,
       author_kind: 'human',
       author: 'human',
-      body: 'Comment #25, `#38`, [link #44](https://example.com) and \\#55.',
+      body: commentBody,
       created_at: '2026-11-18T10:00:00Z',
       updated_at: '2026-11-18T10:00:00Z',
     }],
@@ -109,7 +109,7 @@ function openCardReferences() {
 }
 
 describe('CardDialog', () => {
-  it('评论里的编号打开同板卡片，Markdown 链接、代码和转义保留', async () => {
+  it('评论里的编号打开同板任务，Markdown 链接、代码和转义保留', async () => {
     const api = openCardReferences()
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
@@ -123,6 +123,30 @@ describe('CardDialog', () => {
     expect(api.count('GET /api/v1/cards/25')).toBe(0)
     await user.keyboard('{Escape}')
     expect(await within(dialog).findByDisplayValue('First card')).toBeInTheDocument()
+  })
+
+  it('旧同板任务键显示为可预览的编号，普通文本、代码和链接保持原样', async () => {
+    openCardReferences([
+      '旧写法TST-14，现有引用 #25。',
+      'OTHER-14 TST-98 ref/TST-14 TST-14.md',
+      '`TST-14` [TST-14](https://example.com/TST-14) https://example.com/TST-14',
+      '```text',
+      'TST-14',
+      '```',
+    ].join('\n'))
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    const comment = await within(dialog).findByText(/OTHER-14 TST-98 ref\/TST-14 TST-14\.md/)
+    const reference = within(comment).getByRole('button', { name: '#14' })
+    expect(within(comment).getByRole('button', { name: '#25' })).toBeInTheDocument()
+    expect(within(comment).getByRole('link', { name: 'TST-14' })).toHaveAttribute('href', 'https://example.com/TST-14')
+    expect(within(comment).getByRole('link', { name: 'https://example.com/TST-14' })).toBeInTheDocument()
+    expect(dialog.querySelector('pre code')).toHaveTextContent('TST-14')
+    expect([...dialog.querySelectorAll('p code')].some((node) => node.textContent === 'TST-14')).toBe(true)
+    await user.hover(reference)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Second card')
+    await user.click(reference)
+    expect(await within(dialog).findByDisplayValue('Second card')).toBeInTheDocument()
   })
 
   it('描述和评论在鼠标悬浮时只对存在的同板任务显示磁贴预览', async () => {
@@ -342,7 +366,7 @@ describe('CardDialog', () => {
     openBoardWithCard({ ...baseDetail, description: '旧描述' })
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
-    await user.dblClick(await within(dialog).findByText('旧描述'))
+    await user.click(await within(dialog).findByText('旧描述'))
     const editor = await within(dialog).findByRole('textbox', { name: en.card.field.description })
     fireEvent.keyDown(editor, { key: 'Escape', code: 'Escape' })
     await waitFor(() => expect(within(dialog).queryByRole('textbox', { name: en.card.field.description })).toBeNull())
@@ -414,7 +438,7 @@ describe('CardDialog', () => {
     expect(within(dialog).getByText(en.card.timeline.title)).toBeInTheDocument()
   })
 
-  it('「评论和活动」把评论和这张卡片的事件按时间排在一起，可收起详情', async () => {
+  it('「评论和活动」把评论和这个任务的事件按时间排在一起，可收起详情', async () => {
     const at = '2026-11-18T10:00:00Z'
     const later = '2026-11-18T11:00:00Z'
     const api = openBoardWithCard(
@@ -437,7 +461,7 @@ describe('CardDialog', () => {
     expect(within(dialog).getByRole('button', { name: en.card.timeline.showDetails })).toBeInTheDocument()
   })
 
-  it('「评论和活动」里改了描述的那条带「查看变更」，点开在卡片弹窗上叠一层左右对比', async () => {
+  it('「评论和活动」里改了描述的那条带「查看变更」，点开在任务弹窗上叠一层左右对比', async () => {
     const api = openBoardWithCard(baseDetail, [
       {
         id: 9,
@@ -467,13 +491,13 @@ describe('CardDialog', () => {
     expect(await within(diff).findByText(en.activity.change.before)).toBeInTheDocument()
     expect(api.calls.filter((c) => c.path === '/api/v1/cards/1/changes/4')).toHaveLength(1)
 
-    // Esc 只关掉最上面的对比弹窗，卡片弹窗还在
+    // Esc 只关掉最上面的对比弹窗，任务弹窗还在
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog', { name: en.activity.change.title })).toBeNull())
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  // 打开一个详情请求会失败的卡片，用来检查弹窗对不同失败原因的提示
+  // 打开一个详情请求会失败的任务，用来检查弹窗对不同失败原因的提示
   function openBoardWithBrokenDetail(detail: () => { status?: number; body?: unknown }) {
     installFakeEventSource()
     installFakeApi({
@@ -488,13 +512,13 @@ describe('CardDialog', () => {
     )
   }
 
-  it('服务端说卡片不存在（404）时提示卡片已被删除', async () => {
+  it('服务端说任务不存在（404）时提示任务已被删除', async () => {
     openBoardWithBrokenDetail(() => ({ status: 404, body: { reason: 'ErrCardNotFound', msg: '没有' } }))
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText(en.card.notFound)).toBeInTheDocument()
   })
 
-  it('断网时如实提示连不上服务器，不说卡片已被删除', async () => {
+  it('断网时如实提示连不上服务器，不说任务已被删除', async () => {
     openBoardWithBrokenDetail(() => {
       throw new TypeError('Failed to fetch')
     })
@@ -503,7 +527,7 @@ describe('CardDialog', () => {
     expect(within(dialog).queryByText(en.card.notFound)).toBeNull()
   })
 
-  it('服务器出错（500）时也不说卡片已被删除', async () => {
+  it('服务器出错（500）时也不说任务已被删除', async () => {
     openBoardWithBrokenDetail(() => ({ status: 500, body: { reason: 'ErrInternal', msg: '服务器出错了' } }))
     const dialog = await screen.findByRole('dialog')
     expect(await within(dialog).findByText(en.errors.ErrInternal)).toBeInTheDocument()

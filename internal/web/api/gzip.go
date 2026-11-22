@@ -16,7 +16,7 @@ const gzipMinSize = 1024
 var gzipPool = sync.Pool{New: func() any { return gzip.NewWriter(nil) }}
 
 // gzipMiddleware 给文本类响应（JSON、HTML、JS、CSS、SVG 等）做 gzip 压缩。
-// 看板和卡片列表是几百 KB 的 JSON，不压缩时慢网络下首屏很慢。
+// 看板和任务列表是几百 KB 的 JSON，不压缩时慢网络下首屏很慢。
 // PNG、JPEG、WebP 等图片本身已压缩，事件流要即时输出，它们都原样返回；
 // 已经自带 Content-Encoding 的响应（例如网页静态文件）也不会被二次压缩。
 func gzipMiddleware() gin.HandlerFunc {

@@ -31,7 +31,7 @@ type getImageIn struct {
 	Token string `json:"token" jsonschema:"图片编号：描述或评论里图片地址 /api/v1/attachments/ 后面的 32 位字符，也可以直接填整个图片地址"`
 }
 
-// uploadImageOut 是 upload_image 的结果：markdown 可以原样写进卡片描述或评论。
+// uploadImageOut 是 upload_image 的结果：markdown 可以原样写进任务描述或评论。
 type uploadImageOut struct {
 	Token       string `json:"token"`
 	URL         string `json:"url"`
@@ -40,7 +40,7 @@ type uploadImageOut struct {
 	Size        int64  `json:"size"`
 }
 
-// registerImageTools 注册图片的上传和查看。两个视图都有：agent 要给卡片配截图，也要看人贴在描述和评论里的图。
+// registerImageTools 注册图片的上传和查看。两个视图都有：agent 要给任务配截图，也要看人贴在描述和评论里的图。
 func (a API) registerImageTools(s *mcp.Server) {
 	register(s, spec{
 		name: "upload_image", kind: kindWrite,

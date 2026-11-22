@@ -14,7 +14,7 @@ import (
 // handSetTime 是测试里"人手动填的时间"，比固定的 claimNow 早。
 const handSetTime = "2026-11-01T09:30:00Z"
 
-// enterRule 创建一条"卡片进入某列"的规则，column 是列的主键，0 表示任意列。
+// enterRule 创建一条"任务进入某列"的规则，column 是列的主键，0 表示任意列。
 func (e *cardEnv) enterRule(t *testing.T, name string, column int64, actions ...kanban.RuleAction) *kanban.Rule {
 	t.Helper()
 	return e.mustCreateRule(t, kanban.CreateRuleInput{
@@ -22,12 +22,12 @@ func (e *cardEnv) enterRule(t *testing.T, name string, column int64, actions ...
 	})
 }
 
-// moveTo 以 actor 的身份把卡片移到第 column 列的末尾，失败就终止测试。
+// moveTo 以 actor 的身份把任务移到第 column 列的末尾，失败就终止测试。
 func (e *cardEnv) moveTo(t *testing.T, actor kanban.Actor, id int64, column int) *kanban.Card {
 	t.Helper()
 	c, err := e.core.MoveCard(context.Background(), actor, id, kanban.MoveCardInput{ColumnID: e.col(column)})
 	if err != nil {
-		t.Fatalf("移动卡片 %d 失败: %v", id, err)
+		t.Fatalf("移动任务 %d 失败: %v", id, err)
 	}
 	return c
 }
@@ -44,8 +44,8 @@ func (e *cardEnv) fired(t *testing.T) []*kanban.Event {
 	return out
 }
 
-// TestRuleEnterColumnWritesStartTime 验证最典型的用法：卡片进入进行中，规则写开始时间。
-// 卡片只保存一次（版本只加一），事件顺序是先 card.moved 再 automation.fired，
+// TestRuleEnterColumnWritesStartTime 验证最典型的用法：任务进入进行中，规则写开始时间。
+// 任务只保存一次（版本只加一），事件顺序是先 card.moved 再 automation.fired，
 // 并且 automation.fired 的操作者是 system、名字带规则名。
 func TestRuleEnterColumnWritesStartTime(t *testing.T) {
 	e := newClaimEnv(t)
@@ -58,7 +58,7 @@ func TestRuleEnterColumnWritesStartTime(t *testing.T) {
 		t.Fatalf("应该写入开始时间且版本只加一次: %+v", moved)
 	}
 	if stored := e.stored(t, c.ID); stored.StartedAt == nil || !stored.StartedAt.Equal(claimNow) || stored.Version != 2 {
-		t.Fatalf("库里的卡片不对: %+v", stored)
+		t.Fatalf("库里的任务不对: %+v", stored)
 	}
 	if got, want := e.eventTypes(t, events), []string{kanban.EventCardMoved, kanban.EventAutomationFired}; !slices.Equal(got, want) {
 		t.Fatalf("事件顺序应该是 %v，实际 %v", want, got)
@@ -108,7 +108,7 @@ func TestRuleAlwaysOverwritesTime(t *testing.T) {
 	}
 }
 
-// TestRuleLeaveColumnClearsFinishedTime 验证"离开某列"的触发：卡片离开完成列，规则清空完成时间。
+// TestRuleLeaveColumnClearsFinishedTime 验证"离开某列"的触发：任务离开完成列，规则清空完成时间。
 func TestRuleLeaveColumnClearsFinishedTime(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -146,7 +146,7 @@ func TestRuleColumnBinding(t *testing.T) {
 	}
 }
 
-// TestRuleConditionUsesPostTriggerState 验证条件匹配的是触发之后的卡片状态，包括前面的规则刚改的：
+// TestRuleConditionUsesPostTriggerState 验证条件匹配的是触发之后的任务状态，包括前面的规则刚改的：
 // 第一条规则加标签，第二条规则的条件要求有这个标签，所以第二条也会执行；条件不满足的规则不执行。
 func TestRuleConditionUsesPostTriggerState(t *testing.T) {
 	e := newClaimEnv(t)
@@ -202,7 +202,7 @@ func TestRuleDisabledNotFired(t *testing.T) {
 }
 
 // TestRuleOrderAndSingleSave 验证多条规则按顺序执行、后面的覆盖前面的，
-// 并且不管命中几条，卡片只保存一次，版本只加一。
+// 并且不管命中几条，任务只保存一次，版本只加一。
 func TestRuleOrderAndSingleSave(t *testing.T) {
 	e := newClaimEnv(t)
 	e.enterRule(t, "先设低", e.col(colDoing), kanban.RuleAction{Type: kanban.ActionSetPriority, Priority: 1})
@@ -219,8 +219,8 @@ func TestRuleOrderAndSingleSave(t *testing.T) {
 	}
 }
 
-// TestRuleCreateCardTriggers 验证创建卡片同时触发 card_created（按创建所在的列）和进入初始列的 card_entered，
-// 事件顺序是先 card.created 再 automation.fired；规则改了卡片字段时卡片是第二版，没命中规则就是第一版。
+// TestRuleCreateCardTriggers 验证创建任务同时触发 card_created（按创建所在的列）和进入初始列的 card_entered，
+// 事件顺序是先 card.created 再 automation.fired；规则改了任务字段时任务是第二版，没命中规则就是第一版。
 func TestRuleCreateCardTriggers(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -233,7 +233,7 @@ func TestRuleCreateCardTriggers(t *testing.T) {
 
 	c := e.card(t, colTodo, "在待办创建")
 	if !slices.Equal(e.names(t, c), []string{"新建"}) || c.Priority != 2 || c.Version != 2 {
-		t.Fatalf("两条规则都应该执行，卡片是第二版: %+v", c)
+		t.Fatalf("两条规则都应该执行，任务是第二版: %+v", c)
 	}
 	// 规则加的"新建"在标签库里还没有，会先新建标签并写一条标签库事件
 	want := []string{kanban.EventCardCreated, kanban.EventBoardLabelsUpdated, kanban.EventAutomationFired, kanban.EventAutomationFired}
@@ -247,22 +247,22 @@ func TestRuleCreateCardTriggers(t *testing.T) {
 
 	agentCard, err := e.core.CreateCard(ctx, testAgent, e.board.ID, kanban.CreateCardInput{Title: "agent 创建", ColumnID: e.col(colTodo)})
 	if err != nil || !slices.Equal(e.names(t, agentCard), []string{"新建"}) {
-		t.Fatalf("agent 创建的卡片同样触发规则: %+v %v", agentCard, err)
+		t.Fatalf("agent 创建的任务同样触发规则: %+v %v", agentCard, err)
 	}
 }
 
-// TestRuleCreateWithoutMatchStaysFirstVersion 验证没有规则命中时，新卡片仍然是第一版，没有多余的保存和事件。
+// TestRuleCreateWithoutMatchStaysFirstVersion 验证没有规则命中时，新任务仍然是第一版，没有多余的保存和事件。
 func TestRuleCreateWithoutMatchStaysFirstVersion(t *testing.T) {
 	e := newClaimEnv(t)
 	e.enterRule(t, "只管审查", e.col(colReview), kanban.RuleAction{Type: kanban.ActionAddTag, Tag: "x"})
 	c := e.card(t, colTodo, "A")
 	if c.Version != 1 || len(e.fired(t)) != 0 {
-		t.Fatalf("没有规则命中时卡片应该是第一版且没有 automation.fired: %+v", c)
+		t.Fatalf("没有规则命中时任务应该是第一版且没有 automation.fired: %+v", c)
 	}
 }
 
 // TestRuleAddComment 验证评论动作：以 system 身份写评论，作者是 automation 加规则名，
-// 评论不动卡片本身，所以版本只因为移动涨一次；事件顺序是移动、评论、规则执行。
+// 评论不动任务本身，所以版本只因为移动涨一次；事件顺序是移动、评论、规则执行。
 func TestRuleAddComment(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -272,7 +272,7 @@ func TestRuleAddComment(t *testing.T) {
 
 	moved := e.moveTo(t, testActor, c.ID, colDoing)
 	if moved.Version != 2 {
-		t.Fatalf("评论不应该让卡片多涨版本: %d", moved.Version)
+		t.Fatalf("评论不应该让任务多涨版本: %d", moved.Version)
 	}
 	d, err := e.core.GetCardDetail(ctx, c.ID)
 	if err != nil || len(d.Comments) != 1 {
@@ -314,7 +314,7 @@ func TestRuleSkippedActionsAreReported(t *testing.T) {
 	}
 }
 
-// TestRuleFiresOnFinishCard 验证 agent 完成交接换列时规则同样生效，卡片只保存一次，
+// TestRuleFiresOnFinishCard 验证 agent 完成交接换列时规则同样生效，任务只保存一次，
 // 事件里评论、移动在前，规则的执行在最后。
 func TestRuleFiresOnFinishCard(t *testing.T) {
 	ctx := context.Background()
@@ -340,7 +340,7 @@ func TestRuleFiresOnFinishCard(t *testing.T) {
 	}
 }
 
-// TestRuleFiresOnAgentMove 验证规则不区分操作者：agent 移动自己持有的卡片换列，规则同样执行。
+// TestRuleFiresOnAgentMove 验证规则不区分操作者：agent 移动自己持有的任务换列，规则同样执行。
 func TestRuleFiresOnAgentMove(t *testing.T) {
 	e := newClaimEnv(t)
 	e.enterRule(t, "进入审查", e.col(colReview), kanban.RuleAction{Type: kanban.ActionSetPriority, Priority: 3})

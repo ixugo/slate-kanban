@@ -2,7 +2,7 @@
 
 import type { RefObject } from 'react'
 import { Link } from 'react-router-dom'
-import { ActivityIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
+import { ActivityIcon, ArchiveIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import type { Board } from '@/lib/api/types'
@@ -18,8 +18,7 @@ interface BoardToolbarProps {
   searchRef: RefObject<HTMLInputElement | null>
   query: string
   onQueryChange: (q: string) => void
-  matched: number
-  total: number
+  noResults: boolean
   truncated: boolean
   syntaxError: string
   searching: boolean
@@ -33,6 +32,7 @@ interface BoardToolbarProps {
   onViewModeChange: (mode: BoardViewMode) => void
   /** 点「活动」按钮：打开活动抽屉 */
   onActivityOpen: () => void
+  onArchiveOpen: () => void
 }
 
 /** 看板画布上方的工具栏 */
@@ -41,8 +41,7 @@ export function BoardToolbar({
   searchRef,
   query,
   onQueryChange,
-  matched,
-  total,
+  noResults,
   truncated,
   syntaxError,
   searching,
@@ -54,6 +53,7 @@ export function BoardToolbar({
   viewMode,
   onViewModeChange,
   onActivityOpen,
+  onArchiveOpen,
 }: BoardToolbarProps) {
   const { t } = useTranslation()
   return (
@@ -66,6 +66,10 @@ export function BoardToolbar({
         <Button type="button" variant="ghost" size="sm" aria-label={t('activity.open')} onClick={onActivityOpen}>
           <ActivityIcon />
           <span className="hidden sm:inline">{t('activity.open')}</span>
+        </Button>
+        <Button type="button" variant="ghost" size="sm" aria-label={t('card.archive.title')} onClick={onArchiveOpen}>
+          <ArchiveIcon />
+          <span className="hidden sm:inline">{t('card.archive.title')}</span>
         </Button>
         <Button type="button" variant="ghost" size="sm" asChild>
           <Link to={`/b/${board.id}/settings`}>
@@ -111,8 +115,7 @@ export function BoardToolbar({
           ref={searchRef}
           query={query}
           onChange={onQueryChange}
-          matched={matched}
-          total={total}
+          noResults={noResults}
           truncated={truncated}
           syntaxError={syntaxError}
           searching={searching}

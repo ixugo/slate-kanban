@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// maxRulesPerBoard 每个看板最多几条自动化规则。每次卡片变动都要遍历启用的规则，
+	// maxRulesPerBoard 每个看板最多几条自动化规则。每次任务变动都要遍历启用的规则，
 	// 不设上限会拖慢所有写操作。
 	maxRulesPerBoard = 50
 	// maxRuleActions 一条规则最多几个动作。
@@ -19,17 +19,17 @@ const (
 	maxRuleCommentLen = 2000
 	// maxRuleDueDays set_due 动作最多把到期时间往后推几天。
 	maxRuleDueDays = 365
-	// ruleSortStep 相邻两条规则排序值的间距，和列、卡片的做法一致。
+	// ruleSortStep 相邻两条规则排序值的间距，和列、任务的做法一致。
 	ruleSortStep = 1024
 )
 
 // 规则的触发类型。
 const (
-	// TriggerCardCreated 创建卡片时触发，规则的列表示卡片创建在哪一列。
+	// TriggerCardCreated 创建任务时触发，规则的列表示任务创建在哪一列。
 	TriggerCardCreated = "card_created"
-	// TriggerCardEntered 卡片进入某一列时触发，创建卡片也算进入初始列。
+	// TriggerCardEntered 任务进入某一列时触发，创建任务也算进入初始列。
 	TriggerCardEntered = "card_entered"
-	// TriggerCardLeft 卡片离开某一列时触发。
+	// TriggerCardLeft 任务离开某一列时触发。
 	TriggerCardLeft = "card_left"
 )
 

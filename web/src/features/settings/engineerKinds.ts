@@ -22,7 +22,7 @@ export const KIND_META: Record<EngineerKind, KindMeta> = {
   review: { label: 'settings.engineers.kindReview', color: 'bg-agent/12 text-agent' },
 }
 
-/** 这种类型是不是做研发（除了测试都是）：只有研发类工程师能被卡片绑定 */
+/** 这种类型是不是做研发（除了测试都是）：只有研发类工程师能被任务绑定 */
 export function isDevKind(kind: EngineerKind): boolean {
   return kind !== 'review'
 }

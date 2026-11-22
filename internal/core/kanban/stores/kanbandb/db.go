@@ -36,17 +36,17 @@ func (d DB) Column() kanban.ColumnStorer {
 	return Column(d)
 }
 
-// Card 返回卡片存储。
+// Card 返回任务存储。
 func (d DB) Card() kanban.CardStorer {
 	return Card(d)
 }
 
-// CardChange 返回卡片变更日志存储。
+// CardChange 返回任务变更日志存储。
 func (d DB) CardChange() kanban.CardChangeStorer {
 	return CardChange(d)
 }
 
-// Comment 返回卡片评论存储。
+// Comment 返回任务评论存储。
 func (d DB) Comment() kanban.CommentStorer {
 	return Comment(d)
 }
@@ -92,7 +92,7 @@ func (d DB) Cursor() kanban.CursorStorer {
 }
 
 // AutoMigrate 同步表结构：已有的表只会补齐缺失的列和索引，不会删除数据，每次启动都可以重复执行。
-// 项目还在开发阶段，没有为旧版本数据写迁移逻辑：表结构变了就由开发者用独立程序处理本地数据库。
+// 模板迁移同时为已有自定义定义补上对应的模板项目。
 func (d DB) AutoMigrate(ok bool) DB {
 	if !ok {
 		return d
@@ -102,6 +102,9 @@ func (d DB) AutoMigrate(ok bool) DB {
 		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor), new(kanban.Attachment), new(kanban.Tag), new(kanban.Engineer),
 		new(kanban.ProjectTemplate), new(kanban.Webhook),
 	); err != nil {
+		panic(err)
+	}
+	if err := d.migrateProjectTemplates(); err != nil {
 		panic(err)
 	}
 	return d

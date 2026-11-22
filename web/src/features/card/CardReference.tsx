@@ -9,10 +9,11 @@ interface CardReferenceProps {
   /** 被引用的同板任务；找不到时为空，不显示预览 */
   card?: CardView
   onOpen: () => void
+  onPreviewChange?: (visible: boolean) => void
 }
 
 /** 描述和评论里的 #数字 引用：点击打开任务，鼠标悬浮时显示和看板上一样的任务磁贴（标签、截止时间等都有） */
-export function CardReference({ label, card, onOpen }: CardReferenceProps) {
+export function CardReference({ label, card, onOpen, onPreviewChange }: CardReferenceProps) {
   const title = card?.title
   const [position, setPosition] = useState<CSSProperties | null>(null)
 
@@ -28,7 +29,8 @@ export function CardReference({ label, card, onOpen }: CardReferenceProps) {
   }, [position])
 
   const show = (event: PointerEvent<HTMLButtonElement>) => {
-    if (position || !card || event.pointerType !== 'mouse') return
+    if (position || (!card && !onPreviewChange) || event.pointerType !== 'mouse') return
+    onPreviewChange?.(true)
     const rect = event.currentTarget.getBoundingClientRect()
     const below = rect.bottom <= window.innerHeight / 2
     setPosition({
@@ -45,7 +47,10 @@ export function CardReference({ label, card, onOpen }: CardReferenceProps) {
         className="cursor-pointer rounded-sm text-primary underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         onPointerEnter={show}
         onPointerMove={show}
-        onPointerLeave={() => setPosition(null)}
+        onPointerLeave={() => {
+          onPreviewChange?.(false)
+          setPosition(null)
+        }}
         onClick={() => {
           setPosition(null)
           onOpen()

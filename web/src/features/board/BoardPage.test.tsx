@@ -45,7 +45,7 @@ function notifyCardCreated() {
 describe('BoardPage', () => {
   beforeEach(() => installFakeEventSource())
 
-  it('渲染列与卡片标题', async () => {
+  it('渲染列与任务标题', async () => {
     installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
     renderBoard()
     expect(await screen.findByRole('heading', { name: '测试看板' })).toBeInTheDocument()
@@ -85,7 +85,7 @@ describe('BoardPage', () => {
     expect(alerts.some((a) => a.textContent?.includes('不认识的词 foo'))).toBe(true)
   })
 
-  it('快捷键 n 打开第一列添加卡片', async () => {
+  it('快捷键 n 打开第一列添加任务', async () => {
     installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
     const user = userEvent.setup()
     renderBoard()
@@ -95,7 +95,7 @@ describe('BoardPage', () => {
     expect(within(col).getByLabelText(en.board.addCard)).toBeInTheDocument()
   })
 
-  it('新建卡片发送 POST', async () => {
+  it('新建任务发送 POST', async () => {
     const api = installFakeApi({
       'GET /api/v1/boards/:id/snapshot': snapshot,
       'POST /api/v1/boards/:id/cards': makeCard({ id: 9, title: '新建' }),
@@ -110,7 +110,7 @@ describe('BoardPage', () => {
     expect(api.calls.find((c) => c.method === 'POST')?.body).toMatchObject({ title: '新建', column_id: 1 })
   })
 
-  it('在本页面添加卡片后，该列的卡片列表滚到底，让新卡片看得见', async () => {
+  it('在本页面添加任务后，该列的任务列表滚到底，让新任务看得见', async () => {
     let created = false
     installFakeApi({
       'GET /api/v1/boards/:id/snapshot': () => ({

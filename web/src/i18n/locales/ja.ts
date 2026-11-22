@@ -8,7 +8,7 @@ export const ja: Messages = {
     templates: {
       body: 'カスタムプロジェクトテンプレートのインポート、エクスポート、管理。プロジェクト設定からエクスポートし、新規作成時にここから選べます。',
       import: 'JSON をインポート',
-      empty: 'カスタムテンプレートはまだありません。',
+      builtin: '組み込み',
       loadFailed: 'テンプレート一覧を読み込めませんでした。',
       invalidFile: '有効なプロジェクトテンプレート JSON ではありません。',
       delete: 'テンプレート「{{name}}」を削除',
@@ -98,10 +98,7 @@ export const ja: Messages = {
       descriptionLabel: '説明',
       descriptionPlaceholder: 'このプロジェクトの用途（任意）',
       template: 'テンプレート',
-      templateSwitch: '開発フローのテンプレートを使う',
-      templates: { dev: '開発フロー', empty: '空白' },
-      customTemplate: 'カスタムテンプレート',
-      customTemplateNone: '使わない（下の起步テンプレートを使用）',
+      templates: { dev: '開発テンプレート', empty: '空白' },
       submit: 'プロジェクトを作成',
       submitting: '作成中…',
       errors: {
@@ -126,7 +123,6 @@ export const ja: Messages = {
     addCard: 'タスクを追加',
     addCardPlaceholder: 'タイトル（Enter で追加）',
     columnDone: '完了',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: '/ で検索、n でタスク追加',
     viewToggle: 'ボードまたはリスト表示',
     viewBoard: 'ボード表示',
@@ -182,6 +178,7 @@ export const ja: Messages = {
     clearFilters: '絞り込みを解除',
     // 修改事件里时间类字段的叫法，比任务详情里的按钮名更完整
     field: { due_at: '期限', started_at: '開始日時', finished_at: '完了日時' },
+    previous: { label: '変更前', on: '有効', off: '無効', toggle: '{{from}} → {{to}}' },
     // 「説明を変更しました、変更を表示」：文とリンクの間の句読点、リンクの文言、比較ダイアログの文言
     change: {
       separator: '、',
@@ -207,6 +204,7 @@ export const ja: Messages = {
       cardTagsUpdated: 'タグを変更しました',
       cardMoved: 'タスクを「{{from}}」から「{{to}}」へ移動しました',
       cardReordered: '列内でタスクの順序を変更しました',
+      cardArchived: 'タスクをアーカイブしました',
       cardDeleted: 'タスクを削除しました',
       cardClaimed: 'タスクを担当しました',
       cardReleased: 'タスクの担当を外れました',
@@ -352,6 +350,16 @@ export const ja: Messages = {
     title: 'タスク',
     notFound: 'このプロジェクトにそのタスクはありません。',
     versionConflict: '他の人が変更しました。内容を確認してから保存してください。',
+    archive: {
+      action: 'アーカイブ',
+      description: 'アーカイブ済みのタスクを表示',
+      empty: 'アーカイブ済みのタスクはありません。',
+      confirmTitle: 'このタスクをアーカイブしますか？',
+      confirmBody: 'アーカイブ後もタスクとコメントを閲覧できます。編集とコメントの追加はできません。',
+      readOnly: 'アーカイブ済み · 閲覧のみ',
+      missingDependency: '削除済み',
+      title: 'アーカイブ済みタスク',
+    },
     field: {
       title: 'タイトル',
       description: '説明',
@@ -375,7 +383,7 @@ export const ja: Messages = {
     dueTime: '期限の時刻',
     datesOrder: '期限日は開始日より前にできません',
     descEdit: '編集',
-    descEditHint: '説明エリアをダブルクリックで編集できます',
+    descEditHint: '説明エリアをクリックして編集できます',
     descPlaceholder: 'Markdown 対応',
     columnInstructionHint: 'エージェントがこの列のタスクを担当するときに読みます。',
     claim: {
@@ -405,7 +413,8 @@ export const ja: Messages = {
     tagLimit: '1 件のタスクにつきタグは最大 {{max}} 個です。',
     tagTooLong: 'タグは最大 {{max}} 文字までです。',
     depAdd: '依存を追加',
-    depEmpty: 'なし',
+    depSearch: '#番号またはタイトルで検索',
+    depNoResults: '一致するタスクがありません',
     urlInvalid: 'http と https のみ許可されます。',
   },
 
@@ -707,7 +716,7 @@ export const ja: Messages = {
       intro: '接続したあと、エージェントはボードを見張り続け、タスクが来たら受け取れます。仕組みは次のとおりです：',
       how: {
         connect: 'エージェントはセッションを開いたまま、MCP ツール wait_for_updates を繰り返し呼びます。',
-        push: 'サーバーは呼び出しを保留し、ボードが変わった瞬間に返します。変化がなければ約 50 秒に 1 回のリクエストだけで、タスクの定期取得ではありません。',
+        push: 'サーバーは各呼び出しを保留し、ボードに変更があるとすぐに応答します。長時間待機を設定した接続では、変更がない場合に最大 60 分間待機できます。長時間待機に対応しない接続では、50 秒以下に設定してください。',
         loop: 'host の loop は、この待ち受けがまだ生きているかを数分おきに確認するだけです。切れていればエージェントが再接続します。',
       },
       board: 'ボード',
@@ -719,8 +728,10 @@ export const ja: Messages = {
         perm: '無人運転では権限確認の表示でセッションが止まります。先に slate のツールと主な操作を「常に許可」にし、権限チェックを切るのは隔離環境の中だけにしてください。',
       },
     },
-    advanced: '手動インストール（上級）',
-    advancedHint: '上の一言プロンプトでエージェントがこれらを自分で行います。手動で入れるときだけ開いてください。',
+    advanced: '手動インストールと削除',
+    advancedHint: '上の一言プロンプトで、エージェントに Slate MCP のインストールを任せられます。',
+    uninstallMcp: 'Slate MCP を削除',
+    uninstallMcpCursor: '~/.cursor/mcp.json の mcpServers から slate（ワーカー用）または slate-manager（マネージャー用）を削除します。他の項目は残したままファイルを保存し、Cursor を再起動してください。',
     skillOptional:
       'skill は任意です。MCP リソース slate://skills/slate-kanban が skill と全く同じ内容を返し、skill が未インストールのときは見張りプロンプトがエージェントにそれを読ませます。host に自動で読み込ませたいときだけ入れてください。',
     managerFold: 'マネージャー用 MCP（任意）',
@@ -779,6 +790,9 @@ export const ja: Messages = {
     ErrAgentOnly: 'この操作はエージェント専用です。',
     ErrCardHumanOnly: 'このタスクは人だけが扱えます。',
     ErrCardWaiting: 'このタスクは他のタスクの完了を待っています。',
+    ErrCardArchived: 'アーカイブ済みのタスクは変更できません。',
+    ErrInboxNotFound: '受信トレイ列が見つかりません。先に受信トレイを作成してください。',
+    ErrForkRelationUnavailable: '元のタスクのラベルまたは依存タスクが削除されたため、完全に Fork できません。',
     ErrCardClaimed: 'このタスクはすでに別のエージェントが担当しています。',
     ErrEngineerBusy: 'このエンジニアは別のタスクを担当中です。',
     ErrNoIdleEngineer: '手の空いているエンジニアがいません。順番をお待ちください。',

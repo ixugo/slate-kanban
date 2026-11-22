@@ -5,7 +5,7 @@ import type { ActivityActor, ActivityQuery } from '@/lib/api/types'
 /** 事件分组：每一组对应服务端的若干个事件类型，完整的类型清单见 .cursor/scopes/kanban.event.go.md */
 export const EVENT_GROUPS = {
   move: ['card.moved', 'card.reordered'],
-  card: ['card.created', 'card.updated', 'card.tags_updated', 'card.deleted'],
+  card: ['card.created', 'card.updated', 'card.tags_updated', 'card.deleted', 'card.archived'],
   claim: ['card.claimed', 'card.released'],
   comment: ['comment.added', 'comment.deleted'],
   automation: ['automation.fired'],

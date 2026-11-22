@@ -55,7 +55,7 @@ func TestTemplateTextsComplete(t *testing.T) {
 	}
 }
 
-// TestReviewInstructionKeepsInReview 验证简体中文模板的审查列提示词明确写了：审查的卡片直接在审查列领取，
+// TestReviewInstructionKeepsInReview 验证简体中文模板的审查列提示词明确写了：审查的任务直接在审查列领取，
 // 不要先移到进行中；只有研发任务才在进行中处理。
 func TestReviewInstructionKeepsInReview(t *testing.T) {
 	review := templateTexts["zh-CN"].Columns[textReview].Instruction

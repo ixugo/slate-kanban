@@ -1,10 +1,10 @@
-// 测试用的数据工厂：生成字段齐全的卡片、列、快照，各测试只写自己关心的字段。
+// 测试用的数据工厂：生成字段齐全的任务、列、快照，各测试只写自己关心的字段。
 
 import type { Board, CardView, Column, Snapshot } from '@/lib/api/types'
 
 const T0 = '2026-11-18T08:00:00Z'
 
-/** 生成一张卡片，id 和编号随 id 变化，其余字段是"普通的空卡片" */
+/** 生成一个任务，id 和编号随 id 变化，其余字段是"普通的空任务" */
 export function makeCard(overrides: Partial<CardView> & { id: number }): CardView {
   const id = overrides.id
   return {
@@ -12,7 +12,7 @@ export function makeCard(overrides: Partial<CardView> & { id: number }): CardVie
     column_id: 1,
     number: id,
     key: `SLATE-${id}`,
-    title: `卡片 ${id}`,
+    title: `任务 ${id}`,
     description: '',
     position: id * 1024,
     priority: 0,

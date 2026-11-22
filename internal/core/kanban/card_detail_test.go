@@ -40,7 +40,7 @@ func TestGetCardDetail(t *testing.T) {
 		t.Fatalf("读取详情失败: %v", err)
 	}
 	if d.Key != "TST-3" || d.Column != "进行中" || d.Done || !d.Waiting || !d.ClaimActive || d.ColumnInstruction != instruction {
-		t.Fatalf("卡片与列的信息不对: %+v 指令=%q", d.CardView, d.ColumnInstruction)
+		t.Fatalf("任务与列的信息不对: %+v 指令=%q", d.CardView, d.ColumnInstruction)
 	}
 	if len(d.Dependencies) != 2 ||
 		d.Dependencies[0].Key != "TST-1" || !d.Dependencies[0].Done || d.Dependencies[0].Column != "完成" ||
@@ -52,7 +52,7 @@ func TestGetCardDetail(t *testing.T) {
 	}
 }
 
-// TestGetCardDetailEmptyAndDangling 验证没有依赖和评论时返回空数组；依赖指向已经不存在的卡片时跳过，也不算等待。
+// TestGetCardDetailEmptyAndDangling 验证没有依赖和评论时返回空数组；依赖指向已经不存在的任务时跳过，也不算等待。
 func TestGetCardDetailEmptyAndDangling(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -74,7 +74,7 @@ func TestGetCardDetailEmptyAndDangling(t *testing.T) {
 	}
 }
 
-// TestGetCardDetailJSON 验证序列化后的结构：卡片字段、派生状态、列指令、依赖、评论都在最外层，
+// TestGetCardDetailJSON 验证序列化后的结构：任务字段、派生状态、列指令、依赖、评论都在最外层，
 // 网页和 MCP 都依赖这个结构。
 func TestGetCardDetailJSON(t *testing.T) {
 	e := newCardEnv(t)
@@ -102,7 +102,7 @@ func TestGetCardDetailJSON(t *testing.T) {
 	}
 }
 
-// TestGetCardDetailNotFound 验证卡片不存在返回 404。
+// TestGetCardDetailNotFound 验证任务不存在返回 404。
 func TestGetCardDetailNotFound(t *testing.T) {
 	e := newCardEnv(t)
 	if _, err := e.core.GetCardDetail(context.Background(), 9999); !errors.Is(err, kanban.ErrCardNotFound) {

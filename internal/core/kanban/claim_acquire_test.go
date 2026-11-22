@@ -17,13 +17,13 @@ var claimNow = time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
 // codex 是测试里的第二个 agent。
 var codex = kanban.Actor{Kind: kanban.ActorAgent, Name: "codex"}
 
-// newClaimEnv 创建时钟固定的卡片测试环境。
+// newClaimEnv 创建时钟固定的任务测试环境。
 func newClaimEnv(t *testing.T) *cardEnv {
 	t.Helper()
 	return newCardEnv(t, kanban.WithClock(func() time.Time { return claimNow }))
 }
 
-// holdUntil 直接在数据库里把卡片标成由某个 agent 持有，租约到 expires 为止。
+// holdUntil 直接在数据库里把任务标成由某个 agent 持有，租约到 expires 为止。
 func (e *cardEnv) holdUntil(t *testing.T, id int64, agent string, expires time.Time) {
 	t.Helper()
 	c := e.stored(t, id)
@@ -33,7 +33,7 @@ func (e *cardEnv) holdUntil(t *testing.T, id int64, agent string, expires time.T
 	}
 }
 
-// TestClaimCard 验证领取：卡片记到 agent 名下，租约默认 30 分钟，版本加一，
+// TestClaimCard 验证领取：任务记到 agent 名下，租约默认 30 分钟，版本加一，
 // 返回的详情带着列的 agent 指令，并追加 card.claimed 事件。
 func TestClaimCard(t *testing.T) {
 	ctx := context.Background()
@@ -98,7 +98,7 @@ func TestClaimCardTakeover(t *testing.T) {
 		t.Fatalf("租约有效应该得到 ErrCardClaimed，实际 %v", err)
 	}
 	if got := e.stored(t, c.ID); got.ClaimedBy != "codex" || got.Version != 1 {
-		t.Fatalf("被拒绝的领取不应该改动卡片: %+v", got)
+		t.Fatalf("被拒绝的领取不应该改动任务: %+v", got)
 	}
 
 	e.holdUntil(t, c.ID, "codex", claimNow.Add(-time.Second))
@@ -108,15 +108,15 @@ func TestClaimCardTakeover(t *testing.T) {
 	}
 }
 
-// TestClaimCardRejects 验证拒绝情况：人和身份无效、卡片不存在、不满足领取资格、租约时长不合法；
-// 失败都不改动卡片、不写事件。
+// TestClaimCardRejects 验证拒绝情况：人和身份无效、任务不存在、不满足领取资格、租约时长不合法；
+// 失败都不改动任务、不写事件。
 func TestClaimCardRejects(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
 	free := e.card(t, colDoing, "可领")
 	humanOnly, err := e.core.CreateCard(ctx, testActor, e.board.ID, kanban.CreateCardInput{Title: "只能人做", ColumnID: e.col(colDoing), HumanOnly: true})
 	if err != nil {
-		t.Fatalf("创建卡片失败: %v", err)
+		t.Fatalf("创建任务失败: %v", err)
 	}
 	todo := e.card(t, colTodo, "还在待办")
 	waiting := e.card(t, colDoing, "在等待")
@@ -136,7 +136,7 @@ func TestClaimCardRejects(t *testing.T) {
 		{"人领取", testActor, free.ID, kanban.ClaimCardInput{}, kanban.ErrAgentOnly},
 		{"自动化领取", kanban.Actor{Kind: kanban.ActorSystem, Name: "automation"}, free.ID, kanban.ClaimCardInput{}, kanban.ErrAgentOnly},
 		{"身份无效", kanban.Actor{}, free.ID, kanban.ClaimCardInput{}, kanban.ErrInvalidActor},
-		{"卡片不存在", testAgent, 9999, kanban.ClaimCardInput{}, kanban.ErrCardNotFound},
+		{"任务不存在", testAgent, 9999, kanban.ClaimCardInput{}, kanban.ErrCardNotFound},
 		{"只能由人处理", testAgent, humanOnly.ID, kanban.ClaimCardInput{}, kanban.ErrCardHumanOnly},
 		{"依赖未完成", testAgent, waiting.ID, kanban.ClaimCardInput{}, kanban.ErrCardWaiting},
 		{"租约为负", testAgent, free.ID, kanban.ClaimCardInput{LeaseMinutes: -1}, kanban.ErrInvalidInput},
@@ -151,7 +151,7 @@ func TestClaimCardRejects(t *testing.T) {
 		t.Errorf("失败的领取不应该写事件，事件数 %d → %d", events, after)
 	}
 	if got := e.stored(t, free.ID); got.ClaimedBy != "" || got.Version != 1 {
-		t.Errorf("失败的领取不应该改动卡片: %+v", got)
+		t.Errorf("失败的领取不应该改动任务: %+v", got)
 	}
 }
 
@@ -189,7 +189,7 @@ func TestClaimCardConcurrently(t *testing.T) {
 }
 
 // TestNextCardOrder 验证取卡的顺序：领活列从左到右、同列从上到下，跳过依赖未完成的、被别人持有的、只能人做的；
-// 优先级不参与排序；自己已经持有的卡片优先，重复取返回同一张。
+// 优先级不参与排序；自己已经持有的任务优先，重复领取返回同一任务。
 func TestNextCardOrder(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -202,7 +202,7 @@ func TestNextCardOrder(t *testing.T) {
 	heldByOther := e.card(t, colDoing, "别人在做")
 	e.holdUntil(t, heldByOther.ID, "someone-else", claimNow.Add(time.Hour))
 	if _, err := e.core.CreateCard(ctx, testActor, e.board.ID, kanban.CreateCardInput{Title: "只能人做", ColumnID: e.col(colDoing), HumanOnly: true}); err != nil {
-		t.Fatalf("创建只能人做的卡片失败: %v", err)
+		t.Fatalf("创建只能人做的任务失败: %v", err)
 	}
 	first := e.card(t, colDoing, "进行中第一张可领的")
 	second := e.card(t, colDoing, "进行中第二张但优先级高")
@@ -225,16 +225,16 @@ func TestNextCardOrder(t *testing.T) {
 		t.Fatalf("别的 agent 应该取到下一张，不管优先级: %+v %v", other, err)
 	}
 	if remaining, err := e.core.NextCard(ctx, codex, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing)}); err != nil || remaining == nil || remaining.ID != second.ID {
-		t.Fatalf("只能续领所选列内的卡片，不可跳到审查列: %+v %v", remaining, err)
+		t.Fatalf("只能续领所选列内的任务，不可跳到审查列: %+v %v", remaining, err)
 	}
 	third, err := e.core.NextCard(ctx, kanban.Actor{Kind: kanban.ActorAgent, Name: "gemini"}, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colReview)})
 	if err != nil || third == nil || third.ID != review.ID {
-		t.Fatalf("显式选择审查列应取到该列的卡片: %+v %v", third, err)
+		t.Fatalf("显式选择审查列应取到该列的任务: %+v %v", third, err)
 	}
 }
 
-// TestNextCardPrefersOwnHeldCard 验证 agent 重启后接着做原来的活：自己持有的卡片排在后面，
-// 前面有别的空闲卡片时，仍然先返回自己持有的那张。
+// TestNextCardPrefersOwnHeldCard 验证 agent 重启后接着做原来的活：自己持有的任务排在后面，
+// 前面有别的空闲任务时，仍然先返回自己持有的那项任务。
 func TestNextCardPrefersOwnHeldCard(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -248,7 +248,7 @@ func TestNextCardPrefersOwnHeldCard(t *testing.T) {
 	}
 }
 
-// TestNextCardNothingToDo 验证没有可做的卡片不是错误：返回 nil，不写事件。
+// TestNextCardNothingToDo 验证没有可做的任务不是错误：返回 nil，不写事件。
 func TestNextCardNothingToDo(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -288,13 +288,13 @@ func TestNextCardRejects(t *testing.T) {
 	}
 }
 
-// TestNextCardConcurrently 验证并发取卡：卡片数等于 agent 数时，每个 agent 都取到一张，而且互不相同。
+// TestNextCardConcurrently 验证并发取卡：任务数等于 agent 数时，每个 agent 都取到一张，而且互不相同。
 func TestNextCardConcurrently(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
 	const agents = 8
 	for i := range agents {
-		e.card(t, colDoing, fmt.Sprintf("卡片 %d", i))
+		e.card(t, colDoing, fmt.Sprintf("任务 %d", i))
 	}
 
 	got := make([]*kanban.CardDetail, agents)
@@ -316,7 +316,7 @@ func TestNextCardConcurrently(t *testing.T) {
 			t.Fatalf("agent-%d 应该取到一张卡: %+v %v", i, got[i], errs[i])
 		}
 		if prev, dup := seen[got[i].ID]; dup {
-			t.Fatalf("卡片 %d 被 %s 和 agent-%d 同时取到", got[i].ID, prev, i)
+			t.Fatalf("任务 %d 被 %s 和 agent-%d 同时取到", got[i].ID, prev, i)
 		}
 		seen[got[i].ID] = fmt.Sprintf("agent-%d", i)
 	}

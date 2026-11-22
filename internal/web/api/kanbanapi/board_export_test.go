@@ -43,7 +43,7 @@ func TestBoardExportJSON(t *testing.T) {
 	}
 	json.Unmarshal(top["cards"], &cards)
 	if len(cards) != 1 || cards[0].Key == "" || cards[0].Column == "" || len(cards[0].Comments) != 1 {
-		t.Fatalf("卡片或评论不对: %+v", cards)
+		t.Fatalf("任务或评论不对: %+v", cards)
 	}
 }
 

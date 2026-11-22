@@ -10,12 +10,12 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// titles 按位置顺序返回第 i 列的卡片标题，用逗号连接，空列返回空字符串。
+// titles 按位置顺序返回第 i 列的任务标题，用逗号连接，空列返回空字符串。
 func (e *cardEnv) titles(t *testing.T, column int) string {
 	t.Helper()
 	cards, err := e.db.Card().ListByColumn(context.Background(), e.col(column))
 	if err != nil {
-		t.Fatalf("读取列 %d 的卡片失败: %v", column, err)
+		t.Fatalf("读取列 %d 的任务失败: %v", column, err)
 	}
 	names := make([]string, 0, len(cards))
 	for _, c := range cards {
@@ -37,10 +37,10 @@ func TestMoveCardToAnotherColumn(t *testing.T) {
 		t.Fatalf("移动失败: %v", err)
 	}
 	if got.ColumnID != e.col(colDoing) || got.Position != 2048 || got.Version != 2 || got.UpdatedBy != "admin" {
-		t.Fatalf("返回的卡片不对: %+v", got)
+		t.Fatalf("返回的任务不对: %+v", got)
 	}
 	if e.titles(t, colDoing) != "已有,A" || e.titles(t, colTodo) != "" {
-		t.Fatalf("移动后各列的卡片不对: 进行中=%s 待办=%s", e.titles(t, colDoing), e.titles(t, colTodo))
+		t.Fatalf("移动后各列的任务不对: 进行中=%s 待办=%s", e.titles(t, colDoing), e.titles(t, colTodo))
 	}
 	want := fmt.Sprintf(`{"from":"待办","from_id":%d,"key":"TST-1","title":"A","to":"进行中","to_id":%d}`, e.col(colTodo), e.col(colDoing))
 	if ev := e.lastEvent(t); ev.Type != kanban.EventCardMoved || ev.CardID != a.ID || ev.Payload != want {
@@ -48,11 +48,11 @@ func TestMoveCardToAnotherColumn(t *testing.T) {
 	}
 }
 
-// TestMoveCardPlacement 验证换列时按参照卡片放置：不指定放末尾，指定前面或后面放到对应位置。
+// TestMoveCardPlacement 验证换列时按参照任务放置：不指定放末尾，指定前面或后面放到对应位置。
 func TestMoveCardPlacement(t *testing.T) {
 	cases := []struct {
 		name          string
-		before, after string // 参照卡片的标题，空表示不指定
+		before, after string // 参照任务的标题，空表示不指定
 		want          string
 	}{
 		{"不指定放到末尾", "", "", "X,Y,Z,M"},
@@ -109,7 +109,7 @@ func TestMoveCardReorderSameColumn(t *testing.T) {
 }
 
 // TestMoveCardNoChange 验证位置没有变化时什么都不做：放回原来的位置、放到本来就在的列末尾、
-// 以及卡片位置不是整数倍时放回原处，都不涨版本、不写事件、不改位置。
+// 以及任务位置不是整数倍时放回原处，都不涨版本、不写事件、不改位置。
 func TestMoveCardNoChange(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -124,8 +124,8 @@ func TestMoveCardNoChange(t *testing.T) {
 		in kanban.MoveCardInput
 	}{
 		"第一张放到自己下一张的前面":      {a.ID, kanban.MoveCardInput{BeforeID: b.ID}},
-		"中间的卡片放到下一张前面":       {b.ID, kanban.MoveCardInput{BeforeID: c.ID}},
-		"中间的卡片放到上一张后面":       {b.ID, kanban.MoveCardInput{AfterID: a.ID}},
+		"中间的任务放到下一项前面":       {b.ID, kanban.MoveCardInput{BeforeID: c.ID}},
+		"中间的任务放到上一项后面":       {b.ID, kanban.MoveCardInput{AfterID: a.ID}},
 		"最后一张不指定参照放到末尾":      {c.ID, kanban.MoveCardInput{}},
 		"最后一张显式写当前列并放在上一张后面": {c.ID, kanban.MoveCardInput{ColumnID: e.col(colTodo), AfterID: b.ID}},
 	} {
@@ -137,11 +137,11 @@ func TestMoveCardNoChange(t *testing.T) {
 		t.Fatalf("位置没变不应该写事件，事件数 %d → %d", events, after)
 	}
 	if got := e.stored(t, b.ID); got.Position != 1500 || got.Version != 1 {
-		t.Fatalf("位置没变不应该改卡片: %+v", got)
+		t.Fatalf("位置没变不应该改任务: %+v", got)
 	}
 }
 
-// TestMoveCardByHumanKeepsClaim 验证人移动被 agent 持有的卡片：换列和同列调整都不动领取
+// TestMoveCardByHumanKeepsClaim 验证人移动被 agent 持有的任务：换列和同列调整都不动领取
 // （持有者、到期时间、承担的工程师都原样保留），也不写 card.released，只写 card.moved。
 // 领取只能由 agent 自己放开、租约到期或人明确收回，不能因为人拖了一下就丢掉 agent 的接管状态。
 func TestMoveCardByHumanKeepsClaim(t *testing.T) {
@@ -180,7 +180,7 @@ func TestMoveCardByHumanKeepsClaim(t *testing.T) {
 }
 
 // TestMoveCardByAgentReleasesClaim 验证持有者 agent 自己换列就是主动放开：先写 card.released
-// （带上原持有者和原因），再写 card.moved；没有被领取的卡片换列不写 card.released。
+// （带上原持有者和原因），再写 card.moved；没有被领取的任务换列不写 card.released。
 func TestMoveCardByAgentReleasesClaim(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -213,15 +213,15 @@ func TestMoveCardByAgentReleasesClaim(t *testing.T) {
 
 	before := len(events)
 	if _, err := e.core.MoveCard(ctx, testActor, other.ID, kanban.MoveCardInput{ColumnID: e.col(colReview)}); err != nil {
-		t.Fatalf("移动没被领取的卡片失败: %v", err)
+		t.Fatalf("移动没被领取的任务失败: %v", err)
 	}
 	if after := e.events(t); len(after) != before+1 || after[before].Type != kanban.EventCardMoved {
-		t.Fatalf("没被领取的卡片换列只应该写一条移动事件: %+v", after[before:])
+		t.Fatalf("没被领取的任务换列只应该写一条移动事件: %+v", after[before:])
 	}
 }
 
-// TestMoveCardByAgent 验证 agent 的权限：不能动正被别的 agent 持有的卡片，其余卡片都能移动，
-// 包括没人持有的卡片和换进领活列；换列后领取被清除。哪一列该由谁动由列的提示词约定。
+// TestMoveCardByAgent 验证 agent 的权限：不能动正被别的 agent 持有的任务，其余任务都能移动，
+// 包括没人持有的任务和换进领活列；换列后领取被清除。哪一列该由谁动由列的提示词约定。
 func TestMoveCardByAgent(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -231,7 +231,7 @@ func TestMoveCardByAgent(t *testing.T) {
 
 	free := e.card(t, colDoing, "D")
 	if _, err := e.core.MoveCard(ctx, testAgent, free.ID, review); err != nil {
-		t.Fatalf("没人持有的卡片 agent 也应该能移动: %v", err)
+		t.Fatalf("没人持有的任务 agent 也应该能移动: %v", err)
 	}
 	e.hold(t, a.ID, "someone-else")
 	if _, err := e.core.MoveCard(ctx, testAgent, a.ID, review); !errors.Is(err, kanban.ErrCardClaimed) {
@@ -265,8 +265,8 @@ func TestMoveCardByAgent(t *testing.T) {
 	}
 }
 
-// TestMoveCardRejects 验证拒绝情况：卡片不存在、目标列不存在或属于别的看板、
-// 参照卡片不合法、身份无效；失败的移动都不改动卡片。
+// TestMoveCardRejects 验证拒绝情况：任务不存在、目标列不存在或属于别的看板、
+// 参照任务不合法、身份无效；失败的移动都不改动任务。
 func TestMoveCardRejects(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -284,9 +284,9 @@ func TestMoveCardRejects(t *testing.T) {
 		"别的看板的列":    {ColumnID: foreign.Columns[0].ID},
 		"不存在的列":     {ColumnID: 9999},
 		"前后参照同时给出":  {BeforeID: inDoing.ID, AfterID: inDoing.ID},
-		"参照卡片在别的列":  {ColumnID: e.col(colTodo), BeforeID: inDoing.ID},
-		"参照卡片是自己":   {BeforeID: a.ID},
-		"参照卡片不存在":   {BeforeID: 9999},
+		"参照任务在别的列":  {ColumnID: e.col(colTodo), BeforeID: inDoing.ID},
+		"参照任务是自己":   {BeforeID: a.ID},
+		"参照任务不存在":   {BeforeID: 9999},
 		"换列后参照仍在原列": {ColumnID: e.col(colReview), AfterID: a.ID},
 	} {
 		if _, err := e.core.MoveCard(ctx, testActor, a.ID, in); !errors.Is(err, kanban.ErrInvalidInput) {

@@ -99,7 +99,7 @@ export class LiveView {
     return this.state
   }
 
-  /** 外部直接换整段文字（比如切换到另一张卡片）；清空撤销历史 */
+  /** 外部直接换整段文字（比如切换到另一个任务）；清空撤销历史 */
   setValue(value: string): void {
     if (value === this.state.value) return
     this.state = normalize({ value, anchor: value.length, head: value.length })

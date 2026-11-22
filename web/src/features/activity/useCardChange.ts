@@ -1,4 +1,4 @@
-// 读一次卡片变更记录（修改前、修改后的内容）。点「查看变更」打开对比弹窗时才会发请求。
+// 读一次任务变更记录（修改前、修改后的内容）。点「查看变更」打开对比弹窗时才会发请求。
 
 import { useQuery } from '@tanstack/react-query'
 import { getCardChange } from '@/lib/api/endpoints'

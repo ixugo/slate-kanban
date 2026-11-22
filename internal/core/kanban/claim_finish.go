@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// FinishCard 完成交接：写一条总结评论，记录分支和链接，把卡片移到目标列的指定位置（默认末尾），清除领取。
-// 这些都在同一个事务里，任何一步失败整体回滚，不会出现总结写了但卡片还留在进行中的半成品。
-// 人可以完成任何卡片；agent 只能完成自己持有的卡片。目标列不指定时用当前列设置的下一列，
-// agent 显式指定的目标列不能是开启了 agent 领取的列，否则它能把卡片重新放回队列，绕过人的评审。
+// FinishCard 完成交接：写一条总结评论，记录分支和链接，把任务移到目标列的指定位置（默认末尾），清除领取。
+// 这些都在同一个事务里，任何一步失败整体回滚，不会出现总结写了但任务还留在进行中的半成品。
+// 人可以完成任何任务；agent 只能完成自己持有的任务。目标列不指定时用当前列设置的下一列，
+// agent 显式指定的目标列不能是开启了 agent 领取的列，否则它能把任务重新放回队列，绕过人的评审。
 func (c Core) FinishCard(ctx context.Context, actor Actor, cardID int64, in FinishCardInput) (*CardDetail, error) {
 	if err := requireWriter(actor); err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary 
 	return u.handOver(ctx, actor, card, from, to, in)
 }
 
-// finishTarget 确定交接后卡片去哪一列，同时返回卡片当前所在的列。
+// finishTarget 确定交接后任务去哪一列，同时返回任务当前所在的列。
 // 指定了目标列就用它；没指定就用当前列设置的下一列，没有设置返回 400 并提示怎么办。
 func (u *unit) finishTarget(ctx context.Context, card *Card, columnID int64) (from, to *Column, err error) {
 	cols, err := u.column.ListByBoard(ctx, card.BoardID)
@@ -74,8 +74,8 @@ func (u *unit) finishTarget(ctx context.Context, card *Card, columnID int64) (fr
 	return from, to, nil
 }
 
-// recordLinks 把交接时给出的分支和链接写到卡片上，并按字段追加 card.updated 事件。
-// 这里只改内存里的卡片，随后的 handOver 会统一保存并涨一次版本号。
+// recordLinks 把交接时给出的分支和链接写到任务上，并按字段追加 card.updated 事件。
+// 这里只改内存里的任务，随后的 handOver 会统一保存并涨一次版本号。
 func (u *unit) recordLinks(ctx context.Context, actor Actor, card *Card, in FinishCardInput) error {
 	var patch UpdateCardInput
 	if in.Branch != "" {
@@ -84,17 +84,15 @@ func (u *unit) recordLinks(ctx context.Context, actor Actor, card *Card, in Fini
 	if in.URL != "" {
 		patch.URL = &in.URL
 	}
+	before := *card
 	changed, err := patch.apply(card)
 	if err != nil || len(changed) == 0 {
 		return err
 	}
-	return u.emit(ctx, actor, newEvent{
-		BoardID: card.BoardID, CardID: card.ID, Type: EventCardUpdated,
-		Payload: cardPayload(card, map[string]any{"fields": changed}),
-	})
+	return u.emitCardUpdates(ctx, actor, card, changed, 0, &before)
 }
 
-// handOver 把卡片放到目标列的指定位置（默认列尾，in.Top 为真时列头）并清除领取。换了列时 card.moved 已经表达了"领取结束"，
+// handOver 把任务放到目标列的指定位置（默认列尾，in.Top 为真时列头）并清除领取。换了列时 card.moved 已经表达了"领取结束"，
 // 所以不再单独写 card.released；留在原列时没有别的事件，才补一条 card.released。
 func (u *unit) handOver(ctx context.Context, actor Actor, card *Card, from, to *Column, in FinishCardInput) error {
 	if from.ID == to.ID {

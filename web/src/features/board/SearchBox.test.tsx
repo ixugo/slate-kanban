@@ -10,7 +10,7 @@ import { SearchBox } from './SearchBox'
 function Harness() {
   const [query, setQuery] = useState('')
   return (
-    <SearchBox query={query} onChange={setQuery} matched={0} total={0} truncated={false} syntaxError="" searching={false} active={false} />
+    <SearchBox query={query} onChange={setQuery} noResults={false} truncated={false} syntaxError="" searching={false} active={false} />
   )
 }
 
@@ -25,4 +25,9 @@ describe('SearchBox 清除按钮', () => {
     expect(input).toHaveFocus()
     expect(screen.queryByRole('button', { name: en.search.clear })).not.toBeInTheDocument()
   })
+})
+
+it('搜索有匹配时不显示过滤比例', () => {
+  renderApp(<SearchBox query="tag:bug" onChange={() => {}} noResults={false} truncated={false} syntaxError="" searching={false} active />)
+  expect(screen.queryByText(/\d+\s*\/\s*\d+/)).not.toBeInTheDocument()
 })

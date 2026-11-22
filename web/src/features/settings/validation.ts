@@ -57,7 +57,7 @@ export function validateColumnForm(
   return errors
 }
 
-/** 某一列里有多少张卡片 */
+/** 某一列里有多少个任务 */
 export function countCardsInColumn(columnId: number, cards: { column_id: number }[]): number {
   return cards.filter((c) => c.column_id === columnId).length
 }

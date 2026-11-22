@@ -22,15 +22,15 @@ const (
 	colDone
 )
 
-// cardEnv 是卡片测试的公共环境：一个用 dev 模板建好的看板（标识 TST，五列），不带起步规则。
+// cardEnv 是任务测试的公共环境：一个用 dev 模板建好的看板（标识 TST，五列），不带起步规则。
 type cardEnv struct {
 	core  kanban.Core
 	db    kanbandb.DB
 	board *kanban.BoardDetail
 }
 
-// newCardEnv 创建卡片测试环境。起步规则会在创建和换列时改卡片、写 automation.fired 事件，
-// 会干扰卡片测试对版本和事件的断言，所以这里把它们删掉；要测自动化的用例自己创建规则。
+// newCardEnv 创建任务测试环境。起步规则会在创建和换列时改任务、写 automation.fired 事件，
+// 会干扰任务测试对版本和事件的断言，所以这里把它们删掉；要测自动化的用例自己创建规则。
 func newCardEnv(t *testing.T, opts ...kanban.Option) *cardEnv {
 	t.Helper()
 	core, db := newBare(t, opts...)
@@ -40,7 +40,7 @@ func newCardEnv(t *testing.T, opts ...kanban.Option) *cardEnv {
 // newCardEnvOn 在已有的 Core 上再建一个标识为 slug 的看板，用于需要两个看板的测试。
 func newCardEnvOn(t *testing.T, core kanban.Core, db kanbandb.DB, slug string) *cardEnv {
 	t.Helper()
-	board := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "卡片测试 " + slug, Slug: slug, Locale: "zh-CN"})
+	board := mustCreateBoard(t, core, kanban.CreateBoardInput{Name: "任务测试 " + slug, Slug: slug, Locale: "zh-CN"})
 	if err := db.Rule().DeleteByBoard(context.Background(), board.ID); err != nil {
 		t.Fatalf("清掉起步规则失败: %v", err)
 	}
@@ -55,12 +55,12 @@ func newCardEnvOn(t *testing.T, core kanban.Core, db kanbandb.DB, slug string) *
 // col 返回 dev 模板里第 i 列的主键。
 func (e *cardEnv) col(i int) int64 { return e.board.Columns[i].ID }
 
-// card 以人的身份在第 i 列创建一张只有标题的卡片，失败就让测试终止。
+// card 以人的身份在第 i 列创建一个只有标题的任务，失败就让测试终止。
 func (e *cardEnv) card(t *testing.T, column int, title string) *kanban.Card {
 	t.Helper()
 	c, err := e.core.CreateCard(context.Background(), testActor, e.board.ID, kanban.CreateCardInput{Title: title, ColumnID: e.col(column)})
 	if err != nil {
-		t.Fatalf("创建卡片 %s 失败: %v", title, err)
+		t.Fatalf("创建任务 %s 失败: %v", title, err)
 	}
 	return c
 }
@@ -78,12 +78,12 @@ func (e *cardEnv) lastEvent(t *testing.T) *kanban.Event {
 	return events[len(events)-1]
 }
 
-// stored 直接从数据库读出卡片的当前状态。
+// stored 直接从数据库读出任务的当前状态。
 func (e *cardEnv) stored(t *testing.T, id int64) *kanban.Card {
 	t.Helper()
 	c, err := e.db.Card().GetByID(context.Background(), id)
 	if err != nil {
-		t.Fatalf("读取卡片 %d 失败: %v", id, err)
+		t.Fatalf("读取任务 %d 失败: %v", id, err)
 	}
 	return c
 }
@@ -102,14 +102,14 @@ func TestCreateCardDefaults(t *testing.T) {
 	if a.Key != "TST-1" || a.Number != 1 || a.Title != "第一张" || a.ColumnID != e.col(colIdea) ||
 		a.Position != 1024 || a.Version != 1 || a.CreatedBy != "admin" || a.UpdatedBy != "admin" ||
 		!a.CreatedAt.Equal(fixed) || a.TagIDs == nil || a.WaitsOn == nil || a.ClaimedBy != "" {
-		t.Fatalf("第一张卡片的字段不对: %+v", a)
+		t.Fatalf("第一个任务的字段不对: %+v", a)
 	}
 	b := e.card(t, colIdea, "第二张")
 	if b.Key != "TST-2" || b.Position != 2048 {
 		t.Fatalf("第二张的编号或位置不对: %+v", b)
 	}
 	if got := e.stored(t, a.ID); got.Key != "TST-1" || len(got.TagIDs) != 0 {
-		t.Fatalf("读出来的卡片不对: %+v", got)
+		t.Fatalf("读出来的任务不对: %+v", got)
 	}
 
 	last := e.lastEvent(t)
@@ -176,11 +176,11 @@ func TestCreateCardColumnRules(t *testing.T) {
 		t.Fatalf("看板不存在应该得到 ErrBoardNotFound，实际 %v", err)
 	}
 	if cards, _ := e.db.Card().ListByBoard(ctx, e.board.ID); len(cards) != 0 {
-		t.Fatalf("失败不应该留下卡片，实际 %d", len(cards))
+		t.Fatalf("失败不应该留下任务，实际 %d", len(cards))
 	}
 }
 
-// TestCreateCardByAgent 验证 agent 创建卡片：只能填标题、描述、标签、分支、链接；
+// TestCreateCardByAgent 验证 agent 创建任务：只能填标题、描述、标签、分支、链接；
 // 不指定列时进第一列；不能放进开启 agent 领取的列；填规划类字段被拒绝。
 func TestCreateCardByAgent(t *testing.T) {
 	ctx := context.Background()
@@ -216,7 +216,7 @@ func TestCreateCardByAgent(t *testing.T) {
 	}
 }
 
-// TestCreateCardRejectsInvalidInput 验证各字段的校验：每种不合法的输入都返回 ErrInvalidInput，且不留下卡片。
+// TestCreateCardRejectsInvalidInput 验证各字段的校验：每种不合法的输入都返回 ErrInvalidInput，且不留下任务。
 func TestCreateCardRejectsInvalidInput(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -224,7 +224,7 @@ func TestCreateCardRejectsInvalidInput(t *testing.T) {
 	other := mustCreateBoard(t, e.core, kanban.CreateBoardInput{Name: "别的", Slug: "OTHER", Template: kanban.TemplateSimple})
 	foreign, err := e.core.CreateCard(ctx, testActor, other.ID, kanban.CreateCardInput{Title: "别的看板的卡"})
 	if err != nil {
-		t.Fatalf("创建别的看板的卡片失败: %v", err)
+		t.Fatalf("创建别的看板的任务失败: %v", err)
 	}
 	tooManyTags := make([]string, 11)
 	for i := range tooManyTags {
@@ -249,7 +249,7 @@ func TestCreateCardRejectsInvalidInput(t *testing.T) {
 		"链接不是 http":  {Title: "x", URL: "ftp://example.com"},
 		"链接是脚本":      {Title: "x", URL: "javascript:alert(1)"},
 		"链接太长":       {Title: "x", URL: "https://" + strings.Repeat("a", 500)},
-		"依赖是别的看板的卡片": {Title: "x", WaitsOn: []int64{foreign.ID}},
+		"依赖是别的看板的任务": {Title: "x", WaitsOn: []int64{foreign.ID}},
 	}
 	for name, in := range cases {
 		if _, err := e.core.CreateCard(ctx, testActor, e.board.ID, in); !errors.Is(err, kanban.ErrInvalidInput) {
@@ -257,7 +257,7 @@ func TestCreateCardRejectsInvalidInput(t *testing.T) {
 		}
 	}
 	if cards, _ := e.db.Card().ListByBoard(ctx, e.board.ID); len(cards) != 1 {
-		t.Fatalf("失败不应该留下卡片，实际 %d 张", len(cards))
+		t.Fatalf("失败不应该留下任务，实际 %d 个", len(cards))
 	}
 }
 
@@ -271,7 +271,7 @@ func seq(n int) []int64 {
 }
 
 // TestCreateCardNumbersAreUniqueUnderConcurrency 验证并发创建时编号不重复也没有空洞；
-// 删除卡片后编号不回收。
+// 删除任务后编号不回收。
 func TestCreateCardNumbersAreUniqueUnderConcurrency(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -311,7 +311,7 @@ func TestCreateCardNumbersAreUniqueUnderConcurrency(t *testing.T) {
 	}
 }
 
-// hold 直接在数据库里把卡片标成由某个 agent 持有。领取功能有自己的测试，
+// hold 直接在数据库里把任务标成由某个 agent 持有。领取功能有自己的测试，
 // 这里只需要"被持有"这个状态，用它测试权限判断。
 func (e *cardEnv) hold(t *testing.T, id int64, agent string) {
 	t.Helper()
@@ -326,7 +326,7 @@ func (e *cardEnv) hold(t *testing.T, id int64, agent string) {
 // intPtr 返回整数的指针，用来构造"出现的字段"。
 func intPtr(n int) *int { return &n }
 
-// TestUpdateCardByHuman 验证人修改卡片：只更新出现的字段，版本加一，记录修改者，
+// TestUpdateCardByHuman 验证人修改任务：只更新出现的字段，版本加一，记录修改者，
 // 事件里记录变化的字段名；值没变的字段不算变化。
 func TestUpdateCardByHuman(t *testing.T) {
 	ctx := context.Background()
@@ -343,16 +343,16 @@ func TestUpdateCardByHuman(t *testing.T) {
 		t.Fatalf("修改失败: %v", err)
 	}
 	if got.Title != "新标题" || got.Priority != 2 || got.Version != 2 || got.UpdatedBy != "admin" || got.Position != c.Position {
-		t.Fatalf("返回的卡片不对: %+v", got)
+		t.Fatalf("返回的任务不对: %+v", got)
 	}
 	stored := e.stored(t, c.ID)
 	if stored.Title != "新标题" || stored.Description != "说明" || strings.Join(e.names(t, stored), ",") != "a,b" ||
 		stored.DueAt == nil || stored.Branch != "feat/a" || stored.URL != "https://example.com/1" || stored.Version != 2 {
-		t.Fatalf("读出来的卡片不对: %+v", stored)
+		t.Fatalf("读出来的任务不对: %+v", stored)
 	}
 	// 同时改了标签和别的字段：别的字段一条 card.updated（不含 tags），标签另写一条 card.tags_updated；
 	// 改了描述，所以 card.updated 的载荷里带着变更记录的编号（全新的库里第一条记录编号是 1）
-	want := `{"description_change_id":1,"fields":["title","description","branch","url","priority","due_at"],"key":"TST-1","title":"新标题"}`
+	want := `{"description_change_id":1,"fields":["title","description","branch","url","priority","due_at"],"key":"TST-1","previous_values":{"branch":"","priority":0,"url":""},"title":"新标题"}`
 	events := e.events(t)
 	updated, tagged := events[len(events)-2], events[len(events)-1]
 	if updated.Type != kanban.EventCardUpdated || updated.CardID != c.ID || updated.Payload != want {
@@ -413,7 +413,7 @@ func TestUpdateCardClearsFields(t *testing.T) {
 }
 
 // TestUpdateCardNoChange 验证没有真实变化时不涨版本、不写事件：空请求、值相同、标题只多了空白、
-// 标签传空数组而卡片本来就没有标签、优先级和到期时间传的就是现有值。
+// 标签传空数组而任务本来就没有标签、优先级和到期时间传的就是现有值。
 func TestUpdateCardNoChange(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -463,7 +463,7 @@ func TestUpdateCardVersionConflict(t *testing.T) {
 	}
 }
 
-// TestUpdateCardByAgent 验证 agent 的权限：只能改自己持有的卡片，并且只能改五个允许的字段；
+// TestUpdateCardByAgent 验证 agent 的权限：只能改自己持有的任务，并且只能改五个允许的字段；
 // 没持有、被别的 agent 持有都得到 ErrNotHolder；碰规划类字段得到 ErrHumanOnly。
 func TestUpdateCardByAgent(t *testing.T) {
 	ctx := context.Background()
@@ -548,7 +548,7 @@ func TestUpdateCardDependencies(t *testing.T) {
 	}
 }
 
-// TestUpdateCardRejects 验证其他拒绝情况：卡片不存在、输入不合法、身份无效，失败都不改动卡片。
+// TestUpdateCardRejects 验证其他拒绝情况：任务不存在、输入不合法、身份无效，失败都不改动任务。
 func TestUpdateCardRejects(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)

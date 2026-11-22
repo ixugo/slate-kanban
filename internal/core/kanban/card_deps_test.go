@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// depCard 构造一张只关心主键、依赖和所在列的卡片。
+// depCard 构造一张只关心主键、依赖和所在列的任务。
 func depCard(id, columnID int64, waitsOn ...int64) *Card {
 	return &Card{ID: id, ColumnID: columnID, WaitsOn: waitsOn}
 }
@@ -43,7 +43,7 @@ func TestNormalizeWaitsOn(t *testing.T) {
 	}
 }
 
-// TestValidateWaitsOn 验证依赖校验：不能指向自己、不能指向不存在或别的看板的卡片、
+// TestValidateWaitsOn 验证依赖校验：不能指向自己、不能指向不存在或别的看板的任务、
 // 不能成环（直接环和间接环）；菱形依赖和空依赖是合法的。
 func TestValidateWaitsOn(t *testing.T) {
 	// 1 等 2，2 等 3，3 没有依赖；4 等 2 和 3（菱形）。
@@ -59,12 +59,12 @@ func TestValidateWaitsOn(t *testing.T) {
 		{"依赖一张已经在等自己的卡", 3, []int64{4}, false},
 		{"菱形依赖", 1, []int64{2, 3}, true},
 		{"指向自己", 3, []int64{3}, false},
-		{"指向不存在的卡片", 3, []int64{99}, false},
+		{"指向不存在的任务", 3, []int64{99}, false},
 		{"直接成环", 2, []int64{1}, false},
 		{"间接成环", 3, []int64{1}, false},
 		{"间接成环（经过多张卡）", 3, []int64{4, 1}, false},
-		{"新建卡片没有人依赖它，不可能成环", 0, []int64{1, 2}, true},
-		{"新建卡片依赖不存在的卡片", 0, []int64{99}, false},
+		{"新建任务没有人依赖它，不可能成环", 0, []int64{1, 2}, true},
+		{"新建任务依赖不存在的任务", 0, []int64{99}, false},
 	}
 	for _, c := range cases {
 		err := validateWaitsOn(c.cardID, c.deps, board)
@@ -97,7 +97,7 @@ func TestValidateWaitsOnLongChain(t *testing.T) {
 }
 
 // TestUnfinishedDeps 验证等待判断：依赖在完成列里就算做完，不在完成列里就算没完成，
-// 依赖的卡片已经不存在则忽略。
+// 依赖的任务已经不存在则忽略。
 func TestUnfinishedDeps(t *testing.T) {
 	const todo, done int64 = 1, 2
 	cards := []*Card{depCard(10, todo, 11, 12, 13, 99), depCard(11, todo), depCard(12, done), depCard(13, todo)}

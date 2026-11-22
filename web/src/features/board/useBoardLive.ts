@@ -65,7 +65,7 @@ export function useBoardLive({ boardId, onGone }: LiveOptions): LiveHandle {
     const source = new EventSource(`${API_PREFIX}/boards/${boardId}/stream`)
     const setState = (next: LiveState) => setLive({ key, state: next })
 
-    // 立即刷新：快照和卡片详情一起失效
+    // 立即刷新：快照和任务详情一起失效
     const flush = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.card() })

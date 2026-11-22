@@ -155,10 +155,10 @@ func TestMCPNotifiedByREST(t *testing.T) {
 		t.Fatalf("订阅看板失败: %v", err)
 	}
 	resp := call(t, http.MethodPost, "/api/v1/boards/"+strconv.FormatInt(boardID, 10)+"/cards", "", map[string]any{
-		"title": "REST 建的卡片", "column_id": columnID,
+		"title": "REST 建的任务", "column_id": columnID,
 	})
 	if resp.Code != http.StatusOK {
-		t.Fatalf("REST 建卡片失败: %d %s", resp.Code, resp.Body)
+		t.Fatalf("REST 建任务失败: %d %s", resp.Code, resp.Body)
 	}
 	select {
 	case got := <-notices:

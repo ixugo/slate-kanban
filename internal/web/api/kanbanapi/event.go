@@ -11,9 +11,8 @@ import (
 	"slate-kanban/internal/lifecycle"
 )
 
-// maxTimeoutSeconds 是请求里等待秒数的上限，只用来防止换算成纳秒时溢出；
-// 真正的等待上限由 Core 决定，超过的会被它压到上限。
-const maxTimeoutSeconds = 3600
+// maxTimeoutSeconds 保留 REST 阻塞等待的 50 秒上限。
+const maxTimeoutSeconds = 50
 
 // eventRoutes 注册快照、事件、agent 拉取更新和实时流的路由。
 func (a API) eventRoutes(r gin.IRouter) {
@@ -34,7 +33,7 @@ type listEventsInput struct {
 }
 
 // activityInput 是读活动流的请求。before 是翻页起点（只看比它更早的事件），limit 是一页最多几条；
-// types 是用逗号分隔的事件类型，exclude_types 是不要返回的事件类型（同样用逗号分隔），actor_kind 和 actor 是操作者类型和名称，card_id 只看某张卡片的事件，不填都表示不限。
+// types 是用逗号分隔的事件类型，exclude_types 是不要返回的事件类型（同样用逗号分隔），actor_kind 和 actor 是操作者类型和名称，card_id 只看某个任务的事件，不填都表示不限。
 type activityInput struct {
 	boardPath
 	Before       int64  `form:"before" json:"-"`
@@ -59,7 +58,7 @@ type waitUpdatesInput struct {
 	TimeoutSeconds int `json:"timeout_seconds"`
 }
 
-// snapshot 一次返回整块看板：看板、列、规则、全部卡片和读取之前的最新事件序号。
+// snapshot 一次返回整块看板：看板、列、规则、全部任务和读取之前的最新事件序号。
 func (a API) snapshot(ctx context.Context, _ kanban.Actor, in *boardPath) (*kanban.Snapshot, error) {
 	return a.core.BoardSnapshot(ctx, in.BoardID)
 }
@@ -69,7 +68,7 @@ func (a API) listEvents(ctx context.Context, _ kanban.Actor, in *listEventsInput
 	return a.core.ListEvents(ctx, in.BoardID, in.After, in.Limit)
 }
 
-// activity 返回看板的活动流：从新到旧，可按事件类型、操作者和卡片筛选，网页的活动抽屉和卡片详情用。
+// activity 返回看板的活动流：从新到旧，可按事件类型、操作者和任务筛选，网页的活动抽屉和任务详情用。
 // types 和 exclude_types 里出现空项（比如多写了逗号）会被当成不认识的类型，返回 400。
 func (a API) activity(ctx context.Context, _ kanban.Actor, in *activityInput) (*kanban.ActivityPage, error) {
 	q := kanban.ActivityQuery{Before: in.Before, Limit: in.Limit, ActivityFilter: kanban.ActivityFilter{

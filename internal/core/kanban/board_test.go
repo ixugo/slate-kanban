@@ -265,7 +265,7 @@ func TestListBoards(t *testing.T) {
 }
 
 // TestListBoardsLastActivity 验证看板列表带最后活动时间：取看板自身更新时间和最新事件时间里较晚的那个，
-// 所以看板本身没被改过、但卡片上一直有动静时，列表里的时间是新的。
+// 所以看板本身没被改过、但任务上一直有动静时，列表里的时间是新的。
 func TestListBoardsLastActivity(t *testing.T) {
 	ctx := context.Background()
 	core, db := newBare(t)

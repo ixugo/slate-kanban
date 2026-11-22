@@ -9,7 +9,7 @@ import (
 	"github.com/ixugo/goddd/pkg/reason"
 )
 
-// ListProjectTemplates 返回全部自定义项目模板摘要，人和 agent 都可以读。
+// ListProjectTemplates 返回内置与自定义项目模板摘要，人和 agent 都可以读。
 func (c Core) ListProjectTemplates(ctx context.Context, actor Actor) ([]ProjectTemplateSummary, error) {
 	if err := actor.Validate(); err != nil {
 		return nil, err
@@ -18,9 +18,14 @@ func (c Core) ListProjectTemplates(ctx context.Context, actor Actor) ([]ProjectT
 	if err != nil {
 		return nil, wrapDB("读取项目模板列表", err)
 	}
-	out := make([]ProjectTemplateSummary, len(items))
-	for i, t := range items {
-		out[i] = ProjectTemplateSummary{ID: t.ID, Name: t.Name, UpdatedAt: t.UpdatedAt}
+	out := make([]ProjectTemplateSummary, 0, len(items))
+	for _, t := range items {
+		item := ProjectTemplateSummary{ID: t.ID, Name: t.Name, UpdatedAt: t.UpdatedAt, Builtin: t.Name == TemplateDev}
+		if item.Builtin {
+			out = slices.Insert(out, 0, item)
+			continue
+		}
+		out = append(out, item)
 	}
 	return out, nil
 }
@@ -80,7 +85,7 @@ func (c Core) ExportProjectTemplateFromBoard(ctx context.Context, actor Actor, b
 	}, nil
 }
 
-// ImportProjectTemplate 把 JSON 导入为自定义模板；replace 为真时同名先删后建，在同一事务里完成。
+// ImportProjectTemplate 把 JSON 导入为自定义模板；replace 为真时在同一事务里更新同名模板，保持 ID 不变。
 func (c Core) ImportProjectTemplate(ctx context.Context, actor Actor, raw []byte, replace bool) (*ProjectTemplateDetail, error) {
 	if err := requireHuman(actor); err != nil {
 		return nil, err
@@ -96,25 +101,32 @@ func (c Core) ImportProjectTemplate(ctx context.Context, actor Actor, raw []byte
 	}
 	var out *ProjectTemplateDetail
 	err = c.run(ctx, 0, func(u *unit) error {
-		existing, err := u.projectTemplate.GetByName(ctx, file.Name)
+		row, err := u.projectTemplate.LockByName(ctx, file.Name)
 		if err != nil && !orm.IsErrRecordNotFound(err) {
 			return wrapDB("查询模板", err)
 		}
-		if existing != nil {
+		now := u.now()
+		if row == nil {
+			row = &ProjectTemplate{Name: file.Name, Definition: string(definition), CreatedAt: now, UpdatedAt: now}
+			board := row.NewTemplateBoard()
+			if err := u.board.Create(ctx, board); err != nil {
+				return wrapDB("创建模板项目", err)
+			}
+			row.BoardID = board.ID
+			if err := u.projectTemplate.Create(ctx, row); err != nil {
+				if orm.IsDuplicatedKey(err) {
+					return ErrProjectTemplateNameTaken
+				}
+				return wrapDB("创建模板", err)
+			}
+		} else {
 			if !replace {
 				return ErrProjectTemplateNameTaken
 			}
-			if err := u.projectTemplate.Delete(ctx, existing.ID); err != nil {
-				return wrapDB("删除旧模板", err)
+			row.Definition, row.UpdatedAt = string(definition), now
+			if err := u.projectTemplate.Save(ctx, row); err != nil {
+				return wrapDB("覆盖模板", err)
 			}
-		}
-		now := u.now()
-		row := &ProjectTemplate{Name: file.Name, Definition: string(definition), CreatedAt: now, UpdatedAt: now}
-		if err := u.projectTemplate.Create(ctx, row); err != nil {
-			if orm.IsDuplicatedKey(err) {
-				return ErrProjectTemplateNameTaken
-			}
-			return wrapDB("创建模板", err)
 		}
 		out = &ProjectTemplateDetail{
 			ID: row.ID, Name: row.Name, UpdatedAt: row.UpdatedAt, ProjectTemplateBody: body,
@@ -133,21 +145,40 @@ func (c Core) DeleteProjectTemplate(ctx context.Context, actor Actor, id int64) 
 		return err
 	}
 	return c.run(ctx, 0, func(u *unit) error {
-		return u.projectTemplate.Delete(ctx, id)
+		row, err := u.projectTemplate.GetByID(ctx, id)
+		if orm.IsErrRecordNotFound(err) {
+			return nil
+		}
+		if err != nil {
+			return wrapDB("查询模板", err)
+		}
+		if row.Name == TemplateDev {
+			return invalidf("不能删除内置研发模板")
+		}
+		if err := u.projectTemplate.Delete(ctx, id); err != nil {
+			return wrapDB("删除模板", err)
+		}
+		if err := u.board.Delete(ctx, &Board{ID: row.BoardID}); err != nil {
+			return wrapDB("删除模板项目", err)
+		}
+		return nil
 	})
 }
 
-// loadProjectTemplateBody 按主键读出模板并解析 definition 字段。
-func (c Core) loadProjectTemplateBody(ctx context.Context, id int64) (*ProjectTemplate, *ProjectTemplateBody, error) {
+// loadProjectTemplateBody 读取模板定义。内置研发模板继续使用随语言变化的代码种子。
+func (c Core) loadProjectTemplateBody(ctx context.Context, id int64) (*ProjectTemplateBody, error) {
 	row, err := c.store.ProjectTemplate().GetByID(ctx, id)
 	if err != nil {
-		return nil, nil, mapNotFound(err, ErrProjectTemplateNotFound, "读取项目模板")
+		return nil, mapNotFound(err, ErrProjectTemplateNotFound, "读取项目模板")
+	}
+	if row.Name == TemplateDev {
+		return nil, nil
 	}
 	var body ProjectTemplateBody
 	if err := json.Unmarshal([]byte(row.Definition), &body); err != nil {
-		return nil, nil, reason.ErrJSON.WithCause(err).Withf("解析模板定义")
+		return nil, reason.ErrJSON.WithCause(err).Withf("解析模板定义")
 	}
-	return row, &body, nil
+	return &body, nil
 }
 
 // projectTemplateBodyFromFile 从信封里抽出存库用的主体。

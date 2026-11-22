@@ -45,7 +45,7 @@ func TestMoveCardTop(t *testing.T) {
 }
 
 // TestMoveCardTopEmptyAndSameColumn 验证目标列是空列时放到顶部不出错；
-// 同一列里要求顶部，会把卡片调到第一位，已经在第一位时什么都不做（不写事件）。
+// 同一列里要求顶部，会把任务调到第一位，已经在第一位时什么都不做（不写事件）。
 func TestMoveCardTopEmptyAndSameColumn(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -73,7 +73,7 @@ func TestMoveCardTopEmptyAndSameColumn(t *testing.T) {
 	}
 }
 
-// TestFinishCardPlacement 验证交接的落点：默认放目标列末尾，Top 放最顶部，指定参照卡片以指定为准。
+// TestFinishCardPlacement 验证交接的落点：默认放目标列末尾，Top 放最顶部，指定参照任务以指定为准。
 func TestFinishCardPlacement(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
@@ -110,7 +110,7 @@ func TestFinishCardPlacement(t *testing.T) {
 	}
 }
 
-// TestCreateCardTop 验证创建卡片：默认放列尾，Top 放到所在列最顶部，空列也能用。
+// TestCreateCardTop 验证创建任务：默认放列尾，Top 放到所在列最顶部，空列也能用。
 func TestCreateCardTop(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)

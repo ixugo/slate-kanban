@@ -15,7 +15,7 @@ const ACTIVITY = 'GET /api/v1/boards/:id/activity'
 
 const snapshot = makeSnapshot({
   name: '活动测试',
-  cards: [makeCard({ id: 1, title: '卡片一', column_id: 1 }), makeCard({ id: 2, title: '卡片二', column_id: 2 })],
+  cards: [makeCard({ id: 1, title: '任务一', column_id: 1 }), makeCard({ id: 2, title: '任务二', column_id: 2 })],
 })
 
 // 造一条事件
@@ -23,13 +23,13 @@ function ev(id: number, type: string, kind: ActorKind, actor: string, payload: R
   return { id, board_id: 1, card_id: cardId, type, actor_kind: kind, actor, payload, created_at: '2026-11-18T08:00:00Z' }
 }
 
-// 默认的四条事件：人建卡、规则触发、agent 评论、人移动卡片（序号越大越新）
+// 默认的四条事件：人建卡、规则触发、agent 评论、人移动任务（序号越大越新）
 function defaultEvents(): BoardEvent[] {
   return [
-    ev(1, 'card.created', 'human', 'human', { key: 'SLATE-1', title: '卡片一', column: 'Todo' }, 1),
+    ev(1, 'card.created', 'human', 'human', { key: 'SLATE-1', title: '任务一', column: 'Todo' }, 1),
     ev(2, 'automation.fired', 'system', 'automation:开始计时', { key: 'SLATE-1', actions: ['set_started_at'], skipped: [] }, 1),
     ev(3, 'comment.added', 'agent', 'codex', { key: 'SLATE-1', snippet: '收到，开始做' }, 1),
-    ev(4, 'card.moved', 'human', 'human', { key: 'SLATE-2', title: '卡片二', from: 'Todo', to: 'Doing' }, 2),
+    ev(4, 'card.moved', 'human', 'human', { key: 'SLATE-2', title: '任务二', from: 'Todo', to: 'Doing' }, 2),
   ]
 }
 
@@ -80,7 +80,7 @@ function setup(events: BoardEvent[] = defaultEvents(), extra: Record<string, unk
 
 // 点工具栏上的「活动」按钮，等抽屉出现，返回抽屉元素
 async function openDrawer(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByText('卡片一')
+  await screen.findByText('任务一')
   await user.click(screen.getByRole('button', { name: en.activity.open }))
   return screen.findByRole('dialog', { name: en.activity.title })
 }
@@ -101,7 +101,7 @@ describe('活动抽屉', () => {
     expect(rows).toHaveLength(4)
     expect(rows[0]).toContain('Me')
     expect(rows[0]).toContain('moved the task from “Todo” to “Doing”')
-    expect(rows[0]).toContain('#2 卡片二')
+    expect(rows[0]).toContain('#2 任务二')
     expect(rows[1]).toContain('codex')
     expect(rows[1]).toContain('commented')
     expect(rows[1]).toContain('收到，开始做')
@@ -231,19 +231,19 @@ describe('活动抽屉', () => {
     expect(api.count(ACTIVITY)).toBe(before)
   })
 
-  it('点还在看板上的卡片：抽屉关闭并打开这张卡片；已删除的卡片只显示文字', async () => {
+  it('点还在看板上的任务：抽屉关闭并打开这个任务；已删除的任务只显示文字', async () => {
     const events = [...defaultEvents(), ev(5, 'card.deleted', 'human', 'human', { key: 'SLATE-9', title: '已删的卡' }, 9)]
-    const detail = { ...makeCard({ id: 2, title: '卡片二', column_id: 2 }), column_instruction: '', dependencies: [], comments: [] }
+    const detail = { ...makeCard({ id: 2, title: '任务二', column_id: 2 }), column_instruction: '', dependencies: [], comments: [] }
     const { api, user } = setup(events, { 'GET /api/v1/cards/:id': detail })
     const dialog = await openDrawer(user)
     await within(dialog).findByText(/deleted the task/)
     expect(within(dialog).queryByRole('link', { name: /已删的卡/ })).toBeNull()
     expect(within(dialog).getByText('#9 已删的卡')).toBeInTheDocument()
 
-    const link = within(dialog).getByRole('link', { name: '#2 卡片二' })
+    const link = within(dialog).getByRole('link', { name: '#2 任务二' })
     expect(link).toHaveAttribute('href', '/b/1?card=2')
     await user.click(link)
-    // 卡片弹窗一打开，抽屉会被标成隐藏，按角色查不到它，所以直接看抽屉的节点是不是真的卸掉了
+    // 任务弹窗一打开，抽屉会被标成隐藏，按角色查不到它，所以直接看抽屉的节点是不是真的卸掉了
     await waitFor(() => expect(document.querySelector('[data-slot="sheet-content"]')).toBeNull())
     await waitFor(() => expect(api.count('GET /api/v1/cards/:id')).toBeGreaterThan(0))
   })

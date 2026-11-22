@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// viewFixture 构造一个看板的内存数据：三列（待办、进行中、完成），几张带依赖和租约的卡片。
+// viewFixture 构造一个看板的内存数据：三列（待办、进行中、完成），几个带依赖和租约的任务。
 func viewFixture() (*boardIndex, map[string]*Card) {
 	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
 	cols := []*Column{

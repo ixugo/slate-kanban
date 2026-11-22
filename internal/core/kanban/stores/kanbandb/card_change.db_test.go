@@ -70,7 +70,7 @@ func TestCardChangeKeepsLongMultilineText(t *testing.T) {
 	})
 }
 
-// TestCardChangeDelete 验证按卡片、按看板删除都只影响自己的范围。
+// TestCardChangeDelete 验证按任务、按看板删除都只影响自己的范围。
 func TestCardChangeDelete(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
 		ctx := context.Background()
@@ -80,13 +80,13 @@ func TestCardChangeDelete(t *testing.T) {
 		c := addCardChange(t, store, 2, 20, "c1", "c2")
 
 		if err := store.DeleteByCard(ctx, 10); err != nil {
-			t.Fatalf("按卡片删除失败: %v", err)
+			t.Fatalf("按任务删除失败: %v", err)
 		}
 		if _, err := store.GetByID(ctx, a.ID); !orm.IsErrRecordNotFound(err) {
-			t.Fatalf("卡片 10 的记录应该没了: %v", err)
+			t.Fatalf("任务 10 的记录应该没了: %v", err)
 		}
 		if _, err := store.GetByID(ctx, b.ID); err != nil {
-			t.Fatalf("卡片 11 的记录不该受影响: %v", err)
+			t.Fatalf("任务 11 的记录不该受影响: %v", err)
 		}
 		if err := store.DeleteByBoard(ctx, 1); err != nil {
 			t.Fatalf("按看板删除失败: %v", err)
@@ -99,7 +99,7 @@ func TestCardChangeDelete(t *testing.T) {
 		}
 		// 没有可删的记录也算成功
 		if err := store.DeleteByCard(ctx, 999); err != nil {
-			t.Fatalf("删除不存在的卡片的记录应该成功: %v", err)
+			t.Fatalf("删除不存在的任务的记录应该成功: %v", err)
 		}
 	})
 }

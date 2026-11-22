@@ -1,4 +1,4 @@
-// 卡片的「评论和活动」：最上面是写评论的编辑器，下面把评论和这张卡片发生过的事（建卡、换列、认领、自动化……）
+// 任务的「评论和活动」：最上面是写评论的编辑器，下面把评论和这个任务发生过的事（建卡、换列、认领、自动化……）
 // 按时间从新到旧排在一起；「显示详情」可以收起事件，只看评论。Ctrl/Cmd+Enter 发送评论。
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -11,6 +11,7 @@ import type { ActorKind, BoardEvent, Comment } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { LazyEditor } from '@/features/editor/LazyEditor'
 import { actorLabel, describeEvent } from '@/features/activity/describeEvent'
+import { EventPreviousValues } from '@/features/activity/EventPreviousValues'
 import { ViewChangeLink } from '@/features/activity/ViewChangeLink'
 import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
 import { COMMENT_MAX } from '@/lib/limits'
@@ -25,15 +26,16 @@ interface CardTimelineProps {
   boardId: number
   comments: Comment[]
   renderCardReference: CardReferenceRenderer
+  readOnly?: boolean
 }
 
 const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent: BotIcon, system: ZapIcon }
 
 /** 时间线上的一条事件：图标、谁做了什么、补充说明和时间 */
-function EventLine({ event }: { event: BoardEvent }) {
+function EventLine({ event, renderCardReference }: { event: BoardEvent; renderCardReference: CardReferenceRenderer }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
-  const { text, detail, descriptionChangeId } = describeEvent(event, t)
+  const { text, detail, descriptionChangeId, previousValues } = describeEvent(event, t)
   const Icon = ACTOR_ICONS[event.actor_kind] ?? ZapIcon
   return (
     <li className="flex gap-2.5 px-1 text-ui">
@@ -47,6 +49,7 @@ function EventLine({ event }: { event: BoardEvent }) {
           {descriptionChangeId !== undefined && <ViewChangeLink cardId={event.card_id} changeId={descriptionChangeId} />}
         </p>
         {detail !== '' && <p className="line-clamp-2 text-xs break-words text-muted-foreground">{detail}</p>}
+        <EventPreviousValues values={previousValues} renderReference={(_, number) => renderCardReference(number, `#${number}`)} />
         <time dateTime={event.created_at} title={formatDateTime(event.created_at, lang)} className="font-mono text-[0.6875rem] text-muted-foreground">
           {formatRelative(event.created_at, lang)}
         </time>
@@ -56,7 +59,7 @@ function EventLine({ event }: { event: BoardEvent }) {
 }
 
 /** 评论和活动 */
-export function CardTimeline({ cardId, boardId, comments, renderCardReference }: CardTimelineProps) {
+export function CardTimeline({ cardId, boardId, comments, renderCardReference, readOnly }: CardTimelineProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const [body, setBody] = useState('')
@@ -96,7 +99,7 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference }:
           {showDetails ? t('card.timeline.hideDetails') : t('card.timeline.showDetails')}
         </Button>
       </div>
-      <LazyEditor
+      {!readOnly && <LazyEditor
         compact
         value={body}
         onChange={setBody}
@@ -106,8 +109,8 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference }:
         onSubmit={() => body.trim() && send.mutate()}
         boardId={boardId}
         toolbarOnFocus
-      />
-      {body.trim() && (
+      />}
+      {!readOnly && body.trim() && (
         // mousedown 时不让编辑区失焦：失焦会收起记号和图片旁的原文，按钮被顶得移位，这次点击就落空了
         <Button type="button" size="sm" disabled={send.isPending} onMouseDown={(e) => e.preventDefault()} onClick={() => send.mutate()}>
           {t('card.comment.send')}
@@ -117,7 +120,7 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference }:
       <ul className="space-y-3">
         {items.map((item) =>
           item.kind === 'event' ? (
-            <EventLine key={`e${item.id}`} event={item.event} />
+            <EventLine key={`e${item.id}`} event={item.event} renderCardReference={renderCardReference} />
           ) : (
             <li key={`c${item.id}`} className="rounded-2xl bg-secondary/60 p-3.5">
               <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -128,9 +131,9 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference }:
                 <time dateTime={item.comment.created_at} title={formatDateTime(item.comment.created_at, lang)} className="font-mono">
                   {formatRelative(item.comment.created_at, lang)}
                 </time>
-                <Button type="button" variant="ghost" size="xs" className="ml-auto" onClick={() => remove.mutate(item.comment.id)}>
+                {!readOnly && <Button type="button" variant="ghost" size="xs" className="ml-auto" onClick={() => remove.mutate(item.comment.id)}>
                   {t('common.delete')}
-                </Button>
+                </Button>}
               </div>
               <Markdown source={item.comment.body} renderCardReference={renderCardReference} />
             </li>

@@ -1,10 +1,10 @@
-// 按主键加载卡片详情。
+// 按主键加载任务详情。
 
 import { useQuery } from '@tanstack/react-query'
 import { getCardDetail } from '@/lib/api/endpoints'
 import { queryKeys } from '@/lib/queryKeys'
 
-/** 读取单张卡片详情 */
+/** 读取单个任务详情 */
 export function useCardDetail(cardId: number) {
   return useQuery({
     queryKey: queryKeys.card(cardId),

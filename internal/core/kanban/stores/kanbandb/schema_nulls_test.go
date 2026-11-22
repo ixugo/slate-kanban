@@ -13,7 +13,7 @@ import (
 
 // nullableAllowed 是允许为 NULL 的列：用 NULL 表示「没有这个时间」的时间戳，和 deleted_at 一类，
 // 其余所有列（字符串、数字、主键引用、JSON 数组）一律非空，用 0 值、空串或 [] 表达没有。
-var nullableAllowed = []string{"cards.due_at", "cards.started_at", "cards.finished_at", "cards.claim_expires_at"}
+var nullableAllowed = []string{"cards.due_at", "cards.started_at", "cards.finished_at", "cards.claim_expires_at", "cards.archived_at"}
 
 // TestNoNullableColumns 防回归：表结构同步以后，除了白名单里的时间戳列，不允许有可空列。
 func TestNoNullableColumns(t *testing.T) {

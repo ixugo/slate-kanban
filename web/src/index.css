@@ -290,7 +290,7 @@ html:lang(ko) {
   }
 }
 
-/* agent 正在处理这张卡片时的呼吸圆点 */
+/* agent 正在处理这个任务时的呼吸圆点 */
 @keyframes signal-pulse {
   0% {
     box-shadow: 0 0 0 0 color-mix(in oklch, var(--agent) 60%, transparent);

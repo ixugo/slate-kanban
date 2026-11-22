@@ -1,4 +1,4 @@
-// 卡片弹窗标题下面的一排属性：优先级、标签、日期、依赖、分支、链接、仅人工，做成紧凑的小按钮（对齐 Trello 的「添加到卡片」）。
+// 任务弹窗标题下面的一排属性：优先级、标签、日期、依赖、分支、链接、仅人工，做成紧凑的小按钮（对齐 Trello 的「添加到卡片」）。
 // 没设值时按钮上只有图标和名称；设了值就把值显示在按钮上。点开按钮才出现编辑控件，平时不占地方。
 // 标签例外：设了标签以后单独占一行，显示成大号标签（对齐 Trello）。
 
@@ -9,6 +9,8 @@ import type { CardDetail, Engineer } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { displayKey } from '@/lib/cardKey'
+import type { CardReferenceRenderer } from '@/lib/markdown'
 import { CARD_BRANCH_MAX, CARD_URL_MAX } from '@/lib/limits'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -136,21 +138,46 @@ function TagsSection({ tagIds, onTriggerClick }: { tagIds: number[]; onTriggerCl
   )
 }
 
-/** 依赖：按钮上显示依赖的张数，点开后增删 */
-function DepsChip({ card, depOptions, onPatch }: CardMetaProps & { depOptions: CardDetail['dependencies'] }) {
+interface DependenciesProps extends CardMetaProps {
+  depOptions: CardDetail['dependencies']
+  renderCardReference: CardReferenceRenderer
+}
+
+/** 已选依赖和标签、日期一样在属性区单独展示。 */
+function Dependencies({ card, depOptions, onPatch, renderCardReference }: DependenciesProps) {
   const { t } = useTranslation()
-  const count = (card.waits_on ?? []).length
+  const selected = card.waits_on ?? []
+  const refs = depOptions.filter(({ id }) => selected.includes(id))
+  const trigger = (compact: boolean) => (
+    <PopoverTrigger asChild>
+      <Button type="button" variant="secondary" className={compact ? 'size-8 rounded-md' : CHIP_CLASS} aria-label={t('card.field.deps')}>
+        {compact ? <PlusIcon /> : <ChipLabel icon={<Link2Icon />}>{t('card.field.deps')}</ChipLabel>}
+      </Button>
+    </PopoverTrigger>
+  )
+
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="secondary" className={cn(CHIP_CLASS, count > 0 && 'bg-accent')}>
-          <ChipLabel icon={<Link2Icon />}>{count > 0 ? `${t('card.field.deps')} ${count}` : t('card.field.deps')}</ChipLabel>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-80">
+      {refs.length > 0 ? (
+        <section aria-label={t('card.field.deps')} className="space-y-1.5">
+          <h3 className="text-xs font-semibold text-muted-foreground">{t('card.field.deps')}</h3>
+          <ul className="flex flex-wrap items-center gap-1.5">
+            {refs.map(({ id, key }) => {
+              const label = displayKey(key)
+              return (
+                <li key={id} className="rounded-md bg-secondary px-2.5 py-1 font-mono text-xs">
+                  {renderCardReference(Number(label.slice(1)), label)}
+                </li>
+              )
+            })}
+            <li>{trigger(true)}</li>
+          </ul>
+        </section>
+      ) : trigger(false)}
+      <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-80 max-w-[calc(100vw-1rem)] overflow-y-auto">
         <DependencyPicker
           cardId={card.id}
-          selected={card.waits_on}
+          selected={selected}
           options={depOptions}
           onChange={(waits_on) => onPatch({ waits_on, version: card.version })}
         />
@@ -200,7 +227,7 @@ function hostOf(url: string): string {
 }
 
 /** 标题下面的一排属性按钮，放不下就换行 */
-export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps & { depOptions: CardDetail['dependencies']; engineers: Engineer[] }) {
+export function CardMeta({ card, depOptions, engineers, onPatch, renderCardReference }: DependenciesProps & { engineers: Engineer[] }) {
   const { t } = useTranslation()
   // 标签选择器的开关放在这里：加第一枚标签时入口从按钮挪到标签区，弹层不能跟着关掉
   const [tagsOpen, setTagsOpen] = useState(false)
@@ -214,6 +241,8 @@ export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps
   }
   const tagIds = card.tag_ids ?? []
   const hasTags = tagIds.length > 0
+  const hasDependencies = depOptions.some(({ id }) => card.waits_on?.includes(id))
+  const dependencies = <Dependencies card={card} depOptions={depOptions} onPatch={onPatch} renderCardReference={renderCardReference} />
 
   const saveUrl = (url: string) => {
     const norm = normalizeCardUrl(url)
@@ -231,7 +260,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps
         {!hasTags && <TagsChip onTriggerClick={freezeAnchor} />}
         <EngineerChip card={card} engineers={engineers} onPatch={onPatch} />
         {!hasDates(card) && <DatesChip card={card} onPatch={onPatch} />}
-        <DepsChip card={card} depOptions={depOptions} onPatch={onPatch} />
+        {!hasDependencies && dependencies}
         <TextChip
           icon={<GitBranchIcon />}
           name={t('card.field.branch')}
@@ -252,6 +281,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps
       </div>
       {hasTags && <TagsSection tagIds={tagIds} onTriggerClick={freezeAnchor} />}
       {hasDates(card) && <DatesSection card={card} onPatch={onPatch} />}
+      {hasDependencies && dependencies}
       {anchorRect && <PopoverAnchor virtualRef={anchorRef} />}
       {/* 标签选择器：编辑页（30 色色板）比较高，高度不超过窗口剩余空间，放不下时弹层内部滚动，保存按钮始终够得着 */}
       <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-72 overflow-y-auto">

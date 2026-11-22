@@ -1,4 +1,4 @@
-// 全局设置里的「模板」页：列出、删除、导入自定义项目模板。
+// 全局设置里的「模板」页：展示内置模板，并管理导入的自定义模板。
 
 import { Loader2Icon, Trash2Icon, UploadIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { deleteProjectTemplate, importProjectTemplate, listProjectTemplates } from '@/lib/api/endpoints'
-import type { ProjectTemplateSummary } from '@/lib/api/types'
 import { ApiError } from '@/lib/api/client'
 import { useErrorToast } from '@/lib/useErrorToast'
 import { toast } from '@/lib/toast'
@@ -32,6 +31,8 @@ export function TemplatesSettings() {
     queryKey: ['project-templates'],
     queryFn: ({ signal }) => listProjectTemplates(signal),
   })
+
+  const customTemplates = templates.data?.filter((item) => !item.builtin)
 
   const remove = useMutation({
     mutationFn: (id: number) => deleteProjectTemplate(id),
@@ -64,7 +65,7 @@ export function TemplatesSettings() {
       return
     }
     const name = typeof parsed === 'object' && parsed !== null && 'name' in parsed ? String((parsed as { name: unknown }).name) : ''
-    const exists = templates.data?.some((item) => item.name === name)
+    const exists = customTemplates?.some((item) => item.name === name)
     if (exists && name) {
       setPendingFile(file)
       setPendingName(name)
@@ -107,29 +108,28 @@ export function TemplatesSettings() {
           {templates.error instanceof ApiError ? templates.error.message : t('app.templates.loadFailed')}
         </p>
       )}
-      {templates.data && templates.data.length === 0 && (
-        <p className="text-ui text-muted-foreground">{t('app.templates.empty')}</p>
-      )}
-      {templates.data && templates.data.length > 0 && (
-        <ul className="divide-y divide-border rounded-2xl border border-border bg-card shadow-card">
-          {templates.data.map((item: ProjectTemplateSummary) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <span className="text-ui font-medium">{item.name}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                aria-label={t('app.templates.delete', { name: item.name })}
-                disabled={remove.isPending}
-                onClick={() => remove.mutate(item.id)}
-              >
-                <Trash2Icon />
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="divide-y divide-border rounded-2xl border border-border bg-card shadow-card">
+        <li className="flex items-center justify-between gap-3 px-4 py-3">
+          <span className="text-ui font-medium">{t('boards.create.templates.dev')}</span>
+          <span className="text-xs text-muted-foreground">{t('app.templates.builtin')}</span>
+        </li>
+        {customTemplates?.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
+            <span className="text-ui font-medium">{item.name}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              aria-label={t('app.templates.delete', { name: item.name })}
+              disabled={remove.isPending}
+              onClick={() => remove.mutate(item.id)}
+            >
+              <Trash2Icon />
+            </Button>
+          </li>
+        ))}
+      </ul>
 
       <Dialog open={pendingName !== null} onOpenChange={(open) => !open && (setPendingName(null), setPendingFile(null))}>
         <DialogContent aria-describedby="template-replace-desc">

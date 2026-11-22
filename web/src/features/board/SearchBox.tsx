@@ -1,4 +1,4 @@
-// 看板工具栏搜索框：防抖查询、结果统计、语法错误提示；后面可以接上「筛选」按钮。
+// 看板工具栏搜索框：防抖查询、查询状态、语法错误提示；后面可以接上「筛选」按钮。
 
 import { SearchIcon, XIcon } from 'lucide-react'
 import { forwardRef, useId, useRef, type ReactNode } from 'react'
@@ -9,8 +9,7 @@ import { SearchHelp } from './SearchHelp'
 interface SearchBoxProps {
   query: string
   onChange: (q: string) => void
-  matched: number
-  total: number
+  noResults: boolean
   truncated: boolean
   syntaxError: string
   searching: boolean
@@ -21,12 +20,17 @@ interface SearchBoxProps {
 
 /** 筛选语法搜索输入框 */
 export const SearchBox = forwardRef<HTMLInputElement, SearchBoxProps>(function SearchBox(
-  { query, onChange, matched, total, truncated, syntaxError, searching, active, actions },
+  { query, onChange, noResults, truncated, syntaxError, searching, active, actions },
   ref,
 ) {
   const { t } = useTranslation()
   const errId = useId()
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const status = [
+    noResults && t('search.noResults'),
+    truncated && t('search.truncated', { limit: SEARCH_LIMIT }),
+    searching && t('common.loading'),
+  ].filter(Boolean).join(' · ')
   /** 同时把输入框交给外部的 ref（快捷键 / 要聚焦它）和本组件自己的 ref（清空后要把焦点放回去） */
   const setRefs = (el: HTMLInputElement | null) => {
     inputRef.current = el
@@ -70,11 +74,9 @@ export const SearchBox = forwardRef<HTMLInputElement, SearchBoxProps>(function S
         <SearchHelp onExample={onChange} />
         {actions}
       </div>
-      {active && !syntaxError && (
+      {active && !syntaxError && status && (
         <p className="text-[11px] text-muted-foreground">
-          {matched === 0 ? t('search.noResults') : t('board.columnCount', { matched, total })}
-          {truncated ? ` · ${t('search.truncated', { limit: SEARCH_LIMIT })}` : ''}
-          {searching ? ` · ${t('common.loading')}` : ''}
+          {status}
         </p>
       )}
       {syntaxError && (

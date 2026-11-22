@@ -1,6 +1,9 @@
 package kanban
 
-import "time"
+import (
+	"crypto/rand"
+	"time"
+)
 
 const (
 	// ProjectTemplateFormat 是项目模板 JSON 信封里的 format 固定值。
@@ -13,8 +16,9 @@ const (
 	maxProjectTemplateNameLen = maxBoardNameLen
 )
 
-// ProjectTemplate 是持久化的自定义项目模板，只存名称和结构定义，不含看板业务数据。
+// ProjectTemplate 是模板项目的元数据，保留导入定义及对外使用的稳定模板 ID。
 type ProjectTemplate struct {
+	BoardID    int64     `gorm:"column:board_id;notNull;default:0;uniqueIndex:uq_project_templates_board_id,where:board_id > 0;comment:对应的模板项目 ID" json:"-"`
 	ID         int64     `gorm:"primaryKey" json:"id"`
 	Name       string    `gorm:"column:name;size:100;notNull;default:'';uniqueIndex;comment:模板名称，区分大小写唯一" json:"name"`
 	Definition string    `gorm:"column:definition;type:text;notNull;default:'';comment:标签、工程师、列的 JSON" json:"-"`
@@ -27,11 +31,20 @@ func (*ProjectTemplate) TableName() string {
 	return "project_templates"
 }
 
+// NewTemplateBoard 为模板构造单独的项目记录。项目标识校验拒绝 ~，因此不会占用用户的标识。
+func (t ProjectTemplate) NewTemplateBoard() *Board {
+	return &Board{
+		Name: t.Name, Slug: "~" + rand.Text()[:maxSlugLen-1], IsTemplate: true,
+		CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
+	}
+}
+
 // ProjectTemplateSummary 是列表项，不含完整定义。
 type ProjectTemplateSummary struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
 	UpdatedAt time.Time `json:"updated_at"`
+	Builtin   bool      `json:"builtin"`
 }
 
 // ProjectTemplateFile 是导入导出共用的 JSON 信封（不含数据库 id）。

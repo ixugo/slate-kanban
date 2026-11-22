@@ -37,15 +37,15 @@ func lastDescriptionChangeID(t *testing.T, s *stack, boardID int64) int64 {
 }
 
 // TestCardChangeEndpoint 验证「改描述 → 事件带变更编号 → 按编号读回前后两版」的完整链路：
-// 返回的记录内容和修改者都对；用别的卡片、不存在的编号读取都是 404；路径参数不是数字是 400；
-// 卡片删除后记录也读不到了。
+// 返回的记录内容和修改者都对；用别的任务、不存在的编号读取都是 404；路径参数不是数字是 400；
+// 任务删除后记录也读不到了。
 func TestCardChangeEndpoint(t *testing.T) {
 	s := newStack(t)
 	b := s.newBoard(t, "CHG")
 	todo := b.Columns[1].ID
 	made := decode[card](t, s.human(t, http.MethodPost, "/boards/"+id(b.ID)+"/cards",
 		map[string]any{"title": "写文档", "description": "第一版\n第二行", "column_id": todo}))
-	other := s.newCard(t, b, todo, "别的卡片")
+	other := s.newCard(t, b, todo, "别的任务")
 	path := "/cards/" + id(made.ID)
 
 	decode[card](t, s.human(t, http.MethodPatch, path, map[string]any{"description": "第一版\n改过的第二行\n新增一行"}))
@@ -72,14 +72,14 @@ func TestCardChangeEndpoint(t *testing.T) {
 		t.Fatalf("相邻记录不对: 第一条 %+v 第二条 %+v", first, last)
 	}
 
-	wantFail(t, "用别的卡片读", s.human(t, http.MethodGet, "/cards/"+id(other.ID)+"/changes/"+id(changeID), nil),
+	wantFail(t, "用别的任务读", s.human(t, http.MethodGet, "/cards/"+id(other.ID)+"/changes/"+id(changeID), nil),
 		http.StatusNotFound, "ErrCardChangeNotFound")
 	wantFail(t, "不存在的编号", s.human(t, http.MethodGet, path+"/changes/9999", nil), http.StatusNotFound, "ErrCardChangeNotFound")
 	if resp := s.human(t, http.MethodGet, path+"/changes/abc", nil); resp.Code != http.StatusBadRequest {
 		t.Errorf("编号不是数字应该返回 400，实际 %d %s", resp.Code, resp.Body)
 	}
 
-	wantEmptyObject(t, "删除卡片", s.human(t, http.MethodDelete, path, nil))
-	wantFail(t, "卡片删除后读取", s.human(t, http.MethodGet, path+"/changes/"+id(changeID), nil),
+	wantEmptyObject(t, "删除任务", s.human(t, http.MethodDelete, path, nil))
+	wantFail(t, "任务删除后读取", s.human(t, http.MethodGet, path+"/changes/"+id(changeID), nil),
 		http.StatusNotFound, "ErrCardChangeNotFound")
 }

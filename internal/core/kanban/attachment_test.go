@@ -182,13 +182,13 @@ func TestImageReleasedWhenReferenceRemoved(t *testing.T) {
 	}
 }
 
-// TestImageReleasedWhenCardDeleted 删除卡片时，描述和评论里引用的图片一起清理。
+// TestImageReleasedWhenCardDeleted 删除任务时，描述和评论里引用的图片一起清理。
 func TestImageReleasedWhenCardDeleted(t *testing.T) {
 	ctx := context.Background()
 	e := newImageEnv(t)
 	inDesc, descRef := e.upload(t)
 	inComment, commentRef := e.upload(t)
-	card, err := e.core.CreateCard(ctx, testActor, e.board.ID, kanban.CreateCardInput{Title: "删卡片", Description: descRef})
+	card, err := e.core.CreateCard(ctx, testActor, e.board.ID, kanban.CreateCardInput{Title: "删任务", Description: descRef})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestImageReleasedWhenCardDeleted(t *testing.T) {
 	}
 	for _, token := range []string{inDesc.Token, inComment.Token} {
 		if e.recorded(token) || e.has("TST", token) {
-			t.Fatalf("删除卡片后图片 %s 应该被清理", token)
+			t.Fatalf("删除任务后图片 %s 应该被清理", token)
 		}
 	}
 }
@@ -236,7 +236,7 @@ func TestImageTokensFromOtherSourcesAreIgnored(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !e.recorded(item.Token) || !e.has("OTH", item.Token) {
-		t.Fatalf("别的看板的图片（卡片 %d 仍在引用）不应该被删", card.ID)
+		t.Fatalf("别的看板的图片（任务 %d 仍在引用）不应该被删", card.ID)
 	}
 }
 

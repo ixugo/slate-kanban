@@ -1,4 +1,4 @@
-// 看板搜索：关键字 300 毫秒防抖，再和点选的筛选词合成一条查询，调用 searchCards，把命中的卡片 id 集合交给画布过滤。
+// 看板搜索：关键字 300 毫秒防抖，再和点选的筛选词合成一条查询，调用 searchCards，把命中的任务 id 集合交给画布过滤。
 
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
@@ -61,7 +61,7 @@ export function useBoardSearch(boardId: number | null, filterTerms: readonly str
 
   const visibleIds = useMemo(() => {
     if (!debounced) return null
-    // 第一次结果还没回来时先显示全部卡片；出错或条件太长时显示空，让提示文字解释为什么
+    // 第一次结果还没回来时先显示全部任务；出错或条件太长时显示空，让提示文字解释为什么
     if (!data) return error || tooLong ? new Set<number>() : null
     return new Set(data.cards.map((c) => c.id))
   }, [data, debounced, error, tooLong])

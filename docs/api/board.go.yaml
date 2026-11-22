@@ -70,7 +70,7 @@ paths:
                   description: 起步列文案的语言，不认识的按 en
                 project_template_id:
                   type: integer
-                  description: 自定义项目模板编号；非 0 时从该模板复制列和标签库，忽略 template
+                  description: 项目模板列表返回的编号。非 0 时使用该模板并忽略 template。内置研发模板使用 locale 生成本地化列和规则，自定义模板复制其列、标签和工程师。
               required:
                 - name
       responses:

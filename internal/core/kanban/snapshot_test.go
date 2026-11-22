@@ -9,9 +9,9 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// TestBoardSnapshot 验证整板快照：卡片按列在看板上的顺序、同列按位置排列，而不是按列主键或创建顺序。
+// TestBoardSnapshot 验证整板快照：任务按列在看板上的顺序、同列按位置排列，而不是按列主键或创建顺序。
 // 这里把"完成"列挪到最左边，让列的显示顺序和列主键的顺序不一致，才能验证到排序。
-// 每张卡片带着列名和是否完成，序号等于读取时看板的最新事件序号。
+// 每个任务带着列名和是否完成，序号等于读取时看板的最新事件序号。
 func TestBoardSnapshot(t *testing.T) {
 	ctx := context.Background()
 	e := newCardEnv(t)
@@ -20,7 +20,7 @@ func TestBoardSnapshot(t *testing.T) {
 	c := e.card(t, colTodo, "C")
 	d := e.card(t, colDone, "D")
 	if _, err := e.core.MoveCard(ctx, testActor, a.ID, kanban.MoveCardInput{AfterID: c.ID}); err != nil {
-		t.Fatalf("调整卡片顺序失败: %v", err)
+		t.Fatalf("调整任务顺序失败: %v", err)
 	}
 	order := []int64{e.col(colDone), e.col(colIdea), e.col(colTodo), e.col(colDoing), e.col(colReview)}
 	if _, err := e.core.ReorderColumns(ctx, testActor, e.board.ID, order); err != nil {
@@ -36,7 +36,7 @@ func TestBoardSnapshot(t *testing.T) {
 		got = append(got, v.ID)
 	}
 	if want := []int64{d.ID, b.ID, c.ID, a.ID}; !slices.Equal(got, want) {
-		t.Fatalf("卡片顺序不对: %v，期望 %v", got, want)
+		t.Fatalf("任务顺序不对: %v，期望 %v", got, want)
 	}
 	if snap.Seq != e.lastEvent(t).ID {
 		t.Fatalf("序号应该等于最新事件序号: %d，期望 %d", snap.Seq, e.lastEvent(t).ID)
@@ -50,7 +50,7 @@ func TestBoardSnapshot(t *testing.T) {
 	}
 }
 
-// TestBoardSnapshotEmptyBoard 验证空看板：卡片是空数组而不是 null，序号是建看板那条事件。
+// TestBoardSnapshotEmptyBoard 验证空看板：任务是空数组而不是 null，序号是建看板那条事件。
 func TestBoardSnapshotEmptyBoard(t *testing.T) {
 	e := newCardEnv(t)
 	snap, err := e.core.BoardSnapshot(context.Background(), e.board.ID)

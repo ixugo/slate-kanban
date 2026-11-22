@@ -13,7 +13,7 @@ import (
 // startedAction 是测试里最常用的动作：写开始时间。
 var startedAction = kanban.RuleAction{Type: kanban.ActionSetStartedAt}
 
-// newRuleInput 返回一条合法的创建入参：卡片进入某列时写开始时间。
+// newRuleInput 返回一条合法的创建入参：任务进入某列时写开始时间。
 func newRuleInput(name string, column int64) kanban.CreateRuleInput {
 	return kanban.CreateRuleInput{
 		Name: name, Trigger: kanban.TriggerCardEntered, ColumnID: column,

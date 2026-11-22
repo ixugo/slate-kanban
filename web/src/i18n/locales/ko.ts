@@ -8,7 +8,7 @@ export const ko: Messages = {
     templates: {
       body: '사용자 지정 프로젝트 템플릿을 가져오고, 내보내고, 관리합니다. 프로젝트 설정에서 내보낸 뒤 새 프로젝트를 만들 때 선택할 수 있습니다.',
       import: 'JSON 가져오기',
-      empty: '사용자 지정 템플릿이 없습니다.',
+      builtin: '기본 제공',
       loadFailed: '템플릿 목록을 불러올 수 없습니다.',
       invalidFile: '유효한 프로젝트 템플릿 JSON 파일이 아닙니다.',
       delete: '템플릿 "{{name}}" 삭제',
@@ -98,10 +98,7 @@ export const ko: Messages = {
       descriptionLabel: '설명',
       descriptionPlaceholder: '이 프로젝트의 용도 (선택)',
       template: '템플릿',
-      templateSwitch: '개발 흐름 템플릿 사용',
-      templates: { dev: '개발 흐름', empty: '비어 있음' },
-      customTemplate: '사용자 지정 템플릿',
-      customTemplateNone: '사용 안 함 (아래 시작 템플릿 사용)',
+      templates: { dev: '개발 템플릿', empty: '비어 있음' },
       submit: '프로젝트 만들기',
       submitting: '만드는 중…',
       errors: {
@@ -126,7 +123,6 @@ export const ko: Messages = {
     addCard: '작업 추가',
     addCardPlaceholder: '제목(Enter로 추가)',
     columnDone: '완료',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: '/ 검색, n 새 작업',
     viewToggle: '보드 또는 목록 보기',
     viewBoard: '보드 보기',
@@ -182,6 +178,7 @@ export const ko: Messages = {
     clearFilters: '필터 해제',
     // 修改事件里时间类字段的叫法，比任务详情里的按钮名更完整
     field: { due_at: '마감일', started_at: '시작 시각', finished_at: '완료 시각' },
+    previous: { label: '이전', on: '켜짐', off: '꺼짐', toggle: '{{from}} → {{to}}' },
     // “설명을 변경했습니다, 변경 내용 보기”: 문장과 링크 사이의 문장부호, 링크 문구, 비교 창의 문구
     change: {
       separator: ', ',
@@ -207,6 +204,7 @@ export const ko: Messages = {
       cardTagsUpdated: '태그를 변경했습니다',
       cardMoved: '작업을 「{{from}}」에서 「{{to}}」(으)로 옮겼습니다',
       cardReordered: '열 안에서 작업 순서를 바꿨습니다',
+      cardArchived: '작업을 보관했습니다',
       cardDeleted: '작업을 삭제했습니다',
       cardClaimed: '작업을 맡았습니다',
       cardReleased: '작업 담당을 놓았습니다',
@@ -352,6 +350,16 @@ export const ko: Messages = {
     title: '작업',
     notFound: '이 프로젝트에 해당 작업이 없습니다.',
     versionConflict: '다른 사람이 수정했습니다. 확인 후 다시 저장하세요.',
+    archive: {
+      action: '보관',
+      description: '보관된 작업 보기',
+      empty: '보관된 작업이 없습니다.',
+      confirmTitle: '이 작업을 보관할까요?',
+      confirmBody: '보관 후에도 작업과 댓글을 볼 수 있습니다. 수정과 댓글 작성은 할 수 없습니다.',
+      readOnly: '보관됨 · 읽기 전용',
+      missingDependency: '삭제됨',
+      title: '보관된 작업',
+    },
     field: {
       title: '제목',
       description: '설명',
@@ -375,7 +383,7 @@ export const ko: Messages = {
     dueTime: '마감 시각',
     datesOrder: '마감일은 시작일보다 빠를 수 없습니다',
     descEdit: '편집',
-    descEditHint: '설명 영역을 더블클릭하면 편집할 수 있습니다',
+    descEditHint: '설명 영역을 클릭하면 편집할 수 있습니다',
     descPlaceholder: 'Markdown 지원',
     columnInstructionHint: '에이전트가 이 열의 작업을 맡을 때 읽습니다.',
     claim: {
@@ -405,7 +413,8 @@ export const ko: Messages = {
     tagLimit: '작업당 태그는 최대 {{max}}개입니다.',
     tagTooLong: '태그는 최대 {{max}}자까지입니다.',
     depAdd: '의존 추가',
-    depEmpty: '없음',
+    depSearch: '#번호 또는 제목으로 검색',
+    depNoResults: '일치하는 작업이 없습니다',
     urlInvalid: 'http와 https만 허용됩니다.',
   },
 
@@ -707,7 +716,7 @@ export const ko: Messages = {
       intro: '연결한 뒤 에이전트는 보드를 계속 지켜보다가 작업이 생기면 맡을 수 있습니다. 동작 방식은 이렇습니다:',
       how: {
         connect: '에이전트는 세션을 열어 둔 채 MCP 도구 wait_for_updates를 계속 반복해서 호출합니다.',
-        push: '서버는 각 호출을 붙잡아 두었다가 보드가 바뀌는 즉시 응답합니다. 변화가 없으면 약 50초에 한 번만 요청하며, 작업을 가져오는 폴링이 아닙니다.',
+        push: '서버는 각 호출을 대기 상태로 두고 보드가 바뀌면 즉시 응답합니다. 장시간 대기를 설정한 연결은 변경이 없을 때 최대 60분까지 기다릴 수 있습니다. 장시간 대기를 지원하지 않는 연결에서는 50초 이하로 설정하세요.',
         loop: 'host의 loop는 이 대기가 아직 살아 있는지 몇 분마다 확인할 뿐입니다. 끊겼다면 에이전트가 다시 대기를 겁니다.',
       },
       board: '보드',
@@ -719,8 +728,10 @@ export const ko: Messages = {
         perm: '무인 실행 중에는 권한 확인 창이 세션을 멈춥니다. 먼저 slate 도구와 자주 쓰는 작업을 「항상 허용」으로 두고, 권한 검사를 끄는 것은 격리된 환경에서만 하세요.',
       },
     },
-    advanced: '수동 설치(고급)',
-    advancedHint: '위의 한 줄 프롬프트로 에이전트가 이 단계를 스스로 처리합니다. 직접 설치하려는 경우에만 펼치세요.',
+    advanced: '수동 설치 및 제거',
+    advancedHint: '위의 한 줄 프롬프트를 사용하면 에이전트가 Slate MCP를 설치합니다.',
+    uninstallMcp: 'Slate MCP 제거',
+    uninstallMcpCursor: '~/.cursor/mcp.json의 mcpServers에서 slate(워커용) 또는 slate-manager(관리자용)를 제거하세요. 다른 항목은 유지하고 파일을 저장한 뒤 Cursor를 다시 시작하세요.',
     skillOptional:
       'skill은 선택 사항입니다. MCP 리소스 slate://skills/slate-kanban이 skill과 완전히 같은 내용을 반환하며, skill이 없으면 감시 프롬프트가 에이전트에게 그것을 읽게 합니다. host가 자동으로 불러오게 하려는 경우에만 설치하세요.',
     managerFold: '관리자용 MCP(선택)',
@@ -778,6 +789,9 @@ export const ko: Messages = {
     ErrAgentOnly: '이 작업은 에이전트 전용입니다.',
     ErrCardHumanOnly: '이 작업은 사람만 처리할 수 있습니다.',
     ErrCardWaiting: '이 작업은 다른 작업이 끝나기를 기다리고 있습니다.',
+    ErrCardArchived: '보관된 작업은 수정할 수 없습니다.',
+    ErrInboxNotFound: '받은 편지함 열을 찾을 수 없습니다. 먼저 받은 편지함을 만드세요.',
+    ErrForkRelationUnavailable: '원본 작업의 라벨 또는 의존 작업이 삭제되어 완전하게 Fork할 수 없습니다.',
     ErrCardClaimed: '이 작업은 이미 다른 에이전트가 맡고 있습니다.',
     ErrEngineerBusy: '이 엔지니어는 다른 작업을 처리 중입니다.',
     ErrNoIdleEngineer: '여유 있는 엔지니어가 없습니다. 차례를 기다려 주세요.',

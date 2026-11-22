@@ -1,4 +1,4 @@
-// 看板中的一列：列头、可排序的卡片列表、添加卡片；支持收起为窄边落点。
+// 看板中的一列：列头、可排序的任务列表、添加任务；支持收起为窄边落点。
 
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -41,7 +41,7 @@ function collapseTowardStart(columnIndex: number, columnCount: number): boolean 
   return columnIndex < columnCount / 2
 }
 
-/** 单列容器，展开时卡片区为拖拽落点，收起时窄边为落点 */
+/** 单列容器，展开时任务区为拖拽落点，收起时窄边为落点 */
 export function ColumnView({
   column,
   cards,
@@ -61,7 +61,7 @@ export function ColumnView({
   const { t } = useTranslation()
   const { columnName } = useTemplateText()
   const name = columnName(column.name)
-  // id 带前缀，不会和同号的卡片撞车（见 columnDropId）；
+  // id 带前缀，不会和同号的任务撞车（见 columnDropId）；
   // data.collapsed 让碰撞检测知道这是收起的窄边，指针落在上面就选它（见 collision.ts）
   const { setNodeRef, isOver } = useDroppable({
     id: columnDropId(column.id),
@@ -72,7 +72,7 @@ export function ColumnView({
   useLayoutEffect(() => {
     const list = listRef.current
     if (!list || scrollCardId === null) return
-    // 快照和 POST 响应可能以任意顺序到达，只有本地创建的具体卡片进入 DOM 才滚动。
+    // 快照和 POST 响应可能以任意顺序到达，只有本地创建的具体任务进入 DOM 才滚动。
     const target = list.querySelector<HTMLElement>(`[data-card-id="${scrollCardId}"]`)
     if (!target) return
     if (target === list.lastElementChild) {

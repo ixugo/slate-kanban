@@ -1,5 +1,5 @@
-// 新建项目对话框：名称必填，其余选填；起步模板用一个开关在「研发流程」和「空白」之间切换，
-// 语言取当前界面语言，起步的列和规则就是这种语言。项目路径由 agent 通过 MCP 回填，这里不问。
+// 新建项目对话框：默认选择内置研发模板，同时可选空白模板或已导入的自定义模板。
+// 内置模板的列和规则使用当前界面语言；项目路径由 agent 通过 MCP 回填。
 
 import { Loader2Icon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -10,10 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useLanguage } from '@/i18n/useLanguage'
-import type { BoardTemplate } from '@/lib/api/types'
 import { BOARD_DESC_MAX, BOARD_NAME_MAX, SLUG_MAX } from '@/lib/limits'
 import { useErrorToast } from '@/lib/useErrorToast'
 import { listProjectTemplates } from '@/lib/api/endpoints'
@@ -34,8 +32,7 @@ function CreateBoardForm({ onDone }: FormProps) {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [description, setDescription] = useState('')
-  const [template, setTemplate] = useState<BoardTemplate>('dev')
-  const [customTemplateId, setCustomTemplateId] = useState<number | ''>('')
+  const [template, setTemplate] = useState('dev')
   const templates = useQuery({ queryKey: ['project-templates'], queryFn: ({ signal }) => listProjectTemplates(signal) })
   const [errors, setErrors] = useState<BoardFormErrors>({})
 
@@ -44,15 +41,14 @@ function CreateBoardForm({ onDone }: FormProps) {
     const found = validateBoardForm({ name, slug })
     setErrors(found)
     if (Object.keys(found).length > 0) return
-    const useCustom = customTemplateId !== ''
     create.mutate(
       {
         name: name.trim(),
         slug: slug.trim() || undefined,
         description: description.trim() || undefined,
-        ...(useCustom
-          ? { project_template_id: customTemplateId }
-          : { template, locale: lang }),
+        ...(template === 'dev' || template === 'empty'
+          ? { template, locale: lang }
+          : { project_template_id: Number(template) }),
       },
       {
         // 跳到新项目后本页面卸载，对话框随之消失，不需要再手动关闭
@@ -124,41 +120,21 @@ function CreateBoardForm({ onDone }: FormProps) {
         />
       </div>
 
-      {(templates.data?.length ?? 0) > 0 && (
-        <div className="space-y-1.5">
-          <Label htmlFor="board-custom-template">{t('boards.create.customTemplate')}</Label>
-          <select
-            id="board-custom-template"
-            className="h-9 w-full rounded-lg border border-input bg-field px-2.5 text-ui outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            value={customTemplateId}
-            onChange={(e) => setCustomTemplateId(e.target.value === '' ? '' : Number(e.target.value))}
-          >
-            <option value="">{t('boards.create.customTemplateNone')}</option>
-            {templates.data?.map((tpl) => (
-              <option key={tpl.id} value={tpl.id}>
-                {tpl.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {customTemplateId === '' && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl bg-secondary px-4 py-3">
-          <Label htmlFor="board-template">{t('boards.create.template')}</Label>
-          <div className="flex items-center gap-2.5">
-            <span className="text-ui text-muted-foreground" aria-live="polite">
-              {t(template === 'dev' ? 'boards.create.templates.dev' : 'boards.create.templates.empty')}
-            </span>
-            <Switch
-              id="board-template"
-              checked={template === 'dev'}
-              onCheckedChange={(on) => setTemplate(on ? 'dev' : 'empty')}
-              aria-label={t('boards.create.templateSwitch')}
-            />
-          </div>
-        </div>
-      )}
+      <div className="space-y-1.5">
+        <Label htmlFor="board-template">{t('boards.create.template')}</Label>
+        <select
+          id="board-template"
+          className="h-9 w-full rounded-lg border border-input bg-field px-2.5 text-ui outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25"
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+        >
+          <option value="dev">{t('boards.create.templates.dev')}</option>
+          <option value="empty">{t('boards.create.templates.empty')}</option>
+          {templates.data?.filter((tpl) => !tpl.builtin).map((tpl) => (
+            <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+          ))}
+        </select>
+      </div>
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onDone}>

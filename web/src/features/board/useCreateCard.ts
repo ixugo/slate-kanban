@@ -1,4 +1,4 @@
-// 在指定列新建卡片：标题必填，成功后让快照失效以便实时流或查询刷新列表。
+// 在指定列新建任务：标题必填，成功后让快照失效以便实时流或查询刷新列表。
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createCard } from '@/lib/api/endpoints'
@@ -6,7 +6,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import { useErrorToast } from '@/lib/useErrorToast'
 import { CARD_TITLE_MAX } from '@/lib/limits'
 
-/** 返回在某列创建卡片的变更 */
+/** 返回在某列创建任务的变更 */
 export function useCreateCard(boardId: number) {
   const queryClient = useQueryClient()
   const toastError = useErrorToast()

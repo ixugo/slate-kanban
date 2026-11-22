@@ -43,6 +43,12 @@ func TestInstructions(t *testing.T) {
 	if !strings.Contains(agent, "先只读拟定方案") || !strings.Contains(agent, "评论成功后") {
 		t.Errorf("agent 初始化说明应该要求调度者先记录方案再让子 agent 开工: %q", agent)
 	}
+	if !strings.Contains(agent, "仍有空位必须查待办") || !strings.Contains(agent, "只表示当前列") {
+		t.Errorf("agent 初始化说明应该要求查完可办列及待办再等待: %q", agent)
+	}
+	if !strings.Contains(agent, "不触发终端阻塞式提问") || !strings.Contains(agent, "路径为空且经人明确确认") {
+		t.Errorf("agent 初始化说明应该在看板澄清并确认路径: %q", agent)
+	}
 	for _, want := range []string{"已有的标签", "不要新建", "任务项"} {
 		if !strings.Contains(agent, want) {
 			t.Errorf("agent 初始化说明应该提醒标签只用已有的、交接前补任务项，缺少 %q", want)

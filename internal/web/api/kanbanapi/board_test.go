@@ -44,7 +44,7 @@ func TestBoardProjectPath(t *testing.T) {
 }
 
 // TestBoardTags 验证通过 REST 维护标签库：新看板自带 6 个标签，整体替换后返回主键，文字可以为空，
-// 非法颜色返回 400，卡片按 tag_ids 引用，看板详情和快照里都带着标签库。
+// 非法颜色返回 400，任务按 tag_ids 引用，看板详情和快照里都带着标签库。
 func TestBoardTags(t *testing.T) {
 	s := newStack(t)
 	b := s.newBoard(t, "LAB")
@@ -64,11 +64,11 @@ func TestBoardTags(t *testing.T) {
 	c := s.newCard(t, b, b.Columns[1].ID, "带标签")
 	got := decode[card](t, s.human(t, http.MethodPatch, "/cards/"+id(c.ID), map[string]any{"tag_ids": []int64{tagID}}))
 	if len(got.TagIDs) != 1 || got.TagIDs[0] != tagID {
-		t.Fatalf("卡片应该按 tag_ids 引用标签: %+v", got)
+		t.Fatalf("任务应该按 tag_ids 引用标签: %+v", got)
 	}
 
 	snap := s.human(t, http.MethodGet, path+"/snapshot", nil)
 	if !strings.Contains(string(snap.Body), `"tags":[{"id":`) || !strings.Contains(string(snap.Body), `"tag_ids":[`) {
-		t.Fatalf("快照里应该带标签库和卡片的 tag_ids: %s", snap.Body)
+		t.Fatalf("快照里应该带标签库和任务的 tag_ids: %s", snap.Body)
 	}
 }

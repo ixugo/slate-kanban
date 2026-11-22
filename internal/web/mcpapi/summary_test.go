@@ -9,7 +9,7 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// TestSummarize 验证卡片摘要：不含描述，标签和依赖永远是数组（不是 null），派生状态和所在列都带上。
+// TestSummarize 验证任务摘要：不含描述，标签和依赖永远是数组（不是 null），派生状态和所在列都带上。
 func TestSummarize(t *testing.T) {
 	due := time.Date(2026, 11, 20, 9, 0, 0, 0, time.UTC)
 	view := &kanban.CardView{
@@ -51,7 +51,7 @@ func TestSummarize(t *testing.T) {
 	}
 }
 
-// TestBriefOf 验证写入结果的卡片字段：不含描述，也不含要靠整个看板才能算出的派生状态，
+// TestBriefOf 验证写入结果的任务字段：不含描述，也不含要靠整个看板才能算出的派生状态，
 // 标签和依赖永远是数组，版本号和编号都在。
 func TestBriefOf(t *testing.T) {
 	raw, err := json.Marshal(briefOf(&kanban.Card{ID: 7, Key: "SLATE-7", Title: "做登录", Description: "secret-description", Version: 4}, nil))
@@ -77,11 +77,11 @@ func TestBriefOf(t *testing.T) {
 	}
 }
 
-// TestSummarizeAllNeverNil 验证没有卡片时返回空切片，序列化出来是 [] 而不是 null。
+// TestSummarizeAllNeverNil 验证没有任务时返回空切片，序列化出来是 [] 而不是 null。
 func TestSummarizeAllNeverNil(t *testing.T) {
 	raw, err := json.Marshal(summarizeAll(nil))
 	if err != nil || string(raw) != "[]" {
-		t.Errorf("没有卡片应该序列化成 []: %s %v", raw, err)
+		t.Errorf("没有任务应该序列化成 []: %s %v", raw, err)
 	}
 }
 

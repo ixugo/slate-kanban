@@ -10,9 +10,8 @@ import (
 	"slate-kanban/internal/lifecycle"
 )
 
-// maxTimeoutSeconds 是入参里等待秒数的上限，只用来防止换算成纳秒时溢出；
-// 真正的等待上限由 Core 决定，超过的会被它压到上限。
-const maxTimeoutSeconds = 3600
+// maxTimeoutSeconds 在换算成纳秒前使用，避免超大的输入溢出。
+const maxTimeoutSeconds = int(kanban.MaxWaitTimeout / time.Second)
 
 // pullIn 是 pull_updates 的入参。since 用指针：没出现和填 0 是两回事，没出现表示"不确认任何东西"。
 type pullIn struct {
@@ -24,7 +23,7 @@ type pullIn struct {
 // waitIn 是 wait_for_updates 的入参：拉取的参数加一个最长等待时间。
 type waitIn struct {
 	pullIn
-	TimeoutSeconds int `json:"timeout_seconds,omitempty" jsonschema:"最长等待秒数，默认 30，最多 50；超时不是错误"`
+	TimeoutSeconds int `json:"timeout_seconds,omitempty" jsonschema:"最长等待秒数，默认 30，最多 3600；超时不是错误"`
 }
 
 // registerSyncTools 注册同步类的工具。拉取更新和阻塞等待只给 agent：它们依赖服务端记录的 agent 读取进度，
@@ -42,7 +41,7 @@ func (a API) registerSyncTools(s *mcp.Server) {
 	register(s, spec{
 		name: "wait_for_updates", kind: kindWrite,
 		desc: "和 pull_updates 一样，但现在没有值得处理的事件时会阻塞等待，直到有更新、超时或服务关闭。" +
-			"用它代替定时轮询：挂着等，有事立刻醒。timeout_seconds 默认 30，最长 50；" +
+			"用它代替定时轮询：挂着等，有事立刻醒。timeout_seconds 默认 30，最长 3600，长等待需要客户端和代理允许；" +
 			"超时不是错误，返回 timed_out 为 true 和空事件，带上返回的 cursor 作为 since 立刻再等一次即可。" +
 			"第一次读这个看板（first）和离线太久（truncated）会立刻返回，不等待。" +
 			"服务关闭时返回 ErrServiceUnavailable，稍后重试。",
@@ -58,7 +57,7 @@ func (a API) pullUpdates(ctx context.Context, actor kanban.Actor, in pullIn) (an
 // 等待期间服务开始关闭会被打断，返回"服务正在关闭"，agent 稍后重试即可；
 // 客户端取消调用时 SDK 会取消 ctx，Core 立刻返回，不会白占着协程。
 func (a API) waitForUpdates(ctx context.Context, actor kanban.Actor, in waitIn) (any, error) {
-	timeout := time.Duration(min(in.TimeoutSeconds, maxTimeoutSeconds)) * time.Second
+	timeout := time.Duration(min(max(in.TimeoutSeconds, -1), maxTimeoutSeconds)) * time.Second
 	bound, cancel := lifecycle.Bind(ctx)
 	defer cancel()
 	out, err := a.core.WaitUpdates(bound, actor, in.BoardID, kanban.WaitInput{

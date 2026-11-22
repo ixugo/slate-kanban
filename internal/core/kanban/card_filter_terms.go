@@ -31,7 +31,7 @@ var isTests = []namedTest{
 	{"finished", func(c *Card, _ *boardIndex) bool { return c.FinishedAt != nil }},
 }
 
-// hasTests 是 has:xxx 和 no:xxx 支持的全部取值，表示卡片"有没有"某项内容。
+// hasTests 是 has:xxx 和 no:xxx 支持的全部取值，表示任务"有没有"某项内容。
 var hasTests = []namedTest{
 	{"due", func(c *Card, _ *boardIndex) bool { return c.DueAt != nil }},
 	{"branch", func(c *Card, _ *boardIndex) bool { return c.Branch != "" }},
@@ -41,7 +41,7 @@ var hasTests = []namedTest{
 	{"deps", func(c *Card, _ *boardIndex) bool { return len(c.WaitsOn) > 0 }},
 }
 
-// priorityLevels 是 priority: 后面可以写的名字，对应卡片优先级的数字。
+// priorityLevels 是 priority: 后面可以写的名字，对应任务优先级的数字。
 var priorityLevels = map[string]int{"high": 3, "medium": 2, "low": 1, "none": 0}
 
 // buildIs 解析 is:xxx。
@@ -49,12 +49,12 @@ func buildIs(text, value string) (testFunc, error) {
 	return pickNamed(text, value, isTests)
 }
 
-// buildHas 解析 has:xxx，卡片有这项内容。
+// buildHas 解析 has:xxx，任务有这项内容。
 func buildHas(text, value string) (testFunc, error) {
 	return pickNamed(text, value, hasTests)
 }
 
-// buildNo 解析 no:xxx，卡片没有这项内容，是 has:xxx 的反面。
+// buildNo 解析 no:xxx，任务没有这项内容，是 has:xxx 的反面。
 func buildNo(text, value string) (testFunc, error) {
 	has, err := pickNamed(text, value, hasTests)
 	if err != nil {
@@ -134,8 +134,8 @@ func (d dayRef) start(ix *boardIndex) time.Time {
 	return time.Date(d.year, d.month, d.day, 0, 0, 0, 0, ix.loc)
 }
 
-// buildDate 构造一个按自然日比较时间字段的判断。pick 取出卡片上要比较的时间，没有时间的卡片不命中。
-// 比较的是日期而不是时刻：due:=today 命中今天任意时刻到期的卡片。
+// buildDate 构造一个按自然日比较时间字段的判断。pick 取出任务上要比较的时间，没有时间的任务不命中。
+// 比较的是日期而不是时刻：due:=today 命中今天任意时刻到期的任务。
 func buildDate(text, value string, pick func(*Card) *time.Time) (testFunc, error) {
 	op, rest := cutOp(value)
 	day, err := parseDay(text, rest)

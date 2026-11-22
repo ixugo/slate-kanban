@@ -1,4 +1,4 @@
-// 活动流里的一条：谁、做了什么、涉及哪张卡片、多久以前。
+// 活动流里的一条：谁、做了什么、涉及哪个任务、多久以前。
 
 import { BotIcon, UserIcon, ZapIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -8,13 +8,15 @@ import type { ActorKind, BoardEvent, CardView } from '@/lib/api/types'
 import { formatDateTime, formatRelative } from '@/lib/format'
 import { actorLabel, describeEvent, eventCard } from './describeEvent'
 import { ViewChangeLink } from './ViewChangeLink'
+import { CardReference } from '@/features/card/CardReference'
+import { EventPreviousValues } from './EventPreviousValues'
 import { displayKey } from '@/lib/cardKey'
 
 interface ActivityItemProps {
   event: BoardEvent
-  /** 看板上现有的卡片，用来取卡片现在的标题并判断能不能点开 */
+  /** 看板上现有的任务，用来取任务现在的标题并判断能不能点开 */
   cardsById: ReadonlyMap<number, CardView>
-  /** 点了卡片链接后调用，让抽屉关掉、露出卡片弹窗 */
+  /** 点了任务链接后调用，让抽屉关掉、露出任务弹窗 */
   onOpenCard: () => void
 }
 
@@ -24,8 +26,8 @@ const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent
 export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
-  const [params] = useSearchParams()
-  const { text, detail, descriptionChangeId } = describeEvent(event, t)
+  const [params, setParams] = useSearchParams()
+  const { text, detail, descriptionChangeId, previousValues } = describeEvent(event, t)
   const card = eventCard(event, cardsById)
   const Icon = ACTOR_ICONS[event.actor_kind] ?? ZapIcon
   // 沿用地址里已有的其他参数，只替换 card
@@ -41,10 +43,28 @@ export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps
         <p className="text-sm leading-snug break-words">
           <span className="font-medium">{actorLabel({ kind: event.actor_kind, name: event.actor }, t)}</span>{' '}
           <span className="text-muted-foreground">{text}</span>
-          {/* 卡片已经删除时，它的变更记录也一并删除了，所以不再给「查看变更」 */}
+          {/* 任务已经删除时，它的变更记录也一并删除了，所以不再给「查看变更」 */}
           {descriptionChangeId !== undefined && card?.id != null && <ViewChangeLink cardId={card.id} changeId={descriptionChangeId} />}
         </p>
         {detail !== '' && <p className="line-clamp-3 text-xs break-words text-muted-foreground">{detail}</p>}
+        <EventPreviousValues
+          values={previousValues}
+          renderReference={(id, number) => {
+            const target = cardsById.get(id)
+            const label = `#${number}`
+            if (!target) return label
+            return (
+              <CardReference label={label} card={target} onOpen={() => {
+                setParams((prev) => {
+                  const params = new URLSearchParams(prev)
+                  params.set('card', String(target.id))
+                  return params
+                })
+                onOpenCard()
+              }} />
+            )
+          }}
+        />
         {card && (
           <p className="truncate text-xs">
             {card.id === null ? (

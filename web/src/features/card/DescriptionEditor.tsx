@@ -1,4 +1,4 @@
-// 卡片描述：平时是渲染好的 Markdown（双击正文进入编辑，任务框可直接勾选）；
+// 任务描述：平时是渲染好的 Markdown（单击正文进入编辑，任务框可直接勾选）；
 // 编辑时是实时渲染编辑器：没有保存按钮，焦点离开或 Ctrl/Cmd+Enter 就保存，Esc 放弃修改。
 
 import { useState, type FocusEvent, type MouseEvent } from 'react'
@@ -46,9 +46,9 @@ export function DescriptionEditor({ value, onSave, renderCardReference, busy, bo
     save()
   }
 
-  /** 链接、卡片引用和任务框继续接收自己的交互 */
-  const onViewDoubleClick = (e: MouseEvent<HTMLDivElement>) => {
-    if ((e.target as Element).closest('a, input, button')) return
+  /** 链接、任务引用和任务框继续接收自己的交互 */
+  const onViewClick = (e: MouseEvent<HTMLDivElement>) => {
+    if (!(e.target instanceof Element) || e.target.closest('a, input, button') || window.getSelection()?.type === 'Range') return
     e.preventDefault()
     startEdit()
   }
@@ -78,7 +78,7 @@ export function DescriptionEditor({ value, onSave, renderCardReference, busy, bo
           />
         </div>
       ) : value ? (
-        <div className="-mx-2.5 cursor-text rounded-xl px-2.5 py-1.5 transition-colors hover:bg-secondary/50" onDoubleClick={onViewDoubleClick}>
+        <div className="-mx-2.5 cursor-text rounded-xl px-2.5 py-1.5 transition-colors hover:bg-secondary/50" onClick={onViewClick}>
           <Markdown
             source={value}
             onToggleTask={busy ? undefined : (line) => onSave(toggleTaskAt(value, line))}
@@ -88,7 +88,7 @@ export function DescriptionEditor({ value, onSave, renderCardReference, busy, bo
       ) : (
         <div
           className="min-h-16 cursor-text rounded-xl bg-secondary/50 px-3 py-2.5 text-ui text-muted-foreground transition-colors hover:bg-secondary"
-          onDoubleClick={onViewDoubleClick}
+          onClick={onViewClick}
         >
           {t('card.descPlaceholder')}
         </div>

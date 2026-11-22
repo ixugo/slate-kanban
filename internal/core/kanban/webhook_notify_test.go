@@ -42,7 +42,7 @@ func TestWebhookNotifyDoesNotBlockCommit(t *testing.T) {
 	if _, err := e.core.CreateCard(context.Background(), testActor, e.board.ID, kanban.CreateCardInput{
 		Title: "推", ColumnID: e.col(colTodo),
 	}); err != nil {
-		t.Fatalf("创建卡片: %v", err)
+		t.Fatalf("创建任务: %v", err)
 	}
 	if time.Since(start) > 2*time.Second {
 		t.Fatal("主事务不应被 webhook 阻塞")
@@ -87,7 +87,7 @@ func TestWebhookAgentActivityDelivered(t *testing.T) {
 	}
 	c := e.card(t, colTodo, "任务")
 	mu.Lock()
-	texts = nil // 人创建卡片不应推送，这里清空只为下面断言更直观
+	texts = nil // 人创建任务不应推送，这里清空只为下面断言更直观
 	mu.Unlock()
 
 	if _, err := e.core.ClaimCard(ctx, testAgent, c.ID, kanban.ClaimCardInput{}); err != nil {

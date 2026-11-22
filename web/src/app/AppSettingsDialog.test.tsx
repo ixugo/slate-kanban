@@ -95,12 +95,18 @@ describe('AppSettingsDialog', () => {
 
   it('模板页签列出模板，重名导入时弹出覆盖确认', async () => {
     const api = installFakeApi({
-      'GET /api/v1/templates': [{ id: 1, name: 'Mine', updated_at: '2020-01-01T00:00:00Z' }],
+      'GET /api/v1/templates': [
+        { id: 1, name: 'Mine', updated_at: '2020-01-01T00:00:00Z', builtin: false },
+        { id: 2, name: 'dev', updated_at: '2020-01-01T00:00:00Z', builtin: true },
+      ],
     })
     renderApp(<AppSettingsButton />)
     await userEvent.click(screen.getByRole('button', { name: en.nav.settings }))
     await userEvent.click(await screen.findByRole('tab', { name: en.preferences.templates }))
     expect(await screen.findByText('Mine')).toBeInTheDocument()
+    expect(screen.getByText(en.boards.create.templates.dev)).toBeInTheDocument()
+    expect(screen.getByText(en.app.templates.builtin)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /delete template/i })).toHaveLength(1)
     const file = new File(
       [JSON.stringify({ format: 'slate-project-template', version: 1, name: 'Mine', columns: [] })],
       't.json',

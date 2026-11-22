@@ -382,7 +382,7 @@ function TimeModeFields({
   )
 }
 
-/** 更多选项里的筛选条件输入框：只有满足条件的卡片才会触发这条规则，留空表示所有卡片 */
+/** 更多选项里的筛选条件输入框：只有满足条件的任务才会触发这条规则，留空表示所有任务 */
 function ConditionField({
   state,
   onChange,

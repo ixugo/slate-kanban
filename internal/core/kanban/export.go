@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// ExportCard 是导出里的一张卡片：视图字段加评论列表；没有评论时用空切片而不是 null。
+// ExportCard 是导出里的一个任务：视图字段加评论列表；没有评论时用空切片而不是 null。
 type ExportCard struct {
 	*CardView
 	Comments []*Comment `json:"comments"`
@@ -25,7 +25,7 @@ type BoardExport struct {
 }
 
 // ExportBoard 读取整板导出数据，权限与快照相同：人和 agent 都可读；看板不存在返回 404。
-// 评论按看板一次性批量读出，再按卡片分组挂到各卡片下。
+// 评论按看板一次性批量读出，再按任务分组挂到各任务下。
 func (c Core) ExportBoard(ctx context.Context, _ Actor, boardID int64) (*BoardExport, error) {
 	seq, err := c.store.Event().LatestSeq(ctx, boardID)
 	if err != nil {
@@ -57,7 +57,7 @@ func (c Core) ExportBoard(ctx context.Context, _ Actor, boardID int64) (*BoardEx
 	return &BoardExport{BoardDetail: detail, Cards: out, Seq: seq}, nil
 }
 
-// groupCommentsByCard 把评论按卡片主键分组，输入应已按卡片、评论主键排好序。
+// groupCommentsByCard 把评论按任务主键分组，输入应已按任务、评论主键排好序。
 func groupCommentsByCard(items []*Comment) map[int64][]*Comment {
 	if len(items) == 0 {
 		return map[int64][]*Comment{}

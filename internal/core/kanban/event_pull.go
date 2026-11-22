@@ -13,7 +13,7 @@ const (
 	maxPullLimit = 500
 )
 
-// quietEventTypes 是只影响看板上卡片或列的排列、或者只是自动化的流水记录的事件。
+// quietEventTypes 是只影响看板上任务或列的排列、或者只是自动化的流水记录的事件。
 // 它们对 agent 没有处理价值，拉取时直接跳过，避免 agent 被拖动排序之类的操作反复唤醒。
 var quietEventTypes = map[string]bool{
 	EventCardReordered:   true,

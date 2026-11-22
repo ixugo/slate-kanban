@@ -1,6 +1,6 @@
-// 卡片的标签选择器（Trello 式）：搜索框、带颜色的标签列表（勾选即加到卡片上）、每项的编辑按钮、新建标签。
-// 标签库里每个标签是一个颜色加一段文字（文字可以为空）；卡片按主键引用标签。
-// 搜索框里输入文字后回车：库里有同文字的标签就勾选它，没有就新建一个无颜色的标签并加到卡片上。
+// 任务的标签选择器（Trello 式）：搜索框、带颜色的标签列表（勾选即加到任务上）、每项的编辑按钮、新建标签。
+// 标签库里每个标签是一个颜色加一段文字（文字可以为空）；任务按主键引用标签。
+// 搜索框里输入文字后回车：库里有同文字的标签就勾选它，没有就新建一个无颜色的标签并加到任务上。
 
 import { useState, type KeyboardEvent } from 'react'
 import { CheckIcon, PencilIcon, PlusIcon } from 'lucide-react'
@@ -17,7 +17,7 @@ import { useLabels } from './useLabels'
 import { useSaveLabels } from './useSaveLabels'
 
 interface LabelPickerProps {
-  /** 这张卡片现有的标签主键 */
+  /** 这个任务现有的标签主键 */
   tagIds: number[]
   onChange: (tagIds: number[]) => void
 }
@@ -44,7 +44,7 @@ export function LabelPicker({ tagIds, onChange }: LabelPickerProps) {
   const visible = needle ? tags.filter((tag) => matchText(tag, t, (text) => text.includes(needle))) : tags
   const has = (id: number) => tagIds.includes(id)
 
-  /** 勾选或取消一个标签；卡片已经满了就提示 */
+  /** 勾选或取消一个标签；任务已经满了就提示 */
   const toggle = (id: number) => {
     if (has(id)) {
       setHint('')
@@ -57,7 +57,7 @@ export function LabelPicker({ tagIds, onChange }: LabelPickerProps) {
     }
   }
 
-  /** 把一个标签追加进标签库（颜色可为空）并加到这张卡片上；保存成功后回到列表 */
+  /** 把一个标签追加进标签库（颜色可为空）并加到这个任务上；保存成功后回到列表 */
   const createAndAttach = (text: string, color: string, onDone?: () => void) => {
     if (tagIds.length >= CARD_TAGS_MAX) {
       setHint(t('card.tagLimit', { max: String(CARD_TAGS_MAX) }))
@@ -86,7 +86,7 @@ export function LabelPicker({ tagIds, onChange }: LabelPickerProps) {
     }
   }
 
-  /** 保存编辑页：新建的追加到库并加到这张卡片上，已有的按主键改文字和颜色 */
+  /** 保存编辑页：新建的追加到库并加到这个任务上，已有的按主键改文字和颜色 */
   const onSave = (draft: LabelDraft) => {
     if (draft.id === 0) {
       createAndAttach(draft.text, draft.color, () => setView({ kind: 'list' }))

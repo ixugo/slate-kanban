@@ -95,7 +95,7 @@ func normalizeEngineerInputs(in []EngineerInput) ([]EngineerInput, error) {
 }
 
 // applyEngineers 在事务里把新的名册写到看板上：主键在名册里的算修改，其余算招募（不信任调用方自带的主键），
-// 名册里原有、入参里没有的算解聘，并把它从所有卡片上摘掉；入参顺序就是新的显示顺序。
+// 名册里原有、入参里没有的算解聘，并把它从所有任务上摘掉；入参顺序就是新的显示顺序。
 // 名册没有任何变化时返回 false，也不写库。
 func (u *unit) applyEngineers(ctx context.Context, b *Board, in []EngineerInput) (bool, error) {
 	prev, err := u.engineer.ListByBoard(ctx, b.ID)
@@ -146,7 +146,7 @@ func (u *unit) applyEngineers(ctx context.Context, b *Board, in []EngineerInput)
 	return changed || removed, nil
 }
 
-// removeEngineers 解聘 prev 里不在 kept 中的工程师，并把他们从看板的卡片上摘掉，返回有没有解聘。
+// removeEngineers 解聘 prev 里不在 kept 中的工程师，并把他们从看板的任务上摘掉，返回有没有解聘。
 func (u *unit) removeEngineers(ctx context.Context, boardID int64, prev []*Engineer, kept map[int64]bool) (bool, error) {
 	gone := make(map[int64]bool)
 	for _, e := range prev {
@@ -164,8 +164,8 @@ func (u *unit) removeEngineers(ctx context.Context, boardID int64, prev []*Engin
 	return true, u.unassignCards(ctx, boardID, gone)
 }
 
-// unassignCards 把被解聘工程师的绑定和占用从看板的全部卡片上清掉，只保存真的变了的卡片
-// （版本加一，旧页面上的修改会被乐观锁挡住）。复杂度 O(卡片数)，一个看板通常是几百张卡片。
+// unassignCards 把被解聘工程师的绑定和占用从看板的活跃任务上清掉，只保存真的变了的任务
+// （版本加一，旧页面上的修改会被乐观锁挡住）。复杂度 O(任务数)，一个看板通常是几百个任务。
 func (u *unit) unassignCards(ctx context.Context, boardID int64, gone map[int64]bool) error {
 	cards, err := u.card.ListByBoard(ctx, boardID)
 	if err != nil {
@@ -173,7 +173,7 @@ func (u *unit) unassignCards(ctx context.Context, boardID int64, gone map[int64]
 	}
 	now := u.now()
 	for _, card := range cards {
-		if !gone[card.EngineerID] && !gone[card.ClaimEngineerID] {
+		if card.ArchivedAt != nil || (!gone[card.EngineerID] && !gone[card.ClaimEngineerID]) {
 			continue
 		}
 		if gone[card.EngineerID] {
@@ -222,7 +222,7 @@ func (c Core) loadEngineers(ctx context.Context, b *Board) error {
 }
 
 // checkEngineerID 确认工程师编号是这个看板名册里的研发类工程师（全栈、前端、后端、UI），0 表示不绑定。
-// 卡片上的绑定只用于研发，所以不接受测试。
+// 任务上的绑定只用于研发，所以不接受测试。
 func (u *unit) checkEngineerID(ctx context.Context, boardID, id int64) error {
 	if id == 0 {
 		return nil

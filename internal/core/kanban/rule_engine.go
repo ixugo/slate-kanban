@@ -8,13 +8,13 @@ import (
 	"slices"
 )
 
-// maxRuleDepth 规则引发的连锁移动最多往下几层：人的操作是第 0 层，规则把卡片移走是第 1 层，依此类推。
-// 超过就不再触发规则，和"同一条规则一次操作里只执行一次"一起防止规则互相把卡片移来移去。
+// maxRuleDepth 规则引发的连锁移动最多往下几层：人的操作是第 0 层，规则把任务移走是第 1 层，依此类推。
+// 超过就不再触发规则，和"同一条规则一次操作里只执行一次"一起防止规则互相把任务移来移去。
 const maxRuleDepth = 3
 
-// ruleRun 是一次操作里规则引擎的运行状态。一次操作指创建一张卡片、移动一张卡片或完成一次交接。
-// 这期间启用的规则只读一次，同一条规则最多执行一次，规则对卡片的改动都落在内存里的卡片上，
-// 由调用方在最后统一保存，所以不管命中几条规则，卡片只写一次、版本只加一次。
+// ruleRun 是一次操作里规则引擎的运行状态。一次操作指创建一个任务、移动一个任务或完成一次交接。
+// 这期间启用的规则只读一次，同一条规则最多执行一次，规则对任务的改动都落在内存里的任务上，
+// 由调用方在最后统一保存，所以不管命中几条规则，任务只写一次、版本只加一次。
 type ruleRun struct {
 	u       *unit
 	card    *Card
@@ -22,16 +22,16 @@ type ruleRun struct {
 	loaded  bool           // rules 是否已经读过
 	ix      *boardIndex    // 判断条件用的小索引，第一次需要时才建
 	fired   map[int64]bool // 本次操作里已经执行过的规则
-	changed bool           // 规则是否改动了卡片本身
+	changed bool           // 规则是否改动了任务本身
 }
 
-// newRuleRun 为一张卡片的一次操作创建规则引擎的运行状态。
+// newRuleRun 为一个任务的一次操作创建规则引擎的运行状态。
 func (u *unit) newRuleRun(card *Card) *ruleRun {
 	return &ruleRun{u: u, card: card, fired: make(map[int64]bool)}
 }
 
-// fireCreateRules 在新卡片已经写库、card.created 事件已经追加之后触发创建类规则。
-// 规则真的改了卡片字段才保存一次，所以创建出来的卡片只有在被规则改过时才是第二版。
+// fireCreateRules 在新任务已经写库、card.created 事件已经追加之后触发创建类规则。
+// 规则真的改了任务字段才保存一次，所以创建出来的任务只有在被规则改过时才是第二版。
 func (u *unit) fireCreateRules(ctx context.Context, actor Actor, card *Card) error {
 	run := u.newRuleRun(card)
 	if err := run.created(ctx); err != nil {
@@ -43,7 +43,7 @@ func (u *unit) fireCreateRules(ctx context.Context, actor Actor, card *Card) err
 	return u.saveCard(ctx, actor, card)
 }
 
-// created 触发创建卡片的规则：先是 card_created，再是进入初始列的 card_entered。
+// created 触发创建任务的规则：先是 card_created，再是进入初始列的 card_entered。
 func (r *ruleRun) created(ctx context.Context) error {
 	for _, kind := range []string{TriggerCardCreated, TriggerCardEntered} {
 		if err := r.trigger(ctx, kind, r.card.ColumnID, 0); err != nil {
@@ -53,7 +53,7 @@ func (r *ruleRun) created(ctx context.Context) error {
 	return nil
 }
 
-// moved 触发卡片换列的规则：先是离开原列的 card_left，再是进入新列的 card_entered。
+// moved 触发任务换列的规则：先是离开原列的 card_left，再是进入新列的 card_entered。
 // depth 是连锁的层数，人的操作传 0，规则引发的移动比引发它的规则深一层。
 func (r *ruleRun) moved(ctx context.Context, fromID, toID int64, depth int) error {
 	if err := r.trigger(ctx, TriggerCardLeft, fromID, depth); err != nil {
@@ -113,8 +113,8 @@ func (r *ruleRun) enabledRules(ctx context.Context) ([]*Rule, error) {
 	return r.rules, nil
 }
 
-// index 返回判断条件用的小索引：看板的列，加上这张卡片和它依赖的卡片。第一次需要时才建，
-// 索引里放的就是内存里的卡片，所以条件看到的是触发之后、前面的规则改过的状态。
+// index 返回判断条件用的小索引：看板的列，加上这个任务和它依赖的任务。第一次需要时才建，
+// 索引里放的就是内存里的任务，所以条件看到的是触发之后、前面的规则改过的状态。
 func (r *ruleRun) index(ctx context.Context) (*boardIndex, error) {
 	if r.ix == nil {
 		ix, err := r.u.claimIndex(ctx, r.card)
@@ -126,7 +126,7 @@ func (r *ruleRun) index(ctx context.Context) (*boardIndex, error) {
 	return r.ix, nil
 }
 
-// conditionHolds 判断卡片现在是否满足规则的条件，没有条件就是满足。
+// conditionHolds 判断任务现在是否满足规则的条件，没有条件就是满足。
 // 保存时条件已经校验过，所以运行时解析失败只可能是数据被改坏，记一条警告并忽略这条规则，不让用户的操作失败。
 func (r *ruleRun) conditionHolds(ctx context.Context, rule *Rule) (bool, error) {
 	if rule.Condition == "" {
@@ -174,7 +174,7 @@ func (r *ruleRun) execute(ctx context.Context, rule *Rule, depth int) error {
 }
 
 // apply 执行一个动作。effect 表示动作生效了，skip 不为空表示动作无法执行，值是原因。
-// 评论和移动列需要读写数据库，单独处理；其余动作只改内存里的卡片，改动了就标记 changed，等调用方保存。
+// 评论和移动列需要读写数据库，单独处理；其余动作只改内存里的任务，改动了就标记 changed，等调用方保存。
 func (r *ruleRun) apply(ctx context.Context, rule *Rule, a RuleAction, depth int) (effect bool, skip string, err error) {
 	switch a.Type {
 	case ActionAddComment:
@@ -192,8 +192,8 @@ func (r *ruleRun) apply(ctx context.Context, rule *Rule, a RuleAction, depth int
 	return changed, skip, nil
 }
 
-// addTag 执行 add_tag：按文字在标签库里找标签（不区分大小写），没有就新建一个没有颜色的，再加到卡片上。
-// 卡片已经有这个标签什么都不做；卡片标签满了或者标签库满了时跳过并说明原因。
+// addTag 执行 add_tag：按文字在标签库里找标签（不区分大小写），没有就新建一个没有颜色的，再加到任务上。
+// 任务已经有这个标签什么都不做；任务标签满了或者标签库满了时跳过并说明原因。
 func (r *ruleRun) addTag(ctx context.Context, rule *Rule, text string) (effect bool, skip string, err error) {
 	ids, added, err := r.u.resolveTagNames(ctx, r.card.BoardID, []string{text}, true)
 	if errors.Is(err, ErrInvalidInput) {
@@ -218,7 +218,7 @@ func (r *ruleRun) addTag(ctx context.Context, rule *Rule, text string) (effect b
 	return true, "", nil
 }
 
-// removeTag 执行 remove_tag：按文字在标签库里找标签，从卡片上去掉，其他标签的顺序不变；库里没有这个文字就什么都不做。
+// removeTag 执行 remove_tag：按文字在标签库里找标签，从任务上去掉，其他标签的顺序不变；库里没有这个文字就什么都不做。
 func (r *ruleRun) removeTag(ctx context.Context, text string) (effect bool, skip string, err error) {
 	ids, _, err := r.u.resolveTagNames(ctx, r.card.BoardID, []string{text}, false)
 	if err != nil || len(ids) == 0 {
@@ -231,9 +231,9 @@ func (r *ruleRun) removeTag(ctx context.Context, text string) (effect bool, skip
 	return changed, "", nil
 }
 
-// move 执行 move_to_column：把卡片移到目标列末尾，追加 card.moved 事件（操作者是 system），
+// move 执行 move_to_column：把任务移到目标列末尾，追加 card.moved 事件（操作者是 system），
 // 再以更深一层继续触发离开原列和进入目标列的规则。目标列已经不存在时跳过并说明原因，
-// 卡片本来就在目标列时什么都不做。规则不动卡片的领取：agent 换列和完成交接在进入引擎前已经清掉，
+// 任务本来就在目标列时什么都不做。规则不动任务的领取：agent 换列和完成交接在进入引擎前已经清掉，
 // 人换列时领取保留，规则只管列和位置，所以这里不用再清。
 func (r *ruleRun) move(ctx context.Context, rule *Rule, a RuleAction, depth int) (effect bool, skip string, err error) {
 	ix, err := r.index(ctx)

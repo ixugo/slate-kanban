@@ -46,7 +46,7 @@ func (d Board) Delete(ctx context.Context, model *kanban.Board) error {
 // GetByID 按主键读取。
 func (d Board) GetByID(ctx context.Context, id int64) (*kanban.Board, error) {
 	var out kanban.Board
-	if err := d.db.WithContext(ctx).Where("id = ?", id).Take(&out).Error; err != nil {
+	if err := d.db.WithContext(ctx).Where("id = ? AND is_template = ?", id, false).Take(&out).Error; err != nil {
 		return nil, err
 	}
 	out.Normalize()
@@ -56,17 +56,17 @@ func (d Board) GetByID(ctx context.Context, id int64) (*kanban.Board, error) {
 // GetBySlug 按 slug 读取。
 func (d Board) GetBySlug(ctx context.Context, slug string) (*kanban.Board, error) {
 	var out kanban.Board
-	if err := d.db.WithContext(ctx).Where("slug = ?", slug).Take(&out).Error; err != nil {
+	if err := d.db.WithContext(ctx).Where("slug = ? AND is_template = ?", slug, false).Take(&out).Error; err != nil {
 		return nil, err
 	}
 	out.Normalize()
 	return &out, nil
 }
 
-// List 返回全部看板，按主键升序，也就是创建顺序。
+// List 返回全部普通项目，按主键升序，也就是创建顺序。
 func (d Board) List(ctx context.Context) ([]*kanban.Board, error) {
 	items := make([]*kanban.Board, 0)
-	if err := d.db.WithContext(ctx).Order("id ASC").Find(&items).Error; err != nil {
+	if err := d.db.WithContext(ctx).Where("is_template = ?", false).Order("id ASC").Find(&items).Error; err != nil {
 		return nil, err
 	}
 	for _, b := range items {
@@ -78,7 +78,7 @@ func (d Board) List(ctx context.Context) ([]*kanban.Board, error) {
 // Lock 锁住看板行并返回最新数据。
 func (d Board) Lock(ctx context.Context, id int64) (*kanban.Board, error) {
 	var out kanban.Board
-	err := d.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).Take(&out).Error
+	err := d.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND is_template = ?", id, false).Take(&out).Error
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (d Board) Lock(ctx context.Context, id int64) (*kanban.Board, error) {
 // 不需要先读后写，所以即使调用方忘了先锁行，也不会拿到重复的编号。
 func (d Board) IncrCardSeq(ctx context.Context, id int64) (int64, error) {
 	var out kanban.Board
-	res := d.db.WithContext(ctx).Model(&out).Where("id = ?", id).
+	res := d.db.WithContext(ctx).Model(&out).Where("id = ? AND is_template = ?", id, false).
 		Clauses(clause.Returning{Columns: []clause.Column{{Name: "card_seq"}}}).
 		UpdateColumn("card_seq", gorm.Expr("card_seq + 1"))
 	if res.Error != nil {

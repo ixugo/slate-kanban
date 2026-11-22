@@ -3,7 +3,7 @@
 import { useEffect, type RefObject } from 'react'
 
 interface BoardKeyboardOptions {
-  /** 打开或聚焦新建卡片 */
+  /** 打开或聚焦新建任务 */
   onNewCard: () => void
   /** 聚焦搜索框 */
   onFocusSearch: () => void

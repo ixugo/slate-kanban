@@ -43,7 +43,7 @@ export function describeError(err: unknown, t: TFunction): ErrorText {
   return { message: raw || t('errors.title'), detail: '', traceId: '' }
 }
 
-/** 判断是不是"版本冲突"：卡片被别人先改过，页面要提示刷新而不是简单报错 */
+/** 判断是不是"版本冲突"：任务被别人先改过，页面要提示刷新而不是简单报错 */
 export function isVersionConflict(err: unknown): boolean {
   return err instanceof ApiError && err.reason === 'ErrCardVersionConflict'
 }

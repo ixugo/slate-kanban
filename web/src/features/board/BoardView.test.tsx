@@ -60,7 +60,7 @@ describe('BoardPage 列表视图', () => {
     expect(await screen.findByRole('table')).toBeInTheDocument()
   })
 
-  it('搜索时列表只显示命中卡片', async () => {
+  it('搜索时列表只显示命中任务', async () => {
     const api = installFakeApi({
       'GET /api/v1/boards/:id/snapshot': snapshot,
       'GET /api/v1/boards/:id/cards': { cards: [{ id: 1 }], total: 1, truncated: false },
@@ -75,7 +75,7 @@ describe('BoardPage 列表视图', () => {
     expect(screen.queryByText('另一张')).toBeNull()
   })
 
-  it('列表视图新建卡片发 POST 到第一列', async () => {
+  it('列表视图新建任务发 POST 到第一列', async () => {
     const api = installFakeApi({
       'GET /api/v1/boards/:id/snapshot': snapshot,
       'POST /api/v1/boards/:id/cards': makeCard({ id: 9, title: '列表新建' }),

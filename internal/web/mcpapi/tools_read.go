@@ -13,7 +13,7 @@ type boardIn struct {
 	BoardID int64 `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
 }
 
-// cardIn 是只需要卡片编号的工具的入参。
+// cardIn 是只需要任务编号的工具的入参。
 type cardIn struct {
 	CardID int64 `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key；list_cards 的结果里两个都有"`
 }
@@ -126,7 +126,7 @@ func (a API) getBoard(ctx context.Context, _ kanban.Actor, in boardIn) (any, err
 	return boardOut{BoardDetail: detail, WatchPrompt: watchPromptOf(detail)}, nil
 }
 
-// listCards 按筛选条件列出卡片摘要。数量默认 10、最多 30，保护 agent 的上下文。
+// listCards 按筛选条件列出任务摘要。数量默认 10、最多 30，保护 agent 的上下文。
 func (a API) listCards(ctx context.Context, _ kanban.Actor, in listCardsIn) (any, error) {
 	list, err := a.core.ListCards(ctx, in.BoardID, kanban.ListCardsInput{Query: in.Query, Limit: clampListLimit(in.Limit)})
 	if err != nil {
@@ -135,7 +135,7 @@ func (a API) listCards(ctx context.Context, _ kanban.Actor, in listCardsIn) (any
 	return cardsOut{Cards: summarizeAll(list.Cards), Total: list.Total, Truncated: list.Truncated}, nil
 }
 
-// getCard 返回卡片的完整信息：全文、评论、依赖和所在列的指令，并附上「任务不清楚先反馈」的提示。
+// getCard 返回任务的完整信息：全文、评论、依赖和所在列的指令，并附上「任务不清楚先反馈」的提示。
 func (a API) getCard(ctx context.Context, _ kanban.Actor, in cardIn) (any, error) {
 	detail, err := a.core.GetCardDetail(ctx, in.CardID)
 	if err != nil {

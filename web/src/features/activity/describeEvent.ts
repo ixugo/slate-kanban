@@ -16,11 +16,22 @@ export interface EventText {
   detail: string
   /** 这次修改了描述时，对应的变更记录编号；界面据此在句子后面加「查看变更」。旧事件和其他类型没有 */
   descriptionChangeId?: number
+  previousValues?: PreviousValue[]
 }
 
-/** 事件涉及的卡片 */
+interface DependencyReference {
+  id: number
+  number: number
+}
+
+export type PreviousValue = { field: string; label: string } & (
+  | { text: string }
+  | { references: DependencyReference[] }
+)
+
+/** 事件涉及的任务 */
 export interface EventCard {
-  /** 卡片还在看板上时的编号，用来做链接；已经被删除为 null */
+  /** 任务还在看板上时的编号，用来做链接；已经被删除为 null */
   id: number | null
   key: string
   title: string
@@ -50,13 +61,14 @@ function fields(payload: Record<string, unknown>, key: string): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 }
 
-// 卡片修改事件载荷里的字段名对应的界面文字：时间类用更完整的叫法，其余复用卡片详情里各属性的名称。
+// 任务修改事件载荷里的字段名对应的界面文字：时间类用更完整的叫法，其余复用任务详情里各属性的名称。
 const CARD_FIELD_LABELS: Record<string, TranslationKey> = {
   title: 'card.field.title',
   description: 'card.field.description',
   priority: 'card.field.priority',
   tags: 'card.field.tags',
   human_only: 'card.field.humanOnly',
+  engineer_id: 'card.field.engineer',
   waits_on: 'card.field.deps',
   due_at: 'activity.field.due_at',
   started_at: 'activity.field.started_at',
@@ -65,7 +77,7 @@ const CARD_FIELD_LABELS: Record<string, TranslationKey> = {
   url: 'card.field.url',
 }
 
-// 卡片修改事件的句子：写明改了哪些属性，例如「修改了优先级、截止时间」；没有字段清单的旧事件退回成笼统的一句。
+// 任务修改事件的句子：写明改了哪些属性，例如「修改了优先级、截止时间」；没有字段清单的旧事件退回成笼统的一句。
 function cardUpdatedText(payload: Record<string, unknown>, t: TFunction): string {
   const labels = fields(payload, 'fields').map((name) => {
     const key = CARD_FIELD_LABELS[name]
@@ -73,6 +85,50 @@ function cardUpdatedText(payload: Record<string, unknown>, t: TFunction): string
   })
   if (labels.length === 0) return t('activity.event.cardUpdated')
   return t('activity.event.cardUpdatedFields', { fields: labels.join(t('settings.rules.autoName.join')) })
+}
+
+const PRIORITY_LEVELS = ['none', 'low', 'medium', 'high'] as const
+
+function isDependencyReference(value: unknown): value is DependencyReference {
+  const ref = value as Partial<DependencyReference> | null
+  return !!ref && typeof ref.id === 'number' && Number.isSafeInteger(ref.id) && ref.id > 0
+    && typeof ref.number === 'number' && Number.isSafeInteger(ref.number) && ref.number > 0
+}
+
+function cardPreviousValues(payload: Record<string, unknown>, t: TFunction): PreviousValue[] {
+  const raw = payload.previous_values
+  if (raw === null || typeof raw !== 'object') return []
+  const values = raw as Record<string, unknown>
+  const result: PreviousValue[] = []
+  for (const name of fields(payload, 'fields')) {
+    const label = CARD_FIELD_LABELS[name]
+    if (!label) continue
+    const entry = { field: name, label: t(label) }
+    const value = values[name]
+    switch (name) {
+      case 'branch':
+      case 'url':
+      case 'engineer_id':
+        if (typeof value === 'string') result.push({ ...entry, text: value })
+        break
+      case 'human_only':
+        if (typeof value === 'boolean') {
+          const on = t('activity.previous.on')
+          const off = t('activity.previous.off')
+          result.push({ ...entry, text: t('activity.previous.toggle', { from: value ? on : off, to: value ? off : on }) })
+        }
+        break
+      case 'priority':
+        if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < PRIORITY_LEVELS.length) {
+          result.push({ ...entry, text: t(`board.priority.${PRIORITY_LEVELS[value]}`) })
+        }
+        break
+      case 'waits_on':
+        if (Array.isArray(value)) result.push({ ...entry, references: value.filter(isDependencyReference) })
+        break
+    }
+  }
+  return result
 }
 
 /** 操作者在界面上的名字：人叫「我」，规则触发显示成「自动化 · 规则名」，agent 用它自己报的名字 */
@@ -101,7 +157,7 @@ function firedDetail(payload: Record<string, unknown>, t: TFunction): string {
     .join(' · ')
 }
 
-// 卡片释放事件有三种原因，句子不一样：持有者主动释放、人收回、卡片换列。
+// 任务释放事件有三种原因，句子不一样：持有者主动释放、人收回、任务换列。
 function releasedText(payload: Record<string, unknown>, t: TFunction): string {
   const agent = field(payload, 'agent')
   switch (field(payload, 'why')) {
@@ -136,14 +192,23 @@ export function describeEvent(event: BoardEvent, t: TFunction): EventText {
       return plain(t('activity.event.columnReordered'))
     case 'card.created':
       return plain(t('activity.event.cardCreated', { column: field(p, 'column') }))
-    case 'card.updated':
-      return { text: cardUpdatedText(p, t), detail: '', descriptionChangeId: changeId(p, 'description_change_id') }
+    case 'card.updated': {
+      const previousValues = cardPreviousValues(p, t)
+      return {
+        text: cardUpdatedText(p, t),
+        detail: '',
+        descriptionChangeId: changeId(p, 'description_change_id'),
+        ...(previousValues.length > 0 && { previousValues }),
+      }
+    }
     case 'card.tags_updated':
       return plain(t('activity.event.cardTagsUpdated'))
     case 'card.moved':
       return plain(t('activity.event.cardMoved', { from: field(p, 'from'), to: field(p, 'to') }))
     case 'card.reordered':
       return plain(t('activity.event.cardReordered'))
+    case 'card.archived':
+      return plain(t('activity.event.cardArchived'))
     case 'card.deleted':
       return plain(t('activity.event.cardDeleted'))
     case 'card.claimed':
@@ -167,11 +232,11 @@ export function describeEvent(event: BoardEvent, t: TFunction): EventText {
   }
 }
 
-/** 事件涉及的卡片：卡片还在就用它现在的编号和标题（改过名也显示新名字），已经没了就用事件里记下的 */
+/** 事件涉及的任务：任务还在就用它现在的编号和标题（改过名也显示新名字），已经没了就用事件里记下的 */
 export function eventCard(event: BoardEvent, cardsById: ReadonlyMap<number, CardView>): EventCard | null {
   const live = cardsById.get(event.card_id)
   if (live) return { id: live.id, key: live.key, title: live.title }
   const p = payloadOf(event)
   const key = field(p, 'key')
-  return key === '' ? null : { id: null, key, title: field(p, 'title') }
+  return key === '' ? null : { id: event.type === 'card.archived' ? event.card_id : null, key, title: field(p, 'title') }
 }

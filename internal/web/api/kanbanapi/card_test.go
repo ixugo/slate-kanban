@@ -6,14 +6,14 @@ import (
 	"testing"
 )
 
-// cardList 是卡片列表的响应。
+// cardList 是任务列表的响应。
 type cardList struct {
 	Cards     []card `json:"cards"`
 	Total     int    `json:"total"`
 	Truncated bool   `json:"truncated"`
 }
 
-// TestCardLifecycle 验证卡片的增改读删：创建返回编号；修改只更新出现的字段，旧版本号返回 409；
+// TestCardLifecycle 验证任务的增改读删：创建返回编号；修改只更新出现的字段，旧版本号返回 409；
 // 详情里评论是 [] 不是 null；删除幂等，删除后读取返回 404。
 func TestCardLifecycle(t *testing.T) {
 	s := newStack(t)
@@ -22,7 +22,7 @@ func TestCardLifecycle(t *testing.T) {
 	made := decode[card](t, s.human(t, http.MethodPost, "/boards/"+id(b.ID)+"/cards",
 		map[string]any{"title": "写文档", "description": "要写清楚", "column_id": todo, "priority": 2, "tags": []string{"docs"}}))
 	if made.ID == 0 || made.Key != "CRD-1" || made.ColumnID != todo || made.Priority != 2 || made.Version == 0 {
-		t.Fatalf("创建的卡片不对: %+v", made)
+		t.Fatalf("创建的任务不对: %+v", made)
 	}
 
 	path := "/cards/" + id(made.ID)
@@ -77,7 +77,7 @@ func TestCardMoveAndComments(t *testing.T) {
 
 	moved := decode[card](t, s.human(t, http.MethodPost, path+"/move", map[string]any{"column_id": b.Columns[3].ID}))
 	if moved.ColumnID != b.Columns[3].ID {
-		t.Fatalf("卡片应该移到第四列: %+v", moved)
+		t.Fatalf("任务应该移到第四列: %+v", moved)
 	}
 
 	human := decode[comment](t, s.human(t, http.MethodPost, path+"/comments", map[string]string{"body": "人的评论"}))
@@ -98,17 +98,17 @@ func TestCardMoveAndComments(t *testing.T) {
 	}
 }
 
-// TestCardPathNotOverridable 验证路径里的卡片编号不会被请求体覆盖：
-// 修改卡片 a 的请求里夹带卡片 b 的编号，结果只有 a 变了。
+// TestCardPathNotOverridable 验证路径里的任务编号不会被请求体覆盖：
+// 修改任务 a 的请求里夹带任务 b 的编号，结果只有 a 变了。
 func TestCardPathNotOverridable(t *testing.T) {
 	s := newStack(t)
 	b := s.newBoard(t, "OVR")
 	a, other := s.newCard(t, b, b.Columns[1].ID, "甲"), s.newCard(t, b, b.Columns[1].ID, "乙")
 	body := map[string]any{"title": "改了甲", "card_id": other.ID, "CardID": other.ID, "id": other.ID}
 	if got := decode[card](t, s.human(t, http.MethodPatch, "/cards/"+id(a.ID), body)); got.ID != a.ID || got.Title != "改了甲" {
-		t.Fatalf("应该修改路径里的卡片 a: %+v", got)
+		t.Fatalf("应该修改路径里的任务 a: %+v", got)
 	}
 	if got := decode[cardDetail](t, s.human(t, http.MethodGet, "/cards/"+id(other.ID), nil)); got.Title != "乙" {
-		t.Fatalf("卡片 b 不应该被改: %+v", got)
+		t.Fatalf("任务 b 不应该被改: %+v", got)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// cardsAt 按给定的位置构造一列卡片，主键依次是 1、2、3……。
+// cardsAt 按给定的位置构造一列任务，主键依次是 1、2、3……。
 func cardsAt(positions ...float64) []*Card {
 	cards := make([]*Card, len(positions))
 	for i, p := range positions {
@@ -40,7 +40,7 @@ func TestComputePosition(t *testing.T) {
 	}
 }
 
-// TestComputePositionErrors 验证不合法的请求：两个参照同时给、参照卡片不在这一列里。
+// TestComputePositionErrors 验证不合法的请求：两个参照同时给、参照任务不在这一列里。
 func TestComputePositionErrors(t *testing.T) {
 	cards := cardsAt(1024, 2048)
 	for _, c := range []struct{ before, after int64 }{{1, 2}, {99, 0}, {0, 99}} {

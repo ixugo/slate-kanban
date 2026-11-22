@@ -5,7 +5,7 @@
 //
 //	go run ./cmd/devlog-import -url http://127.0.0.1:7070 -file docs/devlog/records.json
 //
-// 重复运行是安全的：看板按 slug 查找，卡片按标题去重，已经存在的会跳过。
+// 重复运行是安全的：看板按 slug 查找，任务按标题去重，已经存在的会跳过。
 package main
 
 import (
@@ -24,13 +24,13 @@ import (
 const (
 	// agentName 是连接 MCP 时用的名字，也是导入的评论的作者。
 	agentName = "devlog-import"
-	// listLimit 是 list_cards 单次最多返回的卡片数；超过它就无法保证去重完整，所以直接报错。
+	// listLimit 是 list_cards 单次最多返回的任务数；超过它就无法保证去重完整，所以直接报错。
 	listLimit = 200
 	// importTimeout 是整个导入的总超时，防止服务没响应时一直卡住。
 	importTimeout = 2 * time.Minute
 )
 
-// records 是开发记录文件的内容：一个看板，加上要录入的卡片。
+// records 是开发记录文件的内容：一个看板，加上要录入的任务。
 type records struct {
 	Board boardRecord  `json:"board"`
 	Cards []cardRecord `json:"cards"`
@@ -46,7 +46,7 @@ type boardRecord struct {
 	Locale      string `json:"locale"`
 }
 
-// cardRecord 是一张要录入的卡片，Column 写列的名称，其余字段含义和管理视图的 create_card 一致。
+// cardRecord 是一个要录入的任务，Column 写列的名称，其余字段含义和管理视图的 create_card 一致。
 type cardRecord struct {
 	Column      string   `json:"column"`
 	Title       string   `json:"title"`
@@ -59,6 +59,9 @@ type cardRecord struct {
 	Branch      string   `json:"branch"`
 	URL         string   `json:"url"`
 	Comments    []string `json:"comments"`
+
+	// PreviousTitle 用于识别已用旧标题导入的开发记录，不发送给服务端。
+	PreviousTitle string `json:"previous_title,omitempty"`
 }
 
 // importer 保存一次导入要用的 MCP 会话。
@@ -78,7 +81,7 @@ func main() {
 	}
 }
 
-// run 读取记录、连上 MCP、确保看板存在，然后逐张录入卡片并打印结果。
+// run 读取记录、连上 MCP、确保看板存在，然后逐项录入任务并打印结果。
 func run(base, file string) error {
 	rec, err := loadRecords(file)
 	if err != nil {
@@ -108,7 +111,7 @@ func run(base, file string) error {
 	return nil
 }
 
-// loadRecords 读取并校验记录文件：看板名称和标识必填，每张卡片都要有标题和列。
+// loadRecords 读取并校验记录文件：看板名称和标识必填，每个任务都要有标题和列。
 func loadRecords(path string) (*records, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -225,7 +228,7 @@ func (im *importer) ensureBoard(b boardRecord) (int64, map[string]int64, error) 
 	return id, columns, nil
 }
 
-// existingTitles 返回看板里已有卡片的标题集合，用来跳过已经录入过的记录。
+// existingTitles 返回看板里已有任务的标题集合，用来跳过已经录入过的记录。
 func (im *importer) existingTitles(boardID int64) (map[string]bool, error) {
 	var list struct {
 		Cards []struct {
@@ -246,7 +249,7 @@ func (im *importer) existingTitles(boardID int64) (map[string]bool, error) {
 	return titles, nil
 }
 
-// importCards 按记录顺序录入卡片：已存在的标题跳过，其余创建并写上评论。返回新增和跳过的数量。
+// importCards 按记录顺序录入任务：已存在的标题跳过，其余创建并写上评论。返回新增和跳过的数量。
 func (im *importer) importCards(boardID int64, columns map[string]int64, cards []cardRecord) (int, int, error) {
 	titles, err := im.existingTitles(boardID)
 	if err != nil {
@@ -254,7 +257,7 @@ func (im *importer) importCards(boardID int64, columns map[string]int64, cards [
 	}
 	created, skipped := 0, 0
 	for _, c := range cards {
-		if titles[c.Title] {
+		if titles[c.Title] || (c.PreviousTitle != "" && titles[c.PreviousTitle]) {
 			skipped++
 			continue
 		}
@@ -270,7 +273,7 @@ func (im *importer) importCards(boardID int64, columns map[string]int64, cards [
 	return created, skipped, nil
 }
 
-// cardArgs 把一条卡片记录换成 create_card 的入参。空值一律不传，让服务端用默认值，
+// cardArgs 把一条任务记录换成 create_card 的入参。空值一律不传，让服务端用默认值，
 // 避免把 null 或空字符串当成"要清除"。
 func cardArgs(boardID, columnID int64, c cardRecord) map[string]any {
 	args := map[string]any{"board_id": boardID, "column_id": columnID, "title": c.Title}
@@ -291,7 +294,7 @@ func cardArgs(boardID, columnID int64, c cardRecord) map[string]any {
 	return args
 }
 
-// createCard 创建一张卡片，并把记录里的评论依次写上去。
+// createCard 创建一个任务，并把记录里的评论依次写上去。
 func (im *importer) createCard(boardID, columnID int64, c cardRecord) error {
 	args := cardArgs(boardID, columnID, c)
 	var card struct {

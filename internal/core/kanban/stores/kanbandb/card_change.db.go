@@ -10,7 +10,7 @@ import (
 
 var _ kanban.CardChangeStorer = CardChange{}
 
-// CardChange 是卡片变更日志的数据库实现，和 DB 同一个底层结构，通过类型转换得到。
+// CardChange 是任务变更日志的数据库实现，和 DB 同一个底层结构，通过类型转换得到。
 type CardChange DB
 
 // WithTx 返回绑定到事务的副本。
@@ -51,7 +51,7 @@ func (d CardChange) Neighbors(ctx context.Context, cardID, changeID int64) (prev
 	return prev, next, nil
 }
 
-// DeleteByCard 删除某张卡片的全部变更记录。
+// DeleteByCard 删除某个任务的全部变更记录。
 func (d CardChange) DeleteByCard(ctx context.Context, cardID int64) error {
 	return d.db.WithContext(ctx).Where("card_id = ?", cardID).Delete(&kanban.CardChange{}).Error
 }

@@ -11,8 +11,8 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// fillBoard 往看板里放齐每一类数据：卡片、评论、一条规则（再加事件）和一条 agent 的读取进度，
-// 返回卡片，用来验证删除时一类都不落下。
+// fillBoard 往看板里放齐每一类数据：任务、评论、一条规则（再加事件）和一条 agent 的读取进度，
+// 返回任务，用来验证删除时一类都不落下。
 func (e *cardEnv) fillBoard(t *testing.T) *kanban.Card {
 	t.Helper()
 	ctx := context.Background()
@@ -46,7 +46,7 @@ func TestDeleteBoardRemovesEverything(t *testing.T) {
 	}
 	checks := map[string]func() (int, error){
 		"列":  func() (int, error) { return countOf(e.db.Column().ListByBoard(ctx, e.board.ID)) },
-		"卡片": func() (int, error) { return countOf(e.db.Card().ListByBoard(ctx, e.board.ID)) },
+		"任务": func() (int, error) { return countOf(e.db.Card().ListByBoard(ctx, e.board.ID)) },
 		"规则": func() (int, error) { return countOf(e.db.Rule().ListByBoard(ctx, e.board.ID)) },
 		"评论": func() (int, error) { return countOf(e.db.Comment().ListByCard(ctx, card.ID)) },
 		"事件": func() (int, error) { return countOf(e.db.Event().ListAfter(ctx, e.board.ID, 0, 1000)) },
@@ -61,7 +61,7 @@ func TestDeleteBoardRemovesEverything(t *testing.T) {
 		t.Fatalf("别的看板应该还在: %v", err)
 	}
 	if n, _ := countOf(other.db.Card().ListByBoard(ctx, other.board.ID)); n != 1 {
-		t.Fatalf("别的看板的卡片不应该被删: %d", n)
+		t.Fatalf("别的看板的任务不应该被删: %d", n)
 	}
 	if n, _ := countOf(other.db.Comment().ListByCard(ctx, otherCard.ID)); n != 1 {
 		t.Fatalf("别的看板的评论不应该被删: %d", n)

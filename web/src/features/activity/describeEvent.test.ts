@@ -101,6 +101,28 @@ describe('describeEvent', () => {
     expect(describeEvent(ev('card.moved', { from: 'A', to: 'B', description_change_id: 7 }), tEn).descriptionChangeId).toBeUndefined()
   })
 
+  it('localizes changed fields and keeps previous values separate from the action title', () => {
+    const data = describeEvent(ev('card.updated', {
+      fields: ['branch', 'url', 'human_only', 'engineer_id', 'waits_on', 'priority'],
+      previous_values: {
+        branch: 'main', url: 'https://example.com/old', human_only: false,
+        engineer_id: 'Orion', waits_on: [{ id: 881, number: 81 }, null], priority: 0,
+      },
+    }), tZh)
+    expect(data.text).toBe('修改了分支、链接、仅人工、工程师、依赖、优先级')
+    expect(data.previousValues).toEqual([
+      { field: 'branch', label: '分支', text: 'main' },
+      { field: 'url', label: '链接', text: 'https://example.com/old' },
+      { field: 'human_only', label: '仅人工', text: '关闭 → 开启' },
+      { field: 'engineer_id', label: '工程师', text: 'Orion' },
+      { field: 'waits_on', label: '依赖', references: [{ id: 881, number: 81 }] },
+      { field: 'priority', label: '优先级', text: '无' },
+    ])
+    const historical = describeEvent(ev('card.updated', { fields: ['engineer_id', 'branch'] }), tZh)
+    expect(historical.text).toBe('修改了工程师、分支')
+    expect(historical.previousValues).toBeUndefined()
+  })
+
   it('不认识的事件类型显示成通用的一句话，不报错', () => {
     expect(describeEvent(ev('card.exploded'), tEn).text).toBe('did something (card.exploded)')
   })
@@ -132,17 +154,17 @@ describe('actorLabel', () => {
 describe('eventCard', () => {
   const cards = new Map([[7, makeCard({ id: 7, key: 'SLATE-7', title: '现在的标题' })]])
 
-  it('卡片还在时用它现在的编号和标题，事件里记的旧标题不算', () => {
+  it('任务还在时用它现在的编号和标题，事件里记的旧标题不算', () => {
     const e = ev('card.created', { key: 'SLATE-7', title: '旧标题' }, { card_id: 7 })
     expect(eventCard(e, cards)).toEqual({ id: 7, key: 'SLATE-7', title: '现在的标题' })
   })
 
-  it('卡片已经没了，用事件里记的编号和标题，并且不能点开', () => {
+  it('任务已经没了，用事件里记的编号和标题，并且不能点开', () => {
     const e = ev('card.deleted', { key: 'SLATE-9', title: '已删除' }, { card_id: 9 })
     expect(eventCard(e, cards)).toEqual({ id: null, key: 'SLATE-9', title: '已删除' })
   })
 
-  it('和卡片无关的事件没有卡片', () => {
+  it('和任务无关的事件没有任务', () => {
     expect(eventCard(ev('column.created', { name: '待办' }), cards)).toBeNull()
   })
 })

@@ -14,7 +14,7 @@ export function formatDateTime(iso: string | null | undefined, lang: string): st
   return new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' }).format(ms)
 }
 
-/** 只有日期，卡片上的截止日期用它；解析不了返回空串 */
+/** 只有日期，任务上的截止日期用它；解析不了返回空串 */
 export function formatDate(iso: string | null | undefined, lang: string): string {
   const ms = parseTime(iso)
   if (ms === null) return ''

@@ -1,4 +1,4 @@
-// 列底"添加卡片"：Enter 提交、Shift+Enter 换行、Esc 取消。
+// 列底"添加任务"：Enter 提交、Shift+Enter 换行、Esc 取消。
 
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from '@/i18n/react'
@@ -16,7 +16,7 @@ interface AddCardProps {
   busy?: boolean
 }
 
-/** 列底部的新建卡片控件；离线时整个看板只读，不提供新建入口 */
+/** 列底部的新建任务控件；离线时整个看板只读，不提供新建入口 */
 export function AddCard({ open, onOpen, onClose, onSubmit, busy }: AddCardProps) {
   const { t } = useTranslation()
   const online = useOnlineStatus()

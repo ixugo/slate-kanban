@@ -8,7 +8,7 @@ export const zhTW: Messages = {
     templates: {
       body: '匯入、匯出與管理自訂專案範本。可從專案設定把現有專案匯出為範本；新建專案時可選用這裡的範本。',
       import: '匯入 JSON',
-      empty: '還沒有自訂範本。',
+      builtin: '內建',
       loadFailed: '無法載入範本列表。',
       invalidFile: '不是合法的專案範本 JSON 檔。',
       delete: '刪除範本「{{name}}」',
@@ -98,10 +98,7 @@ export const zhTW: Messages = {
       descriptionLabel: '說明',
       descriptionPlaceholder: '這個專案用來做什麼？（選填）',
       template: '起步範本',
-      templateSwitch: '使用研發流程範本',
-      templates: { dev: '研發流程', empty: '空白' },
-      customTemplate: '自訂範本',
-      customTemplateNone: '不使用（用下方的起步範本）',
+      templates: { dev: '研發範本', empty: '空白' },
       submit: '建立專案',
       submitting: '建立中…',
       errors: {
@@ -126,7 +123,6 @@ export const zhTW: Messages = {
     addCard: '新增任務',
     addCardPlaceholder: '標題，按 Enter 送出',
     columnDone: '完成',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: '按 / 搜尋，按 n 新增任務',
     viewToggle: '看板或列表檢視',
     viewBoard: '看板檢視',
@@ -182,6 +178,7 @@ export const zhTW: Messages = {
     clearFilters: '清除篩選',
     // 修改事件里时间类字段的叫法，比任務详情里的按钮名更完整
     field: { due_at: '截止時間', started_at: '開始時間', finished_at: '完成時間' },
+    previous: { label: '之前', on: '開啟', off: '關閉', toggle: '{{from}} → {{to}}' },
     // 「修改了描述，查看變更」：句子和連結之間的標點、連結文字，以及對比視窗裡的文字
     change: {
       separator: '，',
@@ -207,6 +204,7 @@ export const zhTW: Messages = {
       cardTagsUpdated: '修改了標籤',
       cardMoved: '將任務從「{{from}}」移到「{{to}}」',
       cardReordered: '調整了任務在欄裡的順序',
+      cardArchived: '封存了任務',
       cardDeleted: '刪除了任務',
       cardClaimed: '領取了任務',
       cardReleased: '釋放了任務',
@@ -352,6 +350,16 @@ export const zhTW: Messages = {
     title: '任務',
     notFound: '這個專案裡已經沒有這個任務了。',
     versionConflict: '其他人剛改過這個任務，請核對後再儲存。',
+    archive: {
+      action: '封存',
+      description: '查看已封存的任務',
+      empty: '目前沒有封存的任務。',
+      confirmTitle: '要封存這個任務嗎？',
+      confirmBody: '封存後可檢視任務和留言，編輯與留言將關閉。',
+      readOnly: '已封存 · 唯讀',
+      missingDependency: '已刪除',
+      title: '已封存任務',
+    },
     field: {
       title: '標題',
       description: '描述',
@@ -375,7 +383,7 @@ export const zhTW: Messages = {
     dueTime: '截止時刻',
     datesOrder: '截止日期不能早於開始日期',
     descEdit: '編輯',
-    descEditHint: '雙擊描述區域可以編輯',
+    descEditHint: '點擊描述區域可以編輯',
     descPlaceholder: '支援 Markdown',
     columnInstructionHint: 'Agent 處理本欄任務時會讀取這段說明。',
     claim: {
@@ -405,7 +413,8 @@ export const zhTW: Messages = {
     tagLimit: '每個任務最多 {{max}} 個標籤。',
     tagTooLong: '每個標籤最多 {{max}} 個字元。',
     depAdd: '新增相依',
-    depEmpty: '無',
+    depSearch: '按 #編號或標題搜尋',
+    depNoResults: '沒有符合的任務',
     urlInvalid: '只允許 http 與 https 連結。',
   },
 
@@ -703,7 +712,7 @@ export const zhTW: Messages = {
       intro: '連接好之後，Agent 可以一直盯著看板、有任務就接。原理是：',
       how: {
         connect: 'Agent 保持工作階段，反覆呼叫 MCP 工具 wait_for_updates。',
-        push: '伺服器掛住這次呼叫，看板一有變化立刻推送給它；沒有變化時大約每 50 秒才一次請求，不是定時拉取任務。',
+        push: '伺服器保持請求等待，看板有更新時立即回傳。設定長時間等待後，閒置時可等待最多 60 分鐘。不支援長時間等待的連線請使用 50 秒或更短。',
         loop: 'host 的 loop 只每隔幾分鐘檢查這個監聽還活著沒有，斷了就讓 Agent 重新掛上。',
       },
       board: '看板',
@@ -715,8 +724,10 @@ export const zhTW: Messages = {
         perm: '無人值守時權限彈窗會卡住工作階段：先把 slate 的工具與常用操作設成「一律允許」；只有在隔離環境裡才考慮關閉權限檢查。',
       },
     },
-    advanced: '手動安裝（進階）',
-    advancedHint: '上面的一句話提示會讓 Agent 自己完成這些步驟；需要手動安裝時再展開。',
+    advanced: '手動安裝與移除',
+    advancedHint: '上面的一句話提示可以讓 Agent 為你安裝 Slate MCP。',
+    uninstallMcp: '移除 Slate MCP',
+    uninstallMcpCursor: '在 ~/.cursor/mcp.json 的 mcpServers 中移除 slate（工作檢視）或 slate-manager（管理檢視）。保留其他項目，儲存檔案並重新啟動 Cursor。',
     skillOptional:
       'Skill 為選用，不裝也可以：MCP 資源 slate://skills/slate-kanban 回傳的內容與 skill 完全相同，沒裝 skill 時守候提示詞會讓 Agent 自己去讀。只有想讓 host 自動載入時才需要安裝。',
     managerFold: '管理檢視 MCP（選用）',
@@ -774,6 +785,9 @@ export const zhTW: Messages = {
     ErrAgentOnly: '這個操作只供 agent 使用。',
     ErrCardHumanOnly: '這個任務只能由人處理。',
     ErrCardWaiting: '這個任務還在等其他任務完成。',
+    ErrCardArchived: '任務已封存，無法修改。',
+    ErrInboxNotFound: '找不到收件匣欄，請先建立收件匣。',
+    ErrForkRelationUnavailable: '原任務的標籤或相依項目已刪除，無法完整 Fork。',
     ErrCardClaimed: '這個任務已被另一個 agent 領取。',
     ErrEngineerBusy: '這位工程師正在做別的任務。',
     ErrNoIdleEngineer: '工程師都在忙，請排隊等待。',

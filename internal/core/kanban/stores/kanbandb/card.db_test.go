@@ -13,17 +13,17 @@ import (
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 )
 
-// addCard 写入一张测试卡片并返回。
+// addCard 写入一个测试任务并返回。
 func addCard(t *testing.T, store kanban.CardStorer, boardID, columnID int64, key string, pos float64) *kanban.Card {
 	t.Helper()
-	c := &kanban.Card{BoardID: boardID, ColumnID: columnID, Key: key, Title: "卡片 " + key, Position: pos, Version: 1}
+	c := &kanban.Card{BoardID: boardID, ColumnID: columnID, Key: key, Title: "任务 " + key, Position: pos, Version: 1}
 	if err := store.Create(context.Background(), c); err != nil {
-		t.Fatalf("创建卡片失败: %v", err)
+		t.Fatalf("创建任务失败: %v", err)
 	}
 	return c
 }
 
-// cardKeys 返回卡片的编号列表。
+// cardKeys 返回任务的编号列表。
 func cardKeys(items []*kanban.Card) []string {
 	keys := make([]string, len(items))
 	for i, c := range items {
@@ -32,7 +32,7 @@ func cardKeys(items []*kanban.Card) []string {
 	return keys
 }
 
-// TestCardRoundTrip 验证卡片所有类型的字段都能存取：JSON 数组、时间指针、布尔值；
+// TestCardRoundTrip 验证任务所有类型的字段都能存取：JSON 数组、时间指针、布尔值；
 // 没填的标签和依赖读出来是空数组而不是 nil。
 func TestCardRoundTrip(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
@@ -199,6 +199,36 @@ func TestCardDelete(t *testing.T) {
 		}
 		if left, _ := store.ListByBoard(ctx, 2); len(left) != 1 {
 			t.Fatalf("看板 2 不应该被影响，剩余 %d", len(left))
+		}
+	})
+}
+
+// TestArchivedCardOrder 跨存储验证归档游标、同时间排序和看板隔离。
+func TestArchivedCardOrder(t *testing.T) {
+	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
+		ctx := t.Context()
+		store := db.Card()
+		first := addCard(t, store, 1, 1, "A-1", 1)
+		second := addCard(t, store, 1, 1, "A-2", 2)
+		active := addCard(t, store, 1, 1, "A-3", 3)
+		other := addCard(t, store, 2, 2, "B-1", 1)
+		for _, card := range []*kanban.Card{first, second, other} {
+			card.ArchivedAt = new(time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC))
+			if err := store.Save(ctx, card); err != nil {
+				t.Fatal(err)
+			}
+		}
+		page, err := store.ListArchivedByBoard(ctx, 1, nil, 1)
+		if err != nil || !slices.Equal(cardKeys(page), []string{second.Key}) {
+			t.Fatalf("第一页：%v %v", cardKeys(page), err)
+		}
+		next, err := store.ListArchivedByBoard(ctx, 1, page[0], 1)
+		if err != nil || !slices.Equal(cardKeys(next), []string{first.Key}) {
+			t.Fatalf("下一页：%v %v", cardKeys(next), err)
+		}
+		column, err := store.ListByColumn(ctx, 1)
+		if err != nil || !slices.Equal(cardKeys(column), []string{active.Key}) {
+			t.Fatalf("列内仍包含归档任务：%v %v", cardKeys(column), err)
 		}
 	})
 }

@@ -18,11 +18,12 @@ const (
 	EventColumnReordered    = "column.reordered"
 	EventCardCreated        = "card.created"
 	EventCardUpdated        = "card.updated"
-	// EventCardTagsUpdated 卡片上的标签有变化；单独成类型，原因同 EventBoardLabelsUpdated。
+	// EventCardTagsUpdated 任务上的标签有变化；单独成类型，原因同 EventBoardLabelsUpdated。
 	EventCardTagsUpdated = "card.tags_updated"
 	EventCardMoved       = "card.moved"
 	EventCardReordered   = "card.reordered"
 	EventCardDeleted     = "card.deleted"
+	EventCardArchived    = "card.archived"
 	EventCardClaimed     = "card.claimed"
 	EventCardReleased    = "card.released"
 	EventCommentAdded    = "comment.added"
@@ -45,7 +46,7 @@ type EventStorer interface {
 	ListBefore(ctx context.Context, boardID, beforeSeq int64, filter ActivityFilter, limit int) ([]*Event, error)
 	// Actors 返回看板事件里出现过的不同操作者（类型加名称），按类型、名称排序。
 	Actors(ctx context.Context, boardID int64) ([]ActivityActor, error)
-	// ListByCard 返回某张卡片的事件，按序号降序（最新的在前），最多 limit 条。
+	// ListByCard 返回某个任务的事件，按序号降序（最新的在前），最多 limit 条。
 	ListByCard(ctx context.Context, cardID int64, limit int) ([]*Event, error)
 	// LatestSeq 返回看板里最大的事件序号，没有事件时返回 0。
 	LatestSeq(ctx context.Context, boardID int64) (int64, error)

@@ -1,4 +1,4 @@
-// 看板快照的查询，以及页面要用的派生数据（排好序的列、每列的卡片、按 id 查卡片）。
+// 看板快照的查询，以及页面要用的派生数据（排好序的列、每列的任务、按 id 查任务）。
 
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
@@ -19,11 +19,11 @@ export function useBoardSnapshot(boardId: number | null) {
 export interface BoardView {
   /** 按显示顺序排好的列 */
   columns: Column[]
-  /** 按卡片 id 查找 */
+  /** 按任务 id 查找 */
   cardsById: Map<number, CardView>
 }
 
-/** 由快照算出排好序的列和按 id 的卡片表；快照没变时结果不重算 */
+/** 由快照算出排好序的列和按 id 的任务表；快照没变时结果不重算 */
 export function useBoardView(snapshot: Snapshot | undefined): BoardView {
   return useMemo(() => {
     const columns = [...(snapshot?.columns ?? [])].sort((a, b) => a.sort - b.sort || a.id - b.id)

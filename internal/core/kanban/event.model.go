@@ -8,7 +8,7 @@ import "time"
 type Event struct {
 	ID        int64     `gorm:"primaryKey;index:idx_events_board_seq,priority:2" json:"id"`
 	BoardID   int64     `gorm:"column:board_id;notNull;default:0;index:idx_events_board_seq,priority:1;comment:所属看板" json:"board_id"`
-	CardID    int64     `gorm:"column:card_id;notNull;default:0;index:idx_events_card;comment:关联的卡片，0 表示与卡片无关" json:"card_id"`
+	CardID    int64     `gorm:"column:card_id;notNull;default:0;index:idx_events_card;comment:关联的任务，0 表示与任务无关" json:"card_id"`
 	Type      string    `gorm:"column:type;size:48;notNull;default:'';comment:事件类型，例如 card.moved" json:"type"`
 	ActorKind string    `gorm:"column:actor_kind;size:16;notNull;default:'';comment:操作者类型：human、agent、system" json:"actor_kind"`
 	Actor     string    `gorm:"column:actor;size:96;notNull;default:'';comment:操作者名称" json:"actor"`

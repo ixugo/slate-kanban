@@ -20,7 +20,7 @@ func (e *cardEnv) setTags(t *testing.T, tags []kanban.TagInput) *kanban.Board {
 	return b
 }
 
-// tag 按文字给卡片设置标签（库里没有的文字会新建），失败就让测试终止。
+// tag 按文字给任务设置标签（库里没有的文字会新建），失败就让测试终止。
 func (e *cardEnv) tag(t *testing.T, c *kanban.Card, tags ...string) {
 	t.Helper()
 	if _, err := e.core.UpdateCard(context.Background(), testActor, c.ID, kanban.UpdateCardInput{Tags: &tags}); err != nil {
@@ -28,7 +28,7 @@ func (e *cardEnv) tag(t *testing.T, c *kanban.Card, tags ...string) {
 	}
 }
 
-// tagIDs 按主键给卡片设置标签，失败就让测试终止。
+// tagIDs 按主键给任务设置标签，失败就让测试终止。
 func (e *cardEnv) tagIDs(t *testing.T, c *kanban.Card, ids ...int64) {
 	t.Helper()
 	if _, err := e.core.UpdateCard(context.Background(), testActor, c.ID, kanban.UpdateCardInput{TagIDs: &ids}); err != nil {
@@ -36,7 +36,7 @@ func (e *cardEnv) tagIDs(t *testing.T, c *kanban.Card, ids ...int64) {
 	}
 }
 
-// names 返回卡片上带文字的标签的文字。
+// names 返回任务上带文字的标签的文字。
 func (e *cardEnv) names(t *testing.T, c *kanban.Card) []string {
 	t.Helper()
 	names, err := e.core.CardTagNames(context.Background(), e.stored(t, c.ID))
@@ -106,7 +106,7 @@ func TestSetTagsAssignsIDsAndKeepsThemOnReload(t *testing.T) {
 	}
 }
 
-// TestEditTagKeepsCardBinding 验证改文字、改颜色都只动标签自己，卡片靠主键引用，所以卡片不变、版本不涨；
+// TestEditTagKeepsCardBinding 验证改文字、改颜色都只动标签自己，任务靠主键引用，所以任务不变、版本不涨；
 // 事件是 board.labels_updated。
 func TestEditTagKeepsCardBinding(t *testing.T) {
 	e := newCardEnv(t)
@@ -118,7 +118,7 @@ func TestEditTagKeepsCardBinding(t *testing.T) {
 
 	e.setTags(t, []kanban.TagInput{{ID: id, Text: "缺陷", Color: "green-1"}})
 	if got := e.names(t, c); !slices.Equal(got, []string{"缺陷"}) || e.stored(t, c.ID).Version != version {
-		t.Fatalf("改文字和颜色后卡片应该跟着显示新文字且版本不变: %v", got)
+		t.Fatalf("改文字和颜色后任务应该跟着显示新文字且版本不变: %v", got)
 	}
 	if last := e.lastEvent(t); last.Type != kanban.EventBoardLabelsUpdated || !strings.Contains(last.Payload, "tags") {
 		t.Fatalf("应该写 board.labels_updated 事件并带上 tags: %+v", last)
@@ -126,11 +126,11 @@ func TestEditTagKeepsCardBinding(t *testing.T) {
 
 	e.setTags(t, []kanban.TagInput{{ID: id, Text: "", Color: "green-1"}})
 	if got := e.names(t, c); len(got) != 0 || !slices.Equal(e.stored(t, c.ID).TagIDs, []int64{id}) {
-		t.Fatalf("文字清空后卡片仍然绑定这个标签，只是没有文字: %v", got)
+		t.Fatalf("文字清空后任务仍然绑定这个标签，只是没有文字: %v", got)
 	}
 }
 
-// TestBlankTagsBindByID 验证没有文字的标签可以有多个，卡片靠主键绑定它们，tags 文字视图里不出现它们。
+// TestBlankTagsBindByID 验证没有文字的标签可以有多个，任务靠主键绑定它们，tags 文字视图里不出现它们。
 func TestBlankTagsBindByID(t *testing.T) {
 	e := newCardEnv(t)
 	b := e.setTags(t, []kanban.TagInput{{Color: "green-3"}, {Color: "red-3"}, {Text: "bug", Color: "red-2"}})
@@ -144,7 +144,7 @@ func TestBlankTagsBindByID(t *testing.T) {
 	}
 }
 
-// TestDeleteTagRemovesFromCards 验证删除标签会从卡片上摘掉并让版本加一，没用到它的卡片不动。
+// TestDeleteTagRemovesFromCards 验证删除标签会从任务上摘掉并让版本加一，没用到它的任务不动。
 func TestDeleteTagRemovesFromCards(t *testing.T) {
 	e := newCardEnv(t)
 	b := e.setTags(t, []kanban.TagInput{{Text: "bug"}, {Text: "后端"}})
@@ -158,7 +158,7 @@ func TestDeleteTagRemovesFromCards(t *testing.T) {
 		t.Fatalf("删除后应该只剩后端且版本加一: %+v", got)
 	}
 	if got := e.stored(t, other.ID); got.Version != otherVersion {
-		t.Fatalf("没用到被删标签的卡片不应该被改: %+v", got)
+		t.Fatalf("没用到被删标签的任务不应该被改: %+v", got)
 	}
 }
 
@@ -321,7 +321,7 @@ func TestRuleAddAndRemoveTag(t *testing.T) {
 	}
 }
 
-// TestRuleAddTagSkipsWhenLibraryFull 验证标签库满了时，规则要加的新文字被跳过并写进 automation.fired 的 skipped，卡片不变。
+// TestRuleAddTagSkipsWhenLibraryFull 验证标签库满了时，规则要加的新文字被跳过并写进 automation.fired 的 skipped，任务不变。
 func TestRuleAddTagSkipsWhenLibraryFull(t *testing.T) {
 	e := newClaimEnv(t)
 	full := make([]kanban.TagInput, 60)

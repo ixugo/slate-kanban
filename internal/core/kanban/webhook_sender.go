@@ -91,7 +91,7 @@ func dingTalkURL(w *Webhook) (string, error) {
 	if _, err := mac.Write([]byte(stringToSign)); err != nil {
 		return "", reasonJSON(err)
 	}
-	sign := url.QueryEscape(base64.StdEncoding.EncodeToString(mac.Sum(nil)))
+	sign := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	u, err := url.Parse(w.URL)
 	if err != nil {
 		return "", invalidf("webhook 地址不合法")

@@ -27,7 +27,7 @@ type Webhook struct {
 	Type          string    `gorm:"column:type;size:16;notNull;default:'';comment:dingtalk/wecom/feishu" json:"type"`
 	URL           string    `gorm:"column:url;size:512;notNull;default:'';comment:HTTPS 群机器人地址" json:"url"`
 	Secret        string    `gorm:"column:secret;size:200;notNull;default:'';comment:可选签名密钥" json:"-"`
-	Enabled       bool      `gorm:"column:enabled;notNull;default:TRUE;comment:是否启用" json:"enabled"`
+	Enabled       bool      `gorm:"column:enabled;notNull;comment:是否启用" json:"enabled"`
 	EventTypes    []string  `gorm:"column:event_types;type:text;serializer:json;notNull;default:'[]';comment:订阅事件，空表示全部" json:"event_types"`
 	ActorKinds    []string  `gorm:"column:actor_kinds;type:text;serializer:json;notNull;default:'[]';comment:订阅操作者类型，空表示全部" json:"actor_kinds"`
 	MoveColumnIDs []int64   `gorm:"column:move_column_ids;type:text;serializer:json;notNull;default:'[]';comment:card.moved 目标列，空表示全部" json:"move_column_ids"`

@@ -1,4 +1,4 @@
-// 移动卡片：先在本地缓存里预测结果（乐观更新），失败就恢复，成功后以服务端的数据为准。
+// 移动任务：先在本地缓存里预测结果（乐观更新），失败就恢复，成功后以服务端的数据为准。
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { moveCard } from '@/lib/api/endpoints'
@@ -13,7 +13,7 @@ export interface MoveVariables {
   plan: MovePlan
 }
 
-/** 返回移动卡片的变更；拖拽和卡片弹窗里换列共用它，规则和提示一致 */
+/** 返回移动任务的变更；拖拽和任务弹窗里换列共用它，规则和提示一致 */
 export function useMoveCard(boardId: number) {
   const queryClient = useQueryClient()
   const toastError = useErrorToast()

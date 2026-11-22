@@ -11,7 +11,7 @@ export interface DragEndResult {
 }
 
 /**
- * 根据活动卡片、落点以及拖动前后的 items 算出是否要发移动请求。
+ * 根据活动任务、落点以及拖动前后的 items 算出是否要发移动请求。
  * overId 为 null 表示没有有效落点。
  */
 export function handleDragEnd(

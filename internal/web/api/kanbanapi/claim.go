@@ -16,7 +16,7 @@ func (a API) claimRoutes(r gin.IRouter) {
 	r.POST("/cards/:card_id/finish", route(a.finishCard))
 }
 
-// claimCardInput 是领取卡片的请求，请求体可以省略，省略时用默认租约时长。
+// claimCardInput 是领取任务的请求，请求体可以省略，省略时用默认租约时长。
 type claimCardInput struct {
 	cardPath
 	kanban.ClaimCardInput
@@ -28,19 +28,19 @@ type finishCardInput struct {
 	kanban.FinishCardInput
 }
 
-// nextCardInput 是取下一张卡片的请求，请求体可以省略。
+// nextCardInput 是取下一个任务的请求，请求体可以省略。
 type nextCardInput struct {
 	boardPath
 	kanban.NextCardInput
 }
 
-// nextCardOutput 是取下一张卡片的响应。没有可做的卡片不是错误，此时 card 为 null，
+// nextCardOutput 是取下一个任务的响应。没有可做的任务不是错误，此时 card 为 null，
 // 用对象包一层，客户端不用处理"整个响应体就是 null"这种容易出错的形态。
 type nextCardOutput struct {
 	Card *kanban.CardDetail `json:"card"`
 }
 
-// nextCard 为 agent 挑选并领取看板里下一张该做的卡片，只有 agent 能做。
+// nextCard 为 agent 挑选并领取看板里下一个该做的任务，只有 agent 能做。
 func (a API) nextCard(ctx context.Context, actor kanban.Actor, in *nextCardInput) (*nextCardOutput, error) {
 	card, err := a.core.NextCard(ctx, actor, in.BoardID, in.NextCardInput)
 	if err != nil {
@@ -49,12 +49,12 @@ func (a API) nextCard(ctx context.Context, actor kanban.Actor, in *nextCardInput
 	return &nextCardOutput{Card: card}, nil
 }
 
-// claimCard 让 agent 领取指定的卡片，已经由自己持有时只是续租，只有 agent 能做。
+// claimCard 让 agent 领取指定的任务，已经由自己持有时只是续租，只有 agent 能做。
 func (a API) claimCard(ctx context.Context, actor kanban.Actor, in *claimCardInput) (*kanban.CardDetail, error) {
 	return a.core.ClaimCard(ctx, actor, in.CardID, in.ClaimCardInput)
 }
 
-// releaseCard 释放卡片上的领取。agent 只能释放自己的，人可以收回任何一张；已经没有领取也返回成功。
+// releaseCard 释放任务上的领取。agent 只能释放自己的，人可以收回任何一张；已经没有领取也返回成功。
 func (a API) releaseCard(ctx context.Context, actor kanban.Actor, in *cardPath) (empty, error) {
 	return empty{}, a.core.ReleaseCard(ctx, actor, in.CardID)
 }

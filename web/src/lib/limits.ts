@@ -19,13 +19,13 @@ export const ENGINEER_NAME_MAX = 30
 export const ENGINEER_PROMPT_MAX = 2000
 export const ENGINEERS_PER_BOARD_MAX = 20
 
-/** 卡片标题、描述的最大长度 */
+/** 任务标题、描述的最大长度 */
 export const CARD_TITLE_MAX = 200
 export const CARD_DESC_MAX = 20000
-/** 一张卡片最多几个标签，每个标签最多几个字符 */
+/** 一个任务最多几个标签，每个标签最多几个字符 */
 export const CARD_TAGS_MAX = 10
 export const CARD_TAG_MAX = 30
-/** 一张卡片最多依赖几张卡片 */
+/** 一个任务最多依赖几个任务 */
 export const CARD_DEPS_MAX = 20
 /** 分支名、链接的最大长度 */
 export const CARD_BRANCH_MAX = 200
@@ -45,7 +45,7 @@ export const RULE_DUE_DAYS_MAX = 365
 /** 规则条件（筛选语法）的最大长度 */
 export const FILTER_MAX = 500
 
-/** 搜索一次最多取回的卡片数 */
+/** 搜索一次最多取回的任务数 */
 export const SEARCH_LIMIT = 500
 
 /** 访问口令的最大长度（只允许可打印 ASCII，不含空格） */

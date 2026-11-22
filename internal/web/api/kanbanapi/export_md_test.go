@@ -23,7 +23,7 @@ func TestRenderBoardMarkdownGolden(t *testing.T) {
 				CardView: &kanban.CardView{
 					Card: &kanban.Card{
 						ID: 10, ColumnID: 1, Key: "DEMO-1", Title: "第一张卡",
-						Description: "卡片正文", Priority: 2, TagIDs: []int64{1},
+						Description: "任务正文", Priority: 2, TagIDs: []int64{1},
 						DueAt: &due,
 					},
 					Tags:   []string{"api"},
@@ -49,7 +49,7 @@ func TestRenderBoardMarkdownGolden(t *testing.T) {
 
 优先级: 中 · 标签: api · 截止时间: 2026-03-01T12:00:00Z
 
-卡片正文
+任务正文
 
 #### 评论
 

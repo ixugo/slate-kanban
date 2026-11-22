@@ -5,6 +5,7 @@ import { request, upload } from './client'
 import type {
   ActivityPage,
   ActivityQuery,
+  ArchivedCardsPage,
   Attachment,
   AuthStatus,
   Board,
@@ -60,12 +61,12 @@ export function updateBoard(boardId: number, input: UpdateBoardInput): Promise<B
   return request<Board>(`/boards/${boardId}`, { method: 'PATCH', body: input })
 }
 
-/** 删除看板，连同它的列、卡片、规则 */
+/** 删除看板，连同它的列、任务、规则 */
 export function deleteBoard(boardId: number): Promise<Empty> {
   return request<Empty>(`/boards/${boardId}`, { method: 'DELETE' })
 }
 
-/** 整板快照：看板、列、规则、全部卡片和事件序号 */
+/** 整板快照：看板、列、规则、全部任务和事件序号 */
 export function getSnapshot(boardId: number, signal?: Signal): Promise<Snapshot> {
   return request<Snapshot>(`/boards/${boardId}/snapshot`, { signal })
 }
@@ -103,7 +104,7 @@ export function reorderColumns(boardId: number, ids: number[]): Promise<Column[]
   return request<Column[]>(`/boards/${boardId}/columns/order`, { method: 'PUT', body: { ids } })
 }
 
-/** 删除列；列里有卡片时必须用 moveTo 指定搬去哪一列 */
+/** 删除列；列里有任务时必须用 moveTo 指定搬去哪一列 */
 export function deleteColumn(boardId: number, columnId: number, moveTo?: number): Promise<Empty> {
   return request<Empty>(`/boards/${boardId}/columns/${columnId}`, {
     method: 'DELETE',
@@ -111,37 +112,53 @@ export function deleteColumn(boardId: number, columnId: number, moveTo?: number)
   })
 }
 
-/** 按筛选语法查询卡片，query 为空返回全部（受 limit 限制） */
+/** 按筛选语法查询任务，query 为空返回全部（受 limit 限制） */
 export function searchCards(boardId: number, query: string, limit: number, signal?: Signal): Promise<CardList> {
   return request<CardList>(`/boards/${boardId}/cards`, { query: { query, limit }, signal })
 }
 
-/** 创建卡片，column_id 不填放进第一列 */
+/** 创建任务，column_id 不填放进第一列 */
 export function createCard(boardId: number, input: CreateCardInput): Promise<Card> {
   return request<Card>(`/boards/${boardId}/cards`, { method: 'POST', body: input })
 }
 
-/** 一张卡片的完整信息：依赖、评论、所在列的 agent 指令 */
+export function listArchivedCards(boardId: number, before?: number, signal?: Signal): Promise<ArchivedCardsPage> {
+  return request<ArchivedCardsPage>(`/boards/${boardId}/archived-cards`, { query: { before }, signal })
+}
+
+export function getCardByNumber(boardId: number, number: number, signal?: Signal): Promise<CardDetail> {
+  return request<CardDetail>(`/boards/${boardId}/cards/by-number/${number}`, { signal })
+}
+
+export function archiveCard(cardId: number): Promise<Card> {
+  return request<Card>(`/cards/${cardId}/archive`, { method: 'POST' })
+}
+
+export function forkCard(cardId: number): Promise<Card> {
+  return request<Card>(`/cards/${cardId}/fork`, { method: 'POST' })
+}
+
+/** 一个任务的完整信息：依赖、评论、所在列的 agent 指令 */
 export function getCardDetail(cardId: number, signal?: Signal): Promise<CardDetail> {
   return request<CardDetail>(`/cards/${cardId}`, { signal })
 }
 
-/** 卡片的一次变更记录：修改前、修改后的完整内容，活动里的「查看变更」用它左右对比 */
+/** 任务的一次变更记录：修改前、修改后的完整内容，活动里的「查看变更」用它左右对比 */
 export function getCardChange(cardId: number, changeId: number, signal?: Signal): Promise<CardChange> {
   return request<CardChange>(`/cards/${cardId}/changes/${changeId}`, { signal })
 }
 
-/** 修改卡片；带 version 时服务端会检查有没有被别人先改过 */
+/** 修改任务；带 version 时服务端会检查有没有被别人先改过 */
 export function updateCard(cardId: number, input: UpdateCardInput): Promise<Card> {
   return request<Card>(`/cards/${cardId}`, { method: 'PATCH', body: input })
 }
 
-/** 删除卡片 */
+/** 删除任务 */
 export function deleteCard(cardId: number): Promise<Empty> {
   return request<Empty>(`/cards/${cardId}`, { method: 'DELETE' })
 }
 
-/** 移动卡片：换列、同列内调整顺序 */
+/** 移动任务：换列、同列内调整顺序 */
 export function moveCard(cardId: number, input: MoveCardInput): Promise<Card> {
   return request<Card>(`/cards/${cardId}/move`, { method: 'POST', body: input })
 }
@@ -151,12 +168,12 @@ export function markCardRead(cardId: number): Promise<Empty> {
   return request<Empty>(`/cards/${cardId}/read`, { method: 'POST' })
 }
 
-/** 收回 agent 对卡片的领取 */
+/** 收回 agent 对任务的领取 */
 export function releaseCard(cardId: number): Promise<Empty> {
   return request<Empty>(`/cards/${cardId}/release`, { method: 'POST' })
 }
 
-/** 给卡片加评论 */
+/** 给任务加评论 */
 export function addComment(cardId: number, body: string): Promise<Comment> {
   return request<Comment>(`/cards/${cardId}/comments`, { method: 'POST', body: { body } })
 }

@@ -33,7 +33,7 @@ func callImage(t *testing.T, sess *mcp.ClientSession, token string) *mcp.CallToo
 	return res
 }
 
-// TestUploadImageThenReference 验证完整闭环：用本机路径上传，把返回的 markdown 写进卡片描述，
+// TestUploadImageThenReference 验证完整闭环：用本机路径上传，把返回的 markdown 写进任务描述，
 // 之后用编号和整个地址都能读回同样的图片。
 func TestUploadImageThenReference(t *testing.T) {
 	s := newStack(t)

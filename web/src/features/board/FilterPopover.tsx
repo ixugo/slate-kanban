@@ -34,7 +34,7 @@ export interface FilterPopoverProps {
   columns: readonly Column[]
   /** 这块看板里出现过的标签 */
   tags: readonly TagOption[]
-  /** 正在领取卡片的 agent 名称 */
+  /** 正在领取任务的 agent 名称 */
   claimers: readonly string[]
 }
 

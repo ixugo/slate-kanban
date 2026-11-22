@@ -35,7 +35,7 @@ type reorderColumnsInput struct {
 	IDs []int64 `json:"ids"`
 }
 
-// deleteColumnInput 是删除列的请求。列里还有卡片时，MoveTo 指定卡片搬去的列，走查询参数。
+// deleteColumnInput 是删除列的请求。列里还有任务时，MoveTo 指定任务搬去的列，走查询参数。
 type deleteColumnInput struct {
 	columnPath
 	MoveTo int64 `form:"move_to" json:"-"`
@@ -56,7 +56,7 @@ func (a API) reorderColumns(ctx context.Context, actor kanban.Actor, in *reorder
 	return a.core.ReorderColumns(ctx, actor, in.BoardID, in.IDs)
 }
 
-// deleteColumn 删除一列，列里的卡片搬到 move_to 指定的列，只有人能做。
+// deleteColumn 删除一列，列里的任务搬到 move_to 指定的列，只有人能做。
 func (a API) deleteColumn(ctx context.Context, actor kanban.Actor, in *deleteColumnInput) (empty, error) {
 	return empty{}, a.core.DeleteColumn(ctx, actor, in.BoardID, in.ColumnID, in.MoveTo)
 }

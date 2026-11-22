@@ -8,7 +8,7 @@ export const zhCN: Messages = {
     templates: {
       body: '导入、导出和管理自定义项目模板。从项目设置可把现有项目导出为模板；新建项目时可选用这里的模板。',
       import: '导入 JSON',
-      empty: '还没有自定义模板。',
+      builtin: '内置',
       loadFailed: '无法加载模板列表。',
       invalidFile: '不是合法的项目模板 JSON 文件。',
       delete: '删除模板「{{name}}」',
@@ -98,10 +98,7 @@ export const zhCN: Messages = {
       descriptionLabel: '说明',
       descriptionPlaceholder: '这个项目用来做什么？（选填）',
       template: '起步模板',
-      templateSwitch: '使用研发流程模板',
-      templates: { dev: '研发流程', empty: '空白' },
-      customTemplate: '自定义模板',
-      customTemplateNone: '不使用（用下面的起步模板）',
+      templates: { dev: '研发模板', empty: '空白' },
       submit: '创建项目',
       submitting: '创建中…',
       errors: {
@@ -126,7 +123,6 @@ export const zhCN: Messages = {
     addCard: '添加任务',
     addCardPlaceholder: '标题，回车提交',
     columnDone: '完成',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: '按 / 搜索，按 n 新建任务',
     viewToggle: '看板或列表视图',
     viewBoard: '看板视图',
@@ -182,6 +178,7 @@ export const zhCN: Messages = {
     clearFilters: '清除筛选',
     // 修改事件里时间类字段的叫法，比任务详情里的按钮名更完整
     field: { due_at: '截止时间', started_at: '开始时间', finished_at: '完成时间' },
+    previous: { label: '之前', on: '开启', off: '关闭', toggle: '{{from}} → {{to}}' },
     // 「修改了描述，查看变更」：句子和链接之间的标点、链接文字，以及对比弹窗里的文字
     change: {
       separator: '，',
@@ -207,6 +204,7 @@ export const zhCN: Messages = {
       cardTagsUpdated: '修改了标签',
       cardMoved: '将任务从「{{from}}」移到「{{to}}」',
       cardReordered: '调整了任务在列里的顺序',
+      cardArchived: '归档了任务',
       cardDeleted: '删除了任务',
       cardClaimed: '领取了任务',
       cardReleased: '释放了任务',
@@ -352,6 +350,16 @@ export const zhCN: Messages = {
     title: '任务',
     notFound: '这个项目里已经没有这个任务了。',
     versionConflict: '别人刚改过这个任务，请核对后再保存。',
+    archive: {
+      action: '归档',
+      description: '查看归档任务',
+      empty: '还没有归档任务。',
+      confirmTitle: '归档这个任务？',
+      confirmBody: '归档后可查看任务和评论，编辑与评论将关闭。',
+      readOnly: '已归档 · 只读',
+      missingDependency: '已删除',
+      title: '已归档任务',
+    },
     field: {
       title: '标题',
       description: '描述',
@@ -375,7 +383,7 @@ export const zhCN: Messages = {
     dueTime: '截止时刻',
     datesOrder: '截止日期不能早于开始日期',
     descEdit: '编辑',
-    descEditHint: '双击描述区域可以编辑',
+    descEditHint: '点击描述区域可以编辑',
     descPlaceholder: '支持 Markdown',
     columnInstructionHint: 'agent 处理本列任务时会读取这段说明。',
     claim: {
@@ -405,7 +413,8 @@ export const zhCN: Messages = {
     tagLimit: '每个任务最多 {{max}} 个标签。',
     tagTooLong: '每个标签最多 {{max}} 个字符。',
     depAdd: '添加依赖',
-    depEmpty: '无',
+    depSearch: '按 #编号或标题搜索',
+    depNoResults: '没有匹配的任务',
     urlInvalid: '只允许 http 和 https 链接。',
   },
   settings: {
@@ -702,7 +711,7 @@ export const zhCN: Messages = {
       intro: '接好之后，agent 可以一直盯着看板、有任务就接。原理是：',
       how: {
         connect: 'agent 保持会话，反复调用 MCP 工具 wait_for_updates。',
-        push: '服务端挂住这次调用，看板一有变化立刻推送给它；没有变化时大约每 50 秒才一次请求，不是定时拉取任务。',
+        push: '服务端保持请求等待，看板有更新时立即返回。配置长等待后，空闲时可等待最多 60 分钟。不支持长等待的链路请使用 50 秒或更短。',
         loop: 'host 的 loop 只每隔几分钟检查这个监听还活着没有，断了就让 agent 重新挂上。',
       },
       board: '看板',
@@ -714,8 +723,10 @@ export const zhCN: Messages = {
         perm: '无人值守时权限弹窗会卡住会话：先把 slate 的工具和常用操作设成“总是允许”；只有在隔离环境里才考虑关闭权限检查。',
       },
     },
-    advanced: '手动安装（高级）',
-    advancedHint: '上面的一句话提示词会让 agent 自己完成这些步骤；需要手动安装时再展开。',
+    advanced: '手动安装与卸载',
+    advancedHint: '上面的一句话提示词可以让 agent 为你安装 Slate MCP。',
+    uninstallMcp: '卸载 Slate MCP',
+    uninstallMcpCursor: '在 ~/.cursor/mcp.json 的 mcpServers 中移除 slate（工作视图）或 slate-manager（管理视图）。保留其他条目，保存文件并重启 Cursor。',
     skillOptional:
       'Skill 可选，不装也行：MCP 资源 slate://skills/slate-kanban 返回的内容与 skill 完全相同，没装 skill 时守候提示词会让 agent 自己去读它。只有想让 host 自动加载时才需要装。',
     managerFold: '管理视图 MCP（可选）',
@@ -773,6 +784,9 @@ export const zhCN: Messages = {
     ErrAgentOnly: '这个操作只给 agent 使用。',
     ErrCardHumanOnly: '这个任务只能由人处理。',
     ErrCardWaiting: '这个任务还在等其他任务完成。',
+    ErrCardArchived: '任务已归档，无法修改。',
+    ErrInboxNotFound: '找不到收件箱列，请先创建收件箱。',
+    ErrForkRelationUnavailable: '原任务的标签或依赖已被删除，无法完整 Fork。',
     ErrCardClaimed: '这个任务已被另一个 agent 领取。',
     ErrEngineerBusy: '这位工程师正在做别的任务。',
     ErrNoIdleEngineer: '工程师都在忙，请排队等待。',

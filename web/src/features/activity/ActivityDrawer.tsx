@@ -10,7 +10,7 @@ interface ActivityDrawerProps {
   boardId: number
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** 看板上现有的卡片 */
+  /** 看板上现有的任务 */
   cardsById: ReadonlyMap<number, CardView>
 }
 

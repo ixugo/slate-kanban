@@ -11,7 +11,7 @@ export const en = {
     templates: {
       body: 'Import, export, and manage custom project templates. Export a project from its settings; pick a template here when creating a project.',
       import: 'Import JSON',
-      empty: 'No custom templates yet.',
+      builtin: 'Built in',
       loadFailed: 'Could not load templates.',
       invalidFile: 'Not a valid project template JSON file.',
       delete: 'Delete template "{{name}}"',
@@ -101,10 +101,7 @@ export const en = {
       descriptionLabel: 'Description',
       descriptionPlaceholder: 'What is this project for? (optional)',
       template: 'Template',
-      templateSwitch: 'Use the Development template',
-      templates: { dev: 'Development', empty: 'Blank' },
-      customTemplate: 'Custom template',
-      customTemplateNone: 'None (use built-in template below)',
+      templates: { dev: 'Development template', empty: 'Blank' },
       submit: 'Create project',
       submitting: 'Creating…',
       errors: {
@@ -129,7 +126,6 @@ export const en = {
     addCard: 'Add a task',
     addCardPlaceholder: 'Title, press Enter',
     columnDone: 'Done',
-    columnCount: '{{matched}} / {{total}}',
     shortcutHint: 'Press / to search, n to add a task',
     viewToggle: 'Board or list view',
     viewBoard: 'Board view',
@@ -185,6 +181,7 @@ export const en = {
     clearFilters: 'Clear filters',
     // 修改事件里时间类字段的叫法，比任务详情里的按钮名更完整
     field: { due_at: 'Due date', started_at: 'Start time', finished_at: 'Finish time' },
+    previous: { label: 'Previous', on: 'On', off: 'Off', toggle: '{{from}} → {{to}}' },
     // “changed Description, view changes”：句子和链接之间的标点、链接文字，以及对比弹窗里的文字
     change: {
       separator: ', ',
@@ -210,6 +207,7 @@ export const en = {
       cardTagsUpdated: 'changed the tags',
       cardMoved: 'moved the task from “{{from}}” to “{{to}}”',
       cardReordered: 'reordered the task within its column',
+      cardArchived: 'archived a task',
       cardDeleted: 'deleted the task',
       cardClaimed: 'claimed the task',
       cardReleased: 'released the task',
@@ -355,6 +353,16 @@ export const en = {
     title: 'Task',
     notFound: 'That task no longer exists in this project.',
     versionConflict: 'Someone else changed this task. Review your edits and save again.',
+    archive: {
+      action: 'Archive',
+      description: 'Browse archived tasks',
+      empty: 'There are no archived tasks yet.',
+      confirmTitle: 'Archive this task?',
+      confirmBody: 'You can still view the task and its comments. Editing and commenting will be turned off.',
+      readOnly: 'Archived · Read only',
+      missingDependency: 'Deleted',
+      title: 'Archived tasks',
+    },
     field: {
       title: 'Title',
       description: 'Description',
@@ -378,7 +386,7 @@ export const en = {
     dueTime: 'Due time',
     datesOrder: 'The due date can’t be before the start date',
     descEdit: 'Edit',
-    descEditHint: 'Double-click the description to edit',
+    descEditHint: 'Click the description to edit',
     descPlaceholder: 'Markdown supported',
     columnInstructionHint: 'Agents read this when working tasks in this column.',
     claim: {
@@ -408,7 +416,8 @@ export const en = {
     tagLimit: 'This task can have at most {{max}} tags.',
     tagTooLong: 'Each tag can be at most {{max}} characters.',
     depAdd: 'Add dependency',
-    depEmpty: 'None',
+    depSearch: 'Search by #number or title',
+    depNoResults: 'No matching tasks',
     urlInvalid: 'Only http and https links are allowed.',
   },
   settings: {
@@ -706,7 +715,7 @@ export const en = {
       intro: 'Once connected, an agent can stay on the board and take tasks as they appear. It works like this:',
       how: {
         connect: 'The agent keeps its session open and calls the MCP tool wait_for_updates over and over.',
-        push: 'The server holds each call open and answers the moment the board changes. When nothing changes it is only one request about every 50 seconds, not a poll for tasks.',
+        push: 'The server holds each call open and answers as soon as the board changes. When idle, a configured connection can wait up to 60 minutes. Use 50 seconds or less on connections that do not support long waits.',
         loop: 'The host\'s loop only checks every few minutes that this listening is still alive; if it dropped, the agent attaches again.',
       },
       board: 'Board',
@@ -718,8 +727,10 @@ export const en = {
         perm: 'Permission prompts stall an unattended session: set slate\'s tools and common actions to “always allow” first, and only turn permission checks off inside an isolated environment.',
       },
     },
-    advanced: 'Manual install (advanced)',
-    advancedHint: 'The one-line prompt above lets the agent do all of this itself. Open this only to install by hand.',
+    advanced: 'Manual setup and removal',
+    advancedHint: 'The one-line prompt above lets the agent install Slate MCP for you.',
+    uninstallMcp: 'Remove Slate MCP',
+    uninstallMcpCursor: 'In ~/.cursor/mcp.json, remove slate (worker) or slate-manager (manager) from mcpServers. Keep the other entries, save the file, and restart Cursor.',
     skillOptional:
       'The skill is optional. The MCP resource slate://skills/slate-kanban returns exactly the same text, and the watch prompt tells the agent to read it when the skill is not installed. Install the skill only if you want the host to load it automatically.',
     managerFold: 'Manager MCP (optional)',
@@ -777,6 +788,9 @@ export const en = {
     ErrAgentOnly: 'That action is only for agents.',
     ErrCardHumanOnly: 'This task is for people only.',
     ErrCardWaiting: 'This task is still waiting for other tasks to finish.',
+    ErrCardArchived: 'This task is archived and cannot be changed.',
+    ErrInboxNotFound: 'No inbox column found. Create an inbox first.',
+    ErrForkRelationUnavailable: 'A tag or dependency from the original task was deleted. Fork would produce an incomplete copy.',
     ErrCardClaimed: 'This task is already held by another agent.',
     ErrEngineerBusy: 'This engineer is working on another task.',
     ErrNoIdleEngineer: 'All engineers are busy. Please wait in line.',

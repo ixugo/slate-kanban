@@ -18,8 +18,8 @@ func requireHuman(actor Actor) error {
 	return nil
 }
 
-// requireWriter 校验操作者合法并且是人或 agent。卡片的创建、修改、移动、评论对这两类开放，
-// 具体能碰哪些字段、哪些卡片，由各方法再按权限表细分。自动化规则的改动走内部流程，不经过这里。
+// requireWriter 校验操作者合法并且是人或 agent。任务的创建、修改、移动、评论对这两类开放，
+// 具体能碰哪些字段、哪些任务，由各方法再按权限表细分。自动化规则的改动走内部流程，不经过这里。
 func requireWriter(actor Actor) error {
 	if err := actor.Validate(); err != nil {
 		return err
@@ -31,7 +31,7 @@ func requireWriter(actor Actor) error {
 }
 
 // requireAgent 校验操作者合法并且是 agent。领取、取下一张卡是 agent 独有的动作，
-// 人通过拖动卡片分配工作，所以人调用会得到 ErrAgentOnly。
+// 人通过拖动任务分配工作，所以人调用会得到 ErrAgentOnly。
 func requireAgent(actor Actor) error {
 	if err := actor.Validate(); err != nil {
 		return err

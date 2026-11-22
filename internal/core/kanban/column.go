@@ -225,11 +225,11 @@ func (u *unit) applyColumnOrder(ctx context.Context, cols []*Column, ids []int64
 	return ordered, true, nil
 }
 
-// DeleteColumn 删除一列。只有人能操作。列是空的就直接删；列里有卡片时必须用 moveTo 指定
-// 把它们移入的另一列（原顺序追加到那一列末尾），否则返回 409，防止卡片因为删列而消失。
+// DeleteColumn 删除一列。只有人能操作。列是空的就直接删；列里有任务时必须用 moveTo 指定
+// 把它们移入的另一列（原顺序追加到那一列末尾），否则返回 409，防止任务因为删列而消失。
 // 其他列指向它的"下一列"会被清掉，引用它的启用中的规则会被停用，因为这些规则已经不可能正常工作。
-// 列已经不存在时返回成功（幂等）。因为删列而搬走的卡片不触发自动化规则，这是结构调整，
-// 不是有人在流程里推进卡片；事件里只记搬走的张数，不为每张卡片单独写事件。
+// 列已经不存在时返回成功（幂等）。因为删列而搬走的任务不触发自动化规则，这是结构调整，
+// 不是有人在流程里推进任务；事件里只记搬走的任务数，不为每个任务单独写事件。
 func (c Core) DeleteColumn(ctx context.Context, actor Actor, boardID, columnID, moveTo int64) error {
 	if err := requireHuman(actor); err != nil {
 		return err
@@ -239,7 +239,7 @@ func (c Core) DeleteColumn(ctx context.Context, actor Actor, boardID, columnID, 
 	})
 }
 
-// deleteColumn 在事务里完成 DeleteColumn：先搬走卡片，再清理指向这一列的引用，最后删列并追加事件。
+// deleteColumn 在事务里完成 DeleteColumn：先搬走任务，再清理指向这一列的引用，最后删列并追加事件。
 func (u *unit) deleteColumn(ctx context.Context, actor Actor, boardID, columnID, moveTo int64) error {
 	cols, err := u.column.ListByBoard(ctx, boardID)
 	if err != nil {
@@ -268,9 +268,9 @@ func (u *unit) deleteColumn(ctx context.Context, actor Actor, boardID, columnID,
 	})
 }
 
-// evacuateColumn 把列里的卡片按原顺序追加到 moveTo 指定的列末尾，返回目标列的主键和搬走的张数。
-// 列是空的不需要目标列，返回 0 和 0。领取的处理和移动卡片一致：agent 操作时清掉，人操作时保留。
-// 复杂度是这一列的卡片数，一列的卡片数预期在几百张以内。
+// evacuateColumn 把列里的任务按原顺序追加到 moveTo 指定的列末尾，返回目标列的主键和搬走的张数。
+// 列是空的不需要目标列，返回 0 和 0。领取的处理和移动任务一致：agent 操作时清掉，人操作时保留。
+// 复杂度是这一列的任务数，一列的任务数预期在几百个以内。
 func (u *unit) evacuateColumn(ctx context.Context, actor Actor, cols []*Column, col *Column, moveTo int64) (int64, int, error) {
 	cards, err := u.card.ListByColumn(ctx, col.ID)
 	if err != nil {

@@ -5,7 +5,7 @@
 /** 操作者类型：人、agent、系统（自动化规则） */
 export type ActorKind = 'human' | 'agent' | 'system'
 
-/** 看板标签库里的一项：一个颜色加一段文字，各自可改；文字可以为空，表示只有颜色。卡片靠主键引用标签 */
+/** 看板标签库里的一项：一个颜色加一段文字，各自可改；文字可以为空，表示只有颜色。任务靠主键引用标签 */
 export interface Tag {
   id: number
   text: string
@@ -33,14 +33,14 @@ export interface Board {
   tags: Tag[]
   /** 工程师名册：新看板自带 2 个全栈和 1 个测试 */
   engineers: Engineer[]
-  /** 卡片编号的前缀，创建后不能改 */
+  /** 任务编号的前缀，创建后不能改 */
   slug: string
   description: string
   /** 看板关联的本地项目路径，agent 建 worktree 时用 */
   project_path: string
   created_at: string
   updated_at: string
-  /** 最后活动时间：看板自身更新和卡片、评论等事件里最晚的一个，项目列表用它显示“更新于” */
+  /** 最后活动时间：看板自身更新和任务、评论等事件里最晚的一个，项目列表用它显示“更新于” */
   last_activity_at: string
 }
 
@@ -48,9 +48,9 @@ export interface Column {
   id: number
   board_id: number
   name: string
-  /** 给 agent 的指令：这一列的卡片该怎么处理 */
+  /** 给 agent 的指令：这一列的任务该怎么处理 */
   instruction: string
-  /** 卡片进入这一列算完成 */
+  /** 任务进入这一列算完成 */
   is_done: boolean
   /** 完成后默认去哪一列，0 表示没有 */
   next_column_id: number
@@ -100,7 +100,7 @@ export interface Rule {
   trigger: TriggerType
   /** 触发所在的列，0 表示任意列 */
   column_id: number
-  /** 卡片筛选语法写的条件，空表示无条件 */
+  /** 任务筛选语法写的条件，空表示无条件 */
   condition: string
   actions: RuleAction[]
   sort: number
@@ -119,21 +119,22 @@ export interface Card {
   board_id: number
   column_id: number
   number: number
-  /** 卡片编号，例如 SLATE-12 */
+  /** 任务编号，例如 SLATE-12 */
   key: string
   title: string
   description: string
   position: number
   /** 0 未设置，1 低，2 中，3 高 */
   priority: number
-  /** 卡片上的标签主键，指向看板的标签库（含没有文字的标签） */
+  /** 任务上的标签主键，指向看板的标签库（含没有文字的标签） */
   tag_ids: number[]
   human_only: boolean
-  /** 依赖的卡片主键 */
+  /** 依赖的任务主键 */
   waits_on: number[]
   due_at: string | null
   started_at: string | null
   finished_at: string | null
+  archived_at?: string | null
   /** 当前持有这张卡的 agent 名称，空串表示没有 */
   claimed_by: string
   claim_expires_at: string | null
@@ -153,9 +154,9 @@ export interface Card {
   updated_at: string
 }
 
-/** 卡片加上服务端从列、依赖、租约推出来的只读信息 */
+/** 任务加上服务端从列、依赖、租约推出来的只读信息 */
 export interface CardView extends Card {
-  /** 卡片上带文字的标签的文字，给筛选选项和无障碍名称用；要颜色请用 tag_ids 查标签库 */
+  /** 任务上带文字的标签的文字，给筛选选项和无障碍名称用；要颜色请用 tag_ids 查标签库 */
   tags: string[]
   /** 所在列的名称 */
   column: string
@@ -186,7 +187,7 @@ export interface Comment {
   updated_at: string
 }
 
-/** 卡片某个字段的一次修改记录：改之前、改之后的完整内容，用来左右对比（目前只记描述） */
+/** 任务某个字段的一次修改记录：改之前、改之后的完整内容，用来左右对比（目前只记描述） */
 export interface CardChange {
   id: number
   board_id: number
@@ -198,18 +199,19 @@ export interface CardChange {
   actor_kind: ActorKind
   actor: string
   created_at: string
-  /** 同一张卡片里前一条、后一条变更记录的编号，没有就是 0 */
+  /** 同一个任务里前一条、后一条变更记录的编号，没有就是 0 */
   prev_id: number
   next_id: number
 }
 
-/** 依赖列表里一张卡片的概要 */
+/** 依赖列表里一个任务的概要 */
 export interface CardRef {
   id: number
   key: string
   title: string
   column: string
   done: boolean
+  missing?: boolean
 }
 
 export interface CardDetail extends CardView {
@@ -217,15 +219,22 @@ export interface CardDetail extends CardView {
   column_instruction: string
   dependencies: CardRef[]
   comments: Comment[]
+  archived_tags?: Tag[]
+  archived_engineer?: string
 }
 
-/** 整板快照：看板、列、规则、全部卡片，加上读取数据之前的最新事件序号 */
+/** 整板快照：看板、列、规则、全部任务，加上读取数据之前的最新事件序号 */
 export interface Snapshot extends BoardDetail {
   cards: CardView[]
   seq: number
 }
 
 /** 筛选语法查询的结果 */
+export interface ArchivedCardsPage {
+  cards: Card[]
+  has_more: boolean
+}
+
 export interface CardList {
   cards: CardView[]
   total: number
@@ -278,7 +287,7 @@ export interface ActivityQuery {
   exclude_types?: readonly string[]
   actor_kind?: ActorKind
   actor?: string
-  /** 只看这张卡片的事件 */
+  /** 只看这个任务的事件 */
   card_id?: number
 }
 
@@ -324,19 +333,20 @@ export interface CreateBoardInput {
   description?: string
   template?: BoardTemplate
   locale?: string
-  /** 非 0 时从该自定义项目模板复制结构，忽略 template */
+  /** 非 0 时用该项目模板建立新项目，忽略 template */
   project_template_id?: number
 }
 
-/** 自定义项目模板列表项 */
+/** 项目模板列表项 */
 export interface ProjectTemplateSummary {
   id: number
   name: string
   updated_at: string
+  builtin: boolean
 }
 
 /** 导入模板成功后的详情 */
-export interface ProjectTemplateDetail extends ProjectTemplateSummary {
+export interface ProjectTemplateDetail extends Omit<ProjectTemplateSummary, 'builtin'> {
   tags: { text: string; color: string }[]
   engineers: { name: string; kind: EngineerKind; prompt: string; avatar?: string }[]
   columns: { name: string; instruction: string; is_done: boolean; next_column: number }[]
@@ -363,7 +373,7 @@ export interface EngineerInput {
 export interface UpdateBoardInput {
   name?: string
   description?: string
-  /** 整体替换工程师名册：解聘的工程师会从所有卡片上摘掉 */
+  /** 整体替换工程师名册：解聘的工程师会从所有任务上摘掉 */
   engineers?: EngineerInput[]
   /** 整体替换标签库：库里原有、这里没有的算删除，顺序就是显示顺序 */
   tags?: TagInput[]

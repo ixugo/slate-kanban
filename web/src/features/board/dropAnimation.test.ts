@@ -10,12 +10,12 @@ afterEach(() => {
 })
 
 describe('alignToSlot', () => {
-  it('终点按外层容器对齐：容器的左上角落到真实卡片的左上角', () => {
+  it('终点按外层容器对齐：容器的左上角落到真实任务的左上角', () => {
     const args = {
       transform: { initial: { x: 10, y: 20, scaleX: 1, scaleY: 1 }, final: { x: 0, y: 0, scaleX: 1, scaleY: 1 } },
-      // 真实卡片在 (300, 80)
+      // 真实任务在 (300, 80)
       active: { rect: { left: 300, top: 80 } },
-      // 外层容器现在在 (100, 50)；容器里放大倾斜后的卡片外框更大，但不影响容器自己的位置
+      // 外层容器现在在 (100, 50)；容器里放大倾斜后的任务外框更大，但不影响容器自己的位置
       dragOverlay: { node: { getBoundingClientRect: () => ({ left: 100, top: 50 }) } },
     } as unknown as KeyframeArgs
 
@@ -28,7 +28,7 @@ describe('alignToSlot', () => {
 })
 
 describe('settleOverlay', () => {
-  /** 一个假的浮起卡片，记录它被调用了什么动画 */
+  /** 一个假的浮起任务，记录它被调用了什么动画 */
   function makeOverlay() {
     const node = document.createElement('div')
     const card = document.createElement('div')
@@ -38,7 +38,7 @@ describe('settleOverlay', () => {
     return { node, animate }
   }
 
-  it('动画期间藏起真实卡片，结束后恢复它原来的样式', () => {
+  it('动画期间藏起真实任务，结束后恢复它原来的样式', () => {
     const active = document.createElement('div')
     active.style.visibility = 'visible'
     const { node } = makeOverlay()
@@ -50,7 +50,7 @@ describe('settleOverlay', () => {
     expect(active.style.visibility).toBe('visible')
   })
 
-  it('浮起的卡片把放大、倾斜和阴影收回平放的样子，并停在终点', () => {
+  it('浮起的任务把放大、倾斜和阴影收回平放的样子，并停在终点', () => {
     const { node, animate } = makeOverlay()
 
     settleOverlay({ active: { node: document.createElement('div') }, dragOverlay: { node } } as unknown as EffectArgs)
@@ -61,7 +61,7 @@ describe('settleOverlay', () => {
     expect(options).toMatchObject({ fill: 'forwards' })
   })
 
-  it('浏览器不支持 Element.animate 时只藏卡片，不报错', () => {
+  it('浏览器不支持 Element.animate 时只藏任务，不报错', () => {
     const node = document.createElement('div')
     node.append(document.createElement('div'))
     const active = document.createElement('div')

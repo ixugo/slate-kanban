@@ -14,7 +14,7 @@ const columns = [
   makeColumn({ id: 2, name: '进行中', sort: 20 }),
 ]
 
-/** 方便构造带 position 的卡片 */
+/** 方便构造带 position 的任务 */
 function card(
   id: number,
   extra: Parameters<typeof makeCard>[0] extends infer P ? Partial<Omit<P, 'id'>> : never = {},

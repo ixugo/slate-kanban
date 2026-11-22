@@ -10,11 +10,11 @@ import (
 const (
 	// maxCommentLen 评论正文的最大字符数。
 	maxCommentLen = 20000
-	// commentSnippetLen 事件里评论摘要的最大字符数，完整正文要通过读取卡片获得，避免事件表膨胀。
+	// commentSnippetLen 事件里评论摘要的最大字符数，完整正文要通过读取任务获得，避免事件表膨胀。
 	commentSnippetLen = 200
 )
 
-// CommentStorer 是卡片评论的数据持久化接口。评论只能新增和删除，不能修改。
+// CommentStorer 是任务评论的数据持久化接口。评论只能新增和删除，不能修改。
 type CommentStorer interface {
 	// WithTx 返回绑定到事务的副本，事务内的所有读写都必须用它。
 	WithTx(orm.Tx) CommentStorer
@@ -24,17 +24,17 @@ type CommentStorer interface {
 	Delete(context.Context, *Comment) error
 	// GetByID 按主键读取，不存在时返回可用 orm.IsErrRecordNotFound 判断的错误。
 	GetByID(context.Context, int64) (*Comment, error)
-	// ListByCard 返回卡片的评论，按时间从早到晚。
+	// ListByCard 返回任务的评论，按时间从早到晚。
 	ListByCard(context.Context, int64) ([]*Comment, error)
-	// ListByBoard 返回看板下全部评论，按卡片主键、评论主键升序，导出时一次取回避免 N+1。
+	// ListByBoard 返回看板下全部评论，按任务主键、评论主键升序，导出时一次取回避免 N+1。
 	ListByBoard(context.Context, int64) ([]*Comment, error)
-	// DeleteByCard 删除某张卡片的全部评论，用于删除卡片。
+	// DeleteByCard 删除某个任务的全部评论，用于删除任务。
 	DeleteByCard(context.Context, int64) error
 	// DeleteByBoard 删除看板的全部评论，用于删除看板。
 	DeleteByBoard(context.Context, int64) error
 }
 
-// AddComment 在卡片下写一条评论。人和 agent 都可以写，agent 不必持有这张卡片，
+// AddComment 在任务下写一条评论。人和 agent 都可以写，agent 不必持有这个任务，
 // 这样 agent 能随时回复人留下的问题；评论只能新增和删除，不能修改。
 // 正文去掉首尾空白后必须有 1 到 20000 个字符。
 func (c Core) AddComment(ctx context.Context, actor Actor, cardID int64, body string) (*Comment, error) {
@@ -68,6 +68,9 @@ func (c Core) AddComment(ctx context.Context, actor Actor, cardID int64, body st
 
 // addComment 在事务里保存评论并追加 comment.added 事件，事件里只放评论的摘要。
 func (u *unit) addComment(ctx context.Context, actor Actor, card *Card, body string) (*Comment, error) {
+	if err := checkCardUnarchived(card); err != nil {
+		return nil, err
+	}
 	now := u.now()
 	comment := &Comment{
 		BoardID: card.BoardID, CardID: card.ID, AuthorKind: string(actor.Kind), Author: actor.Name,
@@ -125,6 +128,9 @@ func (c Core) DeleteComment(ctx context.Context, actor Actor, commentID int64) e
 		if err != nil {
 			return err
 		}
+		if err := checkCardUnarchived(card); err != nil {
+			return err
+		}
 		if err := u.comment.Delete(ctx, current); err != nil {
 			return wrapDB("删除评论", err)
 		}
@@ -138,7 +144,7 @@ func (c Core) DeleteComment(ctx context.Context, actor Actor, commentID int64) e
 	})
 }
 
-// saveRenewedLease 持有者在自己的卡片下写评论时顺延租约并保存。续租不改变卡片内容，所以不涨版本号也不写事件。
+// saveRenewedLease 持有者在自己的任务下写评论时顺延租约并保存。续租不改变任务内容，所以不涨版本号也不写事件。
 func (u *unit) saveRenewedLease(ctx context.Context, actor Actor, card *Card) error {
 	if !u.renewLease(actor, card) {
 		return nil

@@ -1,4 +1,4 @@
-// 看板的标签库提供者：看板页把快照里的标签库放进来，磁贴、列表和卡片弹窗按主键查颜色和文字。
+// 看板的标签库提供者：看板页把快照里的标签库放进来，磁贴、列表和任务弹窗按主键查颜色和文字。
 
 import { useMemo, type ReactNode } from 'react'
 import type { Tag } from '@/lib/api/types'

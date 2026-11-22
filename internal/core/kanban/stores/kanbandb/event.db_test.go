@@ -79,7 +79,7 @@ func TestEventListAfter(t *testing.T) {
 	})
 }
 
-// TestEventListByCard 验证按卡片查询，最新的在前，并遵守条数上限。
+// TestEventListByCard 验证按任务查询，最新的在前，并遵守条数上限。
 func TestEventListByCard(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
 		ctx := context.Background()
@@ -240,7 +240,7 @@ func addEventAs(t *testing.T, store kanban.EventStorer, boardID int64, typ strin
 	return e.ID
 }
 
-// addCardEvent 给指定卡片追加一条事件，返回序号。
+// addCardEvent 给指定任务追加一条事件，返回序号。
 func addCardEvent(t *testing.T, store kanban.EventStorer, boardID, cardID int64, typ string) int64 {
 	t.Helper()
 	e := &kanban.Event{BoardID: boardID, CardID: cardID, Type: typ, ActorKind: string(kanban.ActorHuman), Actor: "human", Payload: "{}"}
@@ -305,17 +305,17 @@ func TestEventListBefore(t *testing.T) {
 	})
 }
 
-// TestEventListBeforeByCard 验证按卡片筛选：只留下这张卡片的事件，能和类型叠加、能翻页，0 表示不限。
+// TestEventListBeforeByCard 验证按任务筛选：只留下这个任务的事件，能和类型叠加、能翻页，0 表示不限。
 func TestEventListBeforeByCard(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
 		ctx := context.Background()
 		store := db.Event()
 		a := addCardEvent(t, store, 1, 7, kanban.EventCardCreated)
-		addCardEvent(t, store, 1, 8, kanban.EventCardCreated) // 别的卡片
+		addCardEvent(t, store, 1, 8, kanban.EventCardCreated) // 别的任务
 		b := addCardEvent(t, store, 1, 7, kanban.EventCommentAdded)
-		addCardEvent(t, store, 2, 7, kanban.EventCommentAdded) // 别的看板，卡片编号即使相同也不能出现
+		addCardEvent(t, store, 2, 7, kanban.EventCommentAdded) // 别的看板，任务编号即使相同也不能出现
 		c := addCardEvent(t, store, 1, 7, kanban.EventCardMoved)
-		addEventAs(t, store, 1, kanban.EventBoardUpdated, kanban.ActorHuman, "human") // 与卡片无关
+		addEventAs(t, store, 1, kanban.EventBoardUpdated, kanban.ActorHuman, "human") // 与任务无关
 
 		ids := func(before int64, f kanban.ActivityFilter, limit int) []int64 {
 			t.Helper()
@@ -336,12 +336,12 @@ func TestEventListBeforeByCard(t *testing.T) {
 				}
 			}
 		}
-		same("只看这张卡片", ids(0, kanban.ActivityFilter{CardID: 7}, 10), []int64{c, b, a})
+		same("只看这个任务", ids(0, kanban.ActivityFilter{CardID: 7}, 10), []int64{c, b, a})
 		same("和类型叠加", ids(0, kanban.ActivityFilter{CardID: 7, Types: []string{kanban.EventCommentAdded}}, 10), []int64{b})
 		same("筛选加翻页", ids(c, kanban.ActivityFilter{CardID: 7}, 10), []int64{b, a})
-		same("没有这张卡片的事件", ids(0, kanban.ActivityFilter{CardID: 99}, 10), []int64{})
+		same("没有这个任务的事件", ids(0, kanban.ActivityFilter{CardID: 99}, 10), []int64{})
 		if all := ids(0, kanban.ActivityFilter{}, 20); len(all) != 5 {
-			t.Fatalf("不限卡片时应该看到本看板全部 5 条事件: %v", all)
+			t.Fatalf("不限任务时应该看到本看板全部 5 条事件: %v", all)
 		}
 	})
 }

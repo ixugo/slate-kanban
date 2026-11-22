@@ -19,7 +19,7 @@ const (
 	patience = 5 * time.Second
 )
 
-// settle 等通知器把已经登记的更新都发完。创建看板、建卡片这些准备工作本身也会触发通知，
+// settle 等通知器把已经登记的更新都发完。创建看板、建任务这些准备工作本身也会触发通知，
 // 订阅得太早会收到它们，让"这次改动之后应该收到什么"的断言变得不确定。delay 是这套服务的合并窗口。
 func settle(delay time.Duration) {
 	time.Sleep(10 * delay)
@@ -106,7 +106,7 @@ func TestNotificationsCoalesce(t *testing.T) {
 	}
 
 	for i := range 10 {
-		s.card(t, b, b.todo, "卡片"+string(rune('A'+i)))
+		s.card(t, b, b.todo, "任务"+string(rune('A'+i)))
 	}
 	latest, err := s.core.LatestSeq(t.Context(), b.ID)
 	if err != nil {

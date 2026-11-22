@@ -21,18 +21,18 @@ func addComment(t *testing.T, store kanban.CommentStorer, boardID, cardID int64,
 	return c
 }
 
-// TestCommentCreateListGet 验证评论按写入先后列出，只列出本卡片的，并且能按主键读回。
+// TestCommentCreateListGet 验证评论按写入先后列出，只列出本任务的，并且能按主键读回。
 func TestCommentCreateListGet(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
 		ctx := context.Background()
 		store := db.Comment()
 		first := addComment(t, store, 1, 10, "第一条")
 		addComment(t, store, 1, 10, "第二条")
-		addComment(t, store, 1, 11, "别的卡片")
+		addComment(t, store, 1, 11, "别的任务")
 
 		items, err := store.ListByCard(ctx, 10)
 		if err != nil || len(items) != 2 || items[0].Body != "第一条" || items[1].Body != "第二条" {
-			t.Fatalf("应该按先后列出本卡片的 2 条，实际 %+v, %v", items, err)
+			t.Fatalf("应该按先后列出本任务的 2 条，实际 %+v, %v", items, err)
 		}
 		got, err := store.GetByID(ctx, first.ID)
 		if err != nil || got.Body != "第一条" || got.Author != "admin" {
@@ -47,7 +47,7 @@ func TestCommentCreateListGet(t *testing.T) {
 	})
 }
 
-// TestCommentListByBoard 验证按看板一次列出全部评论，顺序按卡片再按主键。
+// TestCommentListByBoard 验证按看板一次列出全部评论，顺序按任务再按主键。
 func TestCommentListByBoard(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
 		ctx := context.Background()
@@ -67,7 +67,7 @@ func TestCommentListByBoard(t *testing.T) {
 	})
 }
 
-// TestCommentDelete 验证单条删除幂等，按卡片和按看板删除都只影响自己的范围。
+// TestCommentDelete 验证单条删除幂等，按任务和按看板删除都只影响自己的范围。
 func TestCommentDelete(t *testing.T) {
 	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
 		ctx := context.Background()
@@ -83,16 +83,16 @@ func TestCommentDelete(t *testing.T) {
 			}
 		}
 		if left, _ := store.ListByCard(ctx, 10); len(left) != 1 {
-			t.Fatalf("卡片 10 应该剩 1 条，实际 %d", len(left))
+			t.Fatalf("任务 10 应该剩 1 条，实际 %d", len(left))
 		}
 		if err := store.DeleteByCard(ctx, 10); err != nil {
-			t.Fatalf("按卡片删除失败: %v", err)
+			t.Fatalf("按任务删除失败: %v", err)
 		}
 		if left, _ := store.ListByCard(ctx, 10); len(left) != 0 {
-			t.Fatalf("卡片 10 应该清空，实际 %d", len(left))
+			t.Fatalf("任务 10 应该清空，实际 %d", len(left))
 		}
 		if left, _ := store.ListByCard(ctx, 11); len(left) != 1 {
-			t.Fatalf("卡片 11 不应该被影响，实际 %d", len(left))
+			t.Fatalf("任务 11 不应该被影响，实际 %d", len(left))
 		}
 		if err := store.DeleteByBoard(ctx, 1); err != nil {
 			t.Fatalf("按看板删除失败: %v", err)

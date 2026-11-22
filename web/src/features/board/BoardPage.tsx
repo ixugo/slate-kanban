@@ -1,4 +1,4 @@
-// 看板页：工具栏、搜索与筛选、列画布、卡片弹窗与实时同步。
+// 看板页：工具栏、搜索与筛选、列画布、任务弹窗与实时同步。
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -33,6 +33,7 @@ const NO_TAGS: Tag[] = []
 
 const CardDialog = lazy(() => import('@/features/card/CardDialog'))
 const ActivityDrawer = lazy(() => import('@/features/activity/ActivityDrawer'))
+const ArchiveDrawer = lazy(() => import('@/features/card/ArchiveDrawer'))
 const ListView = lazy(() => import('./ListView'))
 
 /** 看板主页面 */
@@ -45,6 +46,7 @@ export default function BoardPage() {
   const [addColumnId, setAddColumnId] = useState<number | null>(null)
   const [listAddOpen, setListAddOpen] = useState(false)
   // 活动抽屉：第一次打开时才加载代码（loaded），之后开关只改 open，关闭动画才播得完
+  const [archive, setArchive] = useState({ open: false, loaded: false })
   const [activity, setActivity] = useState({ open: false, loaded: false })
   const { mode: viewMode, setMode: setViewMode } = useBoardViewMode(boardId ?? 0)
 
@@ -75,8 +77,6 @@ export default function BoardPage() {
   const searching = search.visibleIds !== null
   // 搜索或筛选时不能拖（可见集不完整）；离线时整个看板只读，也不能拖
   const dragDisabled = searching || !online
-  const totalCards = snapshot?.cards.length ?? 0
-  const matched = search.visibleIds?.size ?? totalCards
 
   const focusFirstAdd = useCallback(() => {
     const first = columns[0]
@@ -160,8 +160,7 @@ export default function BoardPage() {
           searchRef={searchRef}
           query={search.query}
           onQueryChange={search.setQuery}
-          matched={matched}
-          total={totalCards}
+          noResults={(search.visibleIds?.size ?? snapshot.cards.length) === 0}
           truncated={search.truncated}
           syntaxError={search.syntaxError}
           searching={search.searching}
@@ -172,6 +171,7 @@ export default function BoardPage() {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onActivityOpen={() => setActivity({ open: true, loaded: true })}
+          onArchiveOpen={() => setArchive({ open: true, loaded: true })}
         />
         <ActiveFilters filters={filters} columns={columns} onChange={setFilters} />
         {viewMode === 'board' && searching && (
@@ -211,6 +211,11 @@ export default function BoardPage() {
         <Suspense fallback={null}>
           <CardDialog boardId={boardId} />
         </Suspense>
+        {archive.loaded && (
+          <Suspense fallback={null}>
+            <ArchiveDrawer boardId={boardId} open={archive.open} onOpenChange={(open) => setArchive({ open, loaded: true })} />
+          </Suspense>
+        )}
         {activity.loaded && (
           <Suspense fallback={null}>
             <ActivityDrawer

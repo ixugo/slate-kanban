@@ -67,12 +67,12 @@ type columnPath struct {
 	ColumnID int64 `uri:"column_id" json:"-" form:"-"`
 }
 
-// cardPath 是路径里的卡片编号。
+// cardPath 是路径里的任务编号。
 type cardPath struct {
 	CardID int64 `uri:"card_id" json:"-" form:"-"`
 }
 
-// cardChangePath 是路径里的卡片和变更记录编号。
+// cardChangePath 是路径里的任务和变更记录编号。
 type cardChangePath struct {
 	cardPath
 	ChangeID int64 `uri:"change_id" json:"-" form:"-"`

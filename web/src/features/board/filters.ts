@@ -35,10 +35,10 @@ const OPPOSITE_STATE: Partial<Record<StateFlag, StateFlag>> = {
  * 不同组之间、以及状态开关之间都是「同时满足」。
  */
 export interface BoardFilters {
-  /** 选中的标签，写法取自卡片上的原样 */
+  /** 选中的标签，写法取自任务上的原样 */
   tags: string[]
   tagMode: TagMode
-  /** 只看没有标签的卡片；和选标签互斥 */
+  /** 只看没有标签的任务；和选标签互斥 */
   noTags: boolean
   /** 选中的列 id */
   columns: number[]
@@ -61,7 +61,7 @@ export const EMPTY_FILTERS: BoardFilters = {
   due: 'any',
 }
 
-/** 标签选项：名称加上带这个标签的卡片数 */
+/** 标签选项：名称加上带这个标签的任务数 */
 export interface TagOption {
   name: string
   count: number
@@ -182,9 +182,9 @@ export function toggleState(filters: BoardFilters, state: StateFlag): BoardFilte
 }
 
 /**
- * 整理出弹层里的标签选项：按带这个标签的卡片数从多到少排，同样多按名称排。
+ * 整理出弹层里的标签选项：按带这个标签的任务数从多到少排，同样多按名称排。
  * 大小写不同的算同一个标签（服务端匹配标签不区分大小写），写法取第一次出现的；写不进语法的标签不列出。
- * 复杂度 O(n·t + k log k)，n 是卡片数，t 是每张卡片的标签数，k 是标签种数。
+ * 复杂度 O(n·t + k log k)，n 是任务数，t 是每个任务的标签数，k 是标签种数。
  */
 export function collectTagOptions(cards: readonly CardView[]): TagOption[] {
   const byKey = new Map<string, TagOption>()
@@ -200,7 +200,7 @@ export function collectTagOptions(cards: readonly CardView[]): TagOption[] {
   return [...byKey.values()].sort((a, b) => b.count - a.count || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
 }
 
-/** 当前正在领取（租约有效）卡片的 agent 名称，去重后按名称排序；写不进语法的名称不列出 */
+/** 当前正在领取（租约有效）任务的 agent 名称，去重后按名称排序；写不进语法的名称不列出 */
 export function collectClaimers(cards: readonly CardView[]): string[] {
   const names = new Set<string>()
   for (const card of cards) {

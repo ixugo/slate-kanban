@@ -8,7 +8,7 @@ import (
 )
 
 // claimFixture 构造领取测试用的看板：待办、进行中（开启 agent 领取）、审查、完成四列，
-// 和一批领取资格各不相同的卡片。
+// 和一批领取资格各不相同的任务。
 func claimFixture() (*boardIndex, map[string]*Card) {
 	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
 	cols := []*Column{
@@ -91,13 +91,13 @@ func TestCheckClaimableOrder(t *testing.T) {
 	}
 }
 
-// TestClaimableInAnyColumn 验证领取不按列限制：看板里没有任何开启领取的列，卡片照样能领，
+// TestClaimableInAnyColumn 验证领取不按列限制：看板里没有任何开启领取的列，任务照样能领，
 // 哪一列的卡该不该领由列的提示词约定。
 func TestClaimableInAnyColumn(t *testing.T) {
 	ix := newBoardIndex(time.Now(), time.UTC, []*Column{{ID: 1, Name: "审查"}}, nil, nil)
 	card := &Card{ID: 1, ColumnID: 1}
 	if err := checkClaimable(Actor{Kind: ActorAgent, Name: "claude"}, card, ix); err != nil {
-		t.Fatalf("不在领取列的卡片也应该能领，实际 %v", err)
+		t.Fatalf("不在领取列的任务也应该能领，实际 %v", err)
 	}
 }
 
