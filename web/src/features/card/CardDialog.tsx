@@ -185,7 +185,7 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
           event.preventDefault()
           if (button === 0 && !ctrlKey) closeAll()
         }}
-        className="flex max-h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden bg-popover! p-0 backdrop-blur-none! sm:w-full sm:max-w-4xl"
+        className="flex h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden bg-popover! p-0 backdrop-blur-none! sm:w-full sm:max-w-4xl"
       >
         <CardHeaderBar card={card} columns={columns} onColumn={onColumn} onDelete={() => remove.mutate(cardId)} deleteBusy={remove.isPending && remove.variables === cardId} />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-hidden">
