@@ -23,6 +23,7 @@ import {
 } from './sortCards'
 import { displayKey } from '@/lib/cardKey'
 import { UnreadBadge } from './UnreadBadge'
+import type { SearchHighlights } from './searchHighlights'
 
 /** 标签列最多展示枚数，与磁贴一致 */
 const TAGS_VISIBLE = 3
@@ -35,6 +36,7 @@ interface ListViewProps {
   cards: CardView[]
   /** 非 null 时只展示其中的任务 id */
   visibleIds: ReadonlySet<number> | null
+  highlights?: SearchHighlights
   listAddOpen: boolean
   onListAddOpen: () => void
   onListAddClose: () => void
@@ -78,6 +80,7 @@ export default function ListView({
   columns,
   cards,
   visibleIds,
+  highlights,
   listAddOpen,
   onListAddOpen,
   onListAddClose,
@@ -163,7 +166,7 @@ export default function ListView({
                   >
                     <td className="whitespace-nowrap px-3 py-2.5 font-mono text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
-                        {displayKey(card.key)}
+                        <span>{highlights?.key(card.key) ?? displayKey(card.key)}</span>
                         <UnreadBadge count={card.unread_count ?? 0} />
                       </span>
                     </td>
@@ -172,7 +175,7 @@ export default function ListView({
                         to={{ search: next.toString() }}
                         className="font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        {card.title}
+                        {highlights?.title(card.title) ?? card.title}
                       </Link>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{columnName(card)}</td>
@@ -190,7 +193,7 @@ export default function ListView({
                     <td className="px-3 py-2.5">
                       <div className="flex flex-wrap items-center gap-1">
                         {(card.tag_ids ?? []).slice(0, TAGS_VISIBLE).map((id) => (
-                          <TagBadge key={id} id={id} className="max-w-[6rem]" />
+                          <TagBadge key={id} id={id} className="max-w-[6rem]" renderText={highlights?.tag} />
                         ))}
                         {(card.tag_ids ?? []).length > TAGS_VISIBLE && (
                           <span className="text-[0.6875rem] text-muted-foreground">

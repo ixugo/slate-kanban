@@ -15,6 +15,7 @@ import { TagBadge } from '@/features/labels/TagBadge'
 import { displayKey } from '@/lib/cardKey'
 import { firstImageSrc } from '@/lib/md/cover'
 import { UnreadBadge } from './UnreadBadge'
+import type { SearchHighlights } from './searchHighlights'
 
 /** 优先级圆点的颜色：低、中、高；0 表示没设优先级，不显示 */
 const PRIORITY_DOT = ['', 'bg-p-low', 'bg-p-mid', 'bg-p-high'] as const
@@ -27,6 +28,7 @@ interface CardTileProps {
   card: CardView
   /** 搜索或筛选时不能拖：位置在结果里没有意义；点击打开任务不受影响 */
   dragDisabled?: boolean
+  highlights?: SearchHighlights
 }
 
 /**
@@ -46,7 +48,7 @@ function TileCover({ src }: { src: string }) {
 }
 
 /** 磁贴里的内容：封面、编号和领取者（同一行）、标题、标签、截止日期、状态图标；引用预览也用它，保证和看板上一模一样 */
-export function TileBody({ card }: { card: CardView }) {
+export function TileBody({ card, highlights }: { card: CardView; highlights?: SearchHighlights }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const overdue = card.due_at && !card.done && isPast(card.due_at)
@@ -61,7 +63,7 @@ export function TileBody({ card }: { card: CardView }) {
           {card.priority > 0 && (
             <span className={cn('size-1.5 shrink-0 rounded-full', PRIORITY_DOT[card.priority])} aria-hidden />
           )}
-          <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{displayKey(card.key)}</span>
+          <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">{highlights?.key(card.key) ?? displayKey(card.key)}</span>
           {card.claim_active && card.claimed_by && (
             <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] font-medium text-agent">
               <span className="signal-dot size-1.5 shrink-0 rounded-full bg-agent" aria-hidden />
@@ -71,11 +73,11 @@ export function TileBody({ card }: { card: CardView }) {
         </div>
         <UnreadBadge count={card.unread_count ?? 0} />
       </div>
-      <p className="line-clamp-3 text-[0.9375rem] leading-snug font-medium tracking-[-0.005em]">{card.title}</p>
+      <p className="line-clamp-3 text-[0.9375rem] leading-snug font-medium tracking-[-0.005em]">{highlights?.title(card.title) ?? card.title}</p>
       {(tagIds.length > 0 || card.due_at || card.human_only || card.waiting) && (
         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
           {tagIds.slice(0, 3).map((id) => (
-            <TagBadge key={id} id={id} />
+            <TagBadge key={id} id={id} renderText={highlights?.tag} />
           ))}
           {tagIds.length > 3 && <span className="text-[0.6875rem] text-muted-foreground">+{tagIds.length - 3}</span>}
           {card.due_at && (
@@ -100,7 +102,7 @@ export function TileBody({ card }: { card: CardView }) {
 }
 
 /** 单个可拖拽任务：一个指向 `?card=` 的链接，点击不刷新页面，修饰键点击交给浏览器新开标签页 */
-export function CardTile({ card, dragDisabled }: CardTileProps) {
+export function CardTile({ card, dragDisabled, highlights }: CardTileProps) {
   const [params] = useSearchParams()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -137,7 +139,7 @@ export function CardTile({ card, dragDisabled }: CardTileProps) {
         if (isDragging) e.preventDefault()
       }}
     >
-      <TileBody card={card} />
+      <TileBody card={card} highlights={highlights} />
     </Link>
   )
 }

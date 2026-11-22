@@ -8,6 +8,7 @@ import { FILTER_MAX, SEARCH_LIMIT } from '@/lib/limits'
 import { queryKeys } from '@/lib/queryKeys'
 import { useTranslation } from '@/i18n/react'
 import { joinQuery } from './filters'
+import { buildSearchHighlights, type SearchHighlights } from './searchHighlights'
 
 const DEBOUNCE_MS = 300
 
@@ -21,6 +22,7 @@ export interface BoardSearchState {
   /** 服务端 400 时的具体原因（中文），空表示没有错误 */
   syntaxError: string
   searching: boolean
+  highlights: SearchHighlights | undefined
 }
 
 /**
@@ -41,11 +43,15 @@ export function useBoardSearch(boardId: number | null, filterTerms: readonly str
   // 超过服务端的长度上限就不发请求，直接告诉用户，不能悄悄截断：截在半个词上会变成另一个条件
   const tooLong = Array.from(debounced).length > FILTER_MAX
   const enabled = boardId !== null && debounced.length > 0 && !tooLong
-  const searchKey = enabled ? [...queryKeys.board(boardId as number), 'search', debounced] : ['search', 'idle']
+  // 同一条查询可能来自搜索框或点选筛选，只有用户输入的词参与高亮。
+  const searchKey = enabled ? [...queryKeys.board(boardId as number), 'search', debounced, debouncedKeyword] : ['search', 'idle']
 
   const { data, error, isFetching } = useQuery({
     queryKey: searchKey,
-    queryFn: ({ signal }) => searchCards(boardId as number, debounced, SEARCH_LIMIT, signal),
+    queryFn: async ({ signal }) => ({
+      result: await searchCards(boardId as number, debounced, SEARCH_LIMIT, signal),
+      keyword: debouncedKeyword,
+    }),
     enabled,
     staleTime: 0,
     // 条件变了、新结果还没回来时先用上一次的结果，点一下筛选不会闪一下空白
@@ -63,15 +69,20 @@ export function useBoardSearch(boardId: number | null, filterTerms: readonly str
     if (!debounced) return null
     // 第一次结果还没回来时先显示全部任务；出错或条件太长时显示空，让提示文字解释为什么
     if (!data) return error || tooLong ? new Set<number>() : null
-    return new Set(data.cards.map((c) => c.id))
+    return new Set(data.result.cards.map((c) => c.id))
   }, [data, debounced, error, tooLong])
+
+  // 保留上一批结果时沿用它的高亮。清空输入框时立即撤去高亮。
+  const keyword = query.trim() && !syntaxError ? data?.keyword : undefined
+  const highlights = useMemo(() => keyword ? buildSearchHighlights(keyword) : undefined, [keyword])
 
   return {
     query,
     setQuery,
     visibleIds,
-    truncated: data?.truncated ?? false,
+    truncated: data?.result.truncated ?? false,
     syntaxError,
     searching: enabled && isFetching,
+    highlights,
   }
 }

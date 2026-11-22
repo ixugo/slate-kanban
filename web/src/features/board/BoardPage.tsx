@@ -183,6 +183,7 @@ export default function BoardPage() {
             columns={columns}
             cardsById={cardsById}
             visibleIds={search.visibleIds}
+            highlights={search.highlights}
             dragDisabled={dragDisabled}
             onMove={(cardId, plan) => move.mutate({ cardId, plan })}
             addColumnId={addColumnId}
@@ -197,6 +198,7 @@ export default function BoardPage() {
               columns={columns}
               cards={snapshot.cards}
               visibleIds={search.visibleIds}
+              highlights={search.highlights}
               listAddOpen={listAddOpen}
               onListAddOpen={() => setListAddOpen(true)}
               onListAddClose={() => setListAddOpen(false)}

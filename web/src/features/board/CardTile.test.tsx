@@ -165,6 +165,50 @@ describe('CardTile 是指向任务的链接', () => {
   })
 })
 
+describe('看板搜索高亮', () => {
+  afterEach(() => localStorage.clear())
+
+  it('只标记匹配的正向文字，清空搜索后恢复', async () => {
+    const hit = makeCard({ id: 126, title: '搜索 Alpha 与 A.B 预览 open A0B' })
+    const user = userEvent.setup()
+    renderBoard('/b/1', {
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ cards: [hit, makeCard({ id: 2, title: 'Beta' })] }),
+      'GET /api/v1/boards/:id/cards': { cards: [hit], total: 1, truncated: false },
+    })
+    const tile = await screen.findByRole('link', { name: `#126 ${hit.title}` })
+    const input = screen.getByPlaceholderText(en.search.placeholder)
+    expect(tile.querySelector('mark')).toBeNull()
+
+    await user.type(input, '"搜索 alpha" a.b title:预览 is:open -hidden')
+    await waitFor(() => expect([...tile.querySelectorAll('mark')].map((item) => item.textContent)).toEqual([
+      '搜索 Alpha', 'A.B', '预览',
+    ]))
+    expect(screen.queryByRole('link', { name: '#2 Beta' })).toBeNull()
+
+    await user.clear(input)
+    expect(tile.querySelector('mark')).toBeNull()
+    expect(await screen.findByRole('link', { name: '#2 Beta' })).toBeInTheDocument()
+  })
+
+  it('按字段标记编号与标签，切换列表视图时沿用同一结果', async () => {
+    const tag = { id: 9, text: '浏览器测试', color: 'green-3' }
+    const hit = makeCard({ id: 126, title: '检查浏览器测试', tag_ids: [9], tags: [tag.text] })
+    const user = userEvent.setup()
+    renderBoard('/b/1', {
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ cards: [hit], tags: [tag] }),
+      'GET /api/v1/boards/:id/cards': { cards: [hit], total: 1, truncated: false },
+    })
+    const tile = await screen.findByRole('link', { name: `#126 ${hit.title}` })
+    await user.type(screen.getByPlaceholderText(en.search.placeholder), 'key:slate-126 tag:浏览器测试')
+    await waitFor(() => expect([...tile.querySelectorAll('mark')].map((item) => item.textContent)).toEqual(['#126', tag.text]))
+
+    await user.click(screen.getByRole('button', { name: en.board.viewList }))
+    const table = await screen.findByRole('table', { name: en.list.caption })
+    expect([...table.querySelectorAll('mark')].map((item) => item.textContent)).toEqual(['#126', tag.text])
+    expect(within(table).getByRole('link', { name: hit.title })).toBeInTheDocument()
+  })
+})
+
 describe('CardTile 封面', () => {
   const FIRST = `/api/v1/attachments/${'c'.repeat(32)}`
   const SECOND = `/api/v1/attachments/${'d'.repeat(32)}`

@@ -23,12 +23,14 @@ import { createDropAnimation, prefersReducedMotion } from './dropAnimation'
 import { ColumnView } from './ColumnView'
 import { CardTileOverlay } from './CardTile'
 import { useCollapsedColumns } from './useCollapsedColumns'
+import type { SearchHighlights } from './searchHighlights'
 
 interface BoardCanvasProps {
   boardId: number
   columns: Column[]
   cardsById: Map<number, CardView>
   visibleIds: ReadonlySet<number> | null
+  highlights?: SearchHighlights
   dragDisabled: boolean
   onMove: (cardId: number, plan: MovePlan) => void
   addColumnId: number | null
@@ -44,6 +46,7 @@ export function BoardCanvas({
   columns,
   cardsById,
   visibleIds,
+  highlights,
   dragDisabled,
   onMove,
   addColumnId,
@@ -156,6 +159,7 @@ export function BoardCanvas({
               onAddCard={(title) => onAddCard(column.id, title)}
               addBusy={addBusy}
               dragDisabled={dragDisabled}
+              highlights={highlights}
               collapsed={collapse.isCollapsed(column.id)}
               columnIndex={columnIndex}
               columnCount={columns.length}
