@@ -13,7 +13,10 @@ const (
 	passcodePlaceholder = "<口令>"
 	// codexPasscodeEnv 是 Codex 读取访问口令用的环境变量名；口令只放在环境变量里，不写进 Codex 的配置文件。
 	codexPasscodeEnv = "SLATE_PASSCODE"
-	// claudeAuthHeader 是启用口令时追加在 claude mcp add 命令末尾的请求头参数。
+	// 工作视图支持长等待，客户端超时多留一分钟用来完成请求和读取响应。
+	codexWatchTimeoutSeconds = 3660
+	claudeWatchTimeoutMillis = codexWatchTimeoutSeconds * 1000
+	// claudeAuthHeader 是启用口令时追加在管理视图 claude mcp add 命令末尾的请求头参数。
 	claudeAuthHeader = ` --header "Authorization: Bearer ` + passcodePlaceholder + `"`
 	// cursorConfig 是 Cursor 的 mcp.json 片段：只需 url，不带令牌。
 	cursorConfig = `{
@@ -106,22 +109,23 @@ func claudeCodeHost(g Guide, passcodeRequired bool) Host {
 	worker := mcpURL(g.BaseURL, "claude-code", false)
 	manager := mcpURL(g.BaseURL, "claude-code", true)
 	suffix := passcodeTitleSuffix(passcodeRequired)
-	workerCode := fmt.Sprintf("claude mcp add --transport http --scope user %s '%s'", workerServerName, worker)
+	var workerHeaders string
 	managerCode := fmt.Sprintf("claude mcp add --transport http --scope user %s '%s'", managerServerName, manager)
 	if passcodeRequired {
 		// --header 可以带多个值，写在地址前面会把地址也当成请求头，所以放在最后
-		workerCode += claudeAuthHeader
+		workerHeaders = `,"headers":{"Authorization":"Bearer ` + passcodePlaceholder + `"}`
 		managerCode += claudeAuthHeader
 	}
+	workerConfig := fmt.Sprintf(`{"type":"http","url":%q,"timeout":%d%s}`, worker, claudeWatchTimeoutMillis, workerHeaders)
 	return Host{
 		ID:   "claude-code",
 		Name: "Claude Code",
 		MCP: []Snippet{
 			{
 				Kind:  "worker",
-				Title: "添加工作视图 MCP（agent 日常领任务、改任务）" + suffix,
+				Title: "添加工作视图 MCP（含长等待超时。已登记的用户可重装这一项）" + suffix,
 				Lang:  "sh",
-				Code:  workerCode,
+				Code:  fmt.Sprintf("claude mcp add-json --scope user %s '%s'", workerServerName, workerConfig),
 			},
 			{
 				Kind:  "manager",
@@ -184,6 +188,8 @@ func codexHost(g Guide, passcodeRequired bool) Host {
 		workerCode = codexWithPasscode(workerCode)
 		managerCode = codexWithPasscode(managerCode)
 	}
+	workerCode += fmt.Sprintf("\n# 在 ~/.codex/config.toml 已有的 [mcp_servers.%s] 段内添加或更新：\n# tool_timeout_sec = %d",
+		workerServerName, codexWatchTimeoutSeconds)
 	return Host{
 		ID:   "codex",
 		Name: "Codex",

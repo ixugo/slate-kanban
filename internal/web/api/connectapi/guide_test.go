@@ -50,7 +50,7 @@ func TestGuideQuotesURLs(t *testing.T) {
 		g := buildGuide(base, false)
 		for _, h := range g.Hosts {
 			for _, sn := range slices.Concat(h.MCP, h.Skill) {
-				if sn.Lang != "sh" {
+				if sn.Lang != "sh" || h.ID == "claude-code" && sn.Kind == "worker" {
 					continue
 				}
 				if strings.Contains(sn.Code, base) && !strings.Contains(sn.Code, "'"+base) {
@@ -77,11 +77,45 @@ func hostMCP(t *testing.T, g Guide, id string) []Snippet {
 // 所以启用口令时必须把它放在地址后面。
 func TestClaudeCodePasscodeHeaderAfterURL(t *testing.T) {
 	for _, base := range guideBases {
-		for _, sn := range hostMCP(t, buildGuide(base, true), "claude-code") {
+		for _, sn := range hostMCP(t, buildGuide(base, true), "claude-code")[1:] {
 			url := strings.Index(sn.Code, "'"+base)
 			header := strings.Index(sn.Code, `--header "Authorization: Bearer `+passcodePlaceholder+`"`)
 			if url < 0 || header < 0 || header < url {
 				t.Errorf("--header 应出现在地址之后: %s", sn.Code)
+			}
+		}
+	}
+}
+
+func TestWorkerLongWatchConfiguration(t *testing.T) {
+	for _, base := range guideBases {
+		for _, passcode := range []bool{false, true} {
+			g := buildGuide(base, passcode)
+			claude := hostMCP(t, g, "claude-code")
+			config, ok := strings.CutPrefix(claude[0].Code, "claude mcp add-json --scope user slate '")
+			if !ok || !strings.HasSuffix(config, "'") {
+				t.Fatalf("Claude 工作视图应是单引号引用的 JSON: %q", claude[0].Code)
+			}
+			var worker struct {
+				Type    string
+				URL     string
+				Timeout int
+				Headers map[string]string
+			}
+			if err := json.Unmarshal([]byte(strings.TrimSuffix(config, "'")), &worker); err != nil {
+				t.Fatalf("Claude 工作视图配置无效: %v", err)
+			}
+			if worker.Type != "http" || worker.URL != base+"/mcp?name=claude-code" || worker.Timeout != 3660000 {
+				t.Errorf("Claude 工作视图长等待配置错误: %+v", worker)
+			}
+			if (worker.Headers["Authorization"] == "Bearer "+passcodePlaceholder) != passcode {
+				t.Errorf("Claude 工作视图口令配置错误: %+v", worker)
+			}
+			codex := hostMCP(t, g, "codex")
+			if !strings.Contains(codex[0].Code, "tool_timeout_sec = 3660") ||
+				strings.Contains(codex[1].Code, "tool_timeout_sec") ||
+				strings.Contains(claude[1].Code, "3660000") {
+				t.Error("长等待超时应只写入工作视图")
 			}
 		}
 	}
@@ -186,16 +220,19 @@ func TestWatchGuide(t *testing.T) {
 			t.Errorf("host %s 缺少长期挂着的步骤", h.ID)
 		}
 	}
-	for id, loop := range map[string]string{"claude-code": "/loop 5m ", "codex": "codex exec '"} {
+	for id, loop := range map[string]string{"claude-code": "/loop 5m ", "codex": "codex exec -c 'mcp_servers.slate.tool_timeout_sec=3660'"} {
 		i := slices.IndexFunc(g.Hosts, func(h Host) bool { return h.ID == id })
 		if i < 0 {
 			t.Fatalf("缺少 host %s", id)
 		}
 		h := g.Hosts[i]
 		if len(h.Watch) != 2 || !strings.Contains(h.Watch[0].Code, "screen -S") || !strings.Contains(h.Watch[0].Code, loop) ||
-			!strings.Contains(h.Watch[1].Code, "screen -r") {
+			!strings.Contains(h.Watch[1].Code, "screen -r") || !strings.Contains(h.Watch[0].Code, "空闲时用 3600 秒") {
 			t.Errorf("host %s 应该有带 loop 的开会话命令和恢复命令", id)
 		}
+	}
+	if !strings.Contains(g.Hosts[0].Watch[0].Code, "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0") {
+		t.Error("Claude 守候应在前台等待 MCP 结果")
 	}
 	cursor := g.Hosts[slices.IndexFunc(g.Hosts, func(h Host) bool { return h.ID == "cursor" })]
 	if len(cursor.Watch) != 1 || cursor.Watch[0].Code != "/loop 5m "+g.LoopPrompt {

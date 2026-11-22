@@ -1,6 +1,9 @@
 package connectapi
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	// boardPlaceholder 是提示词里看板名的占位符；网页按用户选的看板替换它，install.md 里原样保留让用户自己改。
@@ -20,17 +23,22 @@ const (
 // （watch_prompt，看板名已填好），所以这里只指路。
 const loopPrompt = `守候 Slate 看板「` + boardPlaceholder + `」：调用 get_board 读取返回里的 watch_prompt，照它做。`
 
+// longWatchPrompt 给按长等待配置启动的会话说明它可尝试一小时等待。
+const longWatchPrompt = loopPrompt + " 已按接入说明设置长等待，空闲时用 3600 秒，连接提前断开时回退到短等待。"
+
 // watchNotes 是和具体 host 无关的说明：持续监听怎么做到的、loop 负责什么、挂不住怎么办。
 var watchNotes = []string{
-	"持续监听走 MCP 协议：agent 反复调用 wait_for_updates，服务端把这次调用挂住，看板有更新立刻返回；没有更新时每次最多等 50 秒再重新挂上，所以空闲时大约每 50 秒一次请求，不是定时拉取任务。",
+	"持续监听走 MCP 协议：agent 反复调用 wait_for_updates，服务端在有更新时立即返回。配置长等待后，空闲时单次最多等 60 分钟。",
+	"使用 Codex 或 Claude Code 长等待前，先按工作视图说明设置客户端超时，并给 /mcp 的反向代理或网关留出超过 60 分钟的响应等待时间。客户端、代理或线路不支持时用 50 秒或更短。手上有任务需检查子 agent 或续租时也用短等待。",
+	"Claude Code 已按旧说明添加工作视图时，可先执行 claude mcp remove --scope user slate，再运行新的工作视图安装命令；自定义了地址或凭证的用户，保留现有设置并只更新该服务的 timeout。",
 	"loop（或下面的 shell 循环）只负责检查监听还活着没有：监听在时 agent 正忙在这次调用里，多数 host 的 loop 要等它空闲才会触发；监听断了（会话结束、上下文满、网络断）agent 空闲，loop 叫醒它，它重新挂上 wait_for_updates。重启时沿用同一个 ?name=，服务端记着的游标会把离线期间的更新补给它。",
 	"停机超过租约（默认 30 分钟）时，任务会被释放，重新上线后重新领取。",
 	"没人看着的时候，权限弹窗会把会话卡住：先把 slate 的工具和常用的 git、编辑操作设成“总是允许”。只有在容器或专用机器这类隔离环境里，才考虑关闭权限检查。",
 }
 
-// loopCommand 生成 host 里的 loop 命令：隔 loopInterval 检查一次监听，内容是一行提示词。
-func loopCommand() string {
-	return "/loop " + loopInterval + " " + loopPrompt
+// loopCommand 生成 host 里的 loop 命令：隔 loopInterval 检查一次监听。
+func loopCommand(prompt string) string {
+	return "/loop " + loopInterval + " " + prompt
 }
 
 // screenSnippet 生成“开一个关掉终端也不会停的会话再启动 host”的命令。launch 是 host 的启动命令。
@@ -64,15 +72,16 @@ func resumeSnippet(resume string) Snippet {
 // claudeWatch 是 Claude Code 的长期挂着步骤：在终端会话里启动 claude，再执行 /loop。
 func claudeWatch() []Snippet {
 	return []Snippet{
-		screenSnippet("claude                 # 进入后执行：\n" + loopCommand()),
-		resumeSnippet("claude --continue      # 接上最近一次对话"),
+		screenSnippet("CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude   # 进入后执行：\n" + loopCommand(longWatchPrompt)),
+		resumeSnippet("CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0 claude --continue   # 接上最近一次对话"),
 	}
 }
 
 // codexWatch 是 Codex 的长期挂着步骤：用 shell 循环执行 codex exec。每次 codex exec 会一直停在 wait_for_updates 里，
 // 它结束（会话断了、上下文满了）后循环等一会儿再拉起新会话，状态都在看板里。
 func codexWatch() []Snippet {
-	loop := "while true; do codex exec '" + loopPrompt + "'; sleep " + codexLoopSeconds + "; done"
+	loop := fmt.Sprintf("while true; do codex exec -c 'mcp_servers.%s.tool_timeout_sec=%d' '%s'; sleep %s; done",
+		workerServerName, codexWatchTimeoutSeconds, longWatchPrompt, codexLoopSeconds)
 	return []Snippet{
 		screenSnippet(loop),
 		resumeSnippet(""),
@@ -85,6 +94,6 @@ func cursorWatch() []Snippet {
 		Kind:  "loop",
 		Title: "Cursor：在项目里新开 Agent 会话，执行 /loop（编辑器和会话窗口要一直开着）",
 		Lang:  "sh",
-		Code:  loopCommand(),
+		Code:  loopCommand(loopPrompt),
 	}}
 }
