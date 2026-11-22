@@ -10,20 +10,18 @@
 
 | 系統 | 套件 |
 |---|---|
-| macOS（Apple 晶片） | `slate_<version>_darwin_arm64_install.tar.gz` |
-| Linux（x86-64） | `slate_<version>_linux_amd64_install.tar.gz` |
-| Linux（ARM64） | `slate_<version>_linux_arm64_install.tar.gz` |
-| Windows（x86-64） | `slate_<version>_windows_amd64_install.zip` |
+| macOS（Apple 晶片） | `slate_<version>_darwin_arm64.tar.gz` |
+| Linux（x86-64） | `slate_<version>_linux_amd64.tar.gz` |
+| Linux（ARM64） | `slate_<version>_linux_arm64.tar.gz` |
+| Windows（x86-64） | `slate_<version>_windows_amd64.zip` |
 
-2. 解壓縮後進入解壓出來的目錄執行。Windows 解壓縮後進入目錄執行 `slate.exe`。
+2. 解壓縮到一個新目錄，進入該目錄執行。套件裡有程式和啟動、停止腳本（`start.sh`、`stop.sh`；Windows 是 `start.bat`、`stop.bat`）。Windows 解壓縮到一個目錄後執行其中的 `slate.exe`。
 
 ```sh
-tar -xzf slate_*_install.tar.gz
-cd slate_*/
+mkdir slate && tar -xzf slate_*.tar.gz -C slate
+cd slate
 ./slate
 ```
-
-如果該版本沒有 `_install` 套件，請將對應系統的套件解壓到自選目錄，再從該目錄執行 Slate。
 
 3. 開啟 [http://127.0.0.1:7070](http://127.0.0.1:7070)。
 

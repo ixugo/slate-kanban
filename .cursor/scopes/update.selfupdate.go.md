@@ -8,8 +8,9 @@
 
 | 项 | 决定 |
 |---|---|
-| 谁会被提示 | 所有构建都检查并提示；只有官方 release 构建（Makefile 发布目标把 `gitBranch` 写成 `release`，`main.go` 据此设置 `Runtime.Official`）能自动替换，本机编译的版本、容器里的程序只提示并引导去下载 |
-| 查询 | 网页每次打开请求 `GET /api/v1/update`；服务端请求 `releases/latest`，成功缓存 1 小时，失败 5 分钟内不重试，失败只记日志、按没有更新返回 |
+| 谁会被提示 | 所有构建（含本机编译的）都检查、提示、能自动更新；容器里的程序和 release 里缺当前平台包的只提示并引导去下载 |
+| 冷却期 | 订阅源里该 release 的更新时间到本机当前时间不足 5 分钟时，不提示、也不允许更新（发布工作流先建 release、后传包，这几分钟里包可能还没传完）；读不到发布时间当作已过冷却期 |
+| 查询 | 网页每次打开请求 `GET /api/v1/update`；服务端只访问 github.com 网页地址、不用有匿名额度限制的 API：`releases/latest` 的 302 跳转给出 tag，`releases.atom` 给出该 tag 的更新时间（冷却期以它为准）和说明，再对当前平台的包和 `checksums.txt` 的下载地址发 HEAD 确认已上传；成功缓存 1 小时（release 里还没有任何安装包时只缓存 1 分钟，避免发布工作流先建 release、后传包的窗口期被锁住），失败 5 分钟内不重试，失败只记日志、按没有更新返回 |
 | 忽略 | 网页把被忽略的版本号写进 localStorage `slate.update.ignored`，小于等于它的版本不再弹窗；不同的电脑仍会提醒 |
 | 包的选择 | 按 `GOOS/GOARCH` 找 `slate_<tag>_<系统>_<架构>.tar.gz`（windows 为 `.zip`）和 `checksums.txt`，规则与 Makefile 的 `release/assets` 一致；包地址必须在 `https://github.com/ixugo/slate-kanban/releases/download/` 下 |
 | 包内布局 | 程序在包内同名的 `slate_<tag>_<系统>_<架构>/` 目录里，解压后得到单个目录；已发布的旧版平铺包也照样能识别，按名字取最后一段匹配 |
@@ -31,7 +32,7 @@
 
 ## 验收清单
 
-- [x] 版本比较、缓存、失败不报错、非官方构建也查询但只提示、容器只提示
+- [x] 版本比较、缓存、失败不报错、所有构建都查询并可更新、发布不足 5 分钟不提示、容器只提示
 - [x] 类 Unix 和 windows 的替换，校验不过不改程序且不留临时文件
 - [x] 网页：弹窗、忽略、立即更新、失败重试、去下载
 - [ ] 真实 release 上联调

@@ -10,20 +10,18 @@
 
 | 系统 | 包 |
 |---|---|
-| macOS（Apple 芯片） | `slate_<version>_darwin_arm64_install.tar.gz` |
-| Linux（x86-64） | `slate_<version>_linux_amd64_install.tar.gz` |
-| Linux（ARM64） | `slate_<version>_linux_arm64_install.tar.gz` |
-| Windows（x86-64） | `slate_<version>_windows_amd64_install.zip` |
+| macOS（Apple 芯片） | `slate_<version>_darwin_arm64.tar.gz` |
+| Linux（x86-64） | `slate_<version>_linux_amd64.tar.gz` |
+| Linux（ARM64） | `slate_<version>_linux_arm64.tar.gz` |
+| Windows（x86-64） | `slate_<version>_windows_amd64.zip` |
 
-2. 解压后进入解压出来的目录运行。Windows 解压后进入目录运行 `slate.exe`。
+2. 解压到一个新目录，进入该目录运行。包里有程序和启动、停止脚本（`start.sh`、`stop.sh`；Windows 是 `start.bat`、`stop.bat`）。Windows 解压到一个目录后运行其中的 `slate.exe`。
 
 ```sh
-tar -xzf slate_*_install.tar.gz
-cd slate_*/
+mkdir slate && tar -xzf slate_*.tar.gz -C slate
+cd slate
 ./slate
 ```
-
-如果该版本没有 `_install` 包，请将对应系统的包解压到自选目录，并从该目录运行 Slate。
 
 3. 打开 [http://127.0.0.1:7070](http://127.0.0.1:7070)。
 

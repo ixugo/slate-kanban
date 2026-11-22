@@ -10,20 +10,18 @@
 
 | System | Package |
 |---|---|
-| macOS (Apple silicon) | `slate_<version>_darwin_arm64_install.tar.gz` |
-| Linux (x86-64) | `slate_<version>_linux_amd64_install.tar.gz` |
-| Linux (ARM64) | `slate_<version>_linux_arm64_install.tar.gz` |
-| Windows (x86-64) | `slate_<version>_windows_amd64_install.zip` |
+| macOS (Apple silicon) | `slate_<version>_darwin_arm64.tar.gz` |
+| Linux (x86-64) | `slate_<version>_linux_amd64.tar.gz` |
+| Linux (ARM64) | `slate_<version>_linux_arm64.tar.gz` |
+| Windows (x86-64) | `slate_<version>_windows_amd64.zip` |
 
-2. Extract it, then run Slate from the extracted folder. On Windows, unzip and run `slate.exe` inside the folder.
+2. Extract it into a new folder, then run Slate from that folder. The package holds the program and the start/stop scripts (`start.sh` and `stop.sh`; `start.bat` and `stop.bat` on Windows). On Windows, unzip into a folder and run `slate.exe` there.
 
 ```sh
-tar -xzf slate_*_install.tar.gz
-cd slate_*/
+mkdir slate && tar -xzf slate_*.tar.gz -C slate
+cd slate
 ./slate
 ```
-
-If your release has no `_install` package, extract the package for your system into a folder of your choice and run Slate from there.
 
 3. Open [http://127.0.0.1:7070](http://127.0.0.1:7070).
 

@@ -10,20 +10,18 @@
 
 | 시스템 | 패키지 |
 |---|---|
-| macOS (Apple 실리콘) | `slate_<version>_darwin_arm64_install.tar.gz` |
-| Linux (x86-64) | `slate_<version>_linux_amd64_install.tar.gz` |
-| Linux (ARM64) | `slate_<version>_linux_arm64_install.tar.gz` |
-| Windows (x86-64) | `slate_<version>_windows_amd64_install.zip` |
+| macOS (Apple 실리콘) | `slate_<version>_darwin_arm64.tar.gz` |
+| Linux (x86-64) | `slate_<version>_linux_amd64.tar.gz` |
+| Linux (ARM64) | `slate_<version>_linux_arm64.tar.gz` |
+| Windows (x86-64) | `slate_<version>_windows_amd64.zip` |
 
-2. 압축을 푼 폴더로 이동해 실행합니다. Windows에서는 압축을 푼 폴더에서 `slate.exe`를 실행합니다.
+2. 새 폴더에 압축을 풀고 그 폴더에서 실행합니다. 패키지에는 프로그램과 시작·중지 스크립트(`start.sh`, `stop.sh`. Windows는 `start.bat`, `stop.bat`)가 들어 있습니다. Windows에서는 폴더에 압축을 풀고 `slate.exe`를 실행합니다.
 
 ```sh
-tar -xzf slate_*_install.tar.gz
-cd slate_*/
+mkdir slate && tar -xzf slate_*.tar.gz -C slate
+cd slate
 ./slate
 ```
-
-릴리스에 `_install` 패키지가 없으면 사용 중인 시스템용 패키지를 원하는 폴더에 풀고 해당 폴더에서 Slate를 실행합니다.
 
 3. [http://127.0.0.1:7070](http://127.0.0.1:7070)을 엽니다.
 

@@ -271,6 +271,10 @@ components:
           type: string
           format: date-time
           description: 更新时间
+        last_activity_at:
+          type: string
+          format: date-time
+          description: 最后活动时间，取看板自身更新时间和最新事件时间里较晚的一个；列表接口按事件计算，其余接口等于更新时间
     BoardDetail:
       type: object
       properties:
@@ -307,6 +311,10 @@ components:
           type: string
           format: date-time
           description: 更新时间
+        last_activity_at:
+          type: string
+          format: date-time
+          description: 最后活动时间，取看板自身更新时间和最新事件时间里较晚的一个；列表接口按事件计算，其余接口等于更新时间
         columns:
           type: array
           items:

@@ -10,20 +10,18 @@
 
 | システム | パッケージ |
 |---|---|
-| macOS（Apple シリコン） | `slate_<version>_darwin_arm64_install.tar.gz` |
-| Linux（x86-64） | `slate_<version>_linux_amd64_install.tar.gz` |
-| Linux（ARM64） | `slate_<version>_linux_arm64_install.tar.gz` |
-| Windows（x86-64） | `slate_<version>_windows_amd64_install.zip` |
+| macOS（Apple シリコン） | `slate_<version>_darwin_arm64.tar.gz` |
+| Linux（x86-64） | `slate_<version>_linux_amd64.tar.gz` |
+| Linux（ARM64） | `slate_<version>_linux_arm64.tar.gz` |
+| Windows（x86-64） | `slate_<version>_windows_amd64.zip` |
 
-2. 展開したフォルダに移動して実行します。Windows では展開したフォルダ内の `slate.exe` を実行します。
+2. 新しいフォルダに展開し、そのフォルダで実行します。パッケージにはプログラムと起動・停止スクリプト（`start.sh`、`stop.sh`。Windows は `start.bat`、`stop.bat`）が入っています。Windows ではフォルダに展開して `slate.exe` を実行します。
 
 ```sh
-tar -xzf slate_*_install.tar.gz
-cd slate_*/
+mkdir slate && tar -xzf slate_*.tar.gz -C slate
+cd slate
 ./slate
 ```
-
-リリースに `_install` パッケージがない場合は、お使いのシステム用のパッケージを任意のフォルダに展開し、そのフォルダで Slate を実行します。
 
 3. [http://127.0.0.1:7070](http://127.0.0.1:7070) を開きます。
 
