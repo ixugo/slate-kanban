@@ -8,7 +8,7 @@ agent 光有 MCP 工具还不够：它得知道怎么用——项目路径问不
 | 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
 |------|----------|-------------|---------|------|
 | 1 | agent 只有工具，不知道工作流程 | 领不该领的任务、直接在主分支上改、做完不交接 | 随服务发布 `slate-kanban` skill，写清：先确认看板和项目路径、守候、领取、worktree、子 agent、交接到审查、出错怎么办 | 实施 |
-| 2 | 项目在本机的位置没人告诉 agent | agent 不知道去哪个目录建 worktree，或者每次都问用户 | 路径记在看板上（`project_path`），不在本地另存：看板上有就直接用，没有才问用户一次，再用 `set_project_path` 写回；agent 只能写还是空的，已有的只有人能改 | 实施 |
+| 2 | 项目在本机的位置没人告诉 agent | agent 不知道去哪个目录建 worktree，或者每次都问用户 | 路径记在看板上（`project_path`）。缺失或不匹配时，在收件箱记录配置问题；路径为空且有人在看板确认后，agent 才用 `set_project_path` 写入。已有值由人调整 | 实施 |
 | 3 | 来活之后主 agent 自己干 | 上下文被代码细节占满，一次只能做一个，任务租约到期 | 主 agent 只做调度：领任务、派子 agent、续租、交接；每个任务一个子 agent、一个 worktree、一个分支；并发名额按名册算（研发和审查分开数，服务端把数字写进 `watch_prompt`），有几个空闲名额就一次领满、在同一次回复里同时派出，一个任务新开一个子 agent、不复用做过别的任务的。host 没有子 agent 能力时，主 agent 自己在 worktree 里做，一次一个 | 实施 |
 | 4 | 不同 host 有的能长时间阻塞调用，有的不能 | 要么 agent 空转轮询，要么错过新活 | skill 给出选择：优先用 `wait_for_updates` 阻塞守候；工具调用超时短就缩短 `timeout_seconds`；host 不能保持会话就用它自己的定时功能周期性检查 | 实施 |
 | 5 | 装 MCP 和 skill 要翻各 host 的文档 | 接入门槛高 | `/install.md`（免认证）写好 Claude Code、Cursor、Codex 的安装步骤，MCP URL 带 `?name=`（管理步骤带 `&role=manager`）；网页「连接 Agent」用免认证的 `/api/v1/connect` 取同一份结构化说明 | 实施 |
@@ -47,11 +47,12 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     A[whoami 确认身份] --> B[list_boards 找看板]
-    B --> C{看板有 project_path 吗}
-    C -->|有| E[get_board 读每一列的指令]
-    C -->|没有| D[向用户确认一次项目目录]
-    D -->|确认| D2[set_project_path 写回看板] --> E
-    D -->|不确认| Z[不开工]
+    B --> C{看板路径匹配当前仓库吗}
+    C -->|匹配| E[get_board 读每一列的指令]
+    C -->|缺失或不匹配| D[收件箱记录配置问题]
+    D -->|等待人确认或修改| Q[监听配置回复和变更]
+    Q --> C
+    D -->|空路径已确认| D2[set_project_path 写回看板] --> E
     E --> F{有空闲名额吗}
     F -->|没有| W
     F -->|有| G[next_card 或 list_cards + claim_card]
@@ -62,7 +63,7 @@ flowchart TD
     J --> K[finish_card 交接到下一列]
     K --> F
     W --> F
-    H -.->|做不下去| R[comment_card 说明, release_card]
+    H -.->|需要澄清| R[comment_card 写疑问, move_card 移回收件箱]
     R --> F
 ```
 
@@ -73,10 +74,10 @@ flowchart TD
 | 节 | 内容 | 对应需求 |
 |----|------|---------|
 | 先确认能用 | `whoami` 能返回 agent 身份才算装好；没装去读 `/install.md` | 5、6 |
-| 找到看板和项目路径 | 按当前仓库匹配看板；路径为空问一次并写回；已有路径不再问；路径和当前目录不一致先问用户 | 2 |
+| 找到看板和项目路径 | 按当前仓库匹配看板；路径缺失或不匹配时在看板记录配置问题 | 2 |
 | 守候和领取 | 阻塞循环；并发上限；单个用 `next_card`，多个用 `list_cards` 加 `claim_card`；按 host 能力选守候方式；重启后用 `claimed:` 找回自己持有的任务 | 3、4 |
 | 派发 | 读全文和评论；建 worktree 和分支；子 agent 的约束和汇报要求；每 20 分钟评论续租；`finish_card` 交接；返工 | 3 |
-| 做不下去 | 提问、释放、新任务记在非领取列、规划类字段不能改；服务端错误对照表 | 1 |
+| 做不下去 | 在看板留言澄清并移回收件箱，继续其他可办任务；服务端错误对照表 | 1 |
 | 收尾 | 任务完成且分支已合并后清理 worktree 和分支 | 3 |
 
 关键规则：各列允许 agent 做什么由列的 `instruction` 提示词约定；`next_card` 必须传入按提示词选择的 `column_id`，只从该列取任务；只有进行中派研发子 agent、只有审查派审查子 agent，任务完成只由审查决定，完成列 agent 不操作；不改人的规划类字段。

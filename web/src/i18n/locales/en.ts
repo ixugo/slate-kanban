@@ -715,7 +715,7 @@ export const en = {
       intro: 'Once connected, an agent can stay on the board and take tasks as they appear. It works like this:',
       how: {
         connect: 'The agent keeps its session open and calls the MCP tool wait_for_updates over and over.',
-        push: 'The server holds each call open and answers the moment the board changes. When nothing changes it is only one request about every 50 seconds, not a poll for tasks.',
+        push: 'The server holds each call open and answers as soon as the board changes. When idle, a configured connection can wait up to 60 minutes. Use 50 seconds or less on connections that do not support long waits.',
         loop: 'The host\'s loop only checks every few minutes that this listening is still alive; if it dropped, the agent attaches again.',
       },
       board: 'Board',

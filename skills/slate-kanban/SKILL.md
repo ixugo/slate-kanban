@@ -12,7 +12,7 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 下面几条规则不能违反：
 
 - 每一列的 `instruction` 是人写给你的提示词，写明任务在这个状态下谁能做什么、能不能派子 agent、做完去哪一列。以它为准，它没有允许的事就不要做。服务端不再按列拦你的操作，所以更要自觉。`get_card`、`claim_card`、`next_card` 返回任务时都带着所在列的 `instruction`。
-- 研发子 agent 只在「进行中」派，审查子 agent 只在「审查」派；「收件箱」里的任务不动，「待办」里的任务由你管理但不在那里派发；「完成」列里的任务你一律不碰（不移入、不移出、不修改）。
+- 默认五列中，「待办」是必须主动检查的调度入口，研发子 agent 只在「进行中」派，审查子 agent 只在「审查」派。「收件箱」和「完成」平时跳过。自定义流程按列的 `instruction` 和 `next_column_id` 选择实际入口及去向。
 - 只有研发任务才在「进行中」处理。「审查」里的任务直接在审查列领取并审查，不要先移到「进行中」；只有审查不通过、需要研发返工时，才把任务放回「进行中」。
 - 研发做完用 `finish_card` 交接到审查，不要自己把任务拖进完成列：任务是否完成只由审查决定。
 - 标签只能贴看板上已有的：领取任务后，对照任务内容用 `update_card` 的 `tag_ids` 调整标签，`tag_ids` 来自 `get_board` 的 `tags`；不要新建标签（不要用 `tags` 文字参数创建新标签），没有合适的就不贴。
@@ -23,18 +23,18 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 
 ## 一、先确认能用
 
-调用 `whoami`。返回了你的名称，类型是 `agent`，说明 MCP 已经接好。调用不了，就请用户先安装：让用户把 Slate 服务地址下的 `/install.md`（例如 `http://localhost:7070/install.md`）交给你，按里面的步骤装 MCP。
+调用 `whoami`。返回了你的名称，类型是 `agent`，说明 MCP 已经接好。MCP 尚未接通时，只报告连接状态和 Slate 服务的 `/install.md` 接入入口，不启动终端问答。
 
 这个 skill 的最新版可以从服务取：`/skills/slate-kanban/SKILL.md`，或者读 MCP 资源 `slate://skills/slate-kanban`。
 
 ## 二、找到看板和项目路径
 
-1. 用 `list_boards` 列出看板。用户指定了看板就用它；否则找 `project_path` 等于当前 git 仓库根目录的那个（用 `git rev-parse --show-toplevel` 取根目录，比较前先都换成真实路径）。有多个匹配，或一个都没有，就列给用户选。
+1. 用 `list_boards` 列出看板。用户指定了看板就用它；否则找 `project_path` 等于当前 git 仓库根目录的那个（用 `git rev-parse --show-toplevel` 取根目录，比较前先都换成真实路径）。没有唯一匹配且用户未指定看板时，只报告现状，等待明确的看板选择。不要猜选看板或在终端触发阻塞式提问。
    用户明确要求新建项目时，用 `create_board`（`slug` 不填会按名称生成，`template` 默认是研发流程，`locale` 按用户的语言填）；建好后按下面第 3 步处理 `project_path`。没有被要求就不要新建项目。项目只能创建，没有删除工具，删除只能由人在网页上完成。
 2. 用 `get_board` 读一遍每一列：`description` 是给人看的说明，`instruction` 是人写给你的提示词，必须遵守。记下领取列的名字，以及 `next_column_id`（交接后任务去哪一列）。再读 `engineers`：每位工程师是一个并发名额，`kind` 为 `dev`（全栈）、`frontend`（前端）、`backend`（后端）、`ui`（UI）的都做研发，只是专长不同，`review` 的是测试；`prompt` 是他的角色提示词，派子 agent 时当作角色设定的底稿。
-3. 看这个看板的 `project_path`：
-   - 已经有值：直接用，不要再问用户。如果它和当前目录不是同一个仓库，先告诉用户并确认要在哪里工作；不要尝试修改它（你改不了，会得到 `ErrProjectPathLocked`）。
-   - 是空的：问用户一次"这个看板对应的项目是 <当前仓库根目录> 吗"。用户确认后用 `set_project_path` 写下来；用户不确认，就先不开工。
+3. 核对看板的 `project_path` 与当前仓库。若缺失或不匹配，暂停依赖该路径的工作，在这个看板的收件箱复用或创建一项配置任务，记录待确认的绝对路径或不一致之处。没有可写的看板入口时只报告状态。
+   - 路径为空且有人在看板上明确确认后，用 `set_project_path` 登记。已有值只能由人调整；如果会话启动在错误目录，也可由人从正确仓库重启。
+   - 守候期间留意这项配置任务的回复和 `board.updated`。收到相关事件，或监听返回 `first`、`truncated` 时，复查配置任务和 `get_board` 的路径。确认匹配后恢复受影响的工作，其他可办事项照常处理。
 
 ## 三、守候和领取
 
@@ -48,23 +48,23 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 循环：
   1. 研发空闲 = 空闲的研发类工程师（按任务内容选专长合适的）；审查空闲 = 空闲的测试工程师；两类分开数
   2. 研发空闲大于 0，一次领满：
-     - 只有 1 位空闲：card = next_card(board_id, column_id=按列提示词选择的列, engineer_id=他)，card 为 null 表示没有可做的
+     - 只有 1 位空闲：card = next_card(board_id, column_id=按列提示词选择的研发执行列, engineer_id=他)，card 为 null 表示当前列没有可领的
      - 多位空闲：对 list_cards(board_id, query='col:"<领取列名>" is:free -is:waiting -is:human', limit=空闲人数)
        的结果，给每个任务配一位空闲的研发工程师（任务有 engineer_id 就用他），逐个 claim_card(card_id, engineer_id)
-     「进行中」的任务不够填满名额时，按下面「待办」那一条从「待办」补任务，补到名额领满或没有任务为止
-  3. 审查空闲大于 0：对 list_cards(board_id, query='col:审查 is:free -is:human', limit=空闲人数)
+     研发还有空位就必须主动检查「待办」，包括「进行中」为空时。按下面的「待办」流程补到满员或没有可领任务为止
+  3. 审查空闲大于 0：对 list_cards(board_id, query='col:"<实际审查列名>" is:free -is:human', limit=空闲人数)
      的结果，每个配一位空闲的测试，逐个 claim_card(card_id, engineer_id)，按第五节派审查子 agent
      遇到 ErrEngineerBusy、ErrNoIdleEngineer 说明名额满了，这个任务留着排队，不要重试
   4. 这一轮领到的所有任务：研发任务各自建好 worktree，然后在同一次回复里把所有子 agent 一起派出
      （研发按第四节，角色提示词以这位工程师的 prompt 为底稿；审查按第五节），一个任务一个新的子 agent
   5. 刚派发了任务，回到 1；否则守候：
-     result = wait_for_updates(board_id, since=上一次的 cursor, timeout_seconds=30)
+     result = wait_for_updates(board_id, since=上一次的 cursor, timeout_seconds=按下表选择)
      记下 result 里的 cursor；timed_out 为 true 只是超时，不是错误
      first 或 truncated 为 true：用 list_cards 重新了解现状
      处理这批事件（见下面），然后回到 1
 ```
 
-- 「待办」的任务：用 `next_card` 领取、读完后若研发有空闲名额，就用 `move_card` 移到「进行中」，再在「进行中」带 `engineer_id` 重新领取拿到租约（换列会结束原来的领取）；任务已经在「进行中」就直接领取，不用移动。研发有几个空闲名额，就可以一次移几个；不要因为审查占着名额，就把「待办」里的任务留着不动。
+- 「待办」的任务：有空闲研发名额时用 `next_card` 领取并读完描述、评论和依赖。清楚的任务用 `move_card` 移到「进行中」，带 `engineer_id` 重新领取后再派发（换列会结束原来的领取）。不清楚的任务先评论再移到「收件箱」。研发名额满员时留在「待办」排队。
 - `list_cards` 每次最多返回 30 个（默认 10 个），并发上限一般不超过 5，用 `limit` 取够空闲名额就行，不要一次要很多。
 - 重启之后，先找回自己还持有的任务：`list_cards(board_id, query="claimed:<你的名称>")`（名称来自 `whoami`），任务上的 `claim_engineer_id` 就是承担它的工程师，接着用这一位做。`next_card` 必须传入按列提示词选择的 `column_id`，它只在这一列内优先给你已经持有的任务。审查领取须按提示词显式指定测试工程师的 `engineer_id`；未指定时默认分配研发工程师，不从列推断角色。
 - 你离线期间发生的更新，上线后第一次 `wait_for_updates` 或 `pull_updates` 就会补给你，不用自己记时间。处理完这一批，才把返回的 `cursor` 当作下一次的 `since`。
@@ -78,14 +78,15 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 
 | 情况 | 做法 |
 |------|------|
-| 工具调用可以挂一分钟左右（多数情况） | 用上面的阻塞循环，`timeout_seconds` 用 30，最大 50 |
+| 空闲且客户端和反向代理都已配置支持长等待 | 用 `timeout_seconds=3600`，服务端最多等 60 分钟。有变化立即返回 |
+| 手上有任务、需要检查子 agent 或租约，或者客户端支持情况未知 | 用 `timeout_seconds=50` 或更短，确保到需要跟进时能及时回到调度循环 |
 | 工具调用的超时很短 | 把 `timeout_seconds` 调小（例如 10）；还是超时，就用下一行的办法 |
 | 用户贴了一行「守候看板」提示词，或被 host 的 loop / shell 循环叫醒 | 先 `get_board` 读返回里的 `watch_prompt` 并照做：找回手上的任务，然后用上面的阻塞循环一直守候。loop 只用来检查监听还活着没有，不是定时拉取任务：能被叫醒，说明上一段监听已经结束，直接重新进入阻塞循环即可 |
 | 工具调用连 10 秒的阻塞都撑不住 | 这个 host 不适合长期守候，告诉用户，不要改成定时拉取 |
 
 长期挂着时：不要收工，也不要问用户“是否继续”，没有任务就继续 `wait_for_updates`；守候期间不输出文字，直接进入下一次调用，省上下文；上下文快满时先把手上任务的进度写成评论交接清楚。用户启动用的一行提示词在网页的「接入 Agent」页和 `install.md` 第 4 节，完整提示词由 `get_board` 的 `watch_prompt` 返回。
 
-Claude Code 和 Codex 都能正常等满 50 秒（Codex 的工具调用默认 60 秒超时，所以 `timeout_seconds` 不要超过 50）；Cursor 的工具超时没有官方说明，等不满就按表里第二行把它调小。
+Codex 的工作视图配置用 `tool_timeout_sec = 3660`（秒）。Claude Code 的工作视图 HTTP 服务用 `timeout: 3660000`（毫秒），在专用守候会话中可用 `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0` 启动，确保客户端继续等待。具体安装和启动命令见 Slate 的 `/install.md`。链路上的代理也要允许超过 60 分钟的响应等待。超时或断线时先回到 50 秒或更短，按原游标续订；空超时直接续等。[Codex MCP 配置](https://developers.openai.com/codex/mcp) · [Claude Code 超时配置](https://code.claude.com/docs/en/env-vars#mcp_tool_timeout)
 
 ### 先把方案写到任务评论
 
@@ -131,7 +132,9 @@ Claude Code 和 Codex 都能正常等满 50 秒（Codex 的工具调用默认 60
 
 ## 六、做不下去的时候
 
-缺信息，或者需要人来决定：用 `comment_card` 把问题写清楚（写出你的疑问和你的理解），再用 `move_card` 把任务移出领取列，例如移到「收件箱」，换列会同时结束你的领取，不要占着任务。只 `release_card` 不行：任务还留在领取列里，`next_card` 会马上又领到它。人回复后会把任务放回领取列，你再领到时先读新评论。`get_card`、`claim_card`、`next_card` 的结果里带有 `agent_notice`，是对这一点的提醒。
+任务缺信息，或范围、验收与授权需要人决定时，始终通过看板澄清，禁止在终端触发阻塞式提问。用 `comment_card` 写清疑问和当前理解，评论成功后用 `move_card` 移回「收件箱」或列指令约定的澄清列。换列会结束领取，腾出的名额继续处理其他可办任务。只 `release_card` 会让这项任务马上被重新领到。人回复并将任务放回领取列后，重新领取时先读新评论。`get_card`、`claim_card`、`next_card` 的 `agent_notice` 会提醒这一步。
+
+看板确认用于澄清任务，不替代宿主权限。缺少权限时暂停受影响的动作，在看板说明。MCP 鉴权失败、连续三次连不上或没有可写看板入口时，只报告状态，不打开终端问答。
 
 被服务端拒绝，说明做法不对，换一种做法，不要原样重试：
 
@@ -139,7 +142,7 @@ Claude Code 和 Codex 都能正常等满 50 秒（Codex 的工具调用默认 60
 |------|------|--------|
 | `ErrNotHolder` | 这个任务你已经不持有了（租约到期被别人接手，或被人收回） | 停止在这个任务上的工作，先把没提交的成果告诉用户 |
 | `ErrCardVersionConflict` | 你读完之后，任务被别人改过 | 用 `get_card` 重新读，再决定怎么改 |
-| `ErrProjectPathLocked` | 看板已经有项目路径 | 不要改，有问题告诉用户 |
+| `ErrProjectPathLocked` | 看板已经有项目路径 | 按第二节在看板记录问题，由人调整 |
 | `ErrCardClaimed` | 别的 agent 正在做这个任务（领取或移动都不行） | 先做别的，等它交接或释放 |
 | `ErrCardWaiting` | 它依赖的任务还没完成 | 先做别的 |
 | `ErrEngineerBusy` | 指定的工程师在做别的任务 | 换一位空闲的，或者排队等 |
