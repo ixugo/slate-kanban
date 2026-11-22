@@ -121,7 +121,9 @@ func TestSkillResource(t *testing.T) {
 	s := newStack(t)
 	for name, sess := range map[string]*mcp.ClientSession{"agent": s.agent(t, "claude"), "人": s.human(t)} {
 		list, err := sess.ListResources(t.Context(), nil)
-		if err != nil || len(list.Resources) != 1 || list.Resources[0].URI != skillResourceURI || list.Resources[0].MIMEType != "text/markdown" {
+		if err != nil || !slices.ContainsFunc(list.Resources, func(r *mcp.Resource) bool {
+			return r.URI == skillResourceURI && r.MIMEType == "text/markdown"
+		}) {
 			t.Fatalf("%s：资源列表不对: %+v %v", name, list, err)
 		}
 		res, err := sess.ReadResource(t.Context(), &mcp.ReadResourceParams{URI: skillResourceURI})
@@ -131,6 +133,31 @@ func TestSkillResource(t *testing.T) {
 		got := res.Contents[0]
 		if got.URI != skillResourceURI || got.MIMEType != "text/markdown" || got.Text != skills.SlateKanban() {
 			t.Errorf("%s：读到的 skill 地址、类型或内容不对: %s %s", name, got.URI, got.MIMEType)
+		}
+	}
+}
+
+func TestWatchScriptResource(t *testing.T) {
+	s := newStack(t)
+	sess := s.agent(t, "codex")
+	list, err := sess.ListResources(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, uri := range []string{skills.WatchURI, skills.CodexWatchURI} {
+		if !slices.ContainsFunc(list.Resources, func(r *mcp.Resource) bool {
+			return r.URI == uri && r.MIMEType == "text/x-python"
+		}) {
+			t.Fatalf("资源列表里缺少 %s", uri)
+		}
+		res, err := sess.ReadResource(t.Context(), &mcp.ReadResourceParams{URI: uri})
+		if err != nil || len(res.Contents) != 1 {
+			t.Fatalf("读取 Python 监听脚本失败: %+v %v", res, err)
+		}
+		got := res.Contents[0]
+		if got.URI != uri || got.MIMEType != "text/x-python" || got.Text != skills.WatchScript() ||
+			!strings.Contains(got.Text, "SLATE_DISPATCH_DONE") || !strings.Contains(got.Text, "--command-json") {
+			t.Fatalf("返回的资源没有包含随服务发布的监听脚本: %s %s", got.URI, got.MIMEType)
 		}
 	}
 }

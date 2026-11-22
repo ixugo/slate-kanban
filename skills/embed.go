@@ -16,3 +16,17 @@ var slateKanban string
 func SlateKanban() string {
 	return slateKanban
 }
+
+// WatchURI 是 MCP 客户端获取 Python 监听脚本的资源地址。
+const WatchURI = "slate://scripts/slate-watch.py"
+
+// CodexWatchURI 保留给已在使用这个地址的客户端。
+const CodexWatchURI = "slate://scripts/codex-watch.py"
+
+//go:embed slate-kanban/watch.py
+var watchScript string
+
+// WatchScript 返回随当前服务发布的 Python 监听脚本。
+func WatchScript() string {
+	return watchScript
+}

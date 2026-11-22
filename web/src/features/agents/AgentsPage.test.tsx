@@ -15,6 +15,8 @@ afterEach(() => {
 
 const loopPrompt = '守候 Slate 看板「<看板名>」：调用 get_board 读取返回里的 watch_prompt，照它做。'
 const sameName = "官网 $& '改版"
+const eventWatchCommand = (host: string, name = host) =>
+  `python "slate-watch.py" --url "http://127.0.0.1:7070/mcp" --board "<看板编号>" --name "${name}" --project "<项目目录>" --host ${host}`
 const boundPrompt = (id: number) => `守候 Slate 看板「${sameName}」：调用 get_board({"board_id":${id}}) 读取返回里的 watch_prompt，照它做。`
 
 const guide: ConnectGuide = {
@@ -33,21 +35,27 @@ const guide: ConnectGuide = {
         { kind: 'manager', title: '管理', lang: 'sh', code: 'cursor mcp --role=manager' },
       ],
       skill: [{ kind: 'skill', title: 'skill', lang: 'sh', code: 'ln -s skill' }],
-      watch: [{ kind: 'loop', title: '定时', lang: 'sh', code: `/loop 5m ${loopPrompt}` }],
+      watch: [
+        { kind: 'event-watch', title: '启动', lang: 'sh', code: eventWatchCommand('cursor') },
+        { kind: 'loop', title: '定时', lang: 'sh', code: `/loop 5m ${loopPrompt}` },
+      ],
     },
     {
       id: 'claude-code',
       name: 'Claude Code',
       mcp: [],
       skill: [],
-      watch: [{ kind: 'watch', title: '启动', lang: 'sh', code: `claude\n/loop 5m ${loopPrompt}` }],
+      watch: [
+        { kind: 'event-watch', title: '启动', lang: 'sh', code: eventWatchCommand('claude', 'claude-code') },
+        { kind: 'watch', title: '前台', lang: 'sh', code: `claude\n/loop 5m ${loopPrompt}` },
+      ],
     },
     {
       id: 'codex',
       name: 'Codex',
       mcp: [],
       skill: [],
-      watch: [{ kind: 'watch', title: '启动', lang: 'sh', code: `while true; do codex exec '${loopPrompt}'; sleep 300; done` }],
+      watch: [{ kind: 'event-watch', title: '启动', lang: 'sh', code: eventWatchCommand('codex') }],
     },
   ],
 }
@@ -136,11 +144,12 @@ describe('AgentsPage', () => {
     await userEvent.click(screen.getByText(en.agents.advanced))
     expect(screen.getByText(`/loop 5m ${prompt}`)).toBeInTheDocument()
     expect(screen.getByText('cursor mcp --name=test')).toBeInTheDocument()
+    expect(screen.getByText(eventWatchCommand('cursor').replace('<看板编号>', String(id)))).toBeInTheDocument()
     await userEvent.click(screen.getByRole('tab', { name: 'Claude Code' }))
     expect(screen.getByText(`claude /loop 5m ${prompt}`)).toBeInTheDocument()
+    expect(screen.getByText(eventWatchCommand('claude', 'claude-code').replace('<看板编号>', String(id)))).toBeInTheDocument()
     await userEvent.click(screen.getByRole('tab', { name: 'Codex' }))
-    const shellPrompt = prompt.replace(sameName, () => "官网 $& '\\''改版")
-    expect(screen.getByText(`while true; do codex exec '${shellPrompt}'; sleep 300; done`)).toBeInTheDocument()
+    expect(screen.getByText(eventWatchCommand('codex').replace('<看板编号>', String(id)))).toBeInTheDocument()
   })
 
   it('project 为空串时当作未指定，仍可选择看板', async () => {

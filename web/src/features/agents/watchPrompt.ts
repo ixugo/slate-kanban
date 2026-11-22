@@ -10,4 +10,5 @@ export function bindWatchPrompt(prompt: string, board: Pick<Board, 'id' | 'name'
   return prompt
     .replace('调用 get_board', `调用 get_board({"board_id":${board.id}})`)
     .replaceAll(BOARD_PLACEHOLDER, () => name)
+    .replaceAll('<看板编号>', String(board.id))
 }

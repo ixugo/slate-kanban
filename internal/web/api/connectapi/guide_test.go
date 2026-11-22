@@ -201,7 +201,7 @@ func TestGuideCursorConfigIsJSON(t *testing.T) {
 }
 
 // TestWatchGuide 验证长期挂着的内容：一行提示词带看板占位符并指向 get_board 的 watch_prompt；
-// 每个 host 都有挂起或恢复的步骤，Claude Code 用 /loop，Codex 用 shell 循环，二者都放在 screen 会话里并给出恢复命令。
+// 每个 host 都有监听步骤。Claude Code 在 screen 中用 /loop，Codex 用 Python 按事件启动。
 func TestWatchGuide(t *testing.T) {
 	g := buildGuide(guideBases[0], false)
 	if !strings.Contains(g.LoopPrompt, boardPlaceholder) || !strings.Contains(g.LoopPrompt, "watch_prompt") || strings.Contains(g.LoopPrompt, "\n") {
@@ -216,26 +216,36 @@ func TestWatchGuide(t *testing.T) {
 		t.Errorf("说明应该讲 wait_for_updates 推送和 loop 检查监听: %q", all)
 	}
 	for _, h := range g.Hosts {
-		if len(h.Watch) == 0 {
-			t.Errorf("host %s 缺少长期挂着的步骤", h.ID)
+		if len(h.Watch) < 3 || !strings.Contains(h.Watch[0].Code, "slate://scripts/slate-watch.py") ||
+			!strings.Contains(h.Watch[1].Code, `python "slate-watch.py"`) ||
+			!strings.Contains(h.Watch[1].Code, g.MCPURL) || !strings.Contains(h.Watch[2].Code, "--resolve done") {
+			t.Errorf("%s 缺少获取、启动和恢复 Python 监听器的步骤: %+v", h.ID, h.Watch)
+			continue
+		}
+		host := h.ID
+		if host == "claude-code" {
+			host = "claude"
+		}
+		if !strings.Contains(h.Watch[1].Code, "--host "+host) ||
+			!strings.Contains(h.Watch[1].Code, `--name "`+h.ID+`"`) {
+			t.Errorf("%s 的命令未绑定宿主和工作身份: %q", h.ID, h.Watch[1].Code)
 		}
 	}
-	for id, loop := range map[string]string{"claude-code": "/loop 5m ", "codex": "codex exec -c 'mcp_servers.slate.tool_timeout_sec=3660'"} {
-		i := slices.IndexFunc(g.Hosts, func(h Host) bool { return h.ID == id })
-		if i < 0 {
-			t.Fatalf("缺少 host %s", id)
-		}
-		h := g.Hosts[i]
-		if len(h.Watch) != 2 || !strings.Contains(h.Watch[0].Code, "screen -S") || !strings.Contains(h.Watch[0].Code, loop) ||
-			!strings.Contains(h.Watch[1].Code, "screen -r") || !strings.Contains(h.Watch[0].Code, "空闲时用 3600 秒") {
-			t.Errorf("host %s 应该有带 loop 的开会话命令和恢复命令", id)
-		}
-	}
-	if !strings.Contains(g.Hosts[0].Watch[0].Code, "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0") {
-		t.Error("Claude 守候应在前台等待 MCP 结果")
+	claude := g.Hosts[slices.IndexFunc(g.Hosts, func(h Host) bool { return h.ID == "claude-code" })]
+	if len(claude.Watch) != 5 || !strings.Contains(claude.Watch[3].Code, "screen -S") ||
+		!strings.Contains(claude.Watch[3].Code, "CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0") ||
+		!strings.Contains(claude.Watch[3].Code, "/loop 5m ") ||
+		!strings.Contains(claude.Watch[3].Code, "空闲时用 3600 秒") ||
+		!strings.Contains(claude.Watch[4].Code, "screen -r") {
+		t.Error("Claude 应保留前台 loop 和恢复命令")
 	}
 	cursor := g.Hosts[slices.IndexFunc(g.Hosts, func(h Host) bool { return h.ID == "cursor" })]
-	if len(cursor.Watch) != 1 || cursor.Watch[0].Code != "/loop 5m "+g.LoopPrompt {
-		t.Errorf("Cursor 应该只有一条 /loop 命令: %+v", cursor.Watch)
+	if len(cursor.Watch) != 4 || cursor.Watch[3].Code != "/loop 5m "+g.LoopPrompt {
+		t.Errorf("Cursor 应保留 /loop 命令: %+v", cursor.Watch)
+	}
+	for _, want := range []string{"--host opencode", "--host pi", "--host on-my-pi", "--command-json"} {
+		if !strings.Contains(renderMarkdown(g, false), want) {
+			t.Errorf("安装文档缺少 %q", want)
+		}
 	}
 }

@@ -135,7 +135,7 @@ func claudeCodeHost(g Guide, passcodeRequired bool) Host {
 			},
 		},
 		Skill: skillSnippets("~/.claude/skills", g),
-		Watch: claudeWatch(),
+		Watch: claudeWatch(g.MCPURL),
 	}
 }
 
@@ -166,7 +166,7 @@ func cursorHost(g Guide, passcodeRequired bool) Host {
 			},
 		},
 		Skill: skillSnippets("~/.cursor/skills", g),
-		Watch: cursorWatch(),
+		Watch: cursorWatch(g.MCPURL),
 	}
 }
 
@@ -208,7 +208,7 @@ func codexHost(g Guide, passcodeRequired bool) Host {
 			},
 		},
 		Skill: skillSnippets("~/.codex/skills", g),
-		Watch: codexWatch(),
+		Watch: eventWatch(g.MCPURL, "codex", "codex"),
 	}
 }
 

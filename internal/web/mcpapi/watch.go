@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"slate-kanban/internal/core/kanban"
+	"slate-kanban/skills"
 )
 
 // watchPromptFormat 是 get_board 返回的守候提示词模板，两个参数依次是看板名和这个看板的并发名额说明（见 slotsText）。
@@ -35,11 +36,17 @@ type boardOut struct {
 
 // watchPromptOf 生成某个看板的守候提示词：填上看板名，并按名册写明这个看板能同时跑几个研发和审查子 agent。
 func watchPromptOf(detail *kanban.BoardDetail) string {
+	setup := fmt.Sprintf("空闲时无需调用模型的守候方式：读取 MCP 资源 %s，将脚本保存为 slate-watch.py。"+
+		"运行 python slate-watch.py --url \"<Slate MCP 地址>\" --board %d --name \"<whoami 的名称>\" --project \"<项目目录>\"。"+
+		"脚本根据标准身份或唯一可用的本地命令选宿主，也可用 --host 明确选 codex、cursor、claude、opencode、pi、on-my-pi。"+
+		"自定义客户端用本地 --command-json。地址使用当前 Slate 的 /mcp，重启时沿用同一个 name。"+
+		"先按接入说明验证宿主的 Slate 工作视图；脚本发来的事件任务只执行一轮调度，不进入下面的守候循环。\n\n",
+		skills.WatchURI, detail.ID)
 	prompt := fmt.Sprintf(watchPromptFormat, detail.Name, slotsText(detail.Engineers))
 	if strings.TrimSpace(detail.Description) != "" {
 		prompt += "\n\n## 项目说明（AGENTS.md）\n\n" + detail.Description
 	}
-	return prompt
+	return setup + prompt
 }
 
 // slotsText 按工程师名册算出并发名额，写成一句话放进守候提示词。

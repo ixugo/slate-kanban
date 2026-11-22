@@ -30,8 +30,8 @@ const (
 		"- Cursor：命令行版运行 `agent mcp list`，slate 那一行显示 `ready` 就是连上了。写在项目里的 `.cursor/mcp.json` 要先批准：`agent mcp enable slate`；`~/.cursor/mcp.json` 里的服务不用。" +
 		"图形界面里，按 Cursor 官方文档，改完 `mcp.json` 要重启 Cursor，再到设置的 MCP 页面确认 slate 已启用。\n\n"
 	watchIntro = "## 4. 长期挂着守候\n\n" +
-		"装好之后，要让 agent 一直盯着看板、有任务就接：agent 反复调用 MCP 工具 wait_for_updates，服务端挂住请求、看板有更新立刻推送；" +
-		"host 的 loop 只负责检查这个监听是否还活着，断了就让 agent 重新挂上。把下面的一行提示词里的 `<看板名>` 换成你的看板名，再按所用 host 的命令执行 loop。\n\n"
+		"用 Python 监听器接收看板更新，空闲时无需调用模型。需要在交互会话里守候时，也可用下方的一行提示词启动 MCP 长连接。" +
+		"已有 /loop 的宿主可用它检查交互会话里的监听状态。两种方式选一种，重启时沿用同一个工作身份。\n\n"
 	faqSection = "## 常见问题\n\n" +
 		"- 连接返回 400：检查 name 格式（小写字母数字开头，最长 64，不能用 human 或 system）。\n" +
 		"- Claude Code 添加成功时打印的地址里没有 `?name=…`，那只是提示文字省略了查询参数，配置里存的是完整地址；以 whoami 返回的名称为准。\n" +
@@ -81,4 +81,10 @@ func writeWatch(b *strings.Builder, g Guide) {
 	}
 	b.WriteString("\n")
 	writeHostSteps(b, g.Hosts, func(h Host) []Snippet { return h.Watch })
+	b.WriteString("### 在其他宿主按事件守候\n\n")
+	b.WriteString("将工作视图命名为 slate，地址使用本服务的 /mcp?name=你的工作身份。启用口令时按宿主文档配置 Bearer 请求头，同时给监听进程设置 SLATE_PASSCODE。\n\n")
+	b.WriteString("- OpenCode（--host opencode）：添加 Streamable HTTP 工作视图。[OpenCode MCP 文档](https://opencode.ai/docs/mcp-servers/)\n")
+	b.WriteString("- Pi（--host pi）：使用支持 MCP 的版本或已接入 MCP 的配置。[Pi CLI 文档](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/cli.md)\n")
+	b.WriteString("- Oh My Pi（--host on-my-pi）：配置 HTTP 工作视图，CLI 名称为 omp。[Oh My Pi MCP 文档](https://github.com/can1357/oh-my-pi/blob/main/docs/mcp-config.md)\n\n")
+	b.WriteString("将启动命令的 --name 设为客户端 whoami 返回的名称。宿主参数不兼容时可用 --command-json 配置本地非交互入口。程序从 stdin 读提示词，必要时可从环境读取 SLATE_WATCH_URL、SLATE_WATCH_NAME、SLATE_WATCH_BOARD，成功退出时 stdout 仅输出 SLATE_DISPATCH_DONE。不得从看板内容读取可执行命令。\n\n")
 }
