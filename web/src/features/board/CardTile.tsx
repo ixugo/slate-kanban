@@ -3,6 +3,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useMemo } from 'react'
 import { LockIcon, Link2Icon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -12,6 +13,7 @@ import { useLanguage } from '@/i18n/useLanguage'
 import { cn } from '@/lib/utils'
 import { TagBadge } from '@/features/labels/TagBadge'
 import { displayKey } from '@/lib/cardKey'
+import { firstImageSrc } from '@/lib/md/cover'
 import { UnreadBadge } from './UnreadBadge'
 
 /** 优先级圆点的颜色：低、中、高；0 表示没设优先级，不显示 */
@@ -27,15 +29,33 @@ interface CardTileProps {
   dragDisabled?: boolean
 }
 
-/** 磁贴里的内容：编号和领取者（同一行）、标题、标签、截止日期、状态图标；引用预览也用它，保证和看板上一模一样 */
+/**
+ * 磁贴封面：描述里的第一张图片，铺在磁贴最顶部、占满宽度，高度跟着图片走（设上限，超出裁切）。
+ * 它在文字上方单独占一块，不遮挡文字，也没有滚动；负外边距抵消磁贴的内边距，让图片贴到磁贴边缘。
+ */
+function TileCover({ src }: { src: string }) {
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      draggable={false}
+      className="-mx-3 -mt-3 block min-h-16 w-[calc(100%+1.5rem)] max-w-none bg-muted object-cover max-h-44"
+    />
+  )
+}
+
+/** 磁贴里的内容：封面、编号和领取者（同一行）、标题、标签、截止日期、状态图标；引用预览也用它，保证和看板上一模一样 */
 export function TileBody({ card }: { card: CardView }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const overdue = card.due_at && !card.done && isPast(card.due_at)
   const tagIds = card.tag_ids ?? []
+  const cover = useMemo(() => firstImageSrc(card.description ?? ''), [card.description])
 
   return (
     <div className="space-y-1.5">
+      {cover && <TileCover src={cover} />}
       <div className="flex items-center gap-1.5">
         {card.priority > 0 && (
           <span className={cn('size-1.5 shrink-0 rounded-full', PRIORITY_DOT[card.priority])} aria-hidden />

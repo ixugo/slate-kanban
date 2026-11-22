@@ -151,22 +151,37 @@ describe('CardTile 是指向卡片的链接', () => {
   })
 })
 
-describe('CardTile 没有封面', () => {
-  it('描述里有图片附件也不在磁贴上单独显示图片', async () => {
+describe('CardTile 封面', () => {
+  const FIRST = `/api/v1/attachments/${'c'.repeat(32)}`
+  const SECOND = `/api/v1/attachments/${'d'.repeat(32)}`
+
+  function renderBoard(description: string) {
     installFakeApi({
       'GET /api/v1/boards/:id/snapshot': makeSnapshot({
-        cards: [makeCard({ id: 1, title: 'Alpha', column_id: 1, description: `说明\n\n![图](/api/v1/attachments/${'c'.repeat(32)})` })],
+        cards: [makeCard({ id: 1, title: 'Alpha', column_id: 1, description })],
       }),
     })
-    const { container } = renderApp(
+    return renderApp(
       <Routes>
         <Route path="/b/:boardId" element={<BoardPage />} />
       </Routes>,
       { route: '/b/1' },
     )
+  }
+
+  it('描述里的第一张图片作为封面放在磁贴顶部，位于标题之前', async () => {
+    renderBoard(`说明\n\n![图](${FIRST})\n\n![图二](${SECOND})`)
+    const tile = await screen.findByRole('link', { name: /Alpha/ })
+    const images = tile.querySelectorAll('img')
+    expect(images).toHaveLength(1)
+    expect(images[0]).toHaveAttribute('src', FIRST)
+    expect(images[0].compareDocumentPosition(screen.getByText('Alpha')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('没有图片的描述不显示封面', async () => {
+    renderBoard('只有文字')
     const tile = await screen.findByRole('link', { name: /Alpha/ })
     expect(tile.querySelector('img')).toBeNull()
-    expect(container.querySelectorAll('a img')).toHaveLength(0)
   })
 })
 
