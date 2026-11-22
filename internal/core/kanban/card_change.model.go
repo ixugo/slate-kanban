@@ -18,6 +18,9 @@ type CardChange struct {
 	ActorKind string    `gorm:"column:actor_kind;size:16;notNull;default:'';comment:修改者类型：human、agent、system" json:"actor_kind"`
 	Actor     string    `gorm:"column:actor;size:96;notNull;default:'';comment:修改者名称" json:"actor"`
 	CreatedAt time.Time `gorm:"column:created_at;notNull;default:CURRENT_TIMESTAMP;comment:修改时间" json:"created_at"`
+	// PrevID、NextID 是同一张任务里前一条、后一条变更记录的编号，没有就是 0；不存库，读取单条记录时算出，网页据此翻页。
+	PrevID int64 `gorm:"-" json:"prev_id"`
+	NextID int64 `gorm:"-" json:"next_id"`
 }
 
 // TableName 指定表名，这是 GORM 约定的方法。

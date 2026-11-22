@@ -190,6 +190,8 @@ export const ja: Messages = {
       before: '変更前',
       after: '変更後',
       identical: '変更前と変更後の内容は同じです。',
+      prev: '前の変更',
+      next: '次の変更',
     },
     event: {
       boardCreated: 'プロジェクトを作成しました',

@@ -190,6 +190,8 @@ export const zhTW: Messages = {
       before: '修改前',
       after: '修改後',
       identical: '修改前後的內容沒有差異。',
+      prev: '前一個',
+      next: '後一個',
     },
     event: {
       boardCreated: '建立了專案',

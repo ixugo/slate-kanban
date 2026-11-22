@@ -260,3 +260,28 @@ func TestDeleteBoardRemovesItsChanges(t *testing.T) {
 		t.Fatalf("别的看板的变更记录不该受影响: %v", err)
 	}
 }
+
+// TestGetCardChangeNeighbors 验证读取变更记录时带上同一张卡片前一条和后一条记录的编号，
+// 第一条没有前一条、最后一条没有后一条（为 0），别的卡片的记录不会算作邻居。
+func TestGetCardChangeNeighbors(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t, kanban.WithClock(func() time.Time { return changeNow }))
+	c := e.descCard(t, "写文档", "v1")
+	other := e.descCard(t, "别的卡", "o1")
+	var ids []int64
+	for _, text := range []string{"v2", "v3", "v4"} {
+		e.setDescription(t, testActor, c.ID, text)
+		ids = append(ids, changeIDOf(t, e.lastEvent(t)))
+		e.setDescription(t, testActor, other.ID, "o-"+text) // 穿插别的卡片的修改，邻居不能落到它上面
+	}
+	want := [][2]int64{{0, ids[1]}, {ids[0], ids[2]}, {ids[1], 0}}
+	for i, id := range ids {
+		got, err := e.core.GetCardChange(ctx, c.ID, id)
+		if err != nil {
+			t.Fatalf("读取第 %d 条失败: %v", i, err)
+		}
+		if got.PrevID != want[i][0] || got.NextID != want[i][1] {
+			t.Fatalf("第 %d 条的邻居应该是 %v，实际 prev=%d next=%d", i, want[i], got.PrevID, got.NextID)
+		}
+	}
+}

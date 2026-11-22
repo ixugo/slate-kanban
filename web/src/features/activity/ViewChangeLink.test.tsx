@@ -22,6 +22,8 @@ const change: CardChange = {
   actor_kind: 'human',
   actor: 'human',
   created_at: '2026-11-18T08:00:00Z',
+  prev_id: 0,
+  next_id: 0,
 }
 
 // 造一条「修改了描述」的事件，payload 里带变更记录编号
@@ -113,6 +115,35 @@ describe('活动里的「查看变更」', () => {
     await user.click(screen.getByRole('button', { name: en.activity.change.link }))
     await within(await screen.findByRole('dialog')).findByText(en.activity.change.before)
     expect(api.count(CHANGE_ROUTE)).toBe(1)
+  })
+
+  it('同一张卡片有多次修改时，右侧「前一个 / 后一个」翻页；没有更多时禁用', async () => {
+    const records: Record<string, CardChange> = {
+      '6': { ...change, id: 6, old_value: 'first old', new_value: 'first new', prev_id: 0, next_id: 7 },
+      '7': { ...change, id: 7, prev_id: 6, next_id: 8 },
+      '8': { ...change, id: 8, old_value: 'last old', new_value: 'last new', prev_id: 7, next_id: 0 },
+    }
+    installFakeApi({ [CHANGE_ROUTE]: (c: { path: string }) => ({ body: records[c.path.split('/').pop() as string] }) })
+    renderItem(descriptionEvent())
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: en.activity.change.link }))
+    const dialog = await screen.findByRole('dialog')
+    const prev = within(dialog).getByRole('button', { name: en.activity.change.prev })
+    const next = within(dialog).getByRole('button', { name: en.activity.change.next })
+    await within(dialog).findByText(en.activity.change.before)
+    await waitFor(() => expect(prev).toBeEnabled())
+    expect(next).toBeEnabled()
+
+    await user.click(next)
+    await waitFor(() => expect(dialog).toHaveTextContent('last new'))
+    await waitFor(() => expect(next).toBeDisabled())
+    expect(prev).toBeEnabled()
+
+    await user.click(prev)
+    await user.click(prev)
+    await waitFor(() => expect(dialog).toHaveTextContent('first new'))
+    await waitFor(() => expect(prev).toBeDisabled())
+    expect(next).toBeEnabled()
   })
 
   it('记录已经不存在时给出提示，点重试会再请求一次', async () => {

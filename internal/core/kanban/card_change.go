@@ -14,6 +14,8 @@ type CardChangeStorer interface {
 	Create(context.Context, *CardChange) error
 	// GetByID 按主键读取，不存在时返回可用 orm.IsErrRecordNotFound 判断的错误。
 	GetByID(context.Context, int64) (*CardChange, error)
+	// Neighbors 返回同一张任务里编号紧挨着 changeID 的前一条和后一条记录的编号，没有就是 0。
+	Neighbors(ctx context.Context, cardID, changeID int64) (prev, next int64, err error)
 	// DeleteByCard 删除某张卡片的全部变更记录，用于删除卡片。
 	DeleteByCard(context.Context, int64) error
 	// DeleteByBoard 删除看板的全部变更记录，用于删除看板。
@@ -43,6 +45,9 @@ func (c Core) GetCardChange(ctx context.Context, cardID, changeID int64) (*CardC
 	}
 	if change.CardID != cardID {
 		return nil, ErrCardChangeNotFound
+	}
+	if change.PrevID, change.NextID, err = c.store.CardChange().Neighbors(ctx, cardID, changeID); err != nil {
+		return nil, wrapDB("读取相邻变更记录", err)
 	}
 	return change, nil
 }

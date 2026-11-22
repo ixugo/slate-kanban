@@ -16,6 +16,8 @@ type changeRecord struct {
 	ActorKind string `json:"actor_kind"`
 	Actor     string `json:"actor"`
 	CreatedAt string `json:"created_at"`
+	PrevID    int64  `json:"prev_id"`
+	NextID    int64  `json:"next_id"`
 }
 
 // lastDescriptionChangeID 在看板的事件里找最新一条 card.updated 载荷里的 description_change_id，找不到返回 0。
@@ -57,6 +59,17 @@ func TestCardChangeEndpoint(t *testing.T) {
 		got.OldValue != "第一版\n第二行" || got.NewValue != "第一版\n改过的第二行\n新增一行" ||
 		got.ActorKind != "human" || got.Actor == "" || got.CreatedAt == "" {
 		t.Fatalf("变更记录不对: %+v", got)
+	}
+
+	if got.PrevID != 0 || got.NextID != 0 {
+		t.Fatalf("只有一条记录时没有相邻记录: %+v", got)
+	}
+	decode[card](t, s.human(t, http.MethodPatch, path, map[string]any{"description": "第三版"}))
+	second := lastDescriptionChangeID(t, s, b.ID)
+	first := decode[changeRecord](t, s.human(t, http.MethodGet, path+"/changes/"+id(changeID), nil))
+	last := decode[changeRecord](t, s.human(t, http.MethodGet, path+"/changes/"+id(second), nil))
+	if first.NextID != second || first.PrevID != 0 || last.PrevID != changeID || last.NextID != 0 {
+		t.Fatalf("相邻记录不对: 第一条 %+v 第二条 %+v", first, last)
 	}
 
 	wantFail(t, "用别的卡片读", s.human(t, http.MethodGet, "/cards/"+id(other.ID)+"/changes/"+id(changeID), nil),

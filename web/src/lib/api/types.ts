@@ -198,6 +198,9 @@ export interface CardChange {
   actor_kind: ActorKind
   actor: string
   created_at: string
+  /** 同一张卡片里前一条、后一条变更记录的编号，没有就是 0 */
+  prev_id: number
+  next_id: number
 }
 
 /** 依赖列表里一张卡片的概要 */

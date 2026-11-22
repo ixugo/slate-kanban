@@ -190,6 +190,8 @@ export const zhCN: Messages = {
       before: '修改前',
       after: '修改后',
       identical: '修改前后的内容没有区别。',
+      prev: '前一个',
+      next: '后一个',
     },
     event: {
       boardCreated: '创建了项目',

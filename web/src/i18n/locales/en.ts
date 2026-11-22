@@ -193,6 +193,8 @@ export const en = {
       before: 'Before',
       after: 'After',
       identical: 'The two versions are identical.',
+      prev: 'Previous change',
+      next: 'Next change',
     },
     event: {
       boardCreated: 'created the project',

@@ -32,6 +32,25 @@ func (d CardChange) GetByID(ctx context.Context, id int64) (*kanban.CardChange, 
 	return &out, nil
 }
 
+// Neighbors 用两次按主键索引的聚合查询取前一条和后一条的编号，没有时聚合结果为空，按 0 返回。
+func (d CardChange) Neighbors(ctx context.Context, cardID, changeID int64) (prev, next int64, err error) {
+	var ids struct{ Prev, Next *int64 }
+	err = d.db.WithContext(ctx).Model(&kanban.CardChange{}).
+		Select("(SELECT MAX(id) FROM card_changes WHERE card_id = ? AND id < ?) AS prev, (SELECT MIN(id) FROM card_changes WHERE card_id = ? AND id > ?) AS next",
+			cardID, changeID, cardID, changeID).
+		Limit(1).Scan(&ids).Error
+	if err != nil {
+		return 0, 0, err
+	}
+	if ids.Prev != nil {
+		prev = *ids.Prev
+	}
+	if ids.Next != nil {
+		next = *ids.Next
+	}
+	return prev, next, nil
+}
+
 // DeleteByCard 删除某张卡片的全部变更记录。
 func (d CardChange) DeleteByCard(ctx context.Context, cardID int64) error {
 	return d.db.WithContext(ctx).Where("card_id = ?", cardID).Delete(&kanban.CardChange{}).Error

@@ -190,6 +190,8 @@ export const ko: Messages = {
       before: '변경 전',
       after: '변경 후',
       identical: '변경 전후의 내용이 같습니다.',
+      prev: '이전 변경',
+      next: '다음 변경',
     },
     event: {
       boardCreated: '프로젝트를 만들었습니다',
