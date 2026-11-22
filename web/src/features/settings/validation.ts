@@ -9,8 +9,7 @@ import {
   WEBHOOK_NAME_MAX,
   WEBHOOK_URL_MAX,
 } from '@/lib/limits'
-import type { WebhookType } from '@/lib/api/types'
-import type { Column, Engineer, EngineerKind } from '@/lib/api/types'
+import type { ActorKind, Column, Engineer, EngineerKind, WebhookType } from '@/lib/api/types'
 
 /** 常规设置表单的字段 */
 export interface GeneralFormValues {
@@ -114,7 +113,7 @@ export interface WebhookFormValues {
   secretClear: boolean
   enabled: boolean
   eventTypes: string[]
-  actorKinds: string[]
+  actorKinds: ActorKind[]
   moveColumnIds: number[]
 }
 

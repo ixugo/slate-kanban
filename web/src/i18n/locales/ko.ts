@@ -651,7 +651,6 @@ export const ko: Messages = {
       eventTypes: '구독 이벤트',
       actorKinds: '작업자 유형',
       moveColumns: 'card.moved 대상 열',
-      all: '선택하지 않으면 전체',
       enabled: '사용',
       empty: '알림이 없습니다. 「추가」로 그룹 봇을 설정하세요.',
       test: '테스트 전송',

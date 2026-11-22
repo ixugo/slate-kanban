@@ -35,3 +35,28 @@ func TestWebhookMatchesEvent(t *testing.T) {
 		t.Fatal("目标列匹配应通过")
 	}
 }
+
+// TestWebhookExplicitSubscriptions 验证新配置的空选择不会回退成全选。
+func TestWebhookExplicitSubscriptions(t *testing.T) {
+	t.Parallel()
+	moved := &kanban.Event{Type: kanban.EventCardMoved, ActorKind: "agent", Payload: `{"to_id":5}`}
+	created := &kanban.Event{Type: kanban.EventCardCreated, ActorKind: "agent"}
+	hook := &kanban.Webhook{Enabled: true, StrictFilters: true, ActorKinds: []string{"agent"}, MoveColumnIDs: []int64{5}}
+	if kanban.WebhookMatchesEventForTest(hook, moved) {
+		t.Fatal("无事件选择不应发送")
+	}
+	hook.EventTypes = []string{kanban.EventCardMoved, kanban.EventCardCreated}
+	hook.ActorKinds = nil
+	if kanban.WebhookMatchesEventForTest(hook, moved) {
+		t.Fatal("无操作者选择不应发送")
+	}
+	hook.ActorKinds = []string{"agent"}
+	hook.MoveColumnIDs = nil
+	if kanban.WebhookMatchesEventForTest(hook, moved) || !kanban.WebhookMatchesEventForTest(hook, created) {
+		t.Fatal("无目标列时只排除移动事件")
+	}
+	hook.MoveColumnIDs = []int64{5}
+	if !kanban.WebhookMatchesEventForTest(hook, moved) {
+		t.Fatal("三个条件都满足时应发送")
+	}
+}

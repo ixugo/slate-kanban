@@ -647,7 +647,6 @@ export const zhCN: Messages = {
       eventTypes: '订阅事件',
       actorKinds: '操作者类型',
       moveColumns: 'card.moved 目标列',
-      all: '不选表示全部',
       enabled: '启用',
       empty: '还没有通知，点「添加」配置群机器人。',
       test: '测试发送',

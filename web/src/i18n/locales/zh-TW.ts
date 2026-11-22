@@ -648,7 +648,6 @@ export const zhTW: Messages = {
       eventTypes: '訂閱事件',
       actorKinds: '操作者類型',
       moveColumns: 'card.moved 目標欄',
-      all: '不選表示全部',
       enabled: '啟用',
       empty: '尚無通知，點「新增」設定群機器人。',
       test: '測試傳送',

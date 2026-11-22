@@ -651,7 +651,6 @@ export const ja: Messages = {
       eventTypes: '購読するイベント',
       actorKinds: '操作者の種類',
       moveColumns: 'card.moved の移動先列',
-      all: '未選択はすべて',
       enabled: '有効',
       empty: '通知はまだありません。「追加」からグループボットを設定してください。',
       test: 'テスト送信',

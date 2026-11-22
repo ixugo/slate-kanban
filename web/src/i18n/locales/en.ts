@@ -650,7 +650,6 @@ export const en = {
       eventTypes: 'Subscribed events',
       actorKinds: 'Actor kinds',
       moveColumns: 'card.moved target columns',
-      all: 'Leave unchecked for all',
       enabled: 'Enabled',
       empty: 'No notifications yet. Click Add to configure a group bot.',
       test: 'Test send',

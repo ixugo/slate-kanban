@@ -26,7 +26,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import type { Column, WebhookType, WebhookView } from '@/lib/api/types'
+import type { Column, CreateWebhookInput, UpdateWebhookInput, WebhookFilterModes, WebhookType, WebhookView } from '@/lib/api/types'
 import {
   createWebhook,
   deleteWebhook,
@@ -63,6 +63,9 @@ const EVENT_LABEL_KEYS: Record<(typeof EVENT_TYPES)[number], TranslationKey> = {
   'rule.created': 'settings.webhooks.events.rule_created',
   'automation.fired': 'settings.webhooks.events.automation_fired',
 }
+
+const ACTOR_KINDS = ['human', 'agent', 'system'] as const
+const INBOX_NAMES = new Set(['收件箱', '收件匣', 'Inbox', '受信トレイ', '받은 편지함'])
 
 interface Props {
   boardId: number
@@ -227,24 +230,36 @@ function WebhookDialog({ boardId, columns, initial, onClose, onSaved }: DialogPr
   const { t } = useTranslation()
   const toastError = useErrorToast()
   const isNew = initial === null
-  const [values, setValues] = useState<WebhookFormValues>(() => formFromWebhook(initial))
+  const [original] = useState(() => formFromWebhook(initial, columns))
+  const [values, setValues] = useState(original)
   const [errors, setErrors] = useState<ReturnType<typeof validateWebhookForm>>({})
 
   const save = useMutation({
     mutationFn: async () => {
-      const body: Record<string, unknown> = {
+      const body: CreateWebhookInput & Pick<UpdateWebhookInput, 'secret_clear'> = {
         name: values.name.trim(),
         type: values.type,
         url: values.url.trim(),
         enabled: values.enabled,
-        event_types: values.eventTypes,
-        actor_kinds: values.actorKinds,
-        move_column_ids: values.moveColumnIds,
       }
+      const modes: WebhookFilterModes = {}
+      if (isNew || !sameSelection(original.eventTypes, values.eventTypes)) {
+        modes.event_types = true
+        body.event_types = values.eventTypes
+      }
+      if (isNew || !sameSelection(original.actorKinds, values.actorKinds)) {
+        modes.actor_kinds = true
+        body.actor_kinds = values.actorKinds
+      }
+      if (isNew || !sameSelection(original.moveColumnIds, values.moveColumnIds)) {
+        modes.move_column_ids = true
+        body.move_column_ids = values.moveColumnIds
+      }
+      if (Object.keys(modes).length) body.strict_filter_modes = modes
       if (values.secret.trim() !== '') body.secret = values.secret.trim()
       if (values.secretClear) body.secret_clear = true
-      if (isNew) return createWebhook(boardId, body as never)
-      return updateWebhook(initial!.id, body as never)
+      if (isNew) return createWebhook(boardId, body)
+      return updateWebhook(initial!.id, body)
     },
     onSuccess: () => {
       toast.success(isNew ? t('settings.webhooks.createdToast') : t('settings.webhooks.savedToast'))
@@ -252,6 +267,10 @@ function WebhookDialog({ boardId, columns, initial, onClose, onSaved }: DialogPr
     },
     onError: toastError,
   })
+
+  const changeSubscriptions = (patch: Partial<Pick<WebhookFormValues, 'eventTypes' | 'actorKinds' | 'moveColumnIds'>>) => {
+    setValues((previous) => ({ ...previous, ...patch }))
+  }
 
   const submit = () => {
     const next = validateWebhookForm(values, values.type)
@@ -311,27 +330,24 @@ function WebhookDialog({ boardId, columns, initial, onClose, onSaved }: DialogPr
             <MultiCheck
               options={EVENT_TYPES.map((ev) => ({ value: ev, label: t(EVENT_LABEL_KEYS[ev]) }))}
               selected={values.eventTypes}
-              onChange={(eventTypes) => setValues({ ...values, eventTypes })}
-              emptyMeansAll={t('settings.webhooks.all')}
+              onChange={(eventTypes) => changeSubscriptions({ eventTypes })}
             />
           </Field>
           <Field label={t('settings.webhooks.actorKinds')}>
             <MultiCheck
-              options={(['human', 'agent', 'system'] as const).map((k) => ({
+              options={ACTOR_KINDS.map((k) => ({
                 value: k,
                 label: t(`settings.webhooks.actor.${k}`),
               }))}
               selected={values.actorKinds}
-              onChange={(actorKinds) => setValues({ ...values, actorKinds })}
-              emptyMeansAll={t('settings.webhooks.all')}
+              onChange={(actorKinds) => changeSubscriptions({ actorKinds })}
             />
           </Field>
           <Field label={t('settings.webhooks.moveColumns')}>
             <MultiCheck
               options={columns.map((c) => ({ value: String(c.id), label: c.name }))}
               selected={values.moveColumnIds.map(String)}
-              onChange={(ids) => setValues({ ...values, moveColumnIds: ids.map(Number) })}
-              emptyMeansAll={t('settings.webhooks.all')}
+              onChange={(ids) => changeSubscriptions({ moveColumnIds: ids.map(Number) })}
             />
           </Field>
           <label className="flex items-center gap-2 text-sm">
@@ -352,7 +368,7 @@ function WebhookDialog({ boardId, columns, initial, onClose, onSaved }: DialogPr
   )
 }
 
-function formFromWebhook(initial: WebhookView | null): WebhookFormValues {
+function formFromWebhook(initial: WebhookView | null, columns: Column[]): WebhookFormValues {
   if (!initial) {
     return {
       name: '',
@@ -361,9 +377,9 @@ function formFromWebhook(initial: WebhookView | null): WebhookFormValues {
       secret: '',
       secretClear: false,
       enabled: true,
-      eventTypes: [],
-      actorKinds: [],
-      moveColumnIds: [],
+      eventTypes: [...EVENT_TYPES],
+      actorKinds: ['agent'],
+      moveColumnIds: columns.filter((column) => !INBOX_NAMES.has(column.name)).map((column) => column.id),
     }
   }
   return {
@@ -373,10 +389,18 @@ function formFromWebhook(initial: WebhookView | null): WebhookFormValues {
     secret: '',
     secretClear: false,
     enabled: initial.enabled,
-    eventTypes: initial.event_types ?? [],
-    actorKinds: initial.actor_kinds ?? [],
-    moveColumnIds: initial.move_column_ids ?? [],
+    eventTypes: selection(initial.event_types, [...EVENT_TYPES], initial.strict_filter_modes?.event_types ?? initial.strict_filters),
+    actorKinds: selection(initial.actor_kinds, [...ACTOR_KINDS], initial.strict_filter_modes?.actor_kinds ?? initial.strict_filters),
+    moveColumnIds: selection(initial.move_column_ids, columns.map(({ id }) => id), initial.strict_filter_modes?.move_column_ids ?? initial.strict_filters),
   }
+}
+
+function sameSelection<T>(before: T[], after: T[]): boolean {
+  return before.length === after.length && before.every((value) => after.includes(value))
+}
+
+function selection<T>(selected: T[] | undefined, all: T[], strict?: boolean): T[] {
+  return strict || selected?.length ? selected ?? [] : all
 }
 
 function Field({
@@ -400,24 +424,21 @@ function Field({
   )
 }
 
-function MultiCheck({
+function MultiCheck<T extends string>({
   options,
   selected,
   onChange,
-  emptyMeansAll,
 }: {
-  options: { value: string; label: string }[]
-  selected: string[]
-  onChange: (v: string[]) => void
-  emptyMeansAll: string
+  options: { value: T; label: string }[]
+  selected: T[]
+  onChange: (v: T[]) => void
 }) {
-  const toggle = (value: string) => {
+  const toggle = (value: T) => {
     if (selected.includes(value)) onChange(selected.filter((v) => v !== value))
     else onChange([...selected, value])
   }
   return (
     <div className="space-y-1 rounded-md border border-border p-2 text-sm">
-      <p className="text-xs text-muted-foreground">{emptyMeansAll}</p>
       <ul className="max-h-32 space-y-1 overflow-y-auto">
         {options.map((o) => (
           <li key={o.value}>

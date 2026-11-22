@@ -501,6 +501,9 @@ export interface AuthStatus {
 /** 群机器人 webhook 类型 */
 export type WebhookType = 'dingtalk' | 'wecom' | 'feishu'
 
+/** 各维的显式订阅开关，省略时继承 strict_filters。 */
+export type WebhookFilterModes = Partial<Record<'event_types' | 'actor_kinds' | 'move_column_ids', boolean>>
+
 /** 活动通知 webhook（密钥已脱敏） */
 export interface WebhookView {
   id: number
@@ -511,6 +514,8 @@ export interface WebhookView {
   secret_set: boolean
   secret_mask: string
   enabled: boolean
+  strict_filters?: boolean
+  strict_filter_modes?: WebhookFilterModes
   event_types: string[]
   actor_kinds: ActorKind[]
   move_column_ids: number[]
@@ -524,6 +529,8 @@ export interface CreateWebhookInput {
   url: string
   secret?: string
   enabled?: boolean
+  strict_filters?: boolean
+  strict_filter_modes?: WebhookFilterModes
   event_types?: string[]
   actor_kinds?: ActorKind[]
   move_column_ids?: number[]
@@ -536,6 +543,8 @@ export interface UpdateWebhookInput {
   secret?: string
   secret_clear?: boolean
   enabled?: boolean
+  strict_filters?: boolean
+  strict_filter_modes?: WebhookFilterModes
   event_types?: string[]
   actor_kinds?: ActorKind[]
   move_column_ids?: number[]

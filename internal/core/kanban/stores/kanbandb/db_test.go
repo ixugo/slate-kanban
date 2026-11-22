@@ -5,6 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"slate-kanban/internal/core/kanban"
 	"slate-kanban/internal/core/kanban/kanbantest"
 	"slate-kanban/internal/core/kanban/stores/kanbandb"
 )
@@ -42,6 +43,38 @@ func TestBeginRollback(t *testing.T) {
 			}
 			if err := tx.Rollback(); err != nil {
 				t.Fatalf("回滚失败: %v", err)
+			}
+		}
+	})
+}
+
+// TestAutoMigrateWebhookModesPreservesOldEmptyFilters checks both legacy interpretations of [].
+func TestAutoMigrateWebhookModesPreservesOldEmptyFilters(t *testing.T) {
+	kanbantest.ForEachRawBackend(t, func(t *testing.T, raw *gorm.DB) {
+		store := kanbandb.NewDB(raw).AutoMigrate(true)
+		ctx := t.Context()
+		var hooks [2]kanban.Webhook
+		for i := range hooks {
+			hook := &hooks[i]
+			hook.Enabled = true
+			hook.StrictFilters = i != 0
+			hook.Normalize()
+			if err := store.Webhook().Create(ctx, hook); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := raw.Exec("ALTER TABLE webhooks DROP COLUMN strict_filter_modes").Error; err != nil {
+			t.Fatal(err)
+		}
+		store.AutoMigrate(true)
+		event := &kanban.Event{Type: kanban.EventCardClaimed, ActorKind: "agent"}
+		for i, hook := range hooks {
+			got, err := store.Webhook().GetByID(ctx, hook.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.StrictFilterModes != (kanban.WebhookFilterModes{}) || kanban.WebhookMatchesEventForTest(got, event) != (i == 0) {
+				t.Fatalf("迁移后旧筛选模式变化: %+v", got)
 			}
 		}
 	})
