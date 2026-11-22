@@ -106,10 +106,13 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
   const onPatch = (input: UpdateCardInput) => {
     if (!card) return
     const body = { ...input, version: input.version ?? card.version }
-    if (typeof body.due_at === 'string' && body.due_at !== '') {
-      const iso = fromLocalInput(body.due_at)
+    // 日期弹窗给出的是本地时间，转成 RFC3339 再提交；空串表示清除，原样提交
+    for (const key of ['due_at', 'started_at'] as const) {
+      const value = body[key]
+      if (typeof value !== 'string' || value === '') continue
+      const iso = fromLocalInput(value)
       if (iso === null) return
-      body.due_at = iso
+      body[key] = iso
     }
     patch.mutate({ cardId, boardId, input: body })
   }

@@ -19,7 +19,7 @@ const baseDetail = {
   column_instruction: 'do work',
   dependencies: [],
   comments: [],
-  started_at: '2026-11-01T10:00:00Z',
+  started_at: '2026-11-01T10:00:00Z' as string | null,
   finished_at: null,
   claim_active: true,
   claimed_by: 'codex',
@@ -277,30 +277,65 @@ describe('CardDialog', () => {
     expect((patchBody(api.calls) as { priority: number }).priority).toBe(3)
   })
 
-  it('截止按钮：设了时间才在关闭弹层时提交，清除按钮提交空串，没改不提交', async () => {
-    const api = openBoardWithCard({ ...baseDetail, due_at: null })
+  it('日期按钮：勾选并填写后点保存才提交；取消或没改不提交；取消勾选并保存提交空串', async () => {
+    const api = openBoardWithCard({ ...baseDetail, due_at: null, started_at: null })
     const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
     await within(dialog).findByLabelText(en.card.field.title)
-    await user.click(within(dialog).getByRole('button', { name: en.card.field.due }))
-    await user.keyboard('{Escape}')
+    const open = () => user.click(within(dialog).getByRole('button', { name: en.card.field.dates }))
+    await open()
+    await user.click(await screen.findByRole('button', { name: en.common.cancel }))
     expect(api.count('PATCH /api/v1/cards/:id')).toBe(0)
-    await user.click(within(dialog).getByRole('button', { name: en.card.field.due }))
-    const input = await screen.findByLabelText(en.card.field.due)
-    fireEvent.change(input, { target: { value: '2026-12-01T09:30' } })
-    await user.keyboard('{Escape}')
+
+    await open()
+    await user.click(await screen.findByRole('checkbox', { name: en.card.field.due }))
+    const date = screen.getByLabelText(en.card.field.due, { selector: 'input[type="date"]' })
+    fireEvent.change(date, { target: { value: '2026-12-01' } })
+    fireEvent.change(screen.getByLabelText(en.card.dueTime), { target: { value: '09:30' } })
+    expect(api.count('PATCH /api/v1/cards/:id')).toBe(0)
+    await user.click(screen.getByRole('button', { name: en.common.save }))
     await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(1))
-    expect((patchBody(api.calls) as { due_at: string }).due_at).toBe(new Date('2026-12-01T09:30').toISOString())
+    expect(patchBody(api.calls)).toMatchObject({ due_at: new Date('2026-12-01T09:30').toISOString() })
+    expect(patchBody(api.calls)).not.toHaveProperty('started_at')
   })
 
-  it('截止编辑器用等宽字体显示已有的日期和时间', async () => {
-    const dueAt = new Date('2026-12-01T09:30').toISOString()
-    openBoardWithCard({ ...baseDetail, due_at: dueAt })
+  it('日期弹窗：开始日期可以单独设置，截止早于开始时不能保存', async () => {
+    const api = openBoardWithCard({ ...baseDetail, due_at: null, started_at: null })
+    const user = userEvent.setup()
     const dialog = await screen.findByRole('dialog')
-    await userEvent.click(await within(dialog).findByRole('button', { name: formatDateTime(dueAt, 'en') }))
-    const input = await screen.findByLabelText(en.card.field.due)
-    expect(input).toHaveClass('font-mono')
-    expect(input).toHaveValue('2026-12-01T09:30')
+    await within(dialog).findByLabelText(en.card.field.title)
+    await user.click(within(dialog).getByRole('button', { name: en.card.field.dates }))
+    await user.click(await screen.findByRole('checkbox', { name: en.card.field.startDate }))
+    await user.click(screen.getByRole('checkbox', { name: en.card.field.due }))
+    fireEvent.change(screen.getByLabelText(en.card.field.startDate, { selector: 'input[type="date"]' }), { target: { value: '2026-12-10' } })
+    fireEvent.change(screen.getByLabelText(en.card.field.due, { selector: 'input[type="date"]' }), { target: { value: '2026-12-01' } })
+    const popover = document.querySelector('[data-slot="popover-content"]') as HTMLElement
+    expect(await within(popover).findByRole('alert')).toHaveTextContent(en.card.datesOrder)
+    expect(screen.getByRole('button', { name: en.common.save })).toBeDisabled()
+    await user.click(screen.getByRole('checkbox', { name: en.card.field.due }))
+    expect(within(popover).queryByRole('alert')).toBeNull()
+    await user.click(screen.getByRole('button', { name: en.common.save }))
+    await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(1))
+    expect(patchBody(api.calls)).toMatchObject({ started_at: new Date('2026-12-10T00:00').toISOString() })
+    expect(patchBody(api.calls)).not.toHaveProperty('due_at')
+  })
+
+  it('设了日期以后，「日期」按钮挪到标签区下面显示具体日期，用等宽字体；弹窗里取消勾选再保存会清除', async () => {
+    const dueAt = new Date('2026-12-01T09:30').toISOString()
+    const api = openBoardWithCard({ ...baseDetail, due_at: dueAt, started_at: null })
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByLabelText(en.card.field.title)
+    expect(within(dialog).queryByRole('button', { name: en.card.field.dates })).toBeNull()
+    const button = await within(dialog).findByRole('button', { name: formatDateTime(dueAt, 'en') })
+    expect(button.querySelector('span')).toHaveClass('font-mono')
+    await user.click(button)
+    expect(await screen.findByLabelText(en.card.field.due, { selector: 'input[type="date"]' })).toHaveValue('2026-12-01')
+    expect(screen.getByLabelText(en.card.dueTime)).toHaveValue('09:30')
+    await user.click(screen.getByRole('checkbox', { name: en.card.field.due }))
+    await user.click(screen.getByRole('button', { name: en.common.save }))
+    await waitFor(() => expect(api.count('PATCH /api/v1/cards/:id')).toBe(1))
+    expect(patchBody(api.calls)).toMatchObject({ due_at: '' })
   })
 
   it('描述编辑时按 Esc 只放弃修改，不关掉整个弹窗', async () => {

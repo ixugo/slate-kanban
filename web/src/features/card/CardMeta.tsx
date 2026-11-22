@@ -1,19 +1,19 @@
-// 卡片弹窗标题下面的一排属性：优先级、标签、截止、依赖、分支、链接、仅人工，做成紧凑的小按钮（对齐 Trello 的「添加到卡片」）。
+// 卡片弹窗标题下面的一排属性：优先级、标签、日期、依赖、分支、链接、仅人工，做成紧凑的小按钮（对齐 Trello 的「添加到卡片」）。
 // 没设值时按钮上只有图标和名称；设了值就把值显示在按钮上。点开按钮才出现编辑控件，平时不占地方。
 // 标签例外：设了标签以后单独占一行，显示成大号标签（对齐 Trello）。
 
 import { useRef, useState, type MouseEvent, type ReactNode } from 'react'
-import { CheckIcon, ClockIcon, FlagIcon, GitBranchIcon, Link2Icon, LinkIcon, LockIcon, PlusIcon, TagIcon, XIcon } from 'lucide-react'
+import { CheckIcon, FlagIcon, GitBranchIcon, Link2Icon, LinkIcon, LockIcon, PlusIcon, TagIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
-import { useLanguage } from '@/i18n/useLanguage'
 import type { CardDetail, Engineer } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { formatDateTime, isPast, toLocalInput } from '@/lib/format'
 import { CARD_BRANCH_MAX, CARD_URL_MAX } from '@/lib/limits'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import { DatesChip, DatesSection } from './CardDates'
+import { hasDates } from './datesDraft'
 import { DependencyPicker } from './DependencyPicker'
 import { EngineerChip } from './EngineerChip'
 import { LabelPicker } from '@/features/labels/LabelPicker'
@@ -126,46 +126,6 @@ function TagsSection({ tagIds, onTriggerClick }: { tagIds: number[]; onTriggerCl
   )
 }
 
-/** 截止时间：点开后选日期和时间，关闭弹层时保存；逾期的显示成红色 */
-function DueChip({ card, onPatch }: CardMetaProps) {
-  const { t } = useTranslation()
-  const { lang } = useLanguage()
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const overdue = Boolean(card.due_at) && !card.done && isPast(card.due_at)
-
-  const onOpenChange = (next: boolean) => {
-    if (next) setDraft(toLocalInput(card.due_at))
-    // 关闭时只在真的改过才保存，空串表示清除
-    else if (draft !== toLocalInput(card.due_at)) onPatch({ due_at: draft, version: card.version })
-    setOpen(next)
-  }
-
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="secondary" className={cn(CHIP_CLASS, card.due_at && 'bg-accent', overdue && 'text-destructive')}>
-          <ChipLabel icon={<ClockIcon />}>{card.due_at ? <span className="font-mono">{formatDateTime(card.due_at, lang)}</span> : t('card.field.due')}</ChipLabel>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-64">
-        <Input
-          type="datetime-local"
-          className="font-mono"
-          aria-label={t('card.field.due')}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onOpenChange(false)}
-        />
-        <Button type="button" variant="ghost" size="sm" className="self-start" disabled={draft === ''} onClick={() => setDraft('')}>
-          <XIcon />
-          {t('card.dueClear')}
-        </Button>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 /** 依赖：按钮上显示依赖的张数，点开后增删 */
 function DepsChip({ card, depOptions, onPatch }: CardMetaProps & { depOptions: CardDetail['dependencies'] }) {
   const { t } = useTranslation()
@@ -260,7 +220,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps
         <PriorityChip card={card} onPatch={onPatch} />
         {!hasTags && <TagsChip onTriggerClick={freezeAnchor} />}
         <EngineerChip card={card} engineers={engineers} onPatch={onPatch} />
-        <DueChip card={card} onPatch={onPatch} />
+        {!hasDates(card) && <DatesChip card={card} onPatch={onPatch} />}
         <DepsChip card={card} depOptions={depOptions} onPatch={onPatch} />
         <TextChip
           icon={<GitBranchIcon />}
@@ -281,6 +241,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch }: CardMetaProps
         </Button>
       </div>
       {hasTags && <TagsSection tagIds={tagIds} onTriggerClick={freezeAnchor} />}
+      {hasDates(card) && <DatesSection card={card} onPatch={onPatch} />}
       {anchorRect && <PopoverAnchor virtualRef={anchorRef} />}
       {/* 标签选择器：编辑页（30 色色板）比较高，高度不超过窗口剩余空间，放不下时弹层内部滚动，保存按钮始终够得着 */}
       <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-72 overflow-y-auto">
