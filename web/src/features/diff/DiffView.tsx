@@ -162,19 +162,19 @@ export function DiffView({
 
   return (
     <div className={cn('flex min-h-0 flex-col overflow-hidden rounded-md border border-border', className)}>
-      <div className="sticky top-0 z-10 grid grid-cols-2 border-b border-border bg-muted/80 backdrop-blur-sm text-[length:var(--text-ui)]">
-        <div className="px-3 py-2 font-medium border-r border-border">{oldTitle}</div>
-        <div className="px-3 py-2 font-medium flex items-center justify-between gap-2">
-          <span>{newTitle}</span>
-          <span className="text-muted-foreground tabular-nums font-normal">
-            {stats.added > 0 && <span className="text-green-600 dark:text-green-400">+{stats.added}</span>}
-            {stats.added > 0 && stats.removed > 0 && ' '}
-            {stats.removed > 0 && <span className="text-red-600 dark:text-red-400">−{stats.removed}</span>}
-          </span>
-        </div>
-      </div>
       <div ref={scrollerRef} className="relative min-h-0 flex-1 overflow-auto">
-        <div className="grid min-w-full" style={{ gridTemplateColumns: 'auto minmax(0,1fr) auto minmax(0,1fr)' }}>
+        <div className="grid min-w-full grid-cols-[3.25rem_minmax(0,1fr)_3.25rem_minmax(0,1fr)]">
+          <div className="sticky top-0 z-10 col-span-2 border-b border-border bg-muted px-3 py-2 text-ui font-medium">
+            {oldTitle}
+          </div>
+          <div className="sticky top-0 z-10 col-span-2 flex min-w-0 flex-wrap items-center justify-between gap-x-2 border-b border-l border-border bg-muted px-3 py-2 text-ui font-medium">
+            <span>{newTitle}</span>
+            <span className="text-muted-foreground tabular-nums font-normal">
+              {stats.added > 0 && <span className="text-green-600 dark:text-green-400">+{stats.added}</span>}
+              {stats.added > 0 && stats.removed > 0 && ' '}
+              {stats.removed > 0 && <span className="text-red-600 dark:text-red-400">−{stats.removed}</span>}
+            </span>
+          </div>
           {rows.map((row, i) => (
             <DiffRowCells
               key={`${row.kind}-${row.oldNo ?? 'n'}-${row.newNo ?? 'n'}-${i}`}

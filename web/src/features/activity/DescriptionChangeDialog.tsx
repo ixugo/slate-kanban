@@ -80,8 +80,8 @@ export default function DescriptionChangeDialog({ cardId, changeId, onClose }: D
           <DiffView
             oldText={record.old_value}
             newText={record.new_value}
-            oldTitle={t('activity.change.before')}
-            newTitle={t('activity.change.after')}
+            oldTitle={formatDateTime(record.previous_at, lang) || '—'}
+            newTitle={formatDateTime(record.created_at, lang)}
             identicalText={t('activity.change.identical')}
             className="min-h-0 flex-1"
           />

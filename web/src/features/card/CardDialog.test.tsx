@@ -484,11 +484,12 @@ describe('CardDialog', () => {
       actor_kind: 'human',
       actor: 'human',
       created_at: '2026-11-18T11:00:00Z',
+      previous_at: '2026-11-18T08:00:00Z',
     })
     const dialog = await screen.findByRole('dialog')
     await userEvent.click(await within(dialog).findByRole('button', { name: en.activity.change.link }))
     const diff = await screen.findByRole('dialog', { name: en.activity.change.title })
-    expect(await within(diff).findByText(en.activity.change.before)).toBeInTheDocument()
+    expect(await within(diff).findByText(formatDateTime('2026-11-18T08:00:00Z', 'en'))).toBeInTheDocument()
     expect(api.calls.filter((c) => c.path === '/api/v1/cards/1/changes/4')).toHaveLength(1)
 
     // Esc 只关掉最上面的对比弹窗，任务弹窗还在

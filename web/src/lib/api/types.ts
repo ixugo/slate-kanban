@@ -199,6 +199,8 @@ export interface CardChange {
   actor_kind: ActorKind
   actor: string
   created_at: string
+  /** 对比左侧版本的时间，首次变更采用任务创建时间 */
+  previous_at?: string
   /** 同一个任务里前一条、后一条变更记录的编号，没有就是 0 */
   prev_id: number
   next_id: number

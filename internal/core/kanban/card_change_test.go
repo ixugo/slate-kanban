@@ -265,11 +265,13 @@ func TestDeleteBoardRemovesItsChanges(t *testing.T) {
 // 第一条没有前一条、最后一条没有后一条（为 0），别的任务的记录不会算作邻居。
 func TestGetCardChangeNeighbors(t *testing.T) {
 	ctx := context.Background()
-	e := newCardEnv(t, kanban.WithClock(func() time.Time { return changeNow }))
+	now := changeNow
+	e := newCardEnv(t, kanban.WithClock(func() time.Time { return now }))
 	c := e.descCard(t, "写文档", "v1")
 	other := e.descCard(t, "别的卡", "o1")
 	var ids []int64
 	for _, text := range []string{"v2", "v3", "v4"} {
+		now = now.Add(time.Hour)
 		e.setDescription(t, testActor, c.ID, text)
 		ids = append(ids, changeIDOf(t, e.lastEvent(t)))
 		e.setDescription(t, testActor, other.ID, "o-"+text) // 穿插别的任务的修改，邻居不能落到它上面
@@ -279,6 +281,9 @@ func TestGetCardChangeNeighbors(t *testing.T) {
 		got, err := e.core.GetCardChange(ctx, c.ID, id)
 		if err != nil {
 			t.Fatalf("读取第 %d 条失败: %v", i, err)
+		}
+		if !got.PreviousAt.Equal(changeNow.Add(time.Duration(i) * time.Hour)) {
+			t.Fatalf("第 %d 条左侧时间不对，实际 %s", i, got.PreviousAt)
 		}
 		if got.PrevID != want[i][0] || got.NextID != want[i][1] {
 			t.Fatalf("第 %d 条的邻居应该是 %v，实际 prev=%d next=%d", i, want[i], got.PrevID, got.NextID)

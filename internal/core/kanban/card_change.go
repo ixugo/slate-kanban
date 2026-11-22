@@ -49,5 +49,18 @@ func (c Core) GetCardChange(ctx context.Context, cardID, changeID int64) (*CardC
 	if change.PrevID, change.NextID, err = c.store.CardChange().Neighbors(ctx, cardID, changeID); err != nil {
 		return nil, wrapDB("读取相邻变更记录", err)
 	}
+	if change.PrevID != 0 {
+		previous, err := c.store.CardChange().GetByID(ctx, change.PrevID)
+		if err != nil {
+			return nil, mapNotFound(err, ErrCardChangeNotFound, "读取前一条变更记录")
+		}
+		change.PreviousAt = previous.CreatedAt
+	} else {
+		card, err := c.store.Card().GetByID(ctx, cardID)
+		if err != nil {
+			return nil, mapNotFound(err, ErrCardChangeNotFound, "读取任务初始版本")
+		}
+		change.PreviousAt = card.CreatedAt
+	}
 	return change, nil
 }
