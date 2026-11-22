@@ -134,6 +134,7 @@ export interface Card {
   due_at: string | null
   started_at: string | null
   finished_at: string | null
+  archived_at?: string | null
   /** 当前持有这张卡的 agent 名称，空串表示没有 */
   claimed_by: string
   claim_expires_at: string | null
@@ -210,6 +211,7 @@ export interface CardRef {
   title: string
   column: string
   done: boolean
+  missing?: boolean
 }
 
 export interface CardDetail extends CardView {
@@ -217,6 +219,8 @@ export interface CardDetail extends CardView {
   column_instruction: string
   dependencies: CardRef[]
   comments: Comment[]
+  archived_tags?: Tag[]
+  archived_engineer?: string
 }
 
 /** 整板快照：看板、列、规则、全部任务，加上读取数据之前的最新事件序号 */
@@ -226,6 +230,11 @@ export interface Snapshot extends BoardDetail {
 }
 
 /** 筛选语法查询的结果 */
+export interface ArchivedCardsPage {
+  cards: Card[]
+  has_more: boolean
+}
+
 export interface CardList {
   cards: CardView[]
   total: number

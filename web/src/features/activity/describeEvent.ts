@@ -207,6 +207,8 @@ export function describeEvent(event: BoardEvent, t: TFunction): EventText {
       return plain(t('activity.event.cardMoved', { from: field(p, 'from'), to: field(p, 'to') }))
     case 'card.reordered':
       return plain(t('activity.event.cardReordered'))
+    case 'card.archived':
+      return plain(t('activity.event.cardArchived'))
     case 'card.deleted':
       return plain(t('activity.event.cardDeleted'))
     case 'card.claimed':
@@ -236,5 +238,5 @@ export function eventCard(event: BoardEvent, cardsById: ReadonlyMap<number, Card
   if (live) return { id: live.id, key: live.key, title: live.title }
   const p = payloadOf(event)
   const key = field(p, 'key')
-  return key === '' ? null : { id: null, key, title: field(p, 'title') }
+  return key === '' ? null : { id: event.type === 'card.archived' ? event.card_id : null, key, title: field(p, 'title') }
 }

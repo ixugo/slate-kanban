@@ -33,6 +33,7 @@ const NO_TAGS: Tag[] = []
 
 const CardDialog = lazy(() => import('@/features/card/CardDialog'))
 const ActivityDrawer = lazy(() => import('@/features/activity/ActivityDrawer'))
+const ArchiveDrawer = lazy(() => import('@/features/card/ArchiveDrawer'))
 const ListView = lazy(() => import('./ListView'))
 
 /** 看板主页面 */
@@ -45,6 +46,7 @@ export default function BoardPage() {
   const [addColumnId, setAddColumnId] = useState<number | null>(null)
   const [listAddOpen, setListAddOpen] = useState(false)
   // 活动抽屉：第一次打开时才加载代码（loaded），之后开关只改 open，关闭动画才播得完
+  const [archive, setArchive] = useState({ open: false, loaded: false })
   const [activity, setActivity] = useState({ open: false, loaded: false })
   const { mode: viewMode, setMode: setViewMode } = useBoardViewMode(boardId ?? 0)
 
@@ -169,6 +171,7 @@ export default function BoardPage() {
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           onActivityOpen={() => setActivity({ open: true, loaded: true })}
+          onArchiveOpen={() => setArchive({ open: true, loaded: true })}
         />
         <ActiveFilters filters={filters} columns={columns} onChange={setFilters} />
         {viewMode === 'board' && searching && (
@@ -208,6 +211,11 @@ export default function BoardPage() {
         <Suspense fallback={null}>
           <CardDialog boardId={boardId} />
         </Suspense>
+        {archive.loaded && (
+          <Suspense fallback={null}>
+            <ArchiveDrawer boardId={boardId} open={archive.open} onOpenChange={(open) => setArchive({ open, loaded: true })} />
+          </Suspense>
+        )}
         {activity.loaded && (
           <Suspense fallback={null}>
             <ActivityDrawer

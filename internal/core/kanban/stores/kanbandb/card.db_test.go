@@ -202,3 +202,33 @@ func TestCardDelete(t *testing.T) {
 		}
 	})
 }
+
+// TestArchivedCardOrder 跨存储验证归档游标、同时间排序和看板隔离。
+func TestArchivedCardOrder(t *testing.T) {
+	kanbantest.ForEachBackend(t, func(t *testing.T, db kanbandb.DB) {
+		ctx := t.Context()
+		store := db.Card()
+		first := addCard(t, store, 1, 1, "A-1", 1)
+		second := addCard(t, store, 1, 1, "A-2", 2)
+		active := addCard(t, store, 1, 1, "A-3", 3)
+		other := addCard(t, store, 2, 2, "B-1", 1)
+		for _, card := range []*kanban.Card{first, second, other} {
+			card.ArchivedAt = new(time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC))
+			if err := store.Save(ctx, card); err != nil {
+				t.Fatal(err)
+			}
+		}
+		page, err := store.ListArchivedByBoard(ctx, 1, nil, 1)
+		if err != nil || !slices.Equal(cardKeys(page), []string{second.Key}) {
+			t.Fatalf("第一页：%v %v", cardKeys(page), err)
+		}
+		next, err := store.ListArchivedByBoard(ctx, 1, page[0], 1)
+		if err != nil || !slices.Equal(cardKeys(next), []string{first.Key}) {
+			t.Fatalf("下一页：%v %v", cardKeys(next), err)
+		}
+		column, err := store.ListByColumn(ctx, 1)
+		if err != nil || !slices.Equal(cardKeys(column), []string{active.Key}) {
+			t.Fatalf("列内仍包含归档任务：%v %v", cardKeys(column), err)
+		}
+	})
+}

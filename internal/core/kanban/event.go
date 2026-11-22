@@ -23,6 +23,7 @@ const (
 	EventCardMoved       = "card.moved"
 	EventCardReordered   = "card.reordered"
 	EventCardDeleted     = "card.deleted"
+	EventCardArchived    = "card.archived"
 	EventCardClaimed     = "card.claimed"
 	EventCardReleased    = "card.released"
 	EventCommentAdded    = "comment.added"

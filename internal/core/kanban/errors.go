@@ -49,6 +49,10 @@ var (
 	// ErrCardNotFound 任务不存在，可能已经被删除。
 	ErrCardNotFound = reason.NewError("ErrCardNotFound", "任务不存在").WithHTTPStatus(404)
 
+	// ErrCardArchived 已归档的任务处于只读状态。
+	ErrCardArchived = reason.NewError("ErrCardArchived", "任务已归档，无法修改").WithHTTPStatus(409)
+
+
 	// ErrCardChangeNotFound 变更记录不存在：编号写错、不属于这个任务，或者任务已经被删除。
 	ErrCardChangeNotFound = reason.NewError("ErrCardChangeNotFound", "变更记录不存在").WithHTTPStatus(404)
 

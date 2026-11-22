@@ -5,6 +5,7 @@ import { request, upload } from './client'
 import type {
   ActivityPage,
   ActivityQuery,
+  ArchivedCardsPage,
   Attachment,
   AuthStatus,
   Board,
@@ -119,6 +120,18 @@ export function searchCards(boardId: number, query: string, limit: number, signa
 /** 创建任务，column_id 不填放进第一列 */
 export function createCard(boardId: number, input: CreateCardInput): Promise<Card> {
   return request<Card>(`/boards/${boardId}/cards`, { method: 'POST', body: input })
+}
+
+export function listArchivedCards(boardId: number, before?: number, signal?: Signal): Promise<ArchivedCardsPage> {
+  return request<ArchivedCardsPage>(`/boards/${boardId}/archived-cards`, { query: { before }, signal })
+}
+
+export function getCardByNumber(boardId: number, number: number, signal?: Signal): Promise<CardDetail> {
+  return request<CardDetail>(`/boards/${boardId}/cards/by-number/${number}`, { signal })
+}
+
+export function archiveCard(cardId: number): Promise<Card> {
+  return request<Card>(`/cards/${cardId}/archive`, { method: 'POST' })
 }
 
 /** 一个任务的完整信息：依赖、评论、所在列的 agent 指令 */

@@ -2,6 +2,7 @@ package kanban
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ixugo/goddd/pkg/orm"
@@ -9,11 +10,12 @@ import (
 
 // CardRef 是依赖列表里一个任务的概要，足够让人和 agent 看出它是什么、做完了没有。
 type CardRef struct {
-	ID     int64  `json:"id"`
-	Key    string `json:"key"`
-	Title  string `json:"title"`
-	Column string `json:"column"`
-	Done   bool   `json:"done"`
+	ID      int64  `json:"id"`
+	Key     string `json:"key"`
+	Title   string `json:"title"`
+	Column  string `json:"column"`
+	Done    bool   `json:"done"`
+	Missing bool   `json:"missing,omitzero"`
 }
 
 // CardDetail 是一个任务的完整信息：任务本身和派生状态，所在列给 agent 的工作指令，
@@ -23,6 +25,8 @@ type CardDetail struct {
 	ColumnInstruction string     `json:"column_instruction"`
 	Dependencies      []*CardRef `json:"dependencies"`
 	Comments          []*Comment `json:"comments"`
+	ArchivedTags      []*Tag     `json:"archived_tags,omitempty"`
+	ArchivedEngineer  string     `json:"archived_engineer,omitempty"`
 }
 
 // GetCardDetail 读取一个任务的完整信息，人和 agent 都可以读。任务不存在返回 404。
@@ -50,8 +54,7 @@ func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, err
 	}
 	ix := newBoardIndex(c.now(), time.Local, cols, tags, append([]*Card{card}, deps...))
 	detail := &CardDetail{
-		CardView: ix.view(card), Dependencies: make([]*CardRef, 0, len(deps)),
-		Comments: comments,
+		CardView: ix.view(card), Comments: comments,
 	}
 	if detail.Comments == nil {
 		detail.Comments = []*Comment{}
@@ -59,11 +62,52 @@ func (c Core) GetCardDetail(ctx context.Context, cardID int64) (*CardDetail, err
 	if col, ok := ix.columns[card.ColumnID]; ok {
 		detail.ColumnInstruction = col.Instruction
 	}
+	if card.Archive.Tags != nil {
+		detail.ArchivedTags = card.Archive.Tags
+		detail.ArchivedEngineer = card.Archive.Engineer
+		detail.Dependencies = archivedDependencyRefs(card, ix)
+		return detail, nil
+	}
+	if card.ArchivedAt != nil {
+		detail.ArchivedTags = archivedTags(card, tags)
+	}
+	detail.Dependencies = dependencyRefs(ix, deps)
+	return detail, nil
+}
+
+func dependencyRefs(ix *boardIndex, deps []*Card) []*CardRef {
+	out := make([]*CardRef, 0, len(deps))
 	for _, dep := range deps {
 		v := ix.view(dep)
-		detail.Dependencies = append(detail.Dependencies, &CardRef{ID: dep.ID, Key: dep.Key, Title: dep.Title, Column: v.Column, Done: v.Done})
+		out = append(out, &CardRef{ID: dep.ID, Key: dep.Key, Title: dep.Title, Column: v.Column, Done: v.Done})
 	}
-	return detail, nil
+	return out
+}
+
+func archivedDependencyRefs(card *Card, ix *boardIndex) []*CardRef {
+	out := make([]*CardRef, 0, len(card.Archive.Dependencies))
+	for _, dep := range card.Archive.Dependencies {
+		ref := *dep
+		ref.Missing = ix.cards[dep.ID] == nil
+		out = append(out, &ref)
+	}
+	return out
+}
+
+// GetCardDetailByNumber 解析看板内的任务引用，包括已从日常快照移除的归档任务。
+func (c Core) GetCardDetailByNumber(ctx context.Context, boardID, number int64) (*CardDetail, error) {
+	board, err := c.store.Board().GetByID(ctx, boardID)
+	if err != nil {
+		return nil, mapNotFound(err, ErrBoardNotFound, "读取看板")
+	}
+	card, err := c.store.Card().GetByKey(ctx, fmt.Sprintf("%s-%d", board.Slug, number))
+	if err != nil {
+		return nil, mapNotFound(err, ErrCardNotFound, "查找任务编号")
+	}
+	if card.BoardID != boardID {
+		return nil, ErrCardNotFound
+	}
+	return c.GetCardDetail(ctx, card.ID)
 }
 
 // loadDependencies 按依赖列表的顺序读出任务依赖的任务，已经不存在的跳过。

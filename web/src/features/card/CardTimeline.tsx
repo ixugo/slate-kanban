@@ -26,6 +26,7 @@ interface CardTimelineProps {
   boardId: number
   comments: Comment[]
   renderCardReference: CardReferenceRenderer
+  readOnly?: boolean
 }
 
 const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent: BotIcon, system: ZapIcon }
@@ -58,7 +59,7 @@ function EventLine({ event, renderCardReference }: { event: BoardEvent; renderCa
 }
 
 /** 评论和活动 */
-export function CardTimeline({ cardId, boardId, comments, renderCardReference }: CardTimelineProps) {
+export function CardTimeline({ cardId, boardId, comments, renderCardReference, readOnly }: CardTimelineProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const [body, setBody] = useState('')
@@ -98,7 +99,7 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference }:
           {showDetails ? t('card.timeline.hideDetails') : t('card.timeline.showDetails')}
         </Button>
       </div>
-      <LazyEditor
+      {!readOnly && <LazyEditor
         compact
         value={body}
         onChange={setBody}
@@ -108,8 +109,8 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference }:
         onSubmit={() => body.trim() && send.mutate()}
         boardId={boardId}
         toolbarOnFocus
-      />
-      {body.trim() && (
+      />}
+      {!readOnly && body.trim() && (
         // mousedown 时不让编辑区失焦：失焦会收起记号和图片旁的原文，按钮被顶得移位，这次点击就落空了
         <Button type="button" size="sm" disabled={send.isPending} onMouseDown={(e) => e.preventDefault()} onClick={() => send.mutate()}>
           {t('card.comment.send')}
@@ -130,9 +131,9 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference }:
                 <time dateTime={item.comment.created_at} title={formatDateTime(item.comment.created_at, lang)} className="font-mono">
                   {formatRelative(item.comment.created_at, lang)}
                 </time>
-                <Button type="button" variant="ghost" size="xs" className="ml-auto" onClick={() => remove.mutate(item.comment.id)}>
+                {!readOnly && <Button type="button" variant="ghost" size="xs" className="ml-auto" onClick={() => remove.mutate(item.comment.id)}>
                   {t('common.delete')}
-                </Button>
+                </Button>}
               </div>
               <Markdown source={item.comment.body} renderCardReference={renderCardReference} />
             </li>

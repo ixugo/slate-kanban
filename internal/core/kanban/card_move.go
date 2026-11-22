@@ -10,6 +10,9 @@ import (
 // 因为审查、调度的 agent 要在别人做完之后移动任务；但不能动正被别的 agent 有效持有的任务，
 // 免得抢走对方正在做的活，持有者交接或释放之后才能移动。
 func checkCardMovable(actor Actor, card *Card, now time.Time) error {
+	if err := checkCardUnarchived(card); err != nil {
+		return err
+	}
 	if actor.IsAgent() && card.ClaimedBy != actor.Name && claimActive(card, now) {
 		return ErrCardClaimed.WithMsg("任务正被 " + card.ClaimedBy + " 持有，等它交接或释放之后再移动")
 	}

@@ -34,9 +34,11 @@ func (c Core) BoardSnapshot(ctx context.Context, boardID int64) (*Snapshot, erro
 	}
 	ix := newBoardIndex(c.now(), time.Local, detail.Columns, detail.Tags, cards)
 	sorted := ix.sortCards(ix.all)
-	views := make([]*CardView, len(sorted))
-	for i, card := range sorted {
-		views[i] = ix.view(card)
+	views := make([]*CardView, 0, len(sorted))
+	for _, card := range sorted {
+		if card.ArchivedAt == nil {
+			views = append(views, ix.view(card))
+		}
 	}
 	return &Snapshot{BoardDetail: detail, Cards: views, Seq: seq}, nil
 }

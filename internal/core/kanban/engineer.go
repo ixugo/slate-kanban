@@ -164,7 +164,7 @@ func (u *unit) removeEngineers(ctx context.Context, boardID int64, prev []*Engin
 	return true, u.unassignCards(ctx, boardID, gone)
 }
 
-// unassignCards 把被解聘工程师的绑定和占用从看板的全部任务上清掉，只保存真的变了的任务
+// unassignCards 把被解聘工程师的绑定和占用从看板的活跃任务上清掉，只保存真的变了的任务
 // （版本加一，旧页面上的修改会被乐观锁挡住）。复杂度 O(任务数)，一个看板通常是几百个任务。
 func (u *unit) unassignCards(ctx context.Context, boardID int64, gone map[int64]bool) error {
 	cards, err := u.card.ListByBoard(ctx, boardID)
@@ -173,7 +173,7 @@ func (u *unit) unassignCards(ctx context.Context, boardID int64, gone map[int64]
 	}
 	now := u.now()
 	for _, card := range cards {
-		if !gone[card.EngineerID] && !gone[card.ClaimEngineerID] {
+		if card.ArchivedAt != nil || (!gone[card.EngineerID] && !gone[card.ClaimEngineerID]) {
 			continue
 		}
 		if gone[card.EngineerID] {

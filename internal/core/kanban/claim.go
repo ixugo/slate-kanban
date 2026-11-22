@@ -49,6 +49,9 @@ func claimActive(card *Card, now time.Time) bool {
 // 由列的提示词约定，这里不按列限制，审查 agent 才能领审查列的任务。
 // ix 里必须有任务的全部依赖。
 func checkClaimable(actor Actor, card *Card, ix *boardIndex) error {
+	if err := checkCardUnarchived(card); err != nil {
+		return err
+	}
 	if card.HumanOnly {
 		return ErrCardHumanOnly
 	}

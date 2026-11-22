@@ -2,7 +2,7 @@
 
 import type { RefObject } from 'react'
 import { Link } from 'react-router-dom'
-import { ActivityIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
+import { ActivityIcon, ArchiveIcon, LayoutGridIcon, ListIcon, SettingsIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import type { Board } from '@/lib/api/types'
@@ -32,6 +32,7 @@ interface BoardToolbarProps {
   onViewModeChange: (mode: BoardViewMode) => void
   /** 点「活动」按钮：打开活动抽屉 */
   onActivityOpen: () => void
+  onArchiveOpen: () => void
 }
 
 /** 看板画布上方的工具栏 */
@@ -52,6 +53,7 @@ export function BoardToolbar({
   viewMode,
   onViewModeChange,
   onActivityOpen,
+  onArchiveOpen,
 }: BoardToolbarProps) {
   const { t } = useTranslation()
   return (
@@ -64,6 +66,10 @@ export function BoardToolbar({
         <Button type="button" variant="ghost" size="sm" aria-label={t('activity.open')} onClick={onActivityOpen}>
           <ActivityIcon />
           <span className="hidden sm:inline">{t('activity.open')}</span>
+        </Button>
+        <Button type="button" variant="ghost" size="sm" aria-label={t('card.archive.title')} onClick={onArchiveOpen}>
+          <ArchiveIcon />
+          <span className="hidden sm:inline">{t('card.archive.title')}</span>
         </Button>
         <Button type="button" variant="ghost" size="sm" asChild>
           <Link to={`/b/${board.id}/settings`}>

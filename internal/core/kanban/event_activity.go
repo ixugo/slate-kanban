@@ -19,7 +19,7 @@ const (
 var knownEventTypes = []string{
 	EventBoardCreated, EventBoardUpdated, EventBoardLabelsUpdated,
 	EventColumnCreated, EventColumnUpdated, EventColumnDeleted, EventColumnReordered,
-	EventCardCreated, EventCardUpdated, EventCardTagsUpdated, EventCardMoved, EventCardReordered, EventCardDeleted,
+	EventCardCreated, EventCardUpdated, EventCardTagsUpdated, EventCardMoved, EventCardReordered, EventCardDeleted, EventCardArchived,
 	EventCardClaimed, EventCardReleased,
 	EventCommentAdded, EventCommentDeleted,
 	EventRuleCreated, EventRuleUpdated, EventRuleDeleted,

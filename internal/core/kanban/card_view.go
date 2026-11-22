@@ -67,17 +67,22 @@ func newBoardIndex(now time.Time, loc *time.Location, cols []*Column, tags []*Ta
 
 // isWaiting 判断任务是否有没完成的依赖。
 func (ix *boardIndex) isWaiting(card *Card) bool {
+	if card.Archive.Tags != nil {
+		return slices.ContainsFunc(card.Archive.Dependencies, func(dep *CardRef) bool { return !dep.Done })
+	}
 	return len(unfinishedDeps(card, ix.cards, ix.doneCols)) > 0
 }
 
 // view 生成一个任务的完整视图。
 func (ix *boardIndex) view(card *Card) *CardView {
 	v := &CardView{
-		Card: card, Tags: ix.tagNames(card), Done: ix.doneCols[card.ColumnID],
+		Card: card, Tags: ix.tagNames(card), Done: cardIsDone(card, ix.doneCols),
 		Waiting: ix.isWaiting(card), ClaimActive: claimActive(card, ix.now),
 		UnreadCount: card.UnreadCount,
 	}
-	if col, ok := ix.columns[card.ColumnID]; ok {
+	if card.Archive.Tags != nil {
+		v.Column = card.Archive.Column
+	} else if col, ok := ix.columns[card.ColumnID]; ok {
 		v.Column = col.Name
 	}
 	return v
@@ -86,6 +91,14 @@ func (ix *boardIndex) view(card *Card) *CardView {
 // tagNames 返回任务上带文字的标签的文字，按任务上的顺序；没有时返回空切片而不是 nil。
 func (ix *boardIndex) tagNames(card *Card) []string {
 	out := make([]string, 0, len(card.TagIDs))
+	if card.Archive.Tags != nil {
+		for _, tag := range card.Archive.Tags {
+			if tag.Text != "" {
+				out = append(out, tag.Text)
+			}
+		}
+		return out
+	}
 	for _, id := range card.TagIDs {
 		if text := ix.tagTexts[id]; text != "" {
 			out = append(out, text)

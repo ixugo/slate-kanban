@@ -25,6 +25,8 @@ type CardStorer interface {
 	GetByKey(context.Context, string) (*Card, error)
 	// ListByBoard 返回看板的全部任务，按所在列的主键、位置、主键升序。
 	ListByBoard(context.Context, int64) ([]*Card, error)
+	// ListArchivedByBoard 按归档时间和主键倒序读取任务，before 为空时从最新归档开始。
+	ListArchivedByBoard(ctx context.Context, boardID int64, before *Card, limit int) ([]*Card, error)
 	// ListByColumn 返回某一列的任务，按位置升序，位置相同按主键升序。
 	ListByColumn(context.Context, int64) ([]*Card, error)
 	// CountByColumn 返回某一列有几个任务。
@@ -218,6 +220,9 @@ func (u *unit) loadCard(ctx context.Context, boardID, cardID int64) (*Card, erro
 // 持有的判断只看 ClaimedBy，租约过期但还没被别人接手时仍然算持有，
 // 这样耗时很长的任务不会因为忘了续租而白做。
 func checkCardWritable(actor Actor, card *Card) error {
+	if err := checkCardUnarchived(card); err != nil {
+		return err
+	}
 	if actor.IsAgent() && card.ClaimedBy != actor.Name {
 		return ErrNotHolder
 	}

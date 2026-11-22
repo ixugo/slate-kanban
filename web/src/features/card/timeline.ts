@@ -2,9 +2,9 @@
 
 import type { BoardEvent, Comment } from '@/lib/api/types'
 
-/** 时间线上要显示的任务事件类型：建卡、修改、换列、认领、释放、自动化。
+/** 时间线上要显示的任务事件类型：建卡、修改、换列、认领、释放、归档、自动化。
  * 不含评论事件（评论本身已经列出，重复了）和任务内顺序调整（太碎）。 */
-export const CARD_EVENT_TYPES = ['card.created', 'card.updated', 'card.moved', 'card.claimed', 'card.released', 'automation.fired'] as const
+export const CARD_EVENT_TYPES = ['card.created', 'card.updated', 'card.moved', 'card.claimed', 'card.released', 'card.archived', 'automation.fired'] as const
 
 /** 时间线上的一项：一条评论，或一条事件 */
 export type TimelineItem = { kind: 'comment'; at: string; id: number; comment: Comment } | { kind: 'event'; at: string; id: number; event: BoardEvent }

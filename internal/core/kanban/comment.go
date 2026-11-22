@@ -68,6 +68,9 @@ func (c Core) AddComment(ctx context.Context, actor Actor, cardID int64, body st
 
 // addComment 在事务里保存评论并追加 comment.added 事件，事件里只放评论的摘要。
 func (u *unit) addComment(ctx context.Context, actor Actor, card *Card, body string) (*Comment, error) {
+	if err := checkCardUnarchived(card); err != nil {
+		return nil, err
+	}
 	now := u.now()
 	comment := &Comment{
 		BoardID: card.BoardID, CardID: card.ID, AuthorKind: string(actor.Kind), Author: actor.Name,
@@ -123,6 +126,9 @@ func (c Core) DeleteComment(ctx context.Context, actor Actor, commentID int64) e
 		}
 		card, err := u.loadCard(ctx, current.BoardID, current.CardID)
 		if err != nil {
+			return err
+		}
+		if err := checkCardUnarchived(card); err != nil {
 			return err
 		}
 		if err := u.comment.Delete(ctx, current); err != nil {

@@ -67,7 +67,7 @@ func (c Core) ListCards(ctx context.Context, boardID int64, in ListCardsInput) (
 func (ix *boardIndex) list(f *filter, limit int) *CardList {
 	out := &CardList{Cards: []*CardView{}}
 	for _, card := range ix.sortCards(ix.all) {
-		if !f.match(card, ix) {
+		if card.ArchivedAt != nil || !f.match(card, ix) {
 			continue
 		}
 		out.Total++

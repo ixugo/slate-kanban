@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
 import { ApiError } from '@/lib/api/client'
-import { deleteCard, releaseCard } from '@/lib/api/endpoints'
+import { archiveCard, deleteCard, releaseCard } from '@/lib/api/endpoints'
 import { describeError } from '@/lib/errors'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -25,7 +25,7 @@ import { clearClaim } from './cardPatch'
 import { useLanguage } from '@/i18n/useLanguage'
 import { CardDialogBody } from './CardDialogBody'
 import { CardHeaderBar } from './CardHeaderBar'
-import { CardReference } from './CardReference'
+import { CardNumberReference } from './CardNumberReference'
 
 interface CardDialogProps {
   boardId: number
@@ -103,13 +103,13 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
     const isShortReference = reference.startsWith('#')
     if (!isShortReference && target?.key !== reference) return reference
     const label = isShortReference ? reference : '#' + number
-    return <CardReference label={label} card={target} onOpen={() => openReference(target)} />
+    return <CardNumberReference boardId={boardId} number={number} label={label} card={target} onOpen={openReference} />
   }
 
   const depOptions = useDepOptions(snapshot, card)
 
   const onPatch = (input: UpdateCardInput) => {
-    if (!card) return
+    if (!card || card.archived_at) return
     const body = { ...input, version: input.version ?? card.version }
     // 日期弹窗给出的是本地时间，转成 RFC3339 再提交；空串表示清除，原样提交
     for (const key of ['due_at', 'started_at'] as const) {
@@ -123,7 +123,7 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
   }
 
   const onColumn = (columnId: number) => {
-    if (!card || columnId === card.column_id) return
+    if (!card || card.archived_at || columnId === card.column_id) return
     move.mutate({ cardId: card.id, plan: { columnId } })
   }
 
@@ -146,6 +146,20 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
       void queryClient.invalidateQueries({ queryKey: queryKeys.card(id) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
     },
+  })
+
+  const archive = useMutation({
+    mutationFn: archiveCard,
+    onSuccess: (updated) => {
+      queryClient.setQueryData<CardDetail>(queryKeys.card(updated.id), (old) => old && {
+        ...old,
+        ...updated,
+        claim_active: false,
+      })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.card(updated.id) })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
+    },
+    onError: toastError,
   })
 
   // 删除：弹窗先关、磁贴先消失，失败再把磁贴放回来（弹窗不再弹出，只提示原因）
@@ -190,7 +204,15 @@ function CardDialogStack({ boardId, rootId, closeAll }: CardDialogProps & { root
         }}
         className="flex h-[90dvh] w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden bg-popover! p-0 backdrop-blur-none! sm:w-full sm:max-w-4xl"
       >
-        <CardHeaderBar card={card} columns={columns} onColumn={onColumn} onDelete={() => remove.mutate(cardId)} deleteBusy={remove.isPending && remove.variables === cardId} />
+        <CardHeaderBar
+          card={card}
+          columns={columns}
+          onColumn={onColumn}
+          onDelete={() => remove.mutate(cardId)}
+          deleteBusy={remove.isPending && remove.variables === cardId}
+          onArchive={() => archive.mutate(cardId)}
+          actionBusy={archive.isPending}
+        />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-hidden">
           {isPending && <Skeleton className="m-6 h-40 rounded-2xl" />}
           {showNotFound && <p role="alert" className="p-6">{t('card.notFound')}</p>}

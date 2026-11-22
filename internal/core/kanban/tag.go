@@ -152,7 +152,7 @@ func (u *unit) removeTags(ctx context.Context, boardID int64, prev []*Tag, kept 
 	return true, u.untagCards(ctx, boardID, gone)
 }
 
-// untagCards 把被删掉的标签从看板的全部任务上摘掉，只保存真的变了的任务（版本加一，旧页面上的修改会被乐观锁挡住）。
+// untagCards 把被删掉的标签从看板的活跃任务上摘掉，只保存真的变了的任务（版本加一，旧页面上的修改会被乐观锁挡住）。
 // 复杂度 O(任务数 × 每个任务的标签数)，一个看板通常是几百个任务。
 func (u *unit) untagCards(ctx context.Context, boardID int64, gone map[int64]bool) error {
 	cards, err := u.card.ListByBoard(ctx, boardID)
@@ -161,7 +161,7 @@ func (u *unit) untagCards(ctx context.Context, boardID int64, gone map[int64]boo
 	}
 	now := u.now()
 	for _, card := range cards {
-		if !slices.ContainsFunc(card.TagIDs, func(id int64) bool { return gone[id] }) {
+		if card.ArchivedAt != nil || !slices.ContainsFunc(card.TagIDs, func(id int64) bool { return gone[id] }) {
 			continue
 		}
 		card.TagIDs = slices.DeleteFunc(slices.Clone(card.TagIDs), func(id int64) bool { return gone[id] })

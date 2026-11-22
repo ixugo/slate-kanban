@@ -28,6 +28,9 @@ func (c Core) DeleteCard(ctx context.Context, actor Actor, cardID int64) error {
 		if err != nil {
 			return err
 		}
+		if err := checkCardUnarchived(card); err != nil {
+			return err
+		}
 		return u.deleteCard(ctx, actor, card)
 	})
 }
@@ -71,7 +74,7 @@ func (u *unit) cardTexts(ctx context.Context, card *Card) ([]string, error) {
 	return texts, nil
 }
 
-// dropDependency 把 card 从同看板其他任务的依赖里移除，被改动的任务版本加一。
+// dropDependency 把 card 从同看板其他活跃任务的依赖里移除，被改动的任务版本加一。
 // 这是删除任务的连带清理，不单独写事件，界面和 agent 通过 card.deleted 就知道要刷新。
 // 复杂度：一次读取看板的全部任务，线性扫描。
 func (u *unit) dropDependency(ctx context.Context, actor Actor, card *Card) error {
@@ -80,6 +83,9 @@ func (u *unit) dropDependency(ctx context.Context, actor Actor, card *Card) erro
 		return wrapDB("读取看板的任务", err)
 	}
 	for _, other := range cards {
+		if other.ArchivedAt != nil {
+			continue
+		}
 		i := slices.Index(other.WaitsOn, card.ID)
 		if i < 0 {
 			continue

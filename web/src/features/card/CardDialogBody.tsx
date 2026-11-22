@@ -5,12 +5,13 @@
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, Engineer, UpdateCardInput } from '@/lib/api/types'
 import { useBoardSnapshot } from '@/features/board/useBoard'
-import type { CardReferenceRenderer } from '@/lib/markdown'
+import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
 import { formatDateTime } from '@/lib/format'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { CARD_TITLE_MAX } from '@/lib/limits'
 import { CardMeta } from './CardMeta'
+import { ArchivedCardMeta } from './ArchivedCardMeta'
 import { CardTimeMeta } from './CardTimeMeta'
 import { DescriptionEditor } from './DescriptionEditor'
 import { CardTimeline } from './CardTimeline'
@@ -65,6 +66,7 @@ function ClaimBanner({ card, engineers, lang, onRelease, busy }: { card: CardDet
 /** 两栏布局主体 */
 export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDesc, renderCardReference, patchBusy, onRelease, releaseBusy }: CardDialogBodyProps) {
   const { t } = useTranslation()
+  const readOnly = Boolean(card.archived_at)
   const version = card.version
   const engineers = useBoardSnapshot(boardId).data?.engineers ?? NO_ENGINEERS
   const patch = (p: Record<string, unknown>) => onPatch(p as UpdateCardInput)
@@ -73,40 +75,53 @@ export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onDes
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <div className="min-w-0 space-y-5 px-5 py-5 sm:px-6 md:flex-1 md:overflow-y-auto">
         <ClaimBanner card={card} engineers={engineers} lang={lang} onRelease={onRelease} busy={releaseBusy} />
-        <div>
-          <Label htmlFor="card-title" className="sr-only">
-            {t('card.field.title')}
-          </Label>
-          <textarea
-            id="card-title"
-            ref={fitTitleHeight}
-            rows={1}
-            defaultValue={card.title}
-            maxLength={CARD_TITLE_MAX}
-            className="-mx-2.5 block w-[calc(100%+1.25rem)] resize-none overflow-hidden rounded-xl border border-transparent bg-transparent px-2.5 py-1.5 text-[1.5rem] leading-8 font-semibold tracking-tight outline-none transition-[background-color,border-color,box-shadow] duration-200 hover:bg-secondary/60 focus-visible:border-ring focus-visible:bg-field focus-visible:ring-[3px] focus-visible:ring-ring/25"
-            aria-label={t('card.field.title')}
-            onInput={(e) => fitTitleHeight(e.currentTarget)}
-            onKeyDown={(e) => {
-              // 标题是单行文字：回车提交（失焦时保存），不插入换行
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                e.currentTarget.blur()
-              }
-            }}
-            onBlur={(e) => {
-              const title = e.target.value.trim().slice(0, CARD_TITLE_MAX)
-              if (title !== card.title) onPatch({ title, version })
-            }}
-          />
-        </div>
-        <CardMeta card={card} depOptions={depOptions} engineers={engineers} onPatch={patch} renderCardReference={renderCardReference} />
+        {readOnly ? (
+          <h2 className="text-2xl leading-8 font-semibold break-words">{card.title}</h2>
+        ) : (
+          <div>
+            <Label htmlFor="card-title" className="sr-only">
+              {t('card.field.title')}
+            </Label>
+            <textarea
+              id="card-title"
+              ref={fitTitleHeight}
+              rows={1}
+              defaultValue={card.title}
+              maxLength={CARD_TITLE_MAX}
+              className="-mx-2.5 block w-[calc(100%+1.25rem)] resize-none overflow-hidden rounded-xl border border-transparent bg-transparent px-2.5 py-1.5 text-[1.5rem] leading-8 font-semibold tracking-tight outline-none transition-[background-color,border-color,box-shadow] duration-200 hover:bg-secondary/60 focus-visible:border-ring focus-visible:bg-field focus-visible:ring-[3px] focus-visible:ring-ring/25"
+              aria-label={t('card.field.title')}
+              onInput={(e) => fitTitleHeight(e.currentTarget)}
+              onKeyDown={(e) => {
+                // 标题是单行文字：回车提交（失焦时保存），不插入换行
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.currentTarget.blur()
+                }
+              }}
+              onBlur={(e) => {
+                const title = e.target.value.trim().slice(0, CARD_TITLE_MAX)
+                if (title !== card.title) onPatch({ title, version })
+              }}
+            />
+          </div>
+        )}
+        {readOnly
+          ? <ArchivedCardMeta card={card} engineers={engineers} lang={lang} renderCardReference={renderCardReference} />
+          : <CardMeta card={card} depOptions={depOptions} engineers={engineers} onPatch={patch} renderCardReference={renderCardReference} />}
         <section>
-          <DescriptionEditor key={card.version} value={card.description} onSave={onDesc} renderCardReference={renderCardReference} busy={patchBusy} boardId={boardId} />
+          {readOnly ? (
+            <>
+              <h3 className="mb-2 text-body font-semibold tracking-tight">{t('card.field.description')}</h3>
+              <Markdown source={card.description} renderCardReference={renderCardReference} />
+            </>
+          ) : (
+            <DescriptionEditor key={card.version} value={card.description} onSave={onDesc} renderCardReference={renderCardReference} busy={patchBusy} boardId={boardId} />
+          )}
         </section>
         <CardTimeMeta card={card} lang={lang} />
       </div>
       <aside className="min-w-0 border-t border-border/60 bg-secondary/50 px-5 py-5 md:w-[21rem] md:shrink-0 md:overflow-y-auto md:border-t-0 md:border-l">
-        <CardTimeline cardId={card.id} boardId={boardId} comments={card.comments} renderCardReference={renderCardReference} />
+        <CardTimeline cardId={card.id} boardId={boardId} comments={card.comments} renderCardReference={renderCardReference} readOnly={readOnly} />
       </aside>
     </div>
   )

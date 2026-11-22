@@ -11,6 +11,8 @@ export const queryKeys = {
   activity: (boardId: number, filters: object) => ['board', boardId, 'activity', filters] as const,
   /** 一个任务的事件（任务详情里的「评论和活动」）；挂在看板键下面，看板有更新时会跟着刷新 */
   cardActivity: (boardId: number, cardId: number) => ['board', boardId, 'card-activity', cardId] as const,
+  archivedCards: (boardId: number) => ['board', boardId, 'archived-cards'] as const,
+  cardByNumber: (boardId: number, number: number) => ['board', boardId, 'card-number', number] as const,
   /** 一个任务的一次变更记录（修改前后的内容）；记录只增不改，读到就不会变，所以不挂在看板键下面，不跟着实时刷新 */
   cardChange: (cardId: number, changeId: number) => ['card-change', cardId, changeId] as const,
   /** 一个任务的详情；不带编号表示全部任务详情，用来整体失效 */

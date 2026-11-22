@@ -14,7 +14,7 @@ import "time"
 // 时间字段用指针，nil 表示还没有发生，序列化成 JSON 的 null。
 type Card struct {
 	ID              int64      `gorm:"primaryKey" json:"id"`
-	BoardID         int64      `gorm:"column:board_id;notNull;default:0;index:idx_cards_board_column_pos,priority:1;comment:所属看板" json:"board_id"`
+	BoardID         int64      `gorm:"column:board_id;notNull;default:0;index:idx_cards_board_column_pos,priority:1;index:idx_cards_board_archive,priority:1;comment:所属看板" json:"board_id"`
 	ColumnID        int64      `gorm:"column:column_id;notNull;default:0;index:idx_cards_board_column_pos,priority:2;comment:所在列" json:"column_id"`
 	Number          int64      `gorm:"column:number;notNull;default:0;comment:看板内的任务编号" json:"number"`
 	Key             string     `gorm:"column:key;size:32;notNull;default:'';uniqueIndex:uq_cards_key;comment:任务编号，由看板 slug 和编号组成" json:"key"`
@@ -28,6 +28,8 @@ type Card struct {
 	DueAt           *time.Time `gorm:"column:due_at;comment:到期时间" json:"due_at"`
 	StartedAt       *time.Time `gorm:"column:started_at;comment:开始时间" json:"started_at"`
 	FinishedAt      *time.Time `gorm:"column:finished_at;comment:完成时间" json:"finished_at"`
+	ArchivedAt      *time.Time `gorm:"column:archived_at;index:idx_cards_board_archive,priority:2,sort:desc;comment:归档时间" json:"archived_at"`
+	ArchivedDone    bool       `gorm:"column:archived_done;notNull;default:FALSE;comment:归档时任务是否已完成" json:"-"`
 	ClaimedBy       string     `gorm:"column:claimed_by;size:64;notNull;default:'';comment:当前持有这张卡的 agent 名称" json:"claimed_by"`
 	ClaimExpiresAt  *time.Time `gorm:"column:claim_expires_at;comment:领取的到期时间" json:"claim_expires_at"`
 	EngineerID      int64      `gorm:"column:engineer_id;notNull;default:0;comment:绑定或分配的研发工程师，指向 board_engineers 表，0 表示还没有" json:"engineer_id"`
@@ -40,6 +42,8 @@ type Card struct {
 	UpdatedBy       string     `gorm:"column:updated_by;size:64;notNull;default:'';comment:最后修改者名称" json:"updated_by"`
 	CreatedAt       time.Time  `gorm:"column:created_at;notNull;default:CURRENT_TIMESTAMP;comment:创建时间" json:"created_at"`
 	UpdatedAt       time.Time  `gorm:"column:updated_at;notNull;default:CURRENT_TIMESTAMP;comment:更新时间" json:"updated_at"`
+
+	Archive archiveRelations `gorm:"column:archive_relations;type:text;serializer:json;notNull;default:'{}';comment:归档时的标签和依赖快照" json:"-"`
 }
 
 // TableName 指定表名，这是 GORM 约定的方法。

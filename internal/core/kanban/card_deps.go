@@ -65,6 +65,13 @@ func reachesTarget(graph map[int64][]int64, starts []int64, target int64) bool {
 	return false
 }
 
+func cardIsDone(card *Card, doneCols map[int64]bool) bool {
+	if card.ArchivedAt != nil {
+		return card.ArchivedDone
+	}
+	return doneCols[card.ColumnID]
+}
+
 // unfinishedDeps 返回任务还没完成的依赖：依赖对应的任务存在，并且所在的列不是完成列。
 // 依赖的任务已经被删除时不算，因为删除任务时会把它从别的任务的依赖里移除，
 // 这里再忽略一次，是为了读到半途数据时也不会永远显示等待中。
@@ -72,7 +79,7 @@ func reachesTarget(graph map[int64][]int64, starts []int64, target int64) bool {
 func unfinishedDeps(card *Card, byID map[int64]*Card, doneCols map[int64]bool) []*Card {
 	var out []*Card
 	for _, id := range card.WaitsOn {
-		if dep, ok := byID[id]; ok && !doneCols[dep.ColumnID] {
+		if dep, ok := byID[id]; ok && !cardIsDone(dep, doneCols) {
 			out = append(out, dep)
 		}
 	}

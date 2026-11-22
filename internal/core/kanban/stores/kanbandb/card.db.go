@@ -75,10 +75,24 @@ func (d Card) ListByBoard(ctx context.Context, boardID int64) ([]*kanban.Card, e
 	return items, nil
 }
 
+// ListArchivedByBoard 按 (archived_at, id) 倒序读取指定看板的归档任务。
+func (d Card) ListArchivedByBoard(ctx context.Context, boardID int64, before *kanban.Card, limit int) ([]*kanban.Card, error) {
+	q := d.db.WithContext(ctx).Where("board_id = ? AND archived_at IS NOT NULL", boardID)
+	if before != nil {
+		q = q.Where("(archived_at < ? OR (archived_at = ? AND id < ?))", before.ArchivedAt, before.ArchivedAt, before.ID)
+	}
+	items := make([]*kanban.Card, 0)
+	if err := q.Order("archived_at DESC, id DESC").Limit(limit).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	normalizeCards(items)
+	return items, nil
+}
+
 // ListByColumn 返回某一列的任务，按位置升序。
 func (d Card) ListByColumn(ctx context.Context, columnID int64) ([]*kanban.Card, error) {
 	items := make([]*kanban.Card, 0)
-	err := d.db.WithContext(ctx).Where("column_id = ?", columnID).
+	err := d.db.WithContext(ctx).Where("column_id = ? AND archived_at IS NULL", columnID).
 		Order("position ASC, id ASC").Find(&items).Error
 	if err != nil {
 		return nil, err
@@ -90,14 +104,14 @@ func (d Card) ListByColumn(ctx context.Context, columnID int64) ([]*kanban.Card,
 // CountByColumn 返回某一列有几个任务。
 func (d Card) CountByColumn(ctx context.Context, columnID int64) (int64, error) {
 	var n int64
-	err := d.db.WithContext(ctx).Model(&kanban.Card{}).Where("column_id = ?", columnID).Count(&n).Error
+	err := d.db.WithContext(ctx).Model(&kanban.Card{}).Where("column_id = ? AND archived_at IS NULL", columnID).Count(&n).Error
 	return n, err
 }
 
 // MaxPosition 返回某一列里最大的位置。COALESCE 让空列得到 0，而不是 NULL。
 func (d Card) MaxPosition(ctx context.Context, columnID int64) (float64, error) {
 	var pos float64
-	err := d.db.WithContext(ctx).Model(&kanban.Card{}).Where("column_id = ?", columnID).
+	err := d.db.WithContext(ctx).Model(&kanban.Card{}).Where("column_id = ? AND archived_at IS NULL", columnID).
 		Select("COALESCE(MAX(position), 0)").Scan(&pos).Error
 	return pos, err
 }
