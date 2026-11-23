@@ -5,6 +5,7 @@ import { Route, Routes } from 'react-router-dom'
 import i18n from '@/i18n'
 import { en } from '@/i18n/locales/en'
 import { ja } from '@/i18n/locales/ja'
+import { zhCN } from '@/i18n/locales/zh-CN'
 import { installFakeApi, type FakeCall } from '@/test/fakeApi'
 import { makeCard, makeSnapshot } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
@@ -20,7 +21,7 @@ const baseDetail = {
   dependencies: [],
   comments: [],
   started_at: '2026-11-01T10:00:00Z' as string | null,
-  finished_at: null,
+  finished_at: null as string | null,
   claim_active: true,
   claimed_by: 'codex',
   claim_expires_at: '2026-11-18T12:00:00Z',
@@ -31,7 +32,10 @@ beforeAll(async () => {
   await import('@/features/card/CardDialog')
 }, 30000)
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 /** 取第一次 PATCH 请求的请求体 */
 function patchBody(calls: FakeCall[]): unknown {
@@ -417,6 +421,30 @@ describe('CardDialog', () => {
     expect(within(dialog).queryByText(en.card.field.finished)).toBeNull()
     await userEvent.click(within(dialog).getByRole('button', { name: en.card.claim.release }))
     await waitFor(() => expect(api.count('POST /api/v1/cards/:id/release')).toBe(1))
+  })
+
+  it('底部隐藏更新时间，并按本地日期显示今天、昨天和更早的时间', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 0, 1, 13, 38))
+    await i18n.changeLanguage('zh-CN')
+    const created = new Date(2025, 11, 30, 23, 59).toISOString()
+    const started = new Date(2025, 11, 31, 23, 59).toISOString()
+    const finished = new Date(2026, 0, 1, 13, 37).toISOString()
+    openBoardWithCard({
+      ...baseDetail,
+      updated_at: new Date(2026, 0, 1, 13, 38).toISOString(),
+      created_at: created,
+      started_at: started,
+      finished_at: finished,
+    })
+    const dialog = within(await screen.findByRole('dialog'))
+    await dialog.findByLabelText(zhCN.card.field.title)
+    const today = await dialog.findByText('今天 13:37', { selector: 'time' })
+    expect(today).toHaveAttribute('datetime', finished)
+    expect(today).toHaveAttribute('title', formatDateTime(finished, 'zh-CN'))
+    expect(dialog.getByText('昨天 23:59', { selector: 'time' })).toHaveAttribute('datetime', started)
+    expect(dialog.getByText(formatDateTime(created, 'zh-CN'), { selector: 'time' })).toBeInTheDocument()
+    expect(dialog.queryByText(zhCN.card.field.updated)).not.toBeInTheDocument()
   })
 
   it('领取横幅只给租约时间使用等宽字体，保留日语词序', async () => {

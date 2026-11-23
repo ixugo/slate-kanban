@@ -14,6 +14,20 @@ export function formatDateTime(iso: string | null | undefined, lang: string): st
   return new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' }).format(ms)
 }
 
+/** 本地日历中的今天和昨天用短标签，其余保留完整日期时间。 */
+export function formatCalendarDateTime(iso: string, lang: string, now = Date.now()): string {
+  const ms = parseTime(iso)
+  if (ms === null) return ''
+  const day = new Date(ms).toDateString()
+  const today = new Date(now).toDateString()
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (day !== today && day !== yesterday.toDateString()) return formatDateTime(iso, lang)
+  const label = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(day === today ? 0 : -1, 'day')
+  const time = new Intl.DateTimeFormat(lang, { timeStyle: 'short' }).format(ms)
+  return `${label} ${time}`
+}
+
 /** 只有日期，任务上的截止日期用它；解析不了返回空串 */
 export function formatDate(iso: string | null | undefined, lang: string): string {
   const ms = parseTime(iso)
