@@ -245,6 +245,71 @@ if 'update-ref' in args and '--stdin' in args:
         self.assertEqual(self.run_script("pending"), [])
         self.assertTrue(self.run_script("cleanup")["cleaned"])
 
+    def test_short_approval_applies_and_cleans_the_exact_reviewed_range(self):
+        head = self.commit(self.source, "one", "reviewed change")
+        note = f"review passed\nSlate review: {self.base[:6]}..{head[:6]}"
+        self.write_card(head, note=note)
+
+        receipt = self.apply(head)
+
+        self.assertEqual(receipt["base"], self.base)
+        self.assertEqual(receipt["reviewed_head"], head)
+        self.assertEqual(self.git(self.project, "rev-parse", "HEAD"), receipt["head"])
+        self.assertEqual((self.project / "one").read_text(), "reviewed change\n")
+        self.assertEqual(self.apply(head), receipt)
+
+        self.write_card(head, merged=receipt["merged_commits"])
+        self.assertIn("does not contain the approval", self.run_script("cleanup", succeeds=False))
+        self.assertTrue(self.source.exists())
+        self.write_card(head, merged=receipt["merged_commits"], note=note)
+        self.assertTrue(self.run_script("cleanup")["cleaned"])
+        self.assertFalse(self.source.exists())
+
+    def test_short_approval_rejects_a_different_reviewed_head(self):
+        approved = self.commit(self.source, "one", "reviewed change")
+        current = self.commit(self.source, "two", "unreviewed change")
+        self.write_card(current, note=f"Slate review: {self.base[:6]}..{approved[:6]}")
+
+        self.assertIn("does not contain the approval", self.apply(current, succeeds=False))
+        self.assertEqual(self.git(self.project, "rev-parse", "HEAD"), self.base)
+        self.assertEqual(self.git(self.source, "rev-parse", "HEAD"), current)
+        self.assertEqual(self.run_script("pending"), [])
+
+    @unittest.skipIf(os.name == "nt", "executable Git shim requires a POSIX shebang")
+    def test_short_approval_rejects_an_ambiguous_prefix(self):
+        head = self.commit(self.source, "one", "reviewed change")
+        self.write_card(head, note=f"Slate review: {self.base[:6]}..{head[:6]}")
+        collision = head[:-1] + ("1" if head.endswith("0") else "0")
+        env = self.git_shim(f"""
+if {f'--disambiguate={head[:6]}'!r} in args:
+    print({head!r})
+    print({collision!r})
+    sys.exit(0)
+""")
+
+        error = self.apply(head, env=env, succeeds=False)
+
+        self.assertIn(f"approval prefix {head[:6]} does not uniquely identify the reviewed commit", error)
+        self.assertEqual(self.git(self.project, "rev-parse", "HEAD"), self.base)
+        self.assertEqual(self.git(self.source, "rev-parse", "HEAD"), head)
+        self.assertEqual(self.run_script("pending"), [])
+
+    @unittest.skipIf(os.name == "nt", "executable Git shim requires a POSIX shebang")
+    def test_short_approval_uses_its_receipt_for_retry_and_cleanup(self):
+        head = self.commit(self.source, "one", "reviewed change")
+        note = f"Slate review: {self.base[:6]}..{head[:6]}"
+        self.write_card(head, note=note)
+        receipt = self.apply(head)
+        env = self.git_shim("""
+if any(arg.startswith('--disambiguate=') for arg in args):
+    sys.exit(1)
+""")
+
+        self.assertEqual(self.apply(head, env=env), receipt)
+        self.write_card(head, merged=receipt["merged_commits"], note=note)
+        self.assertTrue(self.run_script("cleanup", env=env)["cleaned"])
+        self.assertFalse(self.source.exists())
+
     def assert_cleanup_preserves_flagged_file(self, flag, name):
         head = self.commit(self.source, name, "reviewed content")
         self.write_card(head)
@@ -294,6 +359,10 @@ if 'update-ref' in args and '--stdin' in args:
         head = self.commit(self.source, "one", "task one")
         self.write_card(head)
         receipt = self.apply(head)
+        # Older full-hash receipts had no separate approval line.
+        receipt.pop("approval_line", None)
+        receipt_path = self.project / ".git" / "slate-integrations" / "42-77.json"
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
         # Simulate the window after the staging receipt was written but before publishing.
         self.git(self.project, "reset", "--hard", self.base)
         self.write_card(head, note="review passed on another revision")

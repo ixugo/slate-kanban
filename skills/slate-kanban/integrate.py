@@ -167,20 +167,40 @@ def source_worktree(project, branch_ref, task_path):
     return matches[0]
 
 
-def card_evidence(args, expected, base, head):
+def card_evidence(args, project, expected, base, head, receipt=None):
     card = json.loads(args.card_json.read_text(encoding="utf-8"))
     fields = {"id": args.card_id, "key": args.key, "branch": args.branch, **expected}
     if any(card.get(k) != v for k, v in fields.items()):
         raise IntegrationError("card does not confirm this review and task state")
+    full_line = f"Slate review: {base}..{head}"
+    short_line = f"Slate review: {base[:6]}..{head[:6]}"
     for comment in card.get("comments", []):
-        if (comment.get("id") == args.approval and comment.get("author_kind") == "agent"
-                and f"Slate review: {base}..{head}" in comment.get("body", "").splitlines()):
-            return card
+        if comment.get("id") != args.approval or comment.get("author_kind") != "agent":
+            continue
+        lines = comment.get("body", "").splitlines()
+        if receipt is not None:
+            # A receipt already binds this line to exact OIDs. New Git objects
+            # may make a prefix ambiguous, and cleanup can remove the source.
+            recorded_line = receipt.get("approval_line", full_line)
+            if recorded_line in (full_line, short_line) and recorded_line in lines:
+                return recorded_line
+        elif full_line in lines:
+            return full_line
+        elif short_line in lines:
+            for sha in (base, head):
+                prefix = sha[:6]
+                matches = git(project, "rev-parse", f"--disambiguate={prefix}").splitlines()
+                if matches != [sha] or git(project, "cat-file", "-t", sha) != "commit":
+                    raise IntegrationError(f"approval prefix {prefix} does not uniquely identify the reviewed commit")
+            return short_line
+        break
     raise IntegrationError("card does not contain the approval for these exact commits")
 
 
 def apply(args, project, state, receipt_path, task_path, branch_ref):
-    card_evidence(args, {"done": False, "claim_active": True}, args.base, args.reviewed_head)
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8")) if receipt_path.exists() else None
+    approval_line = card_evidence(args, project, {"done": False, "claim_active": True},
+                                  args.base, args.reviewed_head, receipt)
     require_clean(project)
     target_ref = git(project, "symbolic-ref", "-q", "HEAD")
     before = git(project, "rev-parse", "--verify", target_ref)
@@ -193,8 +213,7 @@ def apply(args, project, state, receipt_path, task_path, branch_ref):
     requested = {"branch": args.branch, "base": args.base, "reviewed_head": args.reviewed_head,
                  "approval": args.approval, "card_id": args.card_id, "key": args.key, "target_ref": target_ref}
 
-    if receipt_path.exists():
-        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if receipt is not None:
         if any(receipt.get(k) != v for k, v in requested.items()):
             raise IntegrationError("saved integration belongs to different review evidence")
         if is_ancestor(project, receipt["head"], before):
@@ -210,7 +229,8 @@ def apply(args, project, state, receipt_path, task_path, branch_ref):
         commits = git(project, "rev-list", "--reverse", history).splitlines()
         if not commits:
             raise IntegrationError("reviewed task has no commits")
-        receipt = stage(project, state, requested, before, commits, receipt_path)
+        receipt = stage(project, state, {**requested, "approval_line": approval_line},
+                        before, commits, receipt_path)
 
     publish(project, state, receipt, branch_ref)
     return receipt
@@ -295,8 +315,8 @@ def cleanup(args, project, receipt_path, task_path, branch_ref):
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     if receipt["key"] != args.key or receipt["branch"] != args.branch:
         raise IntegrationError("saved integration belongs to a different task branch")
-    card_evidence(args, {"done": True, "merged_commits": receipt["merged_commits"]},
-                  receipt["base"], receipt["reviewed_head"])
+    card_evidence(args, project, {"done": True, "merged_commits": receipt["merged_commits"]},
+                  receipt["base"], receipt["reviewed_head"], receipt)
     integrated_tip(project, receipt)
 
     reviewed = receipt["reviewed_head"]
@@ -440,7 +460,9 @@ def main():
     parser.add_argument("--card-json", type=Path,
                         help="fresh structured get_card output")
     actions = parser.add_subparsers(dest="action", required=True)
-    apply_parser = actions.add_parser("apply")
+    apply_parser = actions.add_parser(
+        "apply", description="Supports six-character approval ranges and legacy full-hash approvals.",
+    )
     apply_parser.add_argument("--base", required=True)
     apply_parser.add_argument("--reviewed-head", required=True)
     actions.add_parser("cleanup")
