@@ -734,8 +734,7 @@ export const ja: Messages = {
     uninstallMcpCursor: '~/.cursor/mcp.json の mcpServers から slate（ワーカー用）または slate-manager（マネージャー用）を削除します。他の項目は残したままファイルを保存し、Cursor を再起動してください。',
     skillOptional:
       'skill は任意です。MCP リソース slate://skills/slate-kanban が skill と全く同じ内容を返し、skill が未インストールのときは見張りプロンプトがエージェントにそれを読ませます。host に自動で読み込ませたいときだけ入れてください。',
-    managerFold: 'マネージャー用 MCP（任意）',
-    managerHint: '列・ルールの編集、タスク一括登録が必要なときだけ入れてください。',
+    managerHint: 'ボードの設定、列、自動化を管理する場合は、現在のセッションでエージェントに明示的に依頼してください。',
     snippets: { worker: 'ワーカー用 MCP', manager: 'マネージャー用 MCP', skill: 'skill のインストール（任意）',
       watch: '常時稼働（ターミナルセッション）', resume: 'セッションの再開', loop: '/loop で待ち受けを確認' },
     copyFailed: 'コピーできませんでした。テキストを選択して手動でコピーしてください。',

@@ -19,23 +19,23 @@ func TestBuildGuideShape(t *testing.T) {
 		ids := make([]string, 0, len(g.Hosts))
 		for _, h := range g.Hosts {
 			ids = append(ids, h.ID)
-			if len(h.MCP) != 2 || len(h.Skill) != 1 {
-				t.Errorf("%s：应有 2 个 MCP 片段和 1 个 skill 片段", h.ID)
+			if len(h.MCP) != 1 || len(h.Skill) != 1 {
+				t.Errorf("%s：应有 1 个 MCP 片段和 1 个 skill 片段", h.ID)
 			}
 			for _, sn := range slices.Concat(h.MCP, h.Skill) {
 				if sn.Kind == "" || sn.Title == "" || sn.Code == "" || (sn.Lang != "sh" && sn.Lang != "json") {
 					t.Errorf("%s：步骤不完整: %+v", h.ID, sn)
 				}
 			}
-			if h.MCP[0].Kind != "worker" || h.MCP[1].Kind != "manager" {
-				t.Errorf("%s：MCP kind 顺序应为 worker、manager", h.ID)
+			if h.MCP[0].Kind != "worker" {
+				t.Errorf("%s：MCP kind 应为 worker", h.ID)
 			}
 			if h.Skill[0].Kind != "skill" {
 				t.Errorf("%s：skill kind 应为 skill", h.ID)
 			}
 			for _, sn := range h.MCP {
-				if strings.Contains(strings.ToLower(sn.Code), "token") || strings.Contains(sn.Code, "Authorization") {
-					t.Errorf("%s：MCP 步骤不应含令牌: %s", h.ID, sn.Code)
+				if strings.Contains(strings.ToLower(sn.Code), "token") || strings.Contains(sn.Code, "Authorization") || strings.Contains(sn.Code, "role=manager") {
+					t.Errorf("%s：默认 MCP 步骤不应含令牌或旧角色参数: %s", h.ID, sn.Code)
 				}
 			}
 		}
@@ -61,7 +61,7 @@ func TestGuideQuotesURLs(t *testing.T) {
 	}
 }
 
-// hostMCP 返回指定 host 的两个 MCP 片段（worker、manager）。
+// hostMCP 返回指定 host 的 MCP 片段。
 func hostMCP(t *testing.T, g Guide, id string) []Snippet {
 	t.Helper()
 	for _, h := range g.Hosts {
@@ -71,20 +71,6 @@ func hostMCP(t *testing.T, g Guide, id string) []Snippet {
 	}
 	t.Fatalf("没有找到 host %s", id)
 	return nil
-}
-
-// TestClaudeCodePasscodeHeaderAfterURL claude 的 --header 可以带多个值，写在地址前面会把地址当成请求头吞掉，
-// 所以启用口令时必须把它放在地址后面。
-func TestClaudeCodePasscodeHeaderAfterURL(t *testing.T) {
-	for _, base := range guideBases {
-		for _, sn := range hostMCP(t, buildGuide(base, true), "claude-code")[1:] {
-			url := strings.Index(sn.Code, "'"+base)
-			header := strings.Index(sn.Code, `--header "Authorization: Bearer `+passcodePlaceholder+`"`)
-			if url < 0 || header < 0 || header < url {
-				t.Errorf("--header 应出现在地址之后: %s", sn.Code)
-			}
-		}
-	}
 }
 
 func TestWorkerLongWatchConfiguration(t *testing.T) {
@@ -112,10 +98,8 @@ func TestWorkerLongWatchConfiguration(t *testing.T) {
 				t.Errorf("Claude 工作视图口令配置错误: %+v", worker)
 			}
 			codex := hostMCP(t, g, "codex")
-			if !strings.Contains(codex[0].Code, "tool_timeout_sec = 3660") ||
-				strings.Contains(codex[1].Code, "tool_timeout_sec") ||
-				strings.Contains(claude[1].Code, "3660000") {
-				t.Error("长等待超时应只写入工作视图")
+			if !strings.Contains(codex[0].Code, "tool_timeout_sec = 3660") {
+				t.Error("Codex 接入应保留长等待超时")
 			}
 		}
 	}
@@ -178,7 +162,7 @@ func TestGuideCursorConfigIsJSON(t *testing.T) {
 		if h.ID != "cursor" {
 			continue
 		}
-		for i, sn := range h.MCP {
+		for _, sn := range h.MCP {
 			var cfg struct {
 				MCPServers map[string]struct {
 					URL     string            `json:"url"`
@@ -189,9 +173,6 @@ func TestGuideCursorConfigIsJSON(t *testing.T) {
 				t.Fatalf("Cursor JSON 无效: %v", err)
 			}
 			name := workerServerName
-			if i == 1 {
-				name = managerServerName
-			}
 			slate, ok := cfg.MCPServers[name]
 			if !ok || slate.URL == "" || len(slate.Headers) != 0 {
 				t.Errorf("Cursor 配置应对 %s 只有 url: %+v", name, cfg)
@@ -243,8 +224,12 @@ func TestWatchGuide(t *testing.T) {
 	if len(cursor.Watch) != 4 || cursor.Watch[3].Code != "/loop 5m "+g.LoopPrompt {
 		t.Errorf("Cursor 应保留 /loop 命令: %+v", cursor.Watch)
 	}
+	markdown := renderMarkdown(g, false)
+	if strings.Contains(markdown, "role=manager") || !strings.Contains(markdown, "在当前会话开启管理工具") {
+		t.Error("安装文档应说明按需开启管理工具")
+	}
 	for _, want := range []string{"--host opencode", "--host pi", "--host on-my-pi", "--command-json"} {
-		if !strings.Contains(renderMarkdown(g, false), want) {
+		if !strings.Contains(markdown, want) {
 			t.Errorf("安装文档缺少 %q", want)
 		}
 	}

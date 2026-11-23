@@ -19,11 +19,10 @@ const KIND_TITLE: Record<string, string> = {
 
 interface Props {
   snippet: Snippet
-  subdued?: boolean
 }
 
 /** 代码块 + 复制按钮 */
-export function SnippetCard({ snippet, subdued }: Props) {
+export function SnippetCard({ snippet }: Props) {
   const { t } = useTranslation()
   const preRef = useRef<HTMLPreElement>(null)
   const titleKey = KIND_TITLE[snippet.kind] as TranslationKey | undefined
@@ -34,7 +33,7 @@ export function SnippetCard({ snippet, subdued }: Props) {
   }
 
   return (
-    <article className={subdued ? 'opacity-90' : undefined}>
+    <article>
       <SnippetHeader title={heading} onCopy={onCopy} t={t} />
       <pre
         ref={preRef}

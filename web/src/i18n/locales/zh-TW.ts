@@ -730,8 +730,7 @@ export const zhTW: Messages = {
     uninstallMcpCursor: '在 ~/.cursor/mcp.json 的 mcpServers 中移除 slate（工作檢視）或 slate-manager（管理檢視）。保留其他項目，儲存檔案並重新啟動 Cursor。',
     skillOptional:
       'Skill 為選用，不裝也可以：MCP 資源 slate://skills/slate-kanban 回傳的內容與 skill 完全相同，沒裝 skill 時守候提示詞會讓 Agent 自己去讀。只有想讓 host 自動載入時才需要安裝。',
-    managerFold: '管理檢視 MCP（選用）',
-    managerHint: '僅在需要改欄／規則或批次輸入任務時再安裝。',
+    managerHint: '需要管理看板設定、欄或自動化時，在目前的對話中明確告訴 agent。',
     snippets: { worker: '工作檢視 MCP', manager: '管理檢視 MCP', skill: 'Skill 安裝（選用）',
       watch: '長期掛著（終端機工作階段）', resume: '恢復工作階段', loop: '用 /loop 檢查監聽' },
     copyFailed: '無法複製，請手動選取文字後複製。',

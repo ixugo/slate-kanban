@@ -5,8 +5,6 @@ import "fmt"
 const (
 	// workerServerName 是各 host 工作视图登记的 MCP 服务名。
 	workerServerName = "slate"
-	// managerServerName 是管理视图登记的 MCP 服务名。
-	managerServerName = "slate-manager"
 	// skillName 是 skill 的名字，也是它在 host 的 skills 目录里的文件夹名。
 	skillName = "slate-kanban"
 	// passcodePlaceholder 是文档里写的口令占位符，绝不填入真实口令。
@@ -16,8 +14,6 @@ const (
 	// 工作视图支持长等待，客户端超时多留一分钟用来完成请求和读取响应。
 	codexWatchTimeoutSeconds = 3660
 	claudeWatchTimeoutMillis = codexWatchTimeoutSeconds * 1000
-	// claudeAuthHeader 是启用口令时追加在管理视图 claude mcp add 命令末尾的请求头参数。
-	claudeAuthHeader = ` --header "Authorization: Bearer ` + passcodePlaceholder + `"`
 	// cursorConfig 是 Cursor 的 mcp.json 片段：只需 url，不带令牌。
 	cursorConfig = `{
   "mcpServers": {
@@ -88,11 +84,8 @@ func buildGuide(base string, passcodeRequired bool) Guide {
 	return g
 }
 
-// mcpURL 拼工作视图或管理视图的 MCP 地址；每个 host 用不同的默认 name。
-func mcpURL(base, agentName string, manager bool) string {
-	if manager {
-		return fmt.Sprintf("%s/mcp?name=%s-manager&role=manager", base, agentName)
-	}
+// mcpURL 用各宿主的默认名称拼接 MCP 地址。
+func mcpURL(base, agentName string) string {
 	return fmt.Sprintf("%s/mcp?name=%s", base, agentName)
 }
 
@@ -106,15 +99,11 @@ func passcodeTitleSuffix(passcodeRequired bool) string {
 
 // claudeCodeHost 是 Claude Code 的接入步骤。
 func claudeCodeHost(g Guide, passcodeRequired bool) Host {
-	worker := mcpURL(g.BaseURL, "claude-code", false)
-	manager := mcpURL(g.BaseURL, "claude-code", true)
+	worker := mcpURL(g.BaseURL, "claude-code")
 	suffix := passcodeTitleSuffix(passcodeRequired)
 	var workerHeaders string
-	managerCode := fmt.Sprintf("claude mcp add --transport http --scope user %s '%s'", managerServerName, manager)
 	if passcodeRequired {
-		// --header 可以带多个值，写在地址前面会把地址也当成请求头，所以放在最后
 		workerHeaders = `,"headers":{"Authorization":"Bearer ` + passcodePlaceholder + `"}`
-		managerCode += claudeAuthHeader
 	}
 	workerConfig := fmt.Sprintf(`{"type":"http","url":%q,"timeout":%d%s}`, worker, claudeWatchTimeoutMillis, workerHeaders)
 	return Host{
@@ -123,15 +112,9 @@ func claudeCodeHost(g Guide, passcodeRequired bool) Host {
 		MCP: []Snippet{
 			{
 				Kind:  "worker",
-				Title: "添加工作视图 MCP（含长等待超时。已登记的用户可重装这一项）" + suffix,
+				Title: "添加 Slate MCP（含长等待超时。已登记的用户可重装这一项）" + suffix,
 				Lang:  "sh",
 				Code:  fmt.Sprintf("claude mcp add-json --scope user %s '%s'", workerServerName, workerConfig),
-			},
-			{
-				Kind:  "manager",
-				Title: "添加管理视图 MCP（改列、改规则、批量录任务时再用）" + suffix,
-				Lang:  "sh",
-				Code:  managerCode,
 			},
 		},
 		Skill: skillSnippets("~/.claude/skills", g),
@@ -141,8 +124,7 @@ func claudeCodeHost(g Guide, passcodeRequired bool) Host {
 
 // cursorHost 是 Cursor 的接入步骤。
 func cursorHost(g Guide, passcodeRequired bool) Host {
-	worker := mcpURL(g.BaseURL, "cursor", false)
-	manager := mcpURL(g.BaseURL, "cursor", true)
+	worker := mcpURL(g.BaseURL, "cursor")
 	suffix := passcodeTitleSuffix(passcodeRequired)
 	tmpl := cursorConfig
 	if passcodeRequired {
@@ -154,15 +136,9 @@ func cursorHost(g Guide, passcodeRequired bool) Host {
 		MCP: []Snippet{
 			{
 				Kind:  "worker",
-				Title: "合并进 ~/.cursor/mcp.json（工作视图）" + suffix,
+				Title: "合并进 ~/.cursor/mcp.json" + suffix,
 				Lang:  "json",
 				Code:  fmt.Sprintf(tmpl, workerServerName, worker),
-			},
-			{
-				Kind:  "manager",
-				Title: "合并进 ~/.cursor/mcp.json（管理视图，服务名 slate-manager）" + suffix,
-				Lang:  "json",
-				Code:  fmt.Sprintf(tmpl, managerServerName, manager),
 			},
 		},
 		Skill: skillSnippets("~/.cursor/skills", g),
@@ -179,14 +155,11 @@ func codexWithPasscode(addCmd string) string {
 
 // codexHost 是 Codex 的接入步骤。
 func codexHost(g Guide, passcodeRequired bool) Host {
-	worker := mcpURL(g.BaseURL, "codex", false)
-	manager := mcpURL(g.BaseURL, "codex", true)
+	worker := mcpURL(g.BaseURL, "codex")
 	suffix := passcodeTitleSuffix(passcodeRequired)
 	workerCode := fmt.Sprintf("codex mcp add %s --url '%s'", workerServerName, worker)
-	managerCode := fmt.Sprintf("codex mcp add %s --url '%s'", managerServerName, manager)
 	if passcodeRequired {
 		workerCode = codexWithPasscode(workerCode)
-		managerCode = codexWithPasscode(managerCode)
 	}
 	workerCode += fmt.Sprintf("\n# 在 ~/.codex/config.toml 已有的 [mcp_servers.%s] 段内添加或更新：\n# tool_timeout_sec = %d",
 		workerServerName, codexWatchTimeoutSeconds)
@@ -196,15 +169,9 @@ func codexHost(g Guide, passcodeRequired bool) Host {
 		MCP: []Snippet{
 			{
 				Kind:  "worker",
-				Title: "添加工作视图 MCP" + suffix,
+				Title: "添加 Slate MCP" + suffix,
 				Lang:  "sh",
 				Code:  workerCode,
-			},
-			{
-				Kind:  "manager",
-				Title: "添加管理视图 MCP（服务名 slate-manager）" + suffix,
-				Lang:  "sh",
-				Code:  managerCode,
 			},
 		},
 		Skill: skillSnippets("~/.codex/skills", g),

@@ -734,8 +734,7 @@ export const ko: Messages = {
     uninstallMcpCursor: '~/.cursor/mcp.json의 mcpServers에서 slate(워커용) 또는 slate-manager(관리자용)를 제거하세요. 다른 항목은 유지하고 파일을 저장한 뒤 Cursor를 다시 시작하세요.',
     skillOptional:
       'skill은 선택 사항입니다. MCP 리소스 slate://skills/slate-kanban이 skill과 완전히 같은 내용을 반환하며, skill이 없으면 감시 프롬프트가 에이전트에게 그것을 읽게 합니다. host가 자동으로 불러오게 하려는 경우에만 설치하세요.',
-    managerFold: '관리자용 MCP(선택)',
-    managerHint: '열·규칙 편집, 작업 일괄 등록이 필요할 때만 설치하세요.',
+    managerHint: '보드 설정, 열 또는 자동화를 관리하려면 현재 세션에서 에이전트에게 명시적으로 요청하세요.',
     snippets: { worker: '워커용 MCP', manager: '관리자용 MCP', skill: 'skill 설치(선택)',
       watch: '상시 실행(터미널 세션)', resume: '세션 재개', loop: '/loop로 대기 상태 확인' },
     copyFailed: '복사하지 못했습니다. 텍스트를 선택해 수동으로 복사하세요.',

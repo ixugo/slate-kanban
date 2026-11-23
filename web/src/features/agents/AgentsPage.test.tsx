@@ -73,6 +73,8 @@ describe('AgentsPage', () => {
     expect(screen.getByText(en.agents.snippets.worker)).toBeInTheDocument()
     expect(screen.getByText('cursor mcp --name=test')).toBeInTheDocument()
     expect(screen.getByText(en.agents.snippets.skill)).toBeInTheDocument()
+    expect(screen.getByText(en.agents.managerHint)).toBeInTheDocument()
+    expect(screen.queryByText('cursor mcp --role=manager')).not.toBeInTheDocument()
   })
 
   it('先讲清持续监听的原理，skill 标明可选，命令片段收在手动安装折叠里', async () => {

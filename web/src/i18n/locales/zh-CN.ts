@@ -729,8 +729,7 @@ export const zhCN: Messages = {
     uninstallMcpCursor: '在 ~/.cursor/mcp.json 的 mcpServers 中移除 slate（工作视图）或 slate-manager（管理视图）。保留其他条目，保存文件并重启 Cursor。',
     skillOptional:
       'Skill 可选，不装也行：MCP 资源 slate://skills/slate-kanban 返回的内容与 skill 完全相同，没装 skill 时守候提示词会让 agent 自己去读它。只有想让 host 自动加载时才需要装。',
-    managerFold: '管理视图 MCP（可选）',
-    managerHint: '只在需要改列/规则或批量录入任务时再装。',
+    managerHint: '需要管理看板设置、列或自动化时，在当前会话明确告诉 agent。',
     snippets: { worker: '工作视图 MCP', manager: '管理视图 MCP', skill: 'Skill 安装（可选）',
       watch: '长期挂着（终端会话）', resume: '恢复会话', loop: '用 /loop 检查监听' },
     copyFailed: '复制失败，请手动选中并复制。',

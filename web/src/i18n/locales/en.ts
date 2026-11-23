@@ -733,8 +733,7 @@ export const en = {
     uninstallMcpCursor: 'In ~/.cursor/mcp.json, remove slate (worker) or slate-manager (manager) from mcpServers. Keep the other entries, save the file, and restart Cursor.',
     skillOptional:
       'The skill is optional. The MCP resource slate://skills/slate-kanban returns exactly the same text, and the watch prompt tells the agent to read it when the skill is not installed. Install the skill only if you want the host to load it automatically.',
-    managerFold: 'Manager MCP (optional)',
-    managerHint: 'Install only when the agent must edit columns/rules, or bulk-import tasks.',
+    managerHint: 'To manage board settings, columns, or automation, explicitly ask your agent in the current session.',
     snippets: { worker: 'Worker MCP', manager: 'Manager MCP', skill: 'Skill install (optional)',
       watch: 'Keep running (terminal session)', resume: 'Resume the session', loop: 'Check the listening with /loop' },
     copyFailed: 'Could not copy. Select the text and copy manually.',

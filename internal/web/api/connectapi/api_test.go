@@ -128,7 +128,7 @@ func TestConnectJSON(t *testing.T) {
 	if strings.Contains(strings.ToLower(rec.Body.String()), "token") {
 		t.Error("connect 响应不应含 token")
 	}
-	if len(out.Hosts) != 3 || out.Hosts[0].ID != "claude-code" || len(out.Hosts[0].MCP) != 2 || out.Hosts[0].Skill[0].Code == "" {
+	if len(out.Hosts) != 3 || out.Hosts[0].ID != "claude-code" || len(out.Hosts[0].MCP) != 1 || out.Hosts[0].Skill[0].Code == "" {
 		t.Errorf("host 列表不对: %+v", out.Hosts)
 	}
 }

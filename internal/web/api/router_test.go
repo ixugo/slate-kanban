@@ -222,11 +222,13 @@ func TestConnectNoTokenString(t *testing.T) {
 	if err := json.Unmarshal(resp.Body, &g); err != nil {
 		t.Fatal(err)
 	}
-	if len(g.Hosts) < 1 || len(g.Hosts[0].MCP) < 2 {
-		t.Fatalf("每个 host 应有 worker 和 manager 片段: %s", resp.Body)
+	if len(g.Hosts) == 0 {
+		t.Fatalf("应返回各个 host 的接入片段: %s", resp.Body)
 	}
-	if g.Hosts[0].MCP[0].Kind != "worker" || g.Hosts[0].MCP[1].Kind != "manager" {
-		t.Errorf("片段 kind 不对: %+v", g.Hosts[0].MCP)
+	for _, host := range g.Hosts {
+		if len(host.MCP) != 1 || host.MCP[0].Kind != "worker" {
+			t.Errorf("每个 host 应只有一个 MCP 接入片段: %+v", host.MCP)
+		}
 	}
 }
 
