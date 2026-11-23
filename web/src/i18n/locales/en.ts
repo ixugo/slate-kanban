@@ -701,6 +701,7 @@ export const en = {
     now: 'Update now',
     updating: 'Updating…',
     done: 'Updated to {{version}}. Restart Slate, then refresh the page.',
+    installerOpened: 'Opened the {{version}} installer. Quit Slate and drag the new app to Applications.',
     restarting: 'Updated to {{version}}. Restarting Slate; the page will refresh automatically…',
     download: 'Download',
   },

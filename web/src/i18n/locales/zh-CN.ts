@@ -698,6 +698,7 @@ export const zhCN: Messages = {
     now: '立即更新',
     updating: '更新中…',
     done: '已更新到 {{version}}。请重启 Slate，再刷新页面。',
+    installerOpened: '已打开 {{version}} 安装包。请退出 Slate，将新版应用拖入「应用程序」。',
     restarting: '已更新到 {{version}}，正在重启 Slate，页面会自动刷新…',
     download: '去下载',
   },

@@ -43,7 +43,7 @@ type release struct {
 // packagesReady 判断当前平台的包和校验文件是否都已上传：发布工作流先建 release、后传包，
 // 以包真实存在为准，比按时间猜更准，包一传完就能提示和更新，不用多等。
 func (u *updater) packagesReady(rel *release) bool {
-	return u.assetURL(rel, u.archiveName(rel.Tag)) != "" && u.assetURL(rel, checksumsName) != ""
+	return u.assetURL(rel, u.archiveName(rel.Tag)) != "" && u.assetURL(rel, u.checksumAsset()) != ""
 }
 
 // parseVersion 把 v1.2.3 或 1.2.3 解析成三段数字；后面带的预发布或构建信息（-rc1、+abc）直接忽略。
@@ -203,7 +203,7 @@ func releaseNotes(content string) string {
 
 // fillAssets 探测当前平台的安装包和校验文件是否已经上传：发请求问下载地址，200 才算存在。
 func (u *updater) fillAssets(ctx context.Context, rel *release) error {
-	for _, name := range []string{u.archiveName(rel.Tag), checksumsName} {
+	for _, name := range []string{u.archiveName(rel.Tag), u.checksumAsset()} {
 		url := u.opt.DownloadPrefix + rel.Tag + "/" + name
 		ok, err := u.exists(ctx, url)
 		if err != nil {

@@ -702,6 +702,7 @@ export const ko: Messages = {
     now: '지금 업데이트',
     updating: '업데이트 중…',
     done: '{{version}}(으)로 업데이트했습니다. Slate를 다시 시작한 뒤 페이지를 새로고침하세요.',
+    installerOpened: '{{version}} 설치 프로그램을 열었습니다. Slate를 종료하고 새 앱을 응용 프로그램 폴더로 드래그하세요.',
     restarting: '{{version}}(으)로 업데이트했습니다. Slate를 다시 시작하는 중이며 페이지가 자동으로 새로고침됩니다…',
     download: '다운로드',
   },

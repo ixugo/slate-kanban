@@ -26,21 +26,39 @@ const (
 	checksumsName = "checksums.txt"
 )
 
-// archiveName 返回当前平台的包名，规则和发布工作流一致：slate_<tag>_<系统>_<架构>，windows 为 .zip，其余为 .tar.gz。
+// archiveName 返回与发布工作流一致的当前平台包名。
 func (u *updater) archiveName(tag string) string {
 	ext := "tar.gz"
-	if u.opt.GOOS == "windows" {
+	switch {
+	case u.opt.GOOS == "windows":
 		ext = "zip"
+	case u.opt.Desktop && u.opt.GOOS == "darwin":
+		ext = "dmg"
 	}
-	return fmt.Sprintf("slate_%s_%s_%s.%s", tag, u.opt.GOOS, u.opt.GOARCH, ext)
+	return fmt.Sprintf("%s_%s_%s_%s.%s", u.packageName(), tag, u.opt.GOOS, u.opt.GOARCH, ext)
+}
+
+func (u *updater) packageName() string {
+	if u.opt.Desktop {
+		return "slate_desktop"
+	}
+	return "slate"
+}
+
+func (u *updater) checksumAsset() string {
+	if u.opt.Desktop {
+		return "desktop-checksums.txt"
+	}
+	return checksumsName
 }
 
 // binaryName 是包里可执行文件的名字。
 func (u *updater) binaryName() string {
+	name := u.packageName()
 	if u.opt.GOOS == "windows" {
-		return "slate.exe"
+		name += ".exe"
 	}
-	return "slate"
+	return name
 }
 
 // assetURL 按文件名在 release 里找已确认存在的下载地址，没有就返回空串。
@@ -55,6 +73,9 @@ func (u *updater) assetURL(rel *release, name string) string {
 
 // canApply 判断能不能自动更新：不在容器里，并且 release 里有当前平台的包和校验文件。
 func (u *updater) canApply(rel *release) bool {
+	if u.opt.Desktop && u.opt.GOOS == "darwin" && u.opt.OpenInstaller == nil {
+		return false
+	}
 	return !u.opt.Container && u.packagesReady(rel)
 }
 
@@ -76,6 +97,12 @@ func (u *updater) apply(ctx context.Context) (*Applied, error) {
 	}
 	if !u.canApply(rel) {
 		return nil, reason.ErrBadRequest.WithMsg("当前环境不支持自动更新，请到 release 页面手动下载")
+	}
+	if u.opt.Desktop && u.opt.GOOS == "darwin" {
+		if err := u.openDiskImage(ctx, rel); err != nil {
+			return nil, reason.ErrServer.WithMsg("打开安装包失败：" + err.Error())
+		}
+		return &Applied{Version: rel.Tag, InstallerOpened: true}, nil
 	}
 	exe, err := u.install(ctx, rel)
 	if err != nil {
@@ -99,19 +126,11 @@ func (u *updater) install(ctx context.Context, rel *release) (string, error) {
 // replaceWith 把 release 里当前平台的包下载、校验、解压后替换到 exe 位置。
 func (u *updater) replaceWith(ctx context.Context, rel *release, exe string) error {
 	dir := filepath.Dir(exe)
-	name := u.archiveName(rel.Tag)
-	archive, sum, err := u.download(ctx, u.assetURL(rel, name), dir)
+	archive, err := u.downloadVerified(ctx, rel, dir)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(archive)
-	sums, err := u.fetchSmall(ctx, u.assetURL(rel, checksumsName))
-	if err != nil {
-		return err
-	}
-	if want, ok := checksumFor(sums, name); !ok || !strings.EqualFold(want, sum) {
-		return errors.New("包的 sha256 和 checksums.txt 对不上，已放弃更新")
-	}
 	fresh, err := extractBinary(archive, u.binaryName(), dir)
 	if err != nil {
 		return err
@@ -120,6 +139,42 @@ func (u *updater) replaceWith(ctx context.Context, rel *release, exe string) err
 		return errors.Join(err, os.Remove(fresh))
 	}
 	return nil
+}
+
+// openDiskImage 将通过校验的更新包交给 macOS 打开，由用户在 Finder 安装新应用。
+func (u *updater) openDiskImage(ctx context.Context, rel *release) error {
+	dir := u.opt.DesktopUpdateDir
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	archive, err := u.downloadVerified(ctx, rel, dir)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(archive)
+	image := filepath.Join(dir, "Slate-Update.dmg")
+	if err := os.Rename(archive, image); err != nil {
+		return err
+	}
+	return u.opt.OpenInstaller(ctx, image)
+}
+
+func (u *updater) downloadVerified(ctx context.Context, rel *release, dir string) (string, error) {
+	name := u.archiveName(rel.Tag)
+	archive, sum, err := u.download(ctx, u.assetURL(rel, name), dir)
+	if err != nil {
+		return "", err
+	}
+	sums, err := u.fetchSmall(ctx, u.assetURL(rel, u.checksumAsset()))
+	if err == nil {
+		if want, ok := checksumFor(sums, name); !ok || !strings.EqualFold(want, sum) {
+			err = fmt.Errorf("%s 的 sha256 与 %s 不一致", name, u.checksumAsset())
+		}
+	}
+	if err != nil {
+		return "", errors.Join(err, os.Remove(archive))
+	}
+	return archive, nil
 }
 
 // exePath 返回要替换的程序路径，跟着符号链接走到真实文件。
