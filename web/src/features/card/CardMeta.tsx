@@ -14,6 +14,7 @@ import type { CardReferenceRenderer } from '@/lib/markdown'
 import { CARD_BRANCH_MAX, CARD_URL_MAX } from '@/lib/limits'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import { CardCleanup } from './CardCleanup'
 import { CardMergeBadge } from './CardMergeBadge'
 import { DatesChip, DatesSection } from './CardDates'
 import { hasDates } from './datesDraft'
@@ -284,6 +285,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch, renderCardRefer
       {hasTags && <TagsSection tagIds={tagIds} onTriggerClick={freezeAnchor} />}
       {hasDates(card) && <DatesSection card={card} onPatch={onPatch} />}
       {hasDependencies && dependencies}
+      <CardCleanup card={card} />
       {anchorRect && <PopoverAnchor virtualRef={anchorRef} />}
       {/* 标签选择器：编辑页（30 色色板）比较高，高度不超过窗口剩余空间，放不下时弹层内部滚动，保存按钮始终够得着 */}
       <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-72 overflow-y-auto">

@@ -3,11 +3,14 @@
 
 import argparse
 import contextlib
+import ctypes
+import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -99,6 +102,10 @@ def require_clean(path, include_ignored=False):
         args.append("--ignored=matching")
     if git(path, *args):
         raise IntegrationError(f"worktree has changes: {path}")
+    require_idle_git(path)
+
+
+def require_idle_git(path):
     operations = ("CHERRY_PICK_HEAD", "MERGE_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply", "sequencer", "BISECT_START")
     if any(Path(git(path, "rev-parse", "--path-format=absolute", "--git-path", name)).exists() for name in operations):
         raise IntegrationError(f"a Git operation is in progress: {path}")
@@ -312,11 +319,7 @@ def stage(project, state, requested, before, commits, receipt_path):
 def cleanup(args, project, receipt_path, task_path, branch_ref):
     if not receipt_path.exists():
         raise IntegrationError("saved integration for the approved review is missing")
-    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    if receipt["key"] != args.key or receipt["branch"] != args.branch:
-        raise IntegrationError("saved integration belongs to a different task branch")
-    card_evidence(args, project, {"done": True, "merged_commits": receipt["merged_commits"]},
-                  receipt["base"], receipt["reviewed_head"], receipt)
+    receipt = cleanup_receipt(args, project, receipt_path)
     integrated_tip(project, receipt)
 
     reviewed = receipt["reviewed_head"]
@@ -352,6 +355,7 @@ def cleanup(args, project, receipt_path, task_path, branch_ref):
                    f"delete {receipt['staged_ref']} {receipt['head']}")
         with prepared_ref_update(project, receipt_path.parent, command):
             pass
+    receipt.pop("cleanup_error", None)
     write_receipt(receipt_path, {**receipt, "cleaned": True})
     return {"cleaned": True, "branch": args.branch}
 
@@ -417,6 +421,338 @@ def prepare_worktree_removal(project, receipt, state, task_path, branch_ref, sou
         git(project, "worktree", "unlock", str(task_path))
 
 
+def cleanup_receipt(args, project, path):
+    receipt = json.loads(path.read_text(encoding="utf-8"))
+    if any(receipt[key] != getattr(args, key) for key in ("card_id", "approval", "key", "branch")):
+        raise IntegrationError("saved integration belongs to a different task")
+    card_evidence(args, project, {"done": True, "merged_commits": receipt["merged_commits"]},
+                  receipt["base"], receipt["reviewed_head"], receipt)
+    return receipt
+
+
+def archive_destination(project, args):
+    return project.with_name(f"{project.name}-slate-recovery") / f"{args.key.lower()}-{args.approval}"
+
+
+def path_identity(path):
+    info = path.lstat()
+    return [info.st_dev, info.st_ino]
+
+
+def local_snapshot(task):
+    result = git(task, "status", "--porcelain=v1", "-z", "--untracked-files=all",
+                 "--ignored=matching", "--ignore-submodules=none", "--no-renames", raw=True)
+    snapshot = {}
+
+    def fingerprint(info):
+        return [info.st_mode, info.st_dev, info.st_ino, info.st_mtime_ns,
+                info.st_ctime_ns, info.st_size]
+
+    def visit(relative):
+        name = relative.as_posix()
+        if name in snapshot:
+            return
+        path = task / relative
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            snapshot[name] = []
+            return
+
+        record = fingerprint(info)
+        snapshot[name] = record
+        if stat.S_ISLNK(info.st_mode):
+            record.append(os.readlink(path))
+        elif stat.S_ISREG(info.st_mode):
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+            with os.fdopen(os.open(path, flags), "rb") as file:
+                if fingerprint(os.fstat(file.fileno())) != record:
+                    raise IntegrationError("a local file changed while preparing the preview")
+                content = hashlib.sha256()
+                for chunk in iter(lambda: file.read(1024 * 1024), b""):
+                    content.update(chunk)
+                record.append(content.hexdigest())
+        elif stat.S_ISDIR(info.st_mode) and not getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+            with os.scandir(path) as children:
+                names = sorted(child.name for child in children)
+            for child in names:
+                visit(relative / child)
+        if fingerprint(path.lstat()) != record[:6]:
+            raise IntegrationError("a local file changed while preparing the preview")
+
+    for item in result.split(b"\0"):
+        if item:
+            visit(Path(os.fsdecode(item[3:]).rstrip("/")))
+    return snapshot
+
+
+def archive_preview(project, task, branch_ref, destination, receipt, index):
+    source = cleanup_worktree(project, branch_ref, task)
+    if (source is None or source.get("branch") != branch_ref or "locked" in source
+            or source["HEAD"] != receipt["reviewed_head"]):
+        raise IntegrationError("task worktree is locked or has changed since review")
+    require_idle_git(task)
+    require_visible_index_entries(task)
+    snapshot = local_snapshot(task)
+    if not snapshot:
+        raise IntegrationError("no local files to archive")
+
+    identity = worktree_identity(task)
+    token = hashlib.sha256(json.dumps(
+        [str(destination), identity, receipt["reviewed_head"], snapshot,
+         hashlib.sha256(index.read_bytes()).hexdigest()],
+    ).encode()).hexdigest()
+    return {"status": "blocked", "files": list(snapshot), "destination": str(destination), "preview_token": token}
+
+
+def check_private_directory(path):
+    if path.is_symlink() or not path.is_dir():
+        raise IntegrationError(f"recovery path is not a private directory: {path}")
+    if os.name != "nt":
+        info = path.stat()
+        if info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise IntegrationError(f"recovery path must be private to the current user: {path}")
+
+
+def path_present(path):
+    return path.exists() or path.is_symlink()
+
+
+def rename_without_replacement(source, destination):
+    # POSIX rename can replace an empty directory. A directory created by
+    # another process between validation and publication must survive.
+    if os.name == "nt":
+        source.rename(destination)
+        return
+    libc = ctypes.CDLL(None, use_errno=True)
+    old, new = os.fsencode(source), os.fsencode(destination)
+    try:
+        if sys.platform == "darwin":
+            result = libc.renamex_np(old, new, 0x00000004)  # RENAME_EXCL
+        elif sys.platform.startswith("linux"):
+            result = libc.renameat2(-100, old, -100, new, 1)  # AT_FDCWD, RENAME_NOREPLACE
+        else:
+            raise IntegrationError("exclusive directory moves are unavailable on this system")
+    except AttributeError as error:
+        raise IntegrationError("exclusive directory moves are unavailable on this system") from error
+    if result:
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(destination))
+
+
+def recovery_destination(project, args, journal):
+    base = archive_destination(project, args)
+    if journal is None:
+        return base
+    destination = Path(journal["destination"])
+    if (destination.parent != base.parent
+            or not re.fullmatch(re.escape(base.name) + r"(?:-[1-9][0-9]*)?", destination.name)):
+        raise IntegrationError("saved recovery destination does not belong to this approval")
+    return destination
+
+
+def preview_local_archive(project, task, branch_ref, args, receipt, index):
+    journal = receipt.get("cleanup_archive")
+    destination = recovery_destination(project, args, journal)
+    preview = archive_preview(project, task, branch_ref, destination, receipt, index)
+    if journal and preview["preview_token"] != journal["preview_token"]:
+        # A newer confirmation can use a new path. Keep the previous
+        # preparation and any files the user may have added there.
+        base = archive_destination(project, args)
+        revision = 2
+        while True:
+            destination = base.with_name(f"{base.name}-{revision}")
+            if str(destination) != journal["destination"] and not path_present(destination):
+                break
+            revision += 1
+        preview = archive_preview(project, task, branch_ref, destination, receipt, index)
+    return preview
+
+
+def prepare_archive(project, destination, task, index, receipt, receipt_path, branch_ref, preview):
+    destination.parent.mkdir(mode=0o700, exist_ok=True)
+    check_private_directory(destination.parent)
+    if path_present(destination):
+        raise IntegrationError(f"recovery path is already occupied: {destination}")
+    setup = Path(tempfile.mkdtemp(prefix=".slate-clean-", dir=destination.parent))
+    setup_identity = path_identity(setup)
+    saved = False
+    try:
+        replacement = setup / "replacement"
+        replacement.mkdir()
+        clean_index = setup / "clean-index"
+        git(project, "read-tree", receipt["reviewed_head"], index=clean_index)
+        git(project, "checkout-index", "--all", f"--prefix={replacement}{os.sep}", index=clean_index)
+        shutil.copyfile(task / ".git", replacement / ".git")
+        (setup / "staged.patch").write_bytes(git(task, "diff", "--cached", "--binary", "--no-ext-diff", raw=True))
+        (setup / "unstaged.patch").write_bytes(git(task, "diff", "--binary", "--no-ext-diff", raw=True))
+        shutil.copyfile(index, setup / "original-index")
+        if archive_preview(project, task, branch_ref, destination, receipt, index) != preview:
+            raise IntegrationError("archive confirmation is stale; review the current files")
+        journal = {**preview, "source": path_identity(task), "replacement": path_identity(replacement),
+                   "worktree": worktree_identity(task), "prepared": setup.name,
+                   "prepared_identity": setup_identity}
+        receipt["cleanup_archive"] = journal
+        write_receipt(receipt_path, receipt)
+        saved = True
+        return journal
+    finally:
+        if not saved and path_present(setup) and path_identity(setup) == setup_identity:
+            shutil.rmtree(setup)
+
+
+def publish_archive(destination, journal):
+    check_private_directory(destination.parent)
+    if "prepared" not in journal:
+        check_private_directory(destination)  # Resume a receipt from the original archive format.
+        return
+    name = journal["prepared"]
+    if not re.fullmatch(r"\.slate-clean-[a-z0-9_]+", name):
+        raise IntegrationError("invalid recovery preparation name")
+    if not path_present(destination):
+        setup = destination.parent / name
+        check_private_directory(setup)
+        if path_identity(setup) != journal["prepared_identity"]:
+            raise IntegrationError("prepared recovery directory identity has changed")
+        rename_without_replacement(setup, destination)
+    check_private_directory(destination)
+    if path_identity(destination) != journal["prepared_identity"]:
+        raise IntegrationError(f"recovery path is already occupied: {destination}")
+
+
+def archive_paths(project, destination, task, index, receipt, branch_ref, journal):
+    files = destination / "files"
+    replacement = destination / "replacement"
+    if not path_present(files):
+        if path_identity(task) != journal["source"] or worktree_identity(task) != journal["worktree"]:
+            raise IntegrationError("original worktree has changed since confirmation")
+        if archive_preview(project, task, branch_ref, destination, receipt, index)["preview_token"] != journal["preview_token"]:
+            raise IntegrationError("archive confirmation is stale; review the current files")
+        rename_without_replacement(task, files)
+    if files.is_symlink() or path_identity(files) != journal["source"]:
+        raise IntegrationError("archived worktree identity has changed")
+    if not task.exists():
+        if replacement.is_symlink() or path_identity(replacement) != journal["replacement"]:
+            raise IntegrationError("replacement worktree identity has changed")
+        rename_without_replacement(replacement, task)
+    if task.is_symlink() or path_identity(task) != journal["replacement"]:
+        raise IntegrationError("task worktree path has been occupied during recovery")
+    if worktree_identity(task) != journal["worktree"]:
+        raise IntegrationError("task worktree registration has changed")
+    (files / ".git").unlink(missing_ok=True)
+    # Replace the index under the original worktree's Git index lock.
+    backup_index = destination / "clean-index"
+    if backup_index.exists():
+        with tempfile.NamedTemporaryFile(dir=index.parent, delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(backup_index.read_bytes())
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            temporary.replace(index)
+            backup_index.unlink()
+        finally:
+            temporary.unlink(missing_ok=True)
+    require_clean(task, include_ignored=True)
+
+
+def cleanup_status(receipt):
+    journal = receipt.get("cleanup_archive")
+    result = {"status": "cleaned" if receipt.get("cleaned") else "blocked", "reason": receipt.get("cleanup_error", "")}
+    if journal:
+        result.update(destination=journal["destination"], files=journal["files"],
+                      preview_token=journal["preview_token"])
+    if not receipt.get("cleaned") and not result["reason"]:
+        result["status"] = "pending"
+    return result
+
+
+def cleanup_local(args, project, state, task, branch_ref):
+    card = json.loads(args.card_json.read_text(encoding="utf-8"))
+    candidates = []
+    for path in sorted(state.glob(f"{args.card_id}-*.json")):
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        if receipt["branch"] == args.branch and receipt["merged_commits"] == card.get("merged_commits"):
+            candidates.append(path)
+    if not candidates:
+        return {"status": "unknown"}
+    if len(candidates) != 1:
+        raise IntegrationError("multiple local receipts match this merge")
+    receipt_path = candidates[0]
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if args.approval is not None and args.approval != receipt["approval"]:
+        raise IntegrationError("saved integration belongs to a different approval")
+    args.approval = receipt["approval"]
+    receipt = cleanup_receipt(args, project, receipt_path)
+    action = args.action
+    if receipt.get("cleaned"):
+        return cleanup_status(receipt)
+    if action == "cleanup-status":
+        result = cleanup_status(receipt)
+        if result["status"] == "pending":
+            try:
+                source = cleanup_worktree(project, branch_ref, task)
+                if source is not None:
+                    if "locked" in source:
+                        raise IntegrationError("task worktree is locked")
+                    index_path = Path(git(task, "rev-parse", "--path-format=absolute", "--git-path", "index"))
+                    if index_path.with_name(index_path.name + ".lock").exists():
+                        raise IntegrationError(f"another Git operation holds the index: {task}")
+                    require_visible_index_entries(task)
+                    require_clean(task, include_ignored=True)
+            except (IntegrationError, OSError) as error:
+                result = {"status": "blocked", "reason": str(error)}
+        return result
+    try:
+        journal = receipt.get("cleanup_archive")
+        destination = recovery_destination(project, args, journal)
+        files = destination / "files"
+        archive_started = bool(journal and path_present(files))
+        if archive_started and (files.is_symlink() or path_identity(files) != journal["source"]):
+            raise IntegrationError("archived worktree identity has changed")
+        integrated_tip(project, receipt)
+        if action == "cleanup-retry":
+            cleanup(args, project, receipt_path, task, branch_ref)
+            return cleanup_status(json.loads(receipt_path.read_text(encoding="utf-8")))
+        if action == "cleanup-preview" and archive_started:
+            publish_archive(destination, journal)
+            return {key: journal[key] for key in ("status", "files", "destination", "preview_token")}
+        if not archive_started:
+            with lock_index(task) as index:
+                preview = preview_local_archive(project, task, branch_ref, args, receipt, index)
+                if action == "cleanup-preview":
+                    return preview
+                if preview["preview_token"] != args.preview_token:
+                    raise IntegrationError("archive confirmation is stale; review the current files")
+                destination = Path(preview["destination"])
+                if not journal or journal["preview_token"] != args.preview_token:
+                    journal = prepare_archive(project, destination, task, index, receipt, receipt_path,
+                                              branch_ref, preview)
+        elif journal["preview_token"] != args.preview_token:
+            raise IntegrationError("archive confirmation does not match the recorded preview")
+        # Publishing the prepared directory does not touch the checkout. No
+        # index lock is needed here, so process exit cannot strand a lock.
+        publish_archive(destination, journal)
+        if not archive_started or not task.exists() or (destination / "clean-index").exists():
+            lock_target = task if task.exists() else destination / "files"
+            with lock_index(lock_target) as index:
+                integrated_tip(project, receipt)
+                archive_paths(project, destination, task, index, receipt, branch_ref, journal)
+        cleanup(args, project, receipt_path, task, branch_ref)
+        return cleanup_status(json.loads(receipt_path.read_text(encoding="utf-8")))
+    except (IntegrationError, OSError) as error:
+        record_cleanup_error(receipt_path, error)
+        raise
+
+
+def record_cleanup_error(path, error):
+    if path.exists():
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        if not receipt.get("cleaned"):
+            receipt["cleanup_error"] = str(error)
+            write_receipt(path, receipt)
+
+
 def run(args):
     project = args.project.resolve(strict=True)
     main = Path(worktrees(project)[0]["worktree"]).resolve()
@@ -426,23 +762,36 @@ def run(args):
     if args.action == "pending":
         receipts = (json.loads(path.read_text(encoding="utf-8")) for path in sorted(state.glob("*.json")))
         return [receipt for receipt in receipts if not receipt.get("cleaned")]
-    if not all((args.card_id, args.approval, args.key, args.branch, args.card_json)):
+    local_action = args.action.startswith("cleanup-")
+    if not all((args.card_id, args.key, args.branch, args.card_json)) or (not local_action and not args.approval):
         raise IntegrationError("card ID, key, branch, approval and card JSON are required")
     if not re.fullmatch(r"[A-Z][A-Z0-9]+-[1-9][0-9]*", args.key):
         raise IntegrationError("expected a Slate card key")
-    if args.card_id <= 0 or args.approval <= 0:
+    if args.card_id <= 0 or (args.approval is not None and args.approval <= 0):
         raise IntegrationError("card and approval IDs must be positive")
     if not re.fullmatch(rf"slate/{args.key.lower()}-[a-z0-9][a-z0-9-]*", args.branch):
         raise IntegrationError("expected a card-specific Slate branch")
+    if local_action and not state.is_dir():
+        return {"status": "unknown"}
     state.mkdir(exist_ok=True)
     task_path = project.with_name(f"{project.name}-{args.key.lower()}")
-    if task_path.is_symlink():
-        raise IntegrationError("expected task worktree may not be a symlink")
     branch_ref = f"refs/heads/{args.branch}"
     receipt_path = state / f"{args.card_id}-{args.approval}.json"
     with repository_lock(state / "lock"):
+        if local_action:
+            if task_path.is_symlink():
+                return {"status": "blocked", "reason": "expected task worktree may not be a symlink"}
+            return cleanup_local(args, project, state, task_path, branch_ref)
         if args.action == "cleanup":
-            return cleanup(args, project, receipt_path, task_path, branch_ref)
+            try:
+                if task_path.is_symlink():
+                    raise IntegrationError("expected task worktree may not be a symlink")
+                return cleanup(args, project, receipt_path, task_path, branch_ref)
+            except (IntegrationError, OSError) as error:
+                record_cleanup_error(receipt_path, error)
+                raise
+        if task_path.is_symlink():
+            raise IntegrationError("expected task worktree may not be a symlink")
         for sha in (args.base, args.reviewed_head):
             if re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", sha) is None:
                 raise IntegrationError("base and reviewed head must be complete Git hashes")
@@ -466,6 +815,10 @@ def main():
     apply_parser.add_argument("--base", required=True)
     apply_parser.add_argument("--reviewed-head", required=True)
     actions.add_parser("cleanup")
+    actions.add_parser("cleanup-status")
+    actions.add_parser("cleanup-preview")
+    actions.add_parser("cleanup-retry")
+    actions.add_parser("cleanup-archive").add_argument("--preview-token", required=True)
     actions.add_parser("pending")
     try:
         print(json.dumps(run(parser.parse_args())))

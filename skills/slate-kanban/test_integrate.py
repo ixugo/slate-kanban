@@ -245,6 +245,249 @@ if 'update-ref' in args and '--stdin' in args:
         self.assertEqual(self.run_script("pending"), [])
         self.assertTrue(self.run_script("cleanup")["cleaned"])
 
+    def test_confirmed_archive_keeps_staged_unstaged_and_ignored_files(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        self.git(self.project, "branch", "unrelated")
+        tracked = self.source / "tracked"
+        tracked.write_text("staged", encoding="utf-8")
+        self.git(self.source, "add", "tracked")
+        tracked.write_text("unstaged", encoding="utf-8")
+        ignored = self.source / "local-config"
+        ignored.write_text("private configuration", encoding="utf-8")
+        (self.project / ".git" / "info" / "exclude").write_text("local-config\n", encoding="utf-8")
+
+        self.assertIn("worktree has changes", self.run_script("cleanup", succeeds=False))
+        status = self.run_script("cleanup-status")
+        self.assertEqual(status["status"], "blocked")
+        self.assertIn("worktree has changes", status["reason"])
+        preview = self.run_script("cleanup-preview")
+        backup = Path(preview["destination"])
+        self.assertEqual(set(preview["files"]), {"tracked", "local-config"})
+        self.assertFalse(backup.exists())
+        self.assertIn("confirmation", self.run_script("cleanup-archive", "--preview-token", "incorrect", succeeds=False))
+        self.assertEqual(ignored.read_text(), "private configuration")
+
+        result = self.run_script("cleanup-archive", "--preview-token", preview["preview_token"])
+        self.assertEqual(result["status"], "cleaned")
+        self.assertEqual((backup / "files" / "local-config").read_text(), "private configuration")
+        self.assertEqual((backup / "files" / "tracked").read_text(), "unstaged")
+        self.assertIn("+staged", (backup / "staged.patch").read_text())
+        self.assertFalse((backup / "files" / ".git").exists())
+        self.assertFalse(self.source.exists())
+        self.assertEqual(self.git(self.project, "branch", "--list", BRANCH), "")
+        self.assertEqual(self.git(self.project, "rev-parse", "unrelated"), receipt["head"])
+        self.assertEqual(self.run_script("cleanup-archive", "--preview-token", preview["preview_token"]), result)
+
+    def test_archive_rejects_files_changed_since_preview(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        local = self.source / "local"
+        local.write_text("before", encoding="utf-8")
+        preview = self.run_script("cleanup-preview")
+
+        local.write_text("after", encoding="utf-8")
+        error = self.run_script("cleanup-archive", "--preview-token", preview["preview_token"], succeeds=False)
+
+        self.assertIn("confirmation", error)
+        self.assertEqual(local.read_text(), "after")
+        self.assertFalse(Path(preview["destination"]).exists())
+        self.assertEqual(self.git(self.project, "rev-parse", BRANCH), head)
+
+    def test_ignored_directory_contents_invalidate_archive_confirmation(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        directory = self.source / "build" / "nested"
+        directory.mkdir(parents=True)
+        artifact = directory / "artifact"
+        artifact.write_text("before", encoding="utf-8")
+        (self.project / ".git" / "info" / "exclude").write_text("build/\n", encoding="utf-8")
+
+        preview = self.run_script("cleanup-preview")
+        artifact.write_text("after!", encoding="utf-8")
+        error = self.run_script("cleanup-archive", "--preview-token", preview["preview_token"], succeeds=False)
+
+        self.assertIn("confirmation", error)
+        self.assertFalse(Path(preview["destination"]).exists())
+        self.assertEqual(artifact.read_text(), "after!")
+        self.assertIn("build/nested/artifact", preview["files"])
+        self.assertIn("build/nested/artifact", self.run_script("cleanup-preview")["files"])
+
+    def test_archive_publication_resumes_across_process_exit(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        local = self.source / "local"
+        local.write_text("keep", encoding="utf-8")
+        preview = self.run_script("cleanup-preview")
+        destination = Path(preview["destination"])
+        with self.subTest(interrupted="before publication"):
+            self.interrupt_archive_publication(preview, before=True)
+            self.assertFalse(destination.exists())
+            self.assertTrue(local.exists())
+            self.assertEqual(self.run_script("cleanup-preview"), preview)
+        with self.subTest(interrupted="after publication"):
+            self.interrupt_archive_publication(preview, before=False)
+            self.assertTrue(destination.is_dir())
+            self.assertTrue(local.exists())
+            self.assertEqual(self.run_script("cleanup-preview"), preview)
+
+        self.assertEqual(self.confirm_archive(preview)["status"], "cleaned")
+        self.assertEqual((destination / "files" / "local").read_text(), "keep")
+        self.assertFalse(self.source.exists())
+
+    def test_archive_preserves_other_directory_created_after_preparation(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        local = self.source / "local"
+        local.write_text("keep", encoding="utf-8")
+        preview = self.run_script("cleanup-preview")
+        self.interrupt_archive_publication(preview, before=True)
+        destination = Path(preview["destination"])
+        destination.mkdir(mode=0o700)
+        other = destination / "user-created"
+        other.write_text("other files", encoding="utf-8")
+
+        self.assertIn("already occupied", self.confirm_archive(preview, succeeds=False))
+        self.assertEqual(other.read_text(), "other files")
+        self.assertEqual(local.read_text(), "keep")
+        self.assertEqual(self.git(self.project, "rev-parse", BRANCH), head)
+
+    def test_changed_worktree_after_preparation_can_be_previewed_again(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        local = self.source / "local"
+        local.write_text("before", encoding="utf-8")
+        preview = self.run_script("cleanup-preview")
+        self.interrupt_archive_publication(preview, before=False)
+        earlier_destination = Path(preview["destination"])
+        note = earlier_destination / "local-note"
+        note.write_text("keep elsewhere", encoding="utf-8")
+
+        local.write_text("after!", encoding="utf-8")
+        self.assertIn("confirmation", self.confirm_archive(preview, succeeds=False))
+        fresh = self.run_script("cleanup-preview")
+        self.assertNotEqual(preview["destination"], fresh["destination"])
+        self.assertEqual(self.confirm_archive(fresh)["status"], "cleaned")
+        self.assertEqual((Path(fresh["destination"]) / "files" / "local").read_text(), "after!")
+        self.assertEqual(note.read_text(), "keep elsewhere")
+
+    @unittest.skipIf(os.name == "nt", "creating a symlink on Windows can require special privileges")
+    def test_ignored_directory_preview_does_not_follow_symlinks(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        target = self.root / "outside"
+        target.mkdir()
+        (target / "outside-file").write_text("external data", encoding="utf-8")
+        directory = self.source / "build"
+        directory.mkdir()
+        link = directory / "linked"
+        link.symlink_to(target, target_is_directory=True)
+        (self.project / ".git" / "info" / "exclude").write_text("build/\n", encoding="utf-8")
+
+        preview = self.run_script("cleanup-preview")
+        self.assertIn("build/linked", preview["files"])
+        self.assertNotIn("build/linked/outside-file", preview["files"])
+        (target / "outside-file").write_text("changed elsewhere", encoding="utf-8")
+        self.assertEqual(self.run_script("cleanup-preview"), preview)
+        self.assertEqual(self.confirm_archive(preview)["status"], "cleaned")
+        self.assertTrue((Path(preview["destination"]) / "files" / "build" / "linked").is_symlink())
+        self.assertEqual((target / "outside-file").read_text(), "changed elsewhere")
+
+    def interrupt_archive_publication(self, preview, *, before):
+        code = r"""
+import os
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(sys.argv[1]).parent))
+import integrate
+target = Path(sys.argv[2])
+before = sys.argv[3] == 'True'
+sys.argv = sys.argv[1:2] + sys.argv[4:]
+
+rename = integrate.rename_without_replacement
+def interrupted_move(source, destination):
+    if destination != target:
+        return rename(source, destination)
+    if not before:
+        rename(source, destination)
+    os._exit(93)
+integrate.rename_without_replacement = interrupted_move
+
+sys.exit(integrate.main())
+"""
+        args = [str(SCRIPT), preview["destination"], str(before), "--project", str(self.project),
+                "--card-id", "42", "--key", KEY, "--branch", BRANCH, "--approval", "77",
+                "--card-json", str(self.card_json), "cleanup-archive", "--preview-token", preview["preview_token"]]
+        run = subprocess.run([sys.executable, "-c", code, *args], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 93, run.stderr)
+        receipt = self.project / ".git" / "slate-integrations" / "42-77.json"
+        journal = json.loads(receipt.read_text())["cleanup_archive"]
+        self.assertEqual(journal["preview_token"], preview["preview_token"])
+        index = Path(self.git(self.source, "rev-parse", "--path-format=absolute", "--git-path", "index"))
+        self.assertFalse(index.with_name("index.lock").exists())
+
+    def confirm_archive(self, preview, **kwargs):
+        return self.run_script("cleanup-archive", "--preview-token", preview["preview_token"], **kwargs)
+
+    def test_cleanup_error_survives_process_restart_and_retry_keeps_files(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        index = Path(self.git(self.source, "rev-parse", "--path-format=absolute", "--git-path", "index"))
+        lock = index.with_name("index.lock")
+        lock.touch()
+
+        self.assertIn("another Git operation", self.run_script("cleanup-retry", succeeds=False))
+        self.assertIn("another Git operation", self.run_script("cleanup-status")["reason"])
+        self.assertTrue(lock.exists())
+
+        lock.unlink()
+        self.assertEqual(self.run_script("cleanup-retry")["status"], "cleaned")
+        self.assertEqual(self.run_script("cleanup-status")["status"], "cleaned")
+
+    @unittest.skipIf(os.name == "nt", "isolated Git interruption shim uses POSIX shebang")
+    def test_archive_retries_after_archive_exists_but_cleanup_was_blocked(self):
+        head = self.commit(self.source, "tracked", "reviewed")
+        self.write_card(head)
+        receipt = self.apply(head)
+        self.write_card(head, merged=receipt["merged_commits"])
+        (self.source / "local").write_text("retain my original", encoding="utf-8")
+        preview = self.run_script("cleanup-preview")
+        path = Path(preview["destination"])
+        env = self.git_shim(f"""
+if 'update-ref' in args and '--stdin' in args:
+    sys.exit(1)
+""")
+
+        self.assertIn("reference transaction", self.run_script(
+            "cleanup-archive", "--preview-token", preview["preview_token"], env=env, succeeds=False))
+        archived_inode = (path / "files" / "local").stat().st_ino
+        self.assertEqual((path / "files" / "local").read_text(), "retain my original")
+        self.assertEqual(self.run_script("cleanup-preview"), preview)
+
+        result = self.run_script("cleanup-archive", "--preview-token", preview["preview_token"])
+
+        self.assertEqual(result["status"], "cleaned")
+        self.assertEqual((path / "files" / "local").stat().st_ino, archived_inode)
+        self.assertEqual((path / "files" / "local").read_text(), "retain my original")
+        self.assertFalse(self.source.exists())
+
     def test_short_approval_applies_and_cleans_the_exact_reviewed_range(self):
         head = self.commit(self.source, "one", "reviewed change")
         note = f"review passed\nSlate review: {self.base[:6]}..{head[:6]}"

@@ -22,6 +22,7 @@ type service struct {
 	recentCards func(context.Context, int) ([]kanban.RecentCard, error)
 	close       func() error
 	done        <-chan struct{}
+	cleanup     worktreeCleanup
 }
 
 func loadConfig(version string) (conf.Bootstrap, func(), error) {
@@ -54,8 +55,10 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 	bc.Server.HTTP.Port = listener.Addr().(*net.TCPAddr).Port
 	origin := strings.TrimSuffix(strings.ToLower(app.DisplayURL(&bc)), ":80")
 	handler := lifecycle.Wrap(services.Handler, closing)
+	localCleanup := newWorktreeCleanup()
 	if language != nil {
 		handler = language.wrap(origin, handler)
+		handler = wrapCleanup(origin, localCleanup.path, runWorktreeCleanup(services.Kanban), handler)
 	}
 	httpServer := &http.Server{
 		Handler:           handler,
@@ -90,5 +93,6 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 		recentCards: services.Kanban.RecentCards,
 		close:       closeService,
 		done:        done,
+		cleanup:     localCleanup,
 	}, nil
 }
