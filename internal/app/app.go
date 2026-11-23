@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -16,8 +17,15 @@ import (
 	"github.com/ixugo/goddd/pkg/system"
 
 	"slate-kanban/internal/conf"
+	"slate-kanban/internal/core/kanban"
 	"slate-kanban/internal/lifecycle"
 )
+
+// Services 汇总同一份数据上的 HTTP 服务和看板领域，供服务端和桌面端启动。
+type Services struct {
+	Handler http.Handler
+	Kanban  kanban.Core
+}
 
 // Run 装配依赖并启动 HTTP 服务，阻塞到收到退出信号或 stop 被关闭（stop 为 nil 时只看信号）；收到信号后先通知长连接结束，再等普通请求处理完并关闭。
 // 相对路径（配置、数据库、日志）都以启动时的工作目录为基准，
@@ -30,7 +38,7 @@ func Run(bc *conf.Bootstrap, stop <-chan struct{}) (restartExe string) {
 	requestRestart, restartCh := newRestartRequester()
 	bc.Runtime.RequestRestart = requestRestart
 
-	handler, cleanUp, err := WireApp(bc, log)
+	services, cleanUp, err := WireApp(bc, log)
 	if err != nil {
 		slog.Error("程序构建失败", "err", err)
 		panic(err)
@@ -41,7 +49,7 @@ func Run(bc *conf.Bootstrap, stop <-chan struct{}) (restartExe string) {
 	// 否则 Shutdown 要一直等到超时，还会留下一条错误日志
 	closing, closeNow := context.WithCancel(context.Background())
 	defer closeNow()
-	handler = lifecycle.Wrap(handler, closing)
+	handler := lifecycle.Wrap(services.Handler, closing)
 
 	addr := net.JoinHostPort(bc.Server.HTTP.Host, strconv.Itoa(bc.Server.HTTP.Port))
 	svc := server.New(handler,
@@ -54,7 +62,7 @@ func Run(bc *conf.Bootstrap, stop <-chan struct{}) (restartExe string) {
 	go svc.Start()
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
-	fmt.Println("服务启动成功:", displayURL(bc))
+	fmt.Println("服务启动成功:", DisplayURL(bc))
 
 	select {
 	case s := <-interrupt:
@@ -96,8 +104,8 @@ func SetupLog(bc *conf.Bootstrap) (*slog.Logger, func()) {
 	})
 }
 
-// displayURL 返回给用户看的访问地址；监听 0.0.0.0 或 :: 时展示 localhost，避免误导。
-func displayURL(bc *conf.Bootstrap) string {
+// DisplayURL 返回给用户看的访问地址；监听 0.0.0.0 或 :: 时展示 localhost，避免误导。
+func DisplayURL(bc *conf.Bootstrap) string {
 	host := bc.Server.HTTP.Host
 	if host == "" || host == "0.0.0.0" || host == "::" {
 		host = "localhost"
