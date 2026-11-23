@@ -375,3 +375,31 @@ PRODUCTION_HOST = remoteHost
 release/push:
 	@scp build/linux_amd64/bin $(PRODUCTION_HOST):/home/app/$(MODULE_NAME)
 	@echo "push Successed"
+
+# ==================================================================================== #
+# DESKTOP
+# ==================================================================================== #
+
+DESKTOP_TARGETS := windows_amd64 darwin_amd64 darwin_arm64 linux_amd64 linux_arm64
+DESKTOP_ASSETS := $(addprefix desktop/asset/,$(DESKTOP_TARGETS))
+DESKTOP_DIST := $(RELEASE_DIST)/desktop
+
+## desktop/build: 构建桌面程序，默认本机平台，可指定 GOOS 和 GOARCH
+.PHONY: desktop/build
+desktop/build: web/build
+	python3 desktop/package.py --build-only --target "$(GOOS)_$(GOARCH)" --version "$(VERSION)" --output "$(BUILD_DIR_ROOT)/desktop/$(GOOS)_$(GOARCH)"
+
+## desktop/asset/<系统>_<架构>: 打包一个桌面端，需指定 TAG
+.PHONY: $(DESKTOP_ASSETS)
+$(DESKTOP_ASSETS): desktop/asset/%: release/validate-tag web/build
+	python3 desktop/package.py --target "$*" --version "$$TAG" --output "$(DESKTOP_DIST)" --upx "$(UPX_BIN)"
+
+## desktop/assets: 打包五个桌面端并生成清单，需 macOS 和 TAG
+.PHONY: desktop/assets
+desktop/assets: $(DESKTOP_ASSETS)
+	@set -euo pipefail; \
+	cd "$(DESKTOP_DIST)"; \
+	if command -v sha256sum >/dev/null 2>&1; then sum='sha256sum'; else sum='shasum -a 256'; fi; \
+	$${sum} "slate_desktop_$${TAG}_windows_amd64.zip" \
+		"slate_desktop_$${TAG}_darwin_amd64.dmg" "slate_desktop_$${TAG}_darwin_arm64.dmg" \
+		"slate_desktop_$${TAG}_linux_amd64.tar.gz" "slate_desktop_$${TAG}_linux_arm64.tar.gz" > desktop-checksums.txt

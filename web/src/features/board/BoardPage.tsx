@@ -1,6 +1,6 @@
 // 看板页：工具栏、搜索与筛选、列画布、任务弹窗与实时同步。
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
 import { ApiError } from '@/lib/api/client'
@@ -23,10 +23,8 @@ import { BoardCanvas } from './BoardCanvas'
 import { BoardGone } from './BoardGone'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useBoardViewMode } from './useBoardView'
-import { useOnlineStatus } from '@/pwa/useOnlineStatus'
 import { LabelsProvider } from '@/features/labels/LabelsContext'
 import type { Tag } from '@/lib/api/types'
-import { LIST_PREFETCH_DELAY_MS, prefetchListView } from './prefetchListView'
 
 /** 快照里没有标签库时用的空库，保持引用不变，避免上下文每次渲染都变 */
 const NO_TAGS: Tag[] = []
@@ -50,12 +48,6 @@ export default function BoardPage() {
   const [activity, setActivity] = useState({ open: false, loaded: false })
   const { mode: viewMode, setMode: setViewMode } = useBoardViewMode(boardId ?? 0)
 
-  // 看板视图下也在空闲时预取列表视图的代码，让 Service Worker 缓存它，离线切换到列表才不会失败
-  useEffect(() => {
-    const timer = window.setTimeout(prefetchListView, LIST_PREFETCH_DELAY_MS)
-    return () => window.clearTimeout(timer)
-  }, [])
-
   const { data: snapshot, error, isPending, refetch } = useBoardSnapshot(boardId)
   const { columns, cardsById } = useBoardView(snapshot)
   const { filters, setFilters, clear: clearFilters } = useBoardFilters(boardId)
@@ -73,10 +65,7 @@ export default function BoardPage() {
 
   useDocumentTitle(snapshot?.name)
 
-  const online = useOnlineStatus()
   const searching = search.visibleIds !== null
-  // 搜索或筛选时不能拖（可见集不完整）；离线时整个看板只读，也不能拖
-  const dragDisabled = searching || !online
 
   const focusFirstAdd = useCallback(() => {
     const first = columns[0]
@@ -183,7 +172,8 @@ export default function BoardPage() {
             columns={columns}
             cardsById={cardsById}
             visibleIds={search.visibleIds}
-            dragDisabled={dragDisabled}
+            highlights={search.highlights}
+            dragDisabled={searching}
             onMove={(cardId, plan) => move.mutate({ cardId, plan })}
             addColumnId={addColumnId}
             onAddOpen={setAddColumnId}
@@ -197,6 +187,7 @@ export default function BoardPage() {
               columns={columns}
               cards={snapshot.cards}
               visibleIds={search.visibleIds}
+              highlights={search.highlights}
               listAddOpen={listAddOpen}
               onListAddOpen={() => setListAddOpen(true)}
               onListAddClose={() => setListAddOpen(false)}

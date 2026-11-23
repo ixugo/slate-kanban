@@ -1,19 +1,25 @@
 package conf
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Bootstrap struct {
-	Runtime Runtime // 运行时
-	Server  Server  // 服务器
-	Data    Data    // 数据
-	Log     Log     // 日志
+	ConfigVersion uint    // 配置文件版本
+	Runtime       Runtime // 运行时
+	Server        Server  // 服务器
+	Data          Data    // 数据
+	Log           Log     // 日志
 }
 
 type Runtime struct {
-	Debug        bool   `toml:"-" json:"-"`
-	BuildVersion string `toml:"-" json:"-"`
-	ConfigDir    string `toml:"-" json:"-"`
-	ConfigPath   string `toml:"-" json:"-"`
+	Debug               bool                                `toml:"-" json:"-"`
+	BuildVersion        string                              `toml:"-" json:"-"`
+	ConfigDir           string                              `toml:"-" json:"-"`
+	ConfigPath          string                              `toml:"-" json:"-"`
+	Desktop             bool                                `toml:"-" json:"-"`
+	OpenUpdateInstaller func(context.Context, string) error `toml:"-" json:"-"`
 	// RequestRestart 由 app.Run 在启动时填入：请求服务关闭后用 exe 指向的新程序重启；返回 false 表示当前环境不支持。
 	RequestRestart func(exe string) bool `toml:"-" json:"-"`
 }
@@ -39,7 +45,7 @@ type ServerPPROF struct {
 // Data 结构体，包含 Database 和 Redis 两个字段
 type Data struct {
 	// Database 数据库
-	Database Database `comment:"Dsn 按前缀识别数据库：postgres:// 或 postgresql:// 开头走 PostgreSQL；sqlite:// 开头或直接写文件路径走 SQLite"`
+	Database Database `comment:"Dsn 留空使用 ~/.slate-kanban/data.db；postgres:// 或 postgresql:// 开头走 PostgreSQL；SQLite 相对路径以程序所在目录为基准"`
 	// ResourceDir 图片等资源文件的存放目录，数据库里只存相对它的路径
 	ResourceDir string `comment:"图片等资源文件的存放目录，按项目分子目录；留空则用配置目录下的 resource"`
 }

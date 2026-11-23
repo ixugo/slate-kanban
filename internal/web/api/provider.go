@@ -100,5 +100,9 @@ func NewMCP(bc *conf.Bootstrap, core kanban.Core) (mcpapi.API, func()) {
 
 // ProvideUpdateAPI 按当前版本生成自动更新接口，供 Wire 装配。
 func ProvideUpdateAPI(bc *conf.Bootstrap) updateapi.API {
-	return updateapi.New(updateapi.Options{Current: bc.Runtime.BuildVersion, Restart: bc.Runtime.RequestRestart})
+	return updateapi.New(updateapi.Options{
+		Current: bc.Runtime.BuildVersion, Restart: bc.Runtime.RequestRestart,
+		Desktop: bc.Runtime.Desktop, DesktopUpdateDir: filepath.Join(bc.Runtime.ConfigDir, "updates"),
+		OpenInstaller: bc.Runtime.OpenUpdateInstaller,
+	})
 }

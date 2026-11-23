@@ -1,7 +1,6 @@
 // 块级 Markdown：先逐行判断每一行属于哪一种（编辑器按行渲染时要用），
-// 再据此组成块树（只读渲染器要用）。两边共用同一套判断，所以输入时和保存后的结构一定一致。
-// 只认：#~###### 标题、围栏代码、分隔线、引用、有序/无序/任务列表（可嵌套）和段落；
-// 不支持下划线式标题、缩进代码、表格和原始 HTML，它们都按普通段落显示。
+// 再据此组成块树（只读渲染器要用）。管道表格在组成块树时识别，编辑器保留表格行的原文。
+// 不支持下划线式标题、缩进代码和原始 HTML，它们都按普通段落显示。
 
 export type LineKind = 'blank' | 'fence' | 'code' | 'heading' | 'hr' | 'quote' | 'item' | 'para'
 
@@ -36,6 +35,12 @@ export interface ListItem {
 }
 
 type ListBlock = { kind: 'list'; ordered: boolean; start: number; items: ListItem[] }
+type TableBlock = {
+  kind: 'table'
+  headers: string[]
+  alignments: ('left' | 'center' | 'right' | undefined)[]
+  rows: string[][]
+}
 
 export type Block =
   | { kind: 'code'; info: string; text: string }
@@ -43,6 +48,7 @@ export type Block =
   | { kind: 'hr' }
   | { kind: 'quote'; children: Block[] }
   | ListBlock
+  | TableBlock
   | { kind: 'p'; text: string }
 
 /** 引用和列表嵌套的最大层数；更深的按同层或普通文字处理，防止恶意输入撑爆调用栈 */
@@ -204,6 +210,47 @@ function parseList(lines: readonly string[], infos: readonly LineInfo[], start: 
   return i
 }
 
+/** 去除可选的外侧管道；转义管道属于单元格，连行内代码里的转义也在这一层去除。 */
+function splitTableRow(line: string): { cells: string[]; hasPipe: boolean } {
+  const row = line.trim()
+  const cells: string[] = []
+  let text = ''
+  let lastPipe = -1
+  for (let i = 0; i < row.length; i++) {
+    const ch = row[i]
+    const next = row[i + 1]
+    if (ch === '\\' && next === '|') {
+      text += next
+      i++
+    } else if (ch === '\\' && next === '\\') {
+      text += ch + next
+      i++
+    } else if (ch === '|') {
+      if (i !== 0) cells.push(text.trim())
+      text = ''
+      lastPipe = i
+    } else {
+      text += ch
+    }
+  }
+  if (lastPipe !== row.length - 1) cells.push(text.trim())
+  return { cells, hasPipe: lastPipe >= 0 }
+}
+
+/** 表头及分隔行必须同列；至少一行要有未转义管道，以保留普通段落后的分隔线。 */
+function parseTableHeader(header: string, delimiter: string | undefined): TableBlock | null {
+  if (!delimiter || !/^ {0,3}[|:-][|: \t-]*$/.test(delimiter)) return null
+  const headers = splitTableRow(header)
+  const separators = splitTableRow(delimiter)
+  if ((!headers.hasPipe && !separators.hasPipe) || headers.cells.length === 0 || headers.cells.length !== separators.cells.length) return null
+  if (separators.cells.some((cell) => !/^:?-+:?$/.test(cell))) return null
+  const alignments = separators.cells.map((cell) => {
+    if (cell.startsWith(':')) return cell.endsWith(':') ? 'center' : 'left'
+    return cell.endsWith(':') ? 'right' : undefined
+  })
+  return { kind: 'table', headers: headers.cells, alignments, rows: [] }
+}
+
 /** 解析 lines 为块列表；base 是 lines[0] 在原文里的行号，depth 是引用的嵌套层数 */
 function parseLines(lines: readonly string[], base: number, depth: number): Block[] {
   const infos = classifyLines(lines)
@@ -228,8 +275,16 @@ function parseLines(lines: readonly string[], base: number, depth: number): Bloc
     } else if (info.kind === 'item') {
       j = parseList(lines, infos, i, base, blocks)
     } else if (info.kind === 'para') {
-      while (j < lines.length && infos[j].kind === 'para') j++
-      blocks.push({ kind: 'p', text: lines.slice(i, j).map((l) => l.trimStart()).join('\n') })
+      const table = parseTableHeader(lines[i], lines[j])
+      if (table) {
+        for (j++; j < lines.length && infos[j].kind === 'para'; j++) {
+          table.rows.push(splitTableRow(lines[j]).cells.slice(0, table.headers.length))
+        }
+        blocks.push(table)
+      } else {
+        while (j < lines.length && infos[j].kind === 'para') j++
+        blocks.push({ kind: 'p', text: lines.slice(i, j).map((l) => l.trimStart()).join('\n') })
+      }
     }
     i = j
   }

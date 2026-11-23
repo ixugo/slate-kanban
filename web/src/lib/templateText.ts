@@ -1,4 +1,4 @@
-// 起步模板（研发流程、简单）在五种语言下的列名和默认规则名。
+// 起步模板（研发流程、简单）在四种语言下的列名和默认规则名。
 // 内容和服务端 internal/core/kanban/board_template.go 里的 templateTexts 逐字一致（那边有测试核对这份文件）。
 // 看板上存的是创建时那种语言的文字，网页显示时如果发现它正好是某个起步文案，就换成当前界面语言的说法；
 // 用户自己起的名字、改过的文字都原样显示，只需要一种语言。
@@ -18,35 +18,30 @@ const COLUMN_NAMES: Record<ColumnKind, Record<Lang, string>> = {
     'zh-TW': '收件匣',
     en: 'Inbox',
     ja: '受信トレイ',
-    ko: '받은 편지함',
   },
   todo: {
     'zh-CN': '待办',
     'zh-TW': '待辦',
     en: 'To do',
     ja: '未着手',
-    ko: '할 일',
   },
   doing: {
     'zh-CN': '进行中',
     'zh-TW': '進行中',
     en: 'In progress',
     ja: '進行中',
-    ko: '진행 중',
   },
   review: {
     'zh-CN': '审查',
     'zh-TW': '審查',
     en: 'Review',
     ja: 'レビュー',
-    ko: '검토',
   },
   done: {
     'zh-CN': '完成',
     'zh-TW': '完成',
     en: 'Done',
     ja: '完了',
-    ko: '완료',
   },
 }
 
@@ -57,21 +52,18 @@ const RULE_NAMES: Record<RuleKind, Record<Lang, string>> = {
     'zh-TW': '開始計時',
     en: 'Start timer',
     ja: '開始時刻を記録',
-    ko: '시작 시간 기록',
   },
   finish: {
     'zh-CN': '完成计时',
     'zh-TW': '完成計時',
     en: 'Finish timer',
     ja: '完了時刻を記録',
-    ko: '완료 시간 기록',
   },
   reopen: {
     'zh-CN': '重新打开',
     'zh-TW': '重新開啟',
     en: 'Reopen',
     ja: '再オープン',
-    ko: '다시 열기',
   },
 }
 

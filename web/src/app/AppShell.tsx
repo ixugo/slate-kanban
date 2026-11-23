@@ -38,7 +38,7 @@ export function AppShell() {
       >
         {t('nav.skipToContent')}
       </a>
-      <header className="material-bar z-30 flex h-14 shrink-0 items-center gap-1.5 px-3 shadow-[0_0.5px_0_var(--border)] sm:px-5">
+      <header className="app-header material-bar z-30 flex h-14 shrink-0 items-center gap-1.5 px-3 shadow-[0_0.5px_0_var(--border)] sm:px-5">
         <Link
           to="/"
           className="mr-1 flex items-center gap-2.5 rounded-full py-1 pr-3 pl-1 text-body font-semibold tracking-tight transition-colors duration-200 outline-none hover:bg-secondary focus-visible:ring-[3px] focus-visible:ring-ring/40"

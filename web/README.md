@@ -1,6 +1,6 @@
 # Slate 前端（web/）
 
-浏览器端单页应用：看板列表、看板画布、设置、Agent 接入说明。**默认免登录**（服务端配置了访问口令才出现登录页），与 Go 服务同源部署，可作为 PWA 安装。
+浏览器端单页应用：看板列表、看板画布、设置、Agent 接入说明。**默认免登录**（服务端配置了访问口令才出现登录页），与 Go 服务同源部署。
 
 ## 技术栈
 
@@ -30,6 +30,8 @@ Vite 8、React 19、TypeScript 7、Tailwind 4、shadcn/ui（vendored 在 `src/co
 
 首屏统计包含 `index.html` 里的入口脚本与 `modulepreload` 的 JS。
 
+旧版网页曾安装离线 Service Worker。再次联网打开网站时，浏览器会从 `/sw.js` 获取退役脚本，清理 Slate 离线缓存和旧注册。
+
 ## 路由（以 `src/app/AppRoutes.tsx` 为准）
 
 | 路径 | 说明 |
@@ -48,7 +50,6 @@ Vite 8、React 19、TypeScript 7、Tailwind 4、shadcn/ui（vendored 在 `src/co
 |------|------|
 | `src/app/` | 路由、外框、顶栏控件、错误边界 |
 | `src/features/` | 按功能分页（boards、board、card、activity、settings、agents、auth） |
-| `src/pwa/` | Service Worker 注册、离线提示条、退出时清离线缓存 |
 | `src/lib/` | API、主题、toast、错误、Markdown、工具 |
 | `src/i18n/` | 多语言运行时与五语 `locales/` |
 | `src/components/ui/` | shadcn 基础组件（vendored） |
@@ -60,12 +61,12 @@ Vite 8、React 19、TypeScript 7、Tailwind 4、shadcn/ui（vendored 在 `src/co
 
 | 键 | 含义 |
 |----|------|
-| `slate.lang` | 界面语言（`zh-CN` / `zh-TW` / `en` / `ja` / `ko`） |
+| `slate.lang` | 界面语言（`zh-CN` / `zh-TW` / `en` / `ja`） |
 | `slate.theme` | `light` / `dark` / `system` |
 
 ## 测试
 
-`npm run test` 跑全量 vitest（jsdom）。`src/test/setup.ts` 会预加载五种语言包，并为每个用例安装假的 `EventSource`。
+`npm run test` 跑全量 vitest（jsdom）。`src/test/setup.ts` 会预加载四种语言包，并为每个用例安装假的 `EventSource`。
 
 浏览器端到端验收只有一套：`make -C web/.e2e-strict run`（用 e2e-strict skill 生成，不提交到 git，用本机 Chrome、临时数据库，不碰 `~/.slate-kanban`），说明见 `.cursor/scopes/web.e2e.md`。
 

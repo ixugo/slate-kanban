@@ -64,6 +64,7 @@ func TestWatchPromptOf(t *testing.T) {
 	got := watchPromptOf(&kanban.BoardDetail{Board: board})
 	for _, want := range []string{
 		"「发布 100%」", "2 位研发工程师（Atlas、Orion）", "研发和审查的名额各算各的，互不占用",
+		"slate://scripts/slate-watch.py", "--host", "--command-json", "opencode", "on-my-pi",
 		"一次领满", "在同一次回复里把这几个子 agent 一起派出", "不要领一个、等它做完再领下一个",
 		"一个任务新开一个子 agent", "不要把另一个任务交给做过别的任务的子 agent",
 	} {

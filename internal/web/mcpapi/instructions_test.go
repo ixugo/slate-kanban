@@ -10,10 +10,10 @@ import (
 
 // maxInstructionRunes 是使用说明的字数上限：它在每个会话开始时都会进入模型的上下文，
 // 所以要短，完整的流程放在 skill 里。
-const maxInstructionRunes = 1500
+const maxInstructionRunes = 500
 
 // toolWord 匹配说明里像工具名的词：whoami，或者以工具常用的动词开头的下划线词。
-var toolWord = regexp.MustCompile(`\b(?:whoami|(?:list|get|set|create|update|delete|move|claim|release|finish|comment|pull|wait_for|next|reorder)_[a-z_]+)\b`)
+var toolWord = regexp.MustCompile(`\b(?:whoami|(?:list|get|set|enable|create|update|delete|move|claim|release|finish|comment|pull|wait_for|next|reorder)_[a-z_]+)\b`)
 
 // notTools 是说明里出现的、长得像工具名但其实是字段名的词。
 var notTools = []string{"next_column_id", "claim_engineer_id"}
@@ -31,32 +31,38 @@ func TestInstructions(t *testing.T) {
 	}{
 		{
 			"agent", agentTools,
-			[]string{"whoami", "list_boards", "get_board", "set_project_path", "next_card", "comment_card", "create_card", "finish_card", "release_card", "wait_for_updates", "pull_updates", "list_cards", "slate://skills/slate-kanban"},
+			[]string{"whoami", "list_boards", "get_board", "finish_card", "enable_management", "slate://skills/slate-kanban"},
 			agent,
 		},
 		{
 			"人", adminTools,
-			[]string{"create_rule", "update_column"},
+			[]string{"get_board", "slate://skills/slate-kanban"},
 			s.human(t).InitializeResult().Instructions,
 		},
 	}
-	if !strings.Contains(agent, "先只读拟定方案") || !strings.Contains(agent, "评论成功后") {
-		t.Errorf("agent 初始化说明应该要求调度者先记录方案再让子 agent 开工: %q", agent)
-	}
-	if !strings.Contains(agent, "仍有空位必须查待办") || !strings.Contains(agent, "只表示当前列") {
-		t.Errorf("agent 初始化说明应该要求查完可办列及待办再等待: %q", agent)
-	}
-	if !strings.Contains(agent, "不触发终端阻塞式提问") || !strings.Contains(agent, "路径为空且经人明确确认") {
-		t.Errorf("agent 初始化说明应该在看板澄清并确认路径: %q", agent)
-	}
-	for _, want := range []string{"已有的标签", "不要新建", "任务项"} {
+	for _, want := range []string{
+		"先只读拟定方案", "评论成功后", "用户明确要求", "由监听器触发的一轮调度",
+		"Python 监听脚本 slate://scripts/slate-watch.py", "看板的 watch_prompt",
+	} {
 		if !strings.Contains(agent, want) {
-			t.Errorf("agent 初始化说明应该提醒标签只用已有的、交接前补任务项，缺少 %q", want)
+			t.Errorf("agent 初始化说明缺少 %q", want)
 		}
 	}
 	for _, tc := range cases {
 		if tc.text == "" || utf8.RuneCountInString(tc.text) > maxInstructionRunes {
 			t.Errorf("%s：使用说明不能为空，也不能超过 %d 字，实际 %d 字", tc.name, maxInstructionRunes, utf8.RuneCountInString(tc.text))
+		}
+		for _, want := range []string{
+			"用 Markdown 写卡片描述和评论", "短段落或列表", "**加粗重点与待决事项**",
+			"1. 短句，一句一事", "规则编号", "删开篇多余依据、套话、常识和重复",
+			"2. 需求先写用户何时能做什么、做完看到什么",
+			"3. 限量时写谁来计数、怎么算、到上限会怎样",
+			"4. 复用时写明对象和接法", "字段、接口和验收写到可实施",
+			"5. Git 提交哈希只写前 6 位",
+		} {
+			if !strings.Contains(tc.text, want) {
+				t.Errorf("%s：卡片写作说明缺少 %q", tc.name, want)
+			}
 		}
 		for _, word := range toolWord.FindAllString(tc.text, -1) {
 			if !slices.Contains(tc.tools, word) && !slices.Contains(notTools, word) {

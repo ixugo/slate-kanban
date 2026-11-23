@@ -16,7 +16,7 @@ paths:
       tags:
         - admin/自动更新
       summary: 检查更新
-      description: 服务端读 github.com 网页地址（releases/latest 的跳转得版本号，releases.atom 得发布时间和说明，再探测当前平台的安装包是否已上传），不使用有匿名额度限制的 GitHub API；结果缓存 1 小时。请求失败只记日志，按“没有更新”返回，不报错。
+      description: 服务端读取 github.com 的发布版本、更新说明和当前平台的安装包状态。成功结果缓存 10 秒。请求失败时按“没有更新”返回，5 分钟内不重试。
       operationId: getUpdate
       responses:
         "200":

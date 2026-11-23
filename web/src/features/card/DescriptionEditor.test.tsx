@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
@@ -83,5 +83,33 @@ describe('DescriptionEditor', () => {
     expect(onSave).toHaveBeenCalledWith('- [x] 写文档\n\n[官网](https://a.com)')
     await userEvent.click(screen.getByRole('link', { name: '官网' }))
     expect(screen.queryByRole('textbox', { name: en.card.field.description })).toBeNull()
+  })
+
+  it('在卡片描述中渲染管道表格并保留任务框对应的原文', async () => {
+    const value = [
+      '以下内容在网页上不显示表格，是语法问题还是支持不足?兼容性不够?',
+      '-------',
+      '',
+      '| Slate 工具 | Kanzo 对应工具 | 作用或差异 | Slate 当前视图 |',
+      '| --- | --- | --- | --- |',
+      '| `whoami` | — | 读取当前身份与服务信息 | 两者都有 |',
+      '| `list_boards` | `list_projects` | 列出看板或项目 | 两者都有 |',
+      '| `finish_card` | `update_task` + `add_comment` | Slate 一次事务交接，Kanzo 分两步 | 两者都有 |',
+      '| `delete_comment` | — | 删除评论 | 仅管理 |',
+      '',
+      '- [ ] 核对表格',
+    ].join('\n')
+    const onSave = vi.fn()
+    render(<DescriptionEditor boardId={1} value={value} onSave={onSave} />)
+    const table = within(screen.getByRole('table'))
+    expect(table.getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
+      'Slate 工具', 'Kanzo 对应工具', '作用或差异', 'Slate 当前视图',
+    ])
+    expect(table.getAllByRole('row')).toHaveLength(5)
+    expect(table.getByRole('cell', { name: 'whoami' }).querySelector('code')).toHaveTextContent('whoami')
+    expect(table.getByRole('cell', { name: '读取当前身份与服务信息' })).toBeVisible()
+    expect(screen.getByRole('separator')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('checkbox', { name: '核对表格' }))
+    expect(onSave).toHaveBeenCalledExactlyOnceWith(value.replace('- [ ] 核对表格', '- [x] 核对表格'))
   })
 })

@@ -14,13 +14,13 @@ var (
 	agentTools = []string{
 		"whoami", "list_boards", "get_board", "list_cards", "get_card", "pull_updates", "wait_for_updates",
 		"next_card", "claim_card", "release_card", "finish_card", "comment_card", "create_card", "update_card",
-		"move_card", "set_project_path", "create_board", "upload_image", "get_image",
+		"move_card", "set_project_path", "create_board", "upload_image", "get_image", "enable_management",
 	}
 	adminTools = []string{
-		"whoami", "list_boards", "get_board", "list_cards", "get_card", "list_events",
+		"whoami", "list_boards", "get_board", "list_cards", "get_card",
 		"release_card", "finish_card", "comment_card", "create_card", "update_card", "move_card",
 		"create_board", "update_board", "create_column", "update_column", "reorder_columns", "delete_column",
-		"create_rule", "update_rule", "delete_rule", "delete_card", "delete_comment", "upload_image", "get_image",
+		"create_rule", "update_rule", "delete_rule", "upload_image", "get_image",
 	}
 )
 

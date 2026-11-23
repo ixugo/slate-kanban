@@ -2,6 +2,7 @@ package conf
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -15,21 +16,29 @@ func SetupConfig(v any, path string) error {
 	return toml.Unmarshal(b, v)
 }
 
-// WriteConfig 将配置写回文件
+// WriteConfig 将配置原子写回文件。
 func WriteConfig(v any, path string) error {
-	tmp := path + ".tmp"
-	_ = os.RemoveAll(tmp)
+	return writeConfig(v, path, 0o600)
+}
 
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+func writeConfig(v any, path string, mode os.FileMode) error {
+	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+"-*")
 	if err != nil {
 		return err
 	}
+	defer os.Remove(f.Name())
 	defer f.Close()
 	if err := toml.NewEncoder(f).SetIndentTables(true).Encode(v); err != nil {
+		return err
+	}
+	if err := f.Chmod(mode); err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
 		return err
 	}
 	if err := f.Close(); err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	return os.Rename(f.Name(), path)
 }

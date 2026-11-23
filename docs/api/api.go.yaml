@@ -147,13 +147,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Snippet"
-          description: 长期挂着的步骤：开会话的命令，以及会话结束后怎么恢复
+          description: 按事件启动本机宿主的脚本、命令与恢复步骤，以及宿主支持的交互守候选项
     Snippet:
       type: object
       properties:
         kind:
           type: string
-          description: 片段类型
+          description: 片段类型，例如 script、event-watch、event-resume、watch、resume 或 loop
         title:
           type: string
           description: 片段标题

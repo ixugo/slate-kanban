@@ -1,0 +1,110 @@
+name: desktop-release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要构建的 release tag，例如 v1.2.3
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  packages:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows_amd64
+            runner: ubuntu-latest
+            extension: zip
+          - target: linux_amd64
+            runner: ubuntu-latest
+            extension: tar.gz
+          - target: linux_arm64
+            runner: ubuntu-latest
+            extension: tar.gz
+          - target: darwin_amd64
+            runner: macos-latest
+            extension: dmg
+          - target: darwin_arm64
+            runner: macos-latest
+            extension: dmg
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: 安装 UPX
+        if: runner.os == 'Linux'
+        env:
+          UPX_VERSION: "5.3.0"
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "$RUNNER_TEMP/upx.tar.xz" "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz"
+          mkdir -p "$RUNNER_TEMP/upx"
+          tar -xJf "$RUNNER_TEMP/upx.tar.xz" --strip-components=1 -C "$RUNNER_TEMP/upx"
+          echo "$RUNNER_TEMP/upx" >> "$GITHUB_PATH"
+
+      - name: 构建桌面安装包
+        env:
+          TARGET: ${{ matrix.target }}
+        run: make "desktop/asset/$TARGET" TAG="$TAG"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-${{ matrix.target }}
+          path: dist/desktop/slate_desktop_${{ env.TAG }}_${{ matrix.target }}.${{ matrix.extension }}
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: true
+
+  publish:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: desktop-dist
+
+      - name: 发布五个桌面包和校验清单
+        working-directory: desktop-dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          prefix="slate_desktop_$TAG"
+          packages=(
+            "${prefix}_windows_amd64.zip"
+            "${prefix}_darwin_amd64.dmg"
+            "${prefix}_darwin_arm64.dmg"
+            "${prefix}_linux_amd64.tar.gz"
+            "${prefix}_linux_arm64.tar.gz"
+          )
+          sha256sum "${packages[@]}" > desktop-checksums.txt
+          gh release upload "$TAG" "${packages[@]}" desktop-checksums.txt --clobber --repo "$GITHUB_REPOSITORY"

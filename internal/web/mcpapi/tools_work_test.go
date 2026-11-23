@@ -129,10 +129,19 @@ func TestAgentDispatchesTodoOnlyBoard(t *testing.T) {
 	}
 
 	ok(t, sess, "claim_card", map[string]any{"card_id": clear.ID, "engineer_id": review})
-	ok(t, sess, "comment_card", map[string]any{"card_id": clear.ID, "body": "审查通过"})
+	image := ok(t, sess, "upload_image", map[string]any{"board_id": b.ID, "path": writeImage(t, "review.png", pngBytes)}).Data
+	evidence := fmt.Sprintf("审查通过\n\n- [x] 页面检查通过，见截图\n- [x] 功能检查通过，测试成功\n\n%s", image["markdown"])
+	ok(t, sess, "comment_card", map[string]any{"card_id": clear.ID, "body": evidence})
 	done := ok(t, sess, "move_card", map[string]any{"card_id": clear.ID, "column_id": b.done}).Data
 	if done["column_id"] != float64(b.done) {
 		t.Fatalf("审查通过后应移到完成: %v", done)
+	}
+	full := ok(t, s.human(t), "get_card", map[string]any{"card_id": clear.ID}).Data
+	if comments := items(t, full, "comments"); len(comments) != 2 || comments[1]["body"] != evidence {
+		t.Errorf("完成后应保留审查清单和截图引用: %v", full["comments"])
+	}
+	if res := callImage(t, s.human(t), image["token"].(string)); res.IsError {
+		t.Errorf("应能从审查证据读取截图: %v", res)
 	}
 	if got := next(b.todo); got["card"] != nil {
 		t.Errorf("问题任务已移到收件箱，待办应为空: %v", got)

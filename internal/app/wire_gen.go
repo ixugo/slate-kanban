@@ -7,11 +7,8 @@
 package app
 
 import (
-	"log/slog"
-	"net/http"
-
 	"github.com/ixugo/goddd/domain/version/versionapi"
-
+	"log/slog"
 	"slate-kanban/internal/conf"
 	"slate-kanban/internal/data"
 	"slate-kanban/internal/web/api"
@@ -20,17 +17,17 @@ import (
 
 // Injectors from wire.go:
 
-func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error) {
+func WireApp(bc *conf.Bootstrap, log *slog.Logger) (Services, func(), error) {
 	db, cleanup, err := data.SetupDB(bc)
 	if err != nil {
-		return nil, nil, err
+		return Services{}, nil, err
 	}
 	core := versionapi.NewVersionCore(db)
 	versionapiAPI := versionapi.New(core)
 	kanbanCore, err := api.NewKanbanCore(db, bc)
 	if err != nil {
 		cleanup()
-		return nil, nil, err
+		return Services{}, nil, err
 	}
 	kanbanapiAPI := kanbanapi.New(kanbanCore)
 	mcpapiAPI, cleanup2 := api.NewMCP(bc, kanbanCore)
@@ -46,7 +43,11 @@ func WireApp(bc *conf.Bootstrap, log *slog.Logger) (http.Handler, func(), error)
 		Update:  updateapiAPI,
 	}
 	handler := api.NewHTTPHandler(usecase)
-	return handler, func() {
+	services := Services{
+		Handler: handler,
+		Kanban:  kanbanCore,
+	}
+	return services, func() {
 		cleanup2()
 		cleanup()
 	}, nil

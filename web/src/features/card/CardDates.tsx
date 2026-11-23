@@ -48,7 +48,9 @@ function DateRow({ label, checked, onChecked, children }: { label: string; check
 function DatesForm({ card, onPatch, onDone }: CardDatesProps & { onDone: () => void }) {
   const { t } = useTranslation()
   const [draft, setDraft] = useState<DatesDraft>(() => draftOf(card))
-  const set = (patch: Partial<DatesDraft>) => setDraft((d) => withDefaults({ ...d, ...patch }))
+  const set = (patch: Partial<DatesDraft>) => setDraft((d) => ({ ...d, ...patch }))
+  const toggle = (patch: Pick<DatesDraft, 'start'> | Pick<DatesDraft, 'due'>) =>
+    setDraft((d) => withDefaults({ ...d, ...patch }))
   const problem = draftProblem(draft)
 
   const save = () => {
@@ -59,7 +61,7 @@ function DatesForm({ card, onPatch, onDone }: CardDatesProps & { onDone: () => v
 
   return (
     <div className="space-y-3">
-      <DateRow label={t('card.field.startDate')} checked={draft.start} onChecked={(start) => set({ start })}>
+      <DateRow label={t('card.field.startDate')} checked={draft.start} onChecked={(start) => toggle({ start })}>
         <Input
           type="date"
           className="font-mono"
@@ -69,7 +71,7 @@ function DatesForm({ card, onPatch, onDone }: CardDatesProps & { onDone: () => v
           onChange={(e) => set({ startDate: e.target.value })}
         />
       </DateRow>
-      <DateRow label={t('card.field.due')} checked={draft.due} onChecked={(due) => set({ due })}>
+      <DateRow label={t('card.field.due')} checked={draft.due} onChecked={(due) => toggle({ due })}>
         <Input
           type="date"
           className="font-mono"

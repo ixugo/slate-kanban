@@ -115,12 +115,54 @@ func TestGetDialectorPostgresKeepsDSN(t *testing.T) {
 	}
 }
 
-// TestGetDialectorRejectsEmpty 验证空 DSN 和只有 sqlite:// 前缀的 DSN 会被拒绝，
-// 否则空路径会让 SQLite 去打开启动目录本身。
-func TestGetDialectorRejectsEmpty(t *testing.T) {
-	for _, dsn := range []string{"", "   ", "sqlite://", "SQLITE://  "} {
+func TestGetDialectorRejectsEmptySQLitePath(t *testing.T) {
+	for _, dsn := range []string{"sqlite://", "SQLITE://  "} {
 		if _, _, err := getDialector(dsn); err == nil {
 			t.Errorf("%q 应该报错", dsn)
+		}
+	}
+}
+
+func TestSetupDBEmptyDSNUsesHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	customConfig := t.TempDir()
+	bc := conf.DefaultConfig(customConfig)
+	bc.Runtime.ConfigDir = customConfig
+
+	_, cleanup, err := SetupDB(&bc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanup()
+	if _, err := os.Stat(filepath.Join(home, conf.DefaultDirName, "data.db")); err != nil {
+		t.Fatalf("未在用户主目录创建默认 SQLite 数据库: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(customConfig, "data.db")); !os.IsNotExist(err) {
+		t.Fatalf("自定义配置目录中不应有默认 SQLite 数据库: %v", err)
+	}
+}
+
+func TestGetDialectorRelativeSQLitePathUsesExecutableDir(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(t.TempDir())
+	want := filepath.Join(filepath.Dir(exe), "db.sqlite") + "?"
+	for _, dsn := range []string{"db.sqlite", "sqlite://db.sqlite"} {
+		dial, _, err := getDialector(dsn)
+		if err != nil {
+			t.Fatalf("%q: %v", dsn, err)
+		}
+		lite := dial.(*sqlite.Dialector)
+		if !strings.HasPrefix(lite.DSN, want) {
+			t.Errorf("%q 解析为 %q，期望前缀 %q", dsn, lite.DSN, want)
 		}
 	}
 }

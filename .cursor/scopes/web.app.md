@@ -16,7 +16,7 @@
 | 2 | 实时更新 | 看板页用原生 **`EventSource`** 连 `GET /api/v1/boards/:id/stream`；事件 `ready` / `board` / `reset` / `error`；断线后浏览器带 **`Last-Event-ID`** 续传 | 实施 |
 | 3 | 收到 `board` 后如何刷新 | 150 ms 内合并多次事件，再 `invalidateQueries` 重取快照；不在前端按事件类型改本地快照 | 实施 |
 | 4 | 流异常 | `reset` 关连接、刷快照、重连；服务端 `error` 事件或连接关闭后查快照，404 视为看板已删；否则约 5 s 后手动 `epoch` 重连；顶栏圆点显示连接状态 | 实施 |
-| 5 | 多语言 | 自研 `src/i18n`：`en` 打进主包，`zh-CN` / `zh-TW` / `ja` / `ko` 动态 chunk；`@/i18n/react` 的 `useTranslation`；存储键 `slate.lang` | 实施 |
+| 5 | 多语言 | 自研 `src/i18n`：`en` 打进主包，`zh-CN` / `zh-TW` / `ja` 动态 chunk；`@/i18n/react` 的 `useTranslation`；存储键 `slate.lang` | 实施 |
 | 6 | 主题 | `slate.theme`；`public/theme-init.js` 在首屏前给 `<html>` 加 `dark`；顶栏**循环按钮**（浅 → 深 → 跟随系统） | 实施 |
 | 7 | 顶栏控件 | 语言、看板切换用原生 **`<select>`**（不用 Radix dropdown，减首屏体积） | 实施 |
 | 8 | 提示 | 自研 `src/lib/toast.ts` + `src/components/ui/sonner.tsx`（仅导出名 `Toaster`，非 npm sonner） | 实施 |
@@ -182,7 +182,7 @@ vendored shadcn 组件（`button`、`dialog`、`tabs` 等）。**不要求**每�
 
 - 有「跳到正文」链接，正文区域可以被它聚焦
 - 切换语言：界面文字、`<html lang>`、i18n 当前语言一起变
-- 语言下拉里五种语言都用自己的文字显示
+- 语言下拉里四种语言都用自己的文字显示
 - 切换到深色主题：`<html>` 带上 dark 类
 - 看板切换：显示当前看板名，可以跳到别的看板或回到列表
 - 不在看板页时，切换框选中「所有看板」

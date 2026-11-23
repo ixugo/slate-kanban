@@ -97,7 +97,7 @@ func normalizeWebhook(w *Webhook, cols []*Column) error {
 	return normalizeWebhookSubscriptions(w, cols)
 }
 
-// normalizeWebhookSubscriptions 校验并去重订阅字段；空切片表示订阅全部。
+// normalizeWebhookSubscriptions 校验并去重订阅字段。空切片的含义由订阅模式决定。
 func normalizeWebhookSubscriptions(w *Webhook, cols []*Column) error {
 	w.Normalize()
 	types, err := normalizeEventTypes(w.EventTypes)

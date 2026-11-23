@@ -1,17 +1,12 @@
 package main
 
 import (
-	"expvar"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
-	"github.com/ixugo/goddd/domain/version/versionapi"
-	"github.com/ixugo/goddd/pkg/orm"
-	"github.com/ixugo/goddd/pkg/system"
 	"slate-kanban/internal/app"
 	"slate-kanban/internal/conf"
 	"slate-kanban/internal/svcmgr"
@@ -64,48 +59,26 @@ func main() {
 // runApp 加载配置并运行服务，阻塞到收到退出信号或 stop 被关闭；stop 为 nil 时只看信号。
 func runApp(stop <-chan struct{}) {
 	// 初始化配置
-	var bc conf.Bootstrap
 	fileDir, err := resolveConfigDir(*configDir)
 	if err != nil {
 		panic(err)
 	}
-	if err := os.MkdirAll(fileDir, 0o755); err != nil {
-		panic(err)
+	warnLegacyConfigDir(*configDir == "", filepath.Join(fileDir, "config.toml"))
+	bc, closeConfig, err := app.OpenConfig(fileDir)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	filePath := filepath.Join(fileDir, "config.toml")
-	warnLegacyConfigDir(*configDir == "", filePath)
-	configIsNotExistWrite(filePath, fileDir)
-	if err := conf.SetupConfig(&bc, filePath); err != nil {
-		panic(err)
-	}
-	// 口令配置不合规时在连数据库之前就退出，避免服务起来后 MCP 客户端莫名其妙地 401
-	if err := conf.ValidatePasscode(&bc); err != nil {
-		panic(err)
-	}
+	defer closeConfig()
+
 	bc.Runtime.Debug = !getBuildRelease()
 	bc.Runtime.BuildVersion = buildVersion
-	bc.Runtime.ConfigDir = fileDir
-	bc.Runtime.ConfigPath = filePath
 
-	{
-		expvar.NewString("version").Set(buildVersion)
-		expvar.NewString("git_branch").Set(gitBranch)
-		expvar.NewString("git_hash").Set(gitHash)
-		expvar.NewString("build_time").Set(buildTime)
-		expvar.Publish("timestamp", expvar.Func(func() any {
-			return time.Now().Format(time.DateTime)
-		}))
-	}
-
-	// 设置数据库版本号，用于驱动 orm 的 AutoMigrate
-	// 本项目是开箱即用的单文件看板，每次启动都执行表迁移：已有的表只会补齐缺的列和索引，
-	// 不会因为版本号没变（例如 go run 开发时）而漏掉新增的表结构
-	orm.SetEnabledAutoMigrate(true)
-	versionapi.DBVersion = buildVersion
-	versionapi.DBRemark = gitBranch + "_" + gitHash
+	app.BuildInfo{Version: buildVersion, Branch: gitBranch, Commit: gitHash, Time: buildTime}.Register()
 
 	// Run 返回时端口、数据库和日志都已释放；自动更新要求重启时，在这里换成新程序
 	if exe := app.Run(&bc, stop); exe != "" {
+		closeConfig()
 		if err := app.Restart(exe); err != nil {
 			fmt.Fprintf(os.Stderr, "更新后自动重启失败，请手动重启 Slate: %v\n", err)
 			os.Exit(1)
@@ -135,13 +108,4 @@ func warnLegacyConfigDir(useDefault bool, newConfigPath string) {
 		return
 	}
 	fmt.Fprintf(os.Stderr, "提示：在当前目录发现旧位置的配置 ./configs，默认目录已改为 %s。\n要沿用旧数据，请先停掉服务，再把 configs/config.toml、data.db（含 -wal、-shm）复制过去，并把 config.toml 里的 Dsn、Log.Dir 改成新目录下 data.db、logs 的绝对路径。\n", filepath.Dir(newConfigPath))
-}
-
-// configIsNotExistWrite 配置文件不存在时，回写默认配置（数据库路径放在 dir 下）
-func configIsNotExistWrite(path, dir string) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := conf.WriteConfig(conf.DefaultConfig(dir), path); err != nil {
-			system.ErrPrintf("WriteConfig", "err", err)
-		}
-	}
 }

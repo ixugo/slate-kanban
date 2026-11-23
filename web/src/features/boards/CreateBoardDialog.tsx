@@ -45,7 +45,7 @@ function CreateBoardForm({ onDone }: FormProps) {
       {
         name: name.trim(),
         slug: slug.trim() || undefined,
-        description: description.trim() || undefined,
+        description: description || undefined,
         ...(template === 'dev' || template === 'empty'
           ? { template, locale: lang }
           : { project_template_id: Number(template) }),

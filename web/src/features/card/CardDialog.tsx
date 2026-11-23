@@ -32,11 +32,11 @@ interface CardDialogProps {
 }
 
 /**
- * 描述编辑区里按 Esc 是“放弃这次修改”，不该顺带关掉整个弹窗；
- * Radix 在文档层先收到按键，所以要在这里拦住，编辑器自己的 Esc 处理照常执行。
+ * 描述编辑区和更多操作各有自己的 Escape 行为。
+ * Radix 先收到键盘事件，在这里保留详情，让内层继续处理。
  */
-function keepDialogWhenEditorCancels(e: KeyboardEvent) {
-  if ((e.target as HTMLElement | null)?.closest?.('[data-escape-cancel]')) e.preventDefault()
+function keepDialogWhenInnerEscapes(e: KeyboardEvent) {
+  if ((e.target as HTMLElement | null)?.closest?.('[data-escape-cancel], [data-card-actions-expanded="true"]')) e.preventDefault()
 }
 
 /** URL 只记录用户打开的根任务，切换根任务时清空引用层。 */
@@ -212,7 +212,8 @@ function CardDialogStack({ boardId, rootId, closeAll, openFork }: CardDialogProp
       <DialogContent
         ref={content}
         tabIndex={-1}
-        onEscapeKeyDown={keepDialogWhenEditorCancels}
+        showCloseButton={false}
+        onEscapeKeyDown={keepDialogWhenInnerEscapes}
         onPointerDownOutside={(event) => {
           const { target, button, ctrlKey } = event.detail.originalEvent
           if (!(target instanceof Element) || !target.matches('[data-slot="dialog-overlay"]')) return
@@ -226,10 +227,9 @@ function CardDialogStack({ boardId, rootId, closeAll, openFork }: CardDialogProp
           columns={columns}
           onColumn={onColumn}
           onDelete={() => remove.mutate(cardId)}
-          deleteBusy={remove.isPending && remove.variables === cardId}
           onArchive={() => archive.mutate(cardId)}
           onFork={() => fork.mutate(cardId)}
-          actionBusy={archive.isPending || fork.isPending}
+          actionBusy={archive.isPending || fork.isPending || remove.isPending}
         />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:overflow-hidden">
           {isPending && <Skeleton className="m-6 h-40 rounded-2xl" />}
@@ -243,6 +243,10 @@ function CardDialogStack({ boardId, rootId, closeAll, openFork }: CardDialogProp
               lang={lang}
               boardId={boardId}
               onPatch={onPatch}
+              onSaveDependencies={async (waits_on, version) => {
+                const updated = await patch.mutateAsync({ cardId, boardId, input: { waits_on, version } })
+                return updated.version
+              }}
               onDesc={(description) => onPatch({ description, version: card.version })}
               renderCardReference={renderCardReference}
               patchBusy={patch.isPending && patch.variables?.cardId === cardId}

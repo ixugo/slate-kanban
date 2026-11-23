@@ -78,10 +78,11 @@ function setup(events: BoardEvent[] = defaultEvents(), extra: Record<string, unk
   return { api, events, user }
 }
 
-// 点工具栏上的「活动」按钮，等抽屉出现，返回抽屉元素
+// 从工具栏的更多菜单打开「活动」，等抽屉出现，返回抽屉元素
 async function openDrawer(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByText('任务一')
-  await user.click(screen.getByRole('button', { name: en.activity.open }))
+  await user.click(screen.getByRole('button', { name: en.common.more }))
+  await user.click(screen.getByRole('menuitem', { name: en.activity.open }))
   return screen.findByRole('dialog', { name: en.activity.title })
 }
 
@@ -93,7 +94,7 @@ const lastActivityCall = (api: ReturnType<typeof installFakeApi>) =>
   api.calls.filter((c) => c.path.endsWith('/activity')).at(-1) as FakeCall
 
 describe('活动抽屉', () => {
-  it('点工具栏的「活动」打开抽屉，从新到旧列出谁做了什么', async () => {
+  it('从更多菜单打开活动抽屉，从新到旧列出谁做了什么', async () => {
     const { user } = setup()
     const dialog = await openDrawer(user)
     await within(dialog).findByText(/moved the task/)

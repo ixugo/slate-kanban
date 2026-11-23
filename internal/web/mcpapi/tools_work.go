@@ -37,13 +37,15 @@ type claimCardIn struct {
 
 // finishCardIn 是 finish_card 的入参。
 type finishCardIn struct {
-	CardID   int64  `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
-	Summary  string `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在任务下；引用同板任务时在正文写 #数字，例如 #86"`
-	Branch   string `json:"branch,omitempty" jsonschema:"这次工作用的分支名；不填表示不改"`
-	URL      string `json:"url,omitempty" jsonschema:"相关链接，例如合并请求，必须以 http:// 或 https:// 开头；不填表示不改"`
-	ColumnID int64  `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；按各列 instruction 的约定选择"`
-	BeforeID int64  `json:"before_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的前面；和 after_id 最多填一个；都不填放到目标列最顶部"`
-	AfterID  int64  `json:"after_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的后面；和 before_id 最多填一个"`
+	CardID        int64    `json:"card_id" jsonschema:"任务编号，是数字 id，不是 SLATE-12 这样的 key"`
+	MergedCommits []string `json:"merged_commits,omitempty" jsonschema:"仅审查通过的本地任务：已合入主工作区的提交哈希前六位，保持顺序；同时传 version，工具会把列表加进评论"`
+	Version       *int64   `json:"version,omitempty" jsonschema:"记录合并结果时必填，使用审查时读到的任务版本"`
+	Summary       string   `json:"summary" jsonschema:"这次做了什么、结果如何、审查的人要注意什么；会作为评论写在任务下；引用同板任务时在正文写 #数字，例如 #86"`
+	Branch        string   `json:"branch,omitempty" jsonschema:"这次工作用的分支名；不填表示不改"`
+	URL           string   `json:"url,omitempty" jsonschema:"相关链接，例如合并请求，必须以 http:// 或 https:// 开头；不填表示不改"`
+	ColumnID      int64    `json:"column_id,omitempty" jsonschema:"交接到哪一列；不填就去当前列设置的下一列（通常是审查）；按各列 instruction 的约定选择"`
+	BeforeID      int64    `json:"before_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的前面；和 after_id 最多填一个；都不填放到目标列最顶部"`
+	AfterID       int64    `json:"after_id,omitempty" jsonschema:"放到目标列这个任务（数字 id）的后面；和 before_id 最多填一个"`
 }
 
 // commentCardIn 是 comment_card 的入参。
@@ -164,24 +166,19 @@ func (a API) registerWorkTools(s *mcp.Server, v view) {
 func (a API) registerSharedWork(s *mcp.Server) {
 	register(s, spec{
 		name: "release_card", kind: kindWrite,
-		desc: "释放任务上的领取。你做不下去、想让别的 agent 接手时用它；释放后任务留在原来的列，所以你自己的 next_card 也会再领到它。要等人回复的话，改用 move_card 把任务移出领取列。" +
-			"agent 只能释放自己持有的任务，人可以收回任何一个。已经没有领取时也返回成功。",
+		desc: "释放领取，卡片仍在原列。人可收回领取，agent 只能释放自己持有的任务。",
 	}, a.releaseCard)
 	register(s, spec{
 		name: "finish_card", kind: kindWrite,
-		desc: "完成交接：把 summary 写成评论、记下分支和链接、把任务移到下一列（通常是「审查」）并结束你的领取，全部在一次操作里完成。" +
-			"做完一个任务就调用它，不要自己用 move_card 去拖；调用前先用 update_card 在描述末尾补上「任务项」清单（- [x] 已实现，- [ ] 未做），让人看描述就知道做了什么；是否算完成由审查决定，具体按各列的 instruction。" +
-			"summary 要让审查的人不看代码也能知道做了什么、怎么验证的、有什么风险。",
+		desc: "一次事务写交接评论、更新分支和链接、移到下一列并结束领取。按列指令和 skill 更新任务项及审查结果。",
 	}, a.finishCard)
 	register(s, spec{
 		name: "comment_card", kind: kindWrite,
-		desc: "在任务下写一条评论，用来汇报进度、提问或回复人的问题。不必持有这个任务也能评论；" +
-			"持有者评论会顺延领取的租约。评论只能新增，不能修改。",
+		desc: "新增任务评论。持有者评论顺延租约。",
 	}, a.commentCard)
 	register(s, spec{
 		name: "move_card", kind: kindWrite,
-		desc: "把任务移到另一列，或在同一列里调整顺序。换列会结束领取，并触发看板上对应的自动化规则。" +
-			"不能移动正被别的 agent 持有的任务；什么状态下该动哪个任务、能放进哪一列，按任务所在列和目标列的 instruction 来（例如审查不通过时放回「进行中」）。做完一个任务请用 finish_card，不要用它。",
+		desc: "移动或重排任务。换列结束领取并触发自动化；研发交接用 finish_card。",
 	}, a.moveCard)
 }
 
@@ -189,34 +186,23 @@ func (a API) registerSharedWork(s *mcp.Server) {
 func (a API) registerAgentWork(s *mcp.Server) {
 	register(s, spec{
 		name: "next_card", kind: kindWrite,
-		desc: "领取下一个该你做的任务。先读取列的 instruction，按提示词指定 column_id，只从这一列按看板顺序从上到下取任务，" +
-			"跳过只能由人处理的、还在等依赖的、别人正在做的和绑定给别的工程师的；你自己已经持有的任务优先，所以重启之后能接着做原来的活。" +
-			"看板有工程师名册时，engineer_id 指定由哪位工程师承担（按列提示词选择研发或测试）（不填则任务绑定的优先，否则随机挑空闲的）；一位工程师同时只做一个，名额满了返回 ErrNoIdleEngineer，排队等一等。" +
-			"领到后返回任务全文、评论、依赖和所在列的指令（column_instruction，必须遵守）。" +
-			"没有可做的任务时 card 为 null，不是错误：用 wait_for_updates 等人安排新工作。领到任务时结果带 agent_notice：任务不明确就先评论反馈，不要直接开始。" +
-			"领取有租约（lease_minutes，默认 30 分钟，最多 1440 分钟）：持有期间在任务上评论或修改会把租约顺延到至少 30 分钟之后，" +
-			"租约到期后别的 agent 可以接手。",
+		desc: "按列顺序领取首张可做任务，优先返回自己已持有的；card 为 null 表示本列无任务。返回详情、评论及列指令。",
 	}, a.nextCard)
 	register(s, spec{
 		name: "claim_card", kind: kindWrite,
-		desc: "领取指定的任务，已经由你持有时只是续租。哪一列的任务你能领，按这一列的 instruction 来（例如审查 agent 领审查列的任务）；任务不是只能由人处理的，" +
-			"依赖已经完成，并且没有被别的 agent 持有。看板有工程师名册时由 engineer_id 指定的工程师承担（按列提示词选择研发或测试），不填则任务绑定的优先，否则随机挑空闲的；" +
-			"指定的工程师在做别的任务返回 ErrEngineerBusy，和任务绑定的不一致返回 ErrEngineerBound。领到后返回任务全文、评论、依赖和所在列的指令，以及 agent_notice 提醒（任务不明确就先评论反馈）。一般用 next_card 就够了。",
+		desc: "领取指定任务或续租，返回详情、评论及列指令。需满足依赖、工程师绑定和空闲名额。",
 	}, a.claimCard)
 	register(s, spec{
 		name: "create_card", kind: kindWrite,
-		desc: "创建任务，用来记录你在工作中发现的新任务、问题或后续事项。放进哪一列按各列 instruction 的约定，没有约定就建在「收件箱」，" +
-			"由人决定做不做、什么时候做。优先级、依赖和时间是人的安排，agent 不能设置。",
+		desc: "创建任务；column_id 缺省放入第一列。优先级、依赖与时间由人管理。",
 	}, a.createCard)
 	register(s, spec{
 		name: "update_card", kind: kindWrite,
-		desc: "修改你持有的任务的标题、描述、标签、分支或链接，只更新你填写的字段。" +
-			"带上 version（上次读到的版本号）可以避免覆盖别人刚做的修改。优先级、依赖和时间是人的安排，agent 不能修改。",
+		desc: "更新持有任务中填写的字段。带上 version 避免并发覆盖。",
 	}, a.updateCard)
 	register(s, spec{
 		name: "set_project_path", kind: kindWrite,
-		desc: "记录这个看板对应的项目在本机的绝对路径。只有看板上还没有路径时才能写；已经有路径了就不能改，只有人可以改。" +
-			"先用 get_board 核对 project_path。为空且人在看板上明确确认绝对路径后才写入；用看板记录疑问，不触发终端阻塞式提问。",
+		desc: "看板路径为空且人已明确确认后，登记本机绝对路径。已有路径由人修改。",
 	}, a.setProjectPath)
 }
 
@@ -265,6 +251,7 @@ func (a API) finishCard(ctx context.Context, actor kanban.Actor, in finishCardIn
 	detail, err := a.core.FinishCard(ctx, actor, in.CardID, kanban.FinishCardInput{
 		Summary: in.Summary, Branch: in.Branch, URL: in.URL, ColumnID: in.ColumnID,
 		BeforeID: in.BeforeID, AfterID: in.AfterID, Top: true,
+		MergedCommits: in.MergedCommits, Version: in.Version,
 	})
 	if err != nil {
 		return nil, err

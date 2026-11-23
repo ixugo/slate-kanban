@@ -28,6 +28,9 @@ export default function UpdateDialog({ info, onClose, onCloseAutoFocus }: Props)
   const update = useMutation({ mutationFn: applyUpdate })
   const restarting = update.data?.restarting === true
   const restartTimedOut = useReloadAfterRestart(restarting, update.data?.version ?? '')
+  const resultMessage = update.data?.installer_opened
+    ? 'update.installerOpened'
+    : restarting && !restartTimedOut ? 'update.restarting' : 'update.done'
   const link = safeUrl(info.url)
   const ignore = () => {
     saveIgnored(info.latest)
@@ -43,7 +46,7 @@ export default function UpdateDialog({ info, onClose, onCloseAutoFocus }: Props)
         {info.notes !== '' && <Markdown source={info.notes} className="max-h-72 overflow-auto text-ui" />}
         {update.isSuccess && (
           <p role="status">
-            {t(restarting && !restartTimedOut ? 'update.restarting' : 'update.done', { version: update.data.version })}
+            {t(resultMessage, { version: update.data.version })}
           </p>
         )}
         {update.isError && <p role="alert" className="text-destructive">{describeError(update.error, t).message}</p>}

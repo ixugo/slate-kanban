@@ -42,7 +42,7 @@
 
 ## 起步模板
 
-模板 dev 是为开发工作准备的五列流程，simple 是三列，empty 不建任何列。列名和指令按创建请求里的 locale 生成，支持 zh-CN、zh-TW、en、ja、ko，不认识的 locale 一律按 en 处理。
+模板 dev 是为开发工作准备的五列流程，simple 是三列，empty 不建任何列。列名和指令按创建请求里的 locale 生成，支持 zh-CN、zh-TW、en、ja，不认识的 locale 一律按 en 处理。
 
 | 模板 | 列（按顺序） | IsDone | 下一列 |
 |------|-------------|--------|--------|

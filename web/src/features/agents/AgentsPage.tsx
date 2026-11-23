@@ -18,6 +18,7 @@ import { parseAgentsProjectParam } from '@/lib/agentsProject'
 import { bindWatchPrompt } from './watchPrompt'
 import { WatchSection } from './WatchSection'
 import { UninstallMcp } from './UninstallMcp'
+import { DesktopDispatch } from './DesktopDispatch'
 
 /** 接入页默认导出 */
 export default function AgentsPage() {
@@ -69,6 +70,7 @@ export default function AgentsPage() {
         <p className="text-ui">{prompt}</p>
         <CopyPromptButton text={prompt} label={t('common.copy')} ok={t('common.copied')} fail={t('agents.copyFailed')} />
       </section>
+      <DesktopDispatch boards={boards} />
       <WatchSection
         guide={data}
         board={board}
@@ -84,6 +86,7 @@ export default function AgentsPage() {
         <p className="text-ui text-muted-foreground">{t('agents.advancedHint')}</p>
         <p className="text-ui text-muted-foreground">{t('agents.skillOptional')}</p>
         <p className="text-ui text-muted-foreground">{t('agents.nameHint')}</p>
+        <p className="text-ui text-muted-foreground">{t('agents.managerHint')}</p>
         <HostTabs guide={data} board={board} />
       </details>
     </Page>
@@ -92,7 +95,6 @@ export default function AgentsPage() {
 
 /** 各宿主的 MCP、skill 和守候说明 */
 function HostTabs({ guide: data, board }: { guide: ConnectGuide; board?: Board }) {
-  const { t } = useTranslation()
   return (
     <Tabs defaultValue={data.hosts[0]?.id ?? 'default'}>
       <TabsList className="flex-wrap">
@@ -108,15 +110,6 @@ function HostTabs({ guide: data, board }: { guide: ConnectGuide; board?: Board }
             .filter((s) => s.kind === 'worker')
             .map((s) => (
               <SnippetCard key={`${h.id}-worker`} snippet={s} />
-            ))}
-          {h.mcp
-            .filter((s) => s.kind === 'manager')
-            .map((s) => (
-              <details key={`${h.id}-manager`} className="space-y-2">
-                <summary className="cursor-pointer text-ui font-medium">{t('agents.managerFold')}</summary>
-                <p className="text-xs text-muted-foreground">{t('agents.managerHint')}</p>
-                <SnippetCard snippet={s} subdued />
-              </details>
             ))}
           <UninstallMcp host={h.id} />
           {h.skill.map((s) => (

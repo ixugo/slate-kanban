@@ -2,27 +2,31 @@ package kanban
 
 // CreateWebhookInput 是创建 webhook 的入参。
 type CreateWebhookInput struct {
-	Name          string   `json:"name"`
-	Type          string   `json:"type"`
-	URL           string   `json:"url"`
-	Secret        string   `json:"secret"`
-	Enabled       *bool    `json:"enabled"`
-	EventTypes    []string `json:"event_types"`
-	ActorKinds    []string `json:"actor_kinds"`
-	MoveColumnIDs []int64  `json:"move_column_ids"`
+	Name              string             `json:"name"`
+	Type              string             `json:"type"`
+	URL               string             `json:"url"`
+	Secret            string             `json:"secret"`
+	Enabled           *bool              `json:"enabled"`
+	StrictFilters     bool               `json:"strict_filters"`
+	StrictFilterModes WebhookFilterModes `json:"strict_filter_modes"`
+	EventTypes        []string           `json:"event_types"`
+	ActorKinds        []string           `json:"actor_kinds"`
+	MoveColumnIDs     []int64            `json:"move_column_ids"`
 }
 
 // UpdateWebhookInput 是修改 webhook 的入参，只更新出现的字段；secret 传空字符串表示清空。
 type UpdateWebhookInput struct {
-	Name          *string   `json:"name"`
-	Type          *string   `json:"type"`
-	URL           *string   `json:"url"`
-	Secret        *string   `json:"secret"`
-	SecretClear   bool      `json:"secret_clear"`
-	Enabled       *bool     `json:"enabled"`
-	EventTypes    *[]string `json:"event_types"`
-	ActorKinds    *[]string `json:"actor_kinds"`
-	MoveColumnIDs *[]int64  `json:"move_column_ids"`
+	Name              *string            `json:"name"`
+	Type              *string            `json:"type"`
+	URL               *string            `json:"url"`
+	Secret            *string            `json:"secret"`
+	SecretClear       bool               `json:"secret_clear"`
+	Enabled           *bool              `json:"enabled"`
+	StrictFilters     *bool              `json:"strict_filters"`
+	StrictFilterModes WebhookFilterModes `json:"strict_filter_modes"`
+	EventTypes        *[]string          `json:"event_types"`
+	ActorKinds        *[]string          `json:"actor_kinds"`
+	MoveColumnIDs     *[]int64           `json:"move_column_ids"`
 }
 
 // apply 把入参里出现的字段写到 webhook 上。
@@ -43,6 +47,19 @@ func (in UpdateWebhookInput) apply(w *Webhook) {
 	}
 	if in.Enabled != nil {
 		w.Enabled = *in.Enabled
+	}
+	if in.StrictFilters != nil {
+		w.StrictFilters = *in.StrictFilters
+		w.StrictFilterModes = WebhookFilterModes{}
+	}
+	if in.StrictFilterModes.EventTypes != nil {
+		w.StrictFilterModes.EventTypes = in.StrictFilterModes.EventTypes
+	}
+	if in.StrictFilterModes.ActorKinds != nil {
+		w.StrictFilterModes.ActorKinds = in.StrictFilterModes.ActorKinds
+	}
+	if in.StrictFilterModes.MoveColumnIDs != nil {
+		w.StrictFilterModes.MoveColumnIDs = in.StrictFilterModes.MoveColumnIDs
 	}
 	if in.EventTypes != nil {
 		w.EventTypes = append([]string(nil), (*in.EventTypes)...)

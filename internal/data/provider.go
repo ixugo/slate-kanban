@@ -2,6 +2,7 @@ package data
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/google/wire"
 	"github.com/ixugo/goddd/pkg/orm"
-	"github.com/ixugo/goddd/pkg/system"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -64,27 +64,37 @@ const (
 	sqlitePrefix     = "sqlite://"
 )
 
-// errEmptyDSN 说明数据库 DSN 或 SQLite 文件路径是空的：空路径会让 SQLite 去打开启动目录本身，所以要提前拒绝。
-var errEmptyDSN = errors.New("数据库 DSN 不能为空（Data.Database.Dsn）：填 postgres:// 开头的连接串，或 SQLite 文件路径")
+var errEmptySQLitePath = errors.New("sqlite:// 后必须填写数据库文件路径（Data.Database.Dsn）")
 
 // getDialector 按 DSN 的前缀选数据库，返回 dial 和是否 sqlite：
+//   - 空值：使用 ~/.slate-kanban/data.db；
 //   - postgres:// 或 postgresql:// 开头：PostgreSQL，连接串原样交给 pgx 驱动；
 //   - sqlite:// 开头：去掉前缀，后面是 SQLite 文件路径；
-//   - 其他：整串当成 SQLite 文件路径，所以只写路径的旧配置不用改。
+//   - 其他：整串当成 SQLite 文件路径。
 //
 // 两种驱动都编译进程序，不需要构建标签，换数据库只改配置里的 DSN。
 func getDialector(dsn string) (gorm.Dialector, bool, error) {
 	dsn = strings.TrimSpace(dsn)
 	switch {
+	case dsn == "":
+		path, err := conf.DefaultDatabasePath()
+		if err != nil {
+			return nil, false, fmt.Errorf("定位默认 SQLite 数据库: %w", err)
+		}
+		dsn = path
 	case hasPrefixFold(dsn, postgresPrefix) || hasPrefixFold(dsn, postgresqlPrefix):
 		return postgres.New(postgres.Config{DriverName: "pgx", DSN: dsn}), false, nil
 	case hasPrefixFold(dsn, sqlitePrefix):
-		dsn = dsn[len(sqlitePrefix):]
+		dsn = strings.TrimSpace(dsn[len(sqlitePrefix):])
+		if dsn == "" {
+			return nil, false, errEmptySQLitePath
+		}
 	}
-	if dsn == "" {
-		return nil, false, errEmptyDSN
+	dsn, err := sqliteDSN(dsn)
+	if err != nil {
+		return nil, false, err
 	}
-	return sqlite.Open(sqliteDSN(dsn)), true, nil
+	return sqlite.Open(dsn), true, nil
 }
 
 // hasPrefixFold 判断 s 是否以 prefix 开头，忽略大小写（scheme 本来就不区分大小写）。
@@ -93,12 +103,21 @@ func hasPrefixFold(s, prefix string) bool {
 }
 
 // sqliteDSN 把配置里的文件路径转成带参数的 sqlite DSN。
-// 相对路径以启动目录为基准，绝对路径原样使用；会先创建上级目录，
-// 并开启 WAL 与 5 秒忙等待，降低读写互相阻塞、直接报 database is locked 的概率。
-func sqliteDSN(path string) string {
+// 相对路径以可执行文件目录为基准。先创建上级目录，再开启 WAL 与 5 秒忙等待。
+func sqliteDSN(path string) (string, error) {
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(system.Getwd(), path)
+		exe, err := os.Executable()
+		if err != nil {
+			return "", fmt.Errorf("定位 SQLite 相对路径的程序目录: %w", err)
+		}
+		exe, err = filepath.EvalSymlinks(exe)
+		if err != nil {
+			return "", fmt.Errorf("解析 SQLite 相对路径的程序目录: %w", err)
+		}
+		path = filepath.Join(filepath.Dir(exe), path)
 	}
-	_ = os.MkdirAll(filepath.Dir(path), 0o755)
-	return path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", fmt.Errorf("创建 SQLite 数据库目录: %w", err)
+	}
+	return path + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)", nil
 }

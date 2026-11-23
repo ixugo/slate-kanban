@@ -6,7 +6,6 @@ import i18n, { initialLanguage, loadLanguage, setLanguage } from './index'
 import { LANG_STORAGE_KEY, LANGUAGES } from './languages'
 import { en } from './locales/en'
 import { ja } from './locales/ja'
-import { ko } from './locales/ko'
 import { zhCN } from './locales/zh-CN'
 import { zhTW } from './locales/zh-TW'
 import { useTranslation } from './react'
@@ -36,7 +35,6 @@ const locales = [
   ['zh-CN', zhCN],
   ['zh-TW', zhTW],
   ['ja', ja],
-  ['ko', ko],
 ] as const
 
 describe('各语言的文案', () => {
@@ -57,8 +55,8 @@ describe('各语言的文案', () => {
     }
   })
 
-  it('五种语言都登记了资源', () => {
-    expect(LANGUAGES.map((l) => l.code).sort()).toEqual(['en', 'ja', 'ko', 'zh-CN', 'zh-TW'])
+  it('四种语言都登记了资源', () => {
+    expect(LANGUAGES.map((l) => l.code).sort()).toEqual(['en', 'ja', 'zh-CN', 'zh-TW'])
   })
 })
 
@@ -125,14 +123,14 @@ describe('语言的选择和记忆', () => {
     await setLanguage('en')
   })
 
-  it('存储里是不认识的值时忽略它', () => {
-    localStorage.setItem(LANG_STORAGE_KEY, 'xx')
+  it('存储里是已移除的语言时忽略它', () => {
+    localStorage.setItem(LANG_STORAGE_KEY, 'ko')
     expect(initialLanguage()).toBe('en')
   })
 
   it('文案里的占位符能被替换', async () => {
-    await setLanguage('ko')
-    expect(i18n.t('boards.updated', { time: '3분 전' })).toBe('3분 전 업데이트')
+    await setLanguage('ja')
+    expect(i18n.t('boards.updated', { time: '3 分前' })).toBe('3 分前に更新')
     await setLanguage('en')
     expect(i18n.t('boards.updated', { time: '3 min ago' })).toBe('Updated 3 min ago')
   })

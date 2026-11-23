@@ -1,4 +1,4 @@
-// 各语言包的加载：英文静态打进主包，其余四种走独立异步 chunk。
+// 各语言包的加载：英文静态打进主包，其余三种走独立异步 chunk。
 
 import type { Lang } from './languages'
 import type { MessageTree } from './types'
@@ -9,7 +9,6 @@ const loaders: Record<Exclude<Lang, 'en'>, () => Promise<MessageTree>> = {
   'zh-CN': async () => (await import('./locales/zh-CN')).zhCN,
   'zh-TW': async () => (await import('./locales/zh-TW')).zhTW,
   ja: async () => (await import('./locales/ja')).ja,
-  ko: async () => (await import('./locales/ko')).ko,
 }
 
 const cache = new Map<Lang, MessageTree>([['en', en]])
@@ -28,7 +27,7 @@ export async function loadLanguage(lang: Lang): Promise<void> {
   cache.set(lang, messages)
 }
 
-/** 测试用：并行预加载全部五种语言，保证 t 在跑用例时同步可用 */
+/** 测试用：并行预加载全部四种语言，保证 t 在跑用例时同步可用 */
 export async function preloadAllLanguages(): Promise<void> {
   await Promise.all((Object.keys(loaders) as Exclude<Lang, 'en'>[]).map((code) => loadLanguage(code)))
 }

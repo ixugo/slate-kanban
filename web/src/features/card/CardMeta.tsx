@@ -2,7 +2,7 @@
 // 没设值时按钮上只有图标和名称；设了值就把值显示在按钮上。点开按钮才出现编辑控件，平时不占地方。
 // 标签例外：设了标签以后单独占一行，显示成大号标签（对齐 Trello）。
 
-import { useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { useId, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { CheckIcon, FlagIcon, GitBranchIcon, Link2Icon, LinkIcon, LockIcon, PlusIcon, TagIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, Engineer } from '@/lib/api/types'
@@ -14,6 +14,8 @@ import type { CardReferenceRenderer } from '@/lib/markdown'
 import { CARD_BRANCH_MAX, CARD_URL_MAX } from '@/lib/limits'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import { CardCleanup } from './CardCleanup'
+import { CardMergeBadge } from './CardMergeBadge'
 import { DatesChip, DatesSection } from './CardDates'
 import { hasDates } from './datesDraft'
 import { DependencyPicker } from './DependencyPicker'
@@ -129,7 +131,7 @@ function TagsSection({ tagIds, onTriggerClick }: { tagIds: number[]; onTriggerCl
           <TagBadge key={id} id={id} size="lg" />
         ))}
         <PopoverTrigger asChild>
-          <Button type="button" variant="secondary" size="icon" className="size-8 rounded-md" aria-label={t('card.field.tags')} onClick={onTriggerClick}>
+          <Button type="button" variant="secondary" size="icon" className="size-[30px] rounded-md" aria-label={t('card.field.tags')} onClick={onTriggerClick}>
             <PlusIcon />
           </Button>
         </PopoverTrigger>
@@ -141,48 +143,33 @@ function TagsSection({ tagIds, onTriggerClick }: { tagIds: number[]; onTriggerCl
 interface DependenciesProps extends CardMetaProps {
   depOptions: CardDetail['dependencies']
   renderCardReference: CardReferenceRenderer
+  onSaveDependencies: (ids: number[], version: number) => Promise<number>
+}
+
+interface DependencySectionProps {
+  refs: CardDetail['dependencies']
+  trigger: ReactNode
+  renderCardReference: CardReferenceRenderer
 }
 
 /** 已选依赖和标签、日期一样在属性区单独展示。 */
-function Dependencies({ card, depOptions, onPatch, renderCardReference }: DependenciesProps) {
+function DependencySection({ refs, trigger, renderCardReference }: DependencySectionProps) {
   const { t } = useTranslation()
-  const selected = card.waits_on ?? []
-  const refs = depOptions.filter(({ id }) => selected.includes(id))
-  const trigger = (compact: boolean) => (
-    <PopoverTrigger asChild>
-      <Button type="button" variant="secondary" className={compact ? 'size-8 rounded-md' : CHIP_CLASS} aria-label={t('card.field.deps')}>
-        {compact ? <PlusIcon /> : <ChipLabel icon={<Link2Icon />}>{t('card.field.deps')}</ChipLabel>}
-      </Button>
-    </PopoverTrigger>
-  )
-
   return (
-    <Popover>
-      {refs.length > 0 ? (
-        <section aria-label={t('card.field.deps')} className="space-y-1.5">
-          <h3 className="text-xs font-semibold text-muted-foreground">{t('card.field.deps')}</h3>
-          <ul className="flex flex-wrap items-center gap-1.5">
-            {refs.map(({ id, key }) => {
-              const label = displayKey(key)
-              return (
-                <li key={id} className="rounded-md bg-secondary px-2.5 py-1 font-mono text-xs">
-                  {renderCardReference(Number(label.slice(1)), label)}
-                </li>
-              )
-            })}
-            <li>{trigger(true)}</li>
-          </ul>
-        </section>
-      ) : trigger(false)}
-      <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-80 max-w-[calc(100vw-1rem)] overflow-y-auto">
-        <DependencyPicker
-          cardId={card.id}
-          selected={selected}
-          options={depOptions}
-          onChange={(waits_on) => onPatch({ waits_on, version: card.version })}
-        />
-      </PopoverContent>
-    </Popover>
+    <section aria-label={t('card.field.deps')} className="space-y-1.5">
+      <h3 className="text-xs font-semibold text-muted-foreground">{t('card.field.deps')}</h3>
+      <ul className="flex flex-wrap items-center gap-1.5">
+        {refs.map(({ id, key }) => {
+          const label = displayKey(key)
+          return (
+            <li key={id} className="flex h-[30px] items-center rounded-md bg-secondary px-2.5 font-mono text-xs">
+              {renderCardReference(Number(label.slice(1)), label)}
+            </li>
+          )
+        })}
+        <li>{trigger}</li>
+      </ul>
+    </section>
   )
 }
 
@@ -227,7 +214,7 @@ function hostOf(url: string): string {
 }
 
 /** 标题下面的一排属性按钮，放不下就换行 */
-export function CardMeta({ card, depOptions, engineers, onPatch, renderCardReference }: DependenciesProps & { engineers: Engineer[] }) {
+export function CardMeta({ card, depOptions, engineers, onPatch, renderCardReference, onSaveDependencies }: DependenciesProps & { engineers: Engineer[] }) {
   const { t } = useTranslation()
   // 标签选择器的开关放在这里：加第一枚标签时入口从按钮挪到标签区，弹层不能跟着关掉
   const [tagsOpen, setTagsOpen] = useState(false)
@@ -241,8 +228,62 @@ export function CardMeta({ card, depOptions, engineers, onPatch, renderCardRefer
   }
   const tagIds = card.tag_ids ?? []
   const hasTags = tagIds.length > 0
-  const hasDependencies = depOptions.some(({ id }) => card.waits_on?.includes(id))
-  const dependencies = <Dependencies card={card} depOptions={depOptions} onPatch={onPatch} renderCardReference={renderCardReference} />
+  const [depsOpen, setDepsOpen] = useState(false)
+  const depsPopoverId = useId()
+  const depsTrigger = useRef<HTMLButtonElement>(null)
+  const depsAnchor = useRef<{ getBoundingClientRect: () => DOMRect } | null>(null)
+  const [dependencyDraft, setDependencyDraft] = useState<number[] | null>(null)
+  const pendingDependencies = useRef<{ next: number[] | null } | null>(null)
+  const selectedDependencies = dependencyDraft ?? card.waits_on ?? []
+  const depRefs = depOptions.filter(({ id }) => selectedDependencies.includes(id))
+  const hasDependencies = depRefs.length > 0
+
+  // 按顺序保存勾选。请求等待期间先显示最新选择，下一次 PATCH 使用前一次的服务端版本。
+  const saveDependencies = async (ids: number[]) => {
+    setDependencyDraft(ids)
+    if (pendingDependencies.current) {
+      pendingDependencies.current.next = ids
+      return
+    }
+
+    const pending: { next: number[] | null } = { next: ids }
+    pendingDependencies.current = pending
+    let version = card.version
+    try {
+      while (pending.next !== null) {
+        const next = pending.next
+        pending.next = null
+        version = await onSaveDependencies(next, version)
+      }
+    } catch {
+      // 更新请求负责提示和回滚。放弃基于失败版本的待提交选择。
+    } finally {
+      pendingDependencies.current = null
+      setDependencyDraft(null)
+    }
+  }
+
+  const depsButton = (
+    <Button
+      ref={depsTrigger}
+      type="button"
+      variant="secondary"
+      className={hasDependencies ? 'size-[30px] rounded-md' : CHIP_CLASS}
+      aria-label={t('card.field.deps')}
+      aria-haspopup="dialog"
+      aria-expanded={depsOpen}
+      aria-controls={depsOpen ? depsPopoverId : undefined}
+      onClick={(event) => {
+        if (!depsOpen) {
+          const rect = event.currentTarget.getBoundingClientRect()
+          depsAnchor.current = { getBoundingClientRect: () => rect }
+        }
+        setDepsOpen(!depsOpen)
+      }}
+    >
+      {hasDependencies ? <PlusIcon /> : <ChipLabel icon={<Link2Icon />}>{t('card.field.deps')}</ChipLabel>}
+    </Button>
+  )
 
   const saveUrl = (url: string) => {
     const norm = normalizeCardUrl(url)
@@ -260,7 +301,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch, renderCardRefer
         {!hasTags && <TagsChip onTriggerClick={freezeAnchor} />}
         <EngineerChip card={card} engineers={engineers} onPatch={onPatch} />
         {!hasDates(card) && <DatesChip card={card} onPatch={onPatch} />}
-        {!hasDependencies && dependencies}
+        {!hasDependencies && depsButton}
         <TextChip
           icon={<GitBranchIcon />}
           name={t('card.field.branch')}
@@ -268,6 +309,7 @@ export function CardMeta({ card, depOptions, engineers, onPatch, renderCardRefer
           max={CARD_BRANCH_MAX}
           onCommit={(next) => onPatch({ branch: next.trim().slice(0, CARD_BRANCH_MAX), version: card.version })}
         />
+        <CardMergeBadge card={card} />
         <TextChip icon={<LinkIcon />} name={t('card.field.url')} value={card.url} max={CARD_URL_MAX} onCommit={saveUrl} display={hostOf} />
         <Button
           type="button"
@@ -281,12 +323,30 @@ export function CardMeta({ card, depOptions, engineers, onPatch, renderCardRefer
       </div>
       {hasTags && <TagsSection tagIds={tagIds} onTriggerClick={freezeAnchor} />}
       {hasDates(card) && <DatesSection card={card} onPatch={onPatch} />}
-      {hasDependencies && dependencies}
+      {hasDependencies && <DependencySection refs={depRefs} trigger={depsButton} renderCardReference={renderCardReference} />}
+      <CardCleanup card={card} />
       {anchorRect && <PopoverAnchor virtualRef={anchorRef} />}
       {/* 标签选择器：编辑页（30 色色板）比较高，高度不超过窗口剩余空间，放不下时弹层内部滚动，保存按钮始终够得着 */}
       <PopoverContent align="start" collisionPadding={8} className="max-h-(--radix-popover-content-available-height) w-72 overflow-y-auto">
         <LabelPicker tagIds={tagIds} onChange={(next) => onPatch({ tag_ids: next, version: card.version })} />
       </PopoverContent>
+      <Popover open={depsOpen} onOpenChange={setDepsOpen}>
+        <PopoverAnchor virtualRef={depsAnchor} />
+        <PopoverContent
+          id={depsPopoverId}
+          aria-label={t('card.field.deps')}
+          align="start"
+          collisionPadding={8}
+          className="max-h-(--radix-popover-content-available-height) w-80 max-w-[calc(100vw-1rem)] overflow-y-auto"
+          onInteractOutside={(event) => {
+            if (event.target instanceof Node && depsTrigger.current?.contains(event.target)) event.preventDefault()
+          }}
+          onCloseAutoFocus={(event) => event.preventDefault()}
+          onEscapeKeyDown={() => depsTrigger.current?.focus()}
+        >
+          <DependencyPicker cardId={card.id} selected={selectedDependencies} options={depOptions} onChange={saveDependencies} />
+        </PopoverContent>
+      </Popover>
     </Popover>
   )
 }

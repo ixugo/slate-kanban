@@ -15,8 +15,8 @@ describe('normalizeLanguage', () => {
     ['zh-SG', 'zh-CN'],
     ['ja', 'ja'],
     ['ja-JP', 'ja'],
-    ['ko', 'ko'],
-    ['ko_KR', 'ko'],
+    ['ko', 'en'],
+    ['ko_KR', 'en'],
     ['en', 'en'],
     ['en-US', 'en'],
     ['fr-FR', 'en'],
@@ -49,14 +49,14 @@ describe('pickLanguage', () => {
   })
 
   it('只是前缀相同的不算支持，要继续往后找', () => {
-    expect(pickLanguage(['zhx', 'ko-KR'])).toBe('ko')
+    expect(pickLanguage(['zhx', 'ko-KR', 'ja'])).toBe('ja')
   })
 })
 
 describe('LANGUAGES', () => {
-  it('正好是五种语言，代码和名称都不重复', () => {
-    expect(LANGUAGES.map((l) => l.code).sort()).toEqual(['en', 'ja', 'ko', 'zh-CN', 'zh-TW'])
-    expect(new Set(LANGUAGES.map((l) => l.label)).size).toBe(5)
+  it('正好是四种语言，代码和名称都不重复', () => {
+    expect(LANGUAGES.map((l) => l.code).sort()).toEqual(['en', 'ja', 'zh-CN', 'zh-TW'])
+    expect(new Set(LANGUAGES.map((l) => l.label)).size).toBe(4)
   })
 
   it('每个语言代码归并后还是它自己', () => {

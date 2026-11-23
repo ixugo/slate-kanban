@@ -337,6 +337,12 @@ components:
         branch:
           type: string
           description: 关联的代码分支
+        merged_commits:
+          type: array
+          description: 由审查 agent 记录的主工作区合并提交哈希前六位。未合并时省略。
+          items:
+            type: string
+            pattern: '^[0-9a-f]{6}$'
         url:
           type: string
           description: 关联的链接，例如合并请求

@@ -8,7 +8,6 @@ import { useLanguage } from '@/i18n/useLanguage'
 import type { CardView, Column } from '@/lib/api/types'
 import { formatDate, formatDateTime, isPast } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { useOnlineStatus } from '@/pwa/useOnlineStatus'
 import { TagBadge } from '@/features/labels/TagBadge'
 import { Button } from '@/components/ui/button'
 import { useTemplateText } from '@/lib/useTemplateText'
@@ -22,7 +21,9 @@ import {
   type SortState,
 } from './sortCards'
 import { displayKey } from '@/lib/cardKey'
+import { CardMergeBadge } from '@/features/card/CardMergeBadge'
 import { UnreadBadge } from './UnreadBadge'
+import type { SearchHighlights } from './searchHighlights'
 
 /** 标签列最多展示枚数，与磁贴一致 */
 const TAGS_VISIBLE = 3
@@ -35,6 +36,7 @@ interface ListViewProps {
   cards: CardView[]
   /** 非 null 时只展示其中的任务 id */
   visibleIds: ReadonlySet<number> | null
+  highlights?: SearchHighlights
   listAddOpen: boolean
   onListAddOpen: () => void
   onListAddClose: () => void
@@ -78,6 +80,7 @@ export default function ListView({
   columns,
   cards,
   visibleIds,
+  highlights,
   listAddOpen,
   onListAddOpen,
   onListAddClose,
@@ -87,7 +90,6 @@ export default function ListView({
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const { columnName: localizeName } = useTemplateText()
-  const online = useOnlineStatus()
   const [params] = useSearchParams()
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
 
@@ -110,7 +112,7 @@ export default function ListView({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 pb-4 sm:px-6">
       <div className="shrink-0">
-        {!online ? null : listAddOpen ? (
+        {listAddOpen ? (
           <AddCard
             open
             onOpen={onListAddOpen}
@@ -163,7 +165,8 @@ export default function ListView({
                   >
                     <td className="whitespace-nowrap px-3 py-2.5 font-mono text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
-                        {displayKey(card.key)}
+                        <span>{highlights?.key(card.key) ?? displayKey(card.key)}</span>
+                        <CardMergeBadge card={card} compact />
                         <UnreadBadge count={card.unread_count ?? 0} />
                       </span>
                     </td>
@@ -172,7 +175,7 @@ export default function ListView({
                         to={{ search: next.toString() }}
                         className="font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        {card.title}
+                        {highlights?.title(card.title) ?? card.title}
                       </Link>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{columnName(card)}</td>
@@ -190,7 +193,7 @@ export default function ListView({
                     <td className="px-3 py-2.5">
                       <div className="flex flex-wrap items-center gap-1">
                         {(card.tag_ids ?? []).slice(0, TAGS_VISIBLE).map((id) => (
-                          <TagBadge key={id} id={id} className="max-w-[6rem]" />
+                          <TagBadge key={id} id={id} className="max-w-[6rem]" renderText={highlights?.tag} />
                         ))}
                         {(card.tag_ids ?? []).length > TAGS_VISIBLE && (
                           <span className="text-[0.6875rem] text-muted-foreground">

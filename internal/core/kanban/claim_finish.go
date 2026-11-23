@@ -2,6 +2,7 @@ package kanban
 
 import (
 	"context"
+	"regexp"
 	"strings"
 )
 
@@ -13,7 +14,10 @@ func (c Core) FinishCard(ctx context.Context, actor Actor, cardID int64, in Fini
 	if err := requireWriter(actor); err != nil {
 		return nil, err
 	}
-	summary := strings.TrimSpace(in.Summary)
+	summary, err := finishSummary(in)
+	if err != nil {
+		return nil, err
+	}
 	if err := checkText("总结", summary, 1, maxCommentLen); err != nil {
 		return nil, err
 	}
@@ -43,6 +47,15 @@ func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary 
 	if err != nil {
 		return err
 	}
+	if in.Version != nil && card.Version != *in.Version {
+		return ErrCardVersionConflict
+	}
+	if len(in.MergedCommits) > 0 {
+		if err := u.checkReviewedMerge(ctx, actor, card, from, to, in); err != nil {
+			return err
+		}
+		card.MergedCommits = in.MergedCommits
+	}
 	if _, err := u.addComment(ctx, actor, card, summary); err != nil {
 		return err
 	}
@@ -50,6 +63,57 @@ func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary 
 		return err
 	}
 	return u.handOver(ctx, actor, card, from, to, in)
+}
+
+var shortCommit = regexp.MustCompile(`^[0-9a-f]{6}$`)
+
+// finishSummary 把合并提交一并写入审查评论，和卡片的状态使用同一份数据。
+func finishSummary(in FinishCardInput) (string, error) {
+	summary := strings.TrimSpace(in.Summary)
+	if err := checkText("总结", summary, 1, maxCommentLen); err != nil {
+		return "", err
+	}
+	if len(in.MergedCommits) > maxCommentLen/10 {
+		return "", invalidf("合并提交过多")
+	}
+	if len(in.MergedCommits) == 0 {
+		return summary, nil
+	}
+	for _, hash := range in.MergedCommits {
+		if !shortCommit.MatchString(hash) {
+			return "", invalidf("合并提交需填写哈希前六位小写十六进制")
+		}
+	}
+	summary += "\n\n合并提交：`" + strings.Join(in.MergedCommits, "`, `") + "`"
+	return summary, checkText("总结（含合并提交）", summary, 1, maxCommentLen)
+}
+
+func (u *unit) checkReviewedMerge(ctx context.Context, actor Actor, card *Card, from, to *Column, in FinishCardInput) error {
+	if err := requireAgent(actor); err != nil {
+		return err
+	}
+	if !claimActive(card, u.now()) {
+		return ErrNotHolder
+	}
+	if in.Version == nil {
+		return invalidf("记录合并需要提供审查时读到的 version")
+	}
+	if from.IsDone || !to.IsDone || from.NextColumnID != to.ID {
+		return invalidf("记录合并时目标必须是审查列的下一列且标记为完成")
+	}
+	if in.Branch != "" || !strings.HasPrefix(card.Branch, "slate/"+strings.ToLower(card.Key)+"-") {
+		return invalidf("只能记录卡片已有的专属 Slate 分支")
+	}
+	engineers, err := u.engineer.ListByBoard(ctx, card.BoardID)
+	if err != nil {
+		return wrapDB("读取工程师名册", err)
+	}
+	for _, engineer := range engineers {
+		if engineer.ID == card.ClaimEngineerID && engineer.Kind == EngineerReview {
+			return nil
+		}
+	}
+	return invalidf("只有使用测试工程师名额的持卡 agent 可以记录合并")
 }
 
 // finishTarget 确定交接后任务去哪一列，同时返回任务当前所在的列。

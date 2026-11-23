@@ -29,10 +29,15 @@ const (
 	downloadTimeout = 5 * time.Minute
 )
 
-// Options 是创建更新接口的配置；除了 Current，其余字段只有测试需要改。
+// Options 是版本、分发形态和运行环境的配置。
 type Options struct {
 	// Current 是当前程序的版本号，例如 v1.2.3。
 	Current string
+	// Desktop 选择桌面发布包。
+	Desktop bool
+	// DesktopUpdateDir 与 OpenInstaller 用于 macOS 已校验的磁盘映像。
+	DesktopUpdateDir string
+	OpenInstaller    func(context.Context, string) error
 	// Container 表示程序跑在容器里；容器里替换文件重启就丢，所以只提示不更新。
 	Container bool
 	// WebBase 是 GitHub 网站地址，空则用默认。
@@ -118,6 +123,8 @@ type Applied struct {
 	Version string `json:"version"`
 	// Restarting 为真表示服务端已安排自动重启，网页等新版本起来后刷新即可；为假要提示用户手动重启。
 	Restarting bool `json:"restarting"`
+	// macOS 已打开经过校验的 DMG，用户还需退出应用并在 Finder 安装。
+	InstallerOpened bool `json:"installer_opened,omitempty"`
 }
 
 // CheckState 说明本次检查走到了哪一步，方便网页区分「已是最新」和「GitHub 连不上」。
@@ -142,6 +149,11 @@ func (u *updater) info(ctx context.Context) *Info {
 	out.CheckState = CheckStateOK
 	out.Latest = rel.Tag
 	out.URL = rel.URL
+	if u.opt.Desktop {
+		if download := u.assetURL(rel, u.archiveName(rel.Tag)); download != "" {
+			out.URL = download
+		}
+	}
 	out.Notes = truncateRunes(rel.Body, maxNotesRunes)
 	out.HasUpdate = u.newerThanRunning(rel.Tag) && u.packagesReady(rel)
 	out.CanApply = out.HasUpdate && u.canApply(rel)

@@ -2,7 +2,7 @@
 // 按时间从新到旧排在一起；「显示详情」可以收起事件，只看评论。Ctrl/Cmd+Enter 发送评论。
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BotIcon, UserIcon, ZapIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { useLanguage } from '@/i18n/useLanguage'
@@ -17,7 +17,7 @@ import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
 import { COMMENT_MAX } from '@/lib/limits'
 import { queryKeys } from '@/lib/queryKeys'
 import { useErrorToast } from '@/lib/useErrorToast'
-import { formatDateTime, formatRelative } from '@/lib/format'
+import { formatDateTime, formatRelative, parseTime } from '@/lib/format'
 import { useCardActivity } from './useCardActivity'
 import { buildTimeline } from './timeline'
 
@@ -30,6 +30,25 @@ interface CardTimelineProps {
 }
 
 const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent: BotIcon, system: ZapIcon }
+const JUST_NOW_MS = 60_000
+
+function CommentTime({ createdAt, lang, justNow }: { createdAt: string; lang: string; justNow: string }) {
+  const [now, setNow] = useState(Date.now)
+  const timestamp = parseTime(createdAt)
+  const age = timestamp === null ? Infinity : now - timestamp
+  const isRecent = age >= 0 && age < JUST_NOW_MS
+  useEffect(() => {
+    if (!isRecent) return
+    const timer = window.setTimeout(() => setNow(Date.now()), JUST_NOW_MS - age)
+    return () => window.clearTimeout(timer)
+  }, [age, isRecent])
+
+  return (
+    <time dateTime={createdAt} title={formatDateTime(createdAt, lang)} className="font-mono">
+      {isRecent ? justNow : formatRelative(createdAt, lang)}
+    </time>
+  )
+}
 
 /** 时间线上的一条事件：图标、谁做了什么、补充说明和时间 */
 function EventLine({ event, renderCardReference }: { event: BoardEvent; renderCardReference: CardReferenceRenderer }) {
@@ -128,9 +147,7 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference, r
                   {item.comment.author_kind === 'agent' ? item.comment.author : kindLabel(item.comment.author_kind)}
                 </span>
                 {item.comment.author_kind === 'agent' && <span>{kindLabel(item.comment.author_kind)}</span>}
-                <time dateTime={item.comment.created_at} title={formatDateTime(item.comment.created_at, lang)} className="font-mono">
-                  {formatRelative(item.comment.created_at, lang)}
-                </time>
+                <CommentTime createdAt={item.comment.created_at} lang={lang} justNow={t('card.comment.justNow')} />
                 {!readOnly && <Button type="button" variant="ghost" size="xs" className="ml-auto" onClick={() => remove.mutate(item.comment.id)}>
                   {t('common.delete')}
                 </Button>}

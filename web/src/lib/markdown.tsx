@@ -20,6 +20,7 @@ const HEADING_CLASS = [
 ] as const
 
 const CODE_CLASS = 'rounded-md bg-secondary px-1.5 py-0.5 font-mono text-[0.9em]'
+const TABLE_CELL_CLASS = 'border border-border px-3 py-1.5 text-left align-top'
 
 /** 调用方根据任务编号和正文里的引用原文提供交互。 */
 export type CardReferenceRenderer = (number: number, reference: string) => ReactNode
@@ -112,6 +113,39 @@ function renderItem(item: ListItem, key: string, ctx: Ctx): ReactNode {
   )
 }
 
+function renderTable(block: Extract<Block, { kind: 'table' }>, key: string, ctx: Ctx): ReactNode {
+  return (
+    <div key={key} className="max-w-full overflow-x-auto">
+      <table className="w-full border-collapse">
+        <thead className="bg-secondary/70">
+          <tr>
+            {block.headers.map((text, col) => (
+              <th key={col} scope="col" className={cn(TABLE_CELL_CLASS, 'font-semibold')} style={{ textAlign: block.alignments[col] }}>
+                {renderInline(parseInline(text), `${key}h${col}`, ctx.renderCardReference)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        {block.rows.length > 0 && (
+          <tbody>
+            {block.rows.map((row, index) => (
+              <tr key={index}>
+                {row.map((text, col) => (
+                  <td key={col} className={TABLE_CELL_CLASS} style={{ textAlign: block.alignments[col] }}>
+                    {renderInline(parseInline(text), `${key}r${index}.${col}`, ctx.renderCardReference)}
+                  </td>
+                ))}
+                {/* 连续空列合并，避免短行在宽表格中生成大量空节点。 */}
+                {row.length < block.headers.length && <td className={TABLE_CELL_CLASS} colSpan={block.headers.length - row.length} />}
+              </tr>
+            ))}
+          </tbody>
+        )}
+      </table>
+    </div>
+  )
+}
+
 /** 画一个块 */
 function renderBlock(block: Block, key: string, ctx: Ctx): ReactNode {
   switch (block.kind) {
@@ -149,6 +183,8 @@ function renderBlock(block: Block, key: string, ctx: Ctx): ReactNode {
         </Tag>
       )
     }
+    case 'table':
+      return renderTable(block, key, ctx)
     case 'p':
       return (
         <p key={key} className="whitespace-pre-wrap">

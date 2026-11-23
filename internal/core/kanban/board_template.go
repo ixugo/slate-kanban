@@ -54,7 +54,7 @@ const (
 var seedEngineerTexts = [engineerSeedCount]engineerText{
 	seedDev1:   {Name: "Atlas", Prompt: seedDevPrompt},
 	seedDev2:   {Name: "Orion", Prompt: seedDevPrompt},
-	seedReview: {Name: "Sentinel", Prompt: "你是测试工程师，只验收，不改代码。先只读了解任务并向调度者回传审查方案，等方案评论成功后再开始验收。对照任务原文逐条检查，运行测试、构建和静态检查，必要时实际运行功能；给出通过或不通过的结论，不通过时写清哪里不对、怎么复现、怎么改。"},
+	seedReview: {Name: "Sentinel", Prompt: "你是测试工程师，只验收，不改代码。先只读了解任务并向调度者回传审查方案，等方案评论成功后再开始验收。对照任务原文逐条检查，运行测试、构建和静态检查，必要时实际运行功能；回传逐项验收结果和依据，页面验收时回传实际效果截图。给出通过或不通过的结论，不通过时写清哪里不对、怎么复现、怎么改。"},
 }
 
 // seedDevPrompt 是两位起步全栈工程师共用的角色提示词。
@@ -94,9 +94,9 @@ var templateColumns = map[string][]columnSpec{
 	TemplateEmpty: nil,
 }
 
-// normalizeLocale 把各种写法的语言标识归并到支持的五种之一：
-// zh-CN、zh-TW、en、ja、ko。大小写和下划线都不敏感，不认识的返回 defaultLocale。
-func normalizeLocale(locale string) string {
+// NormalizeLocale 把各种写法的语言标识归并到支持的四种之一：
+// zh-CN、zh-TW、en、ja。大小写和下划线都不敏感，不认识的返回 defaultLocale。
+func NormalizeLocale(locale string) string {
 	l := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(locale), "_", "-"))
 	switch {
 	case l == "zh-tw" || l == "zh-hk" || l == "zh-mo" || strings.HasPrefix(l, "zh-hant"):
@@ -105,18 +105,16 @@ func normalizeLocale(locale string) string {
 		return "zh-CN"
 	case l == "ja" || strings.HasPrefix(l, "ja-"):
 		return "ja"
-	case l == "ko" || strings.HasPrefix(l, "ko-"):
-		return "ko"
 	}
 	return defaultLocale
 }
 
 // textsFor 返回某种界面语言的模板文案。
 func textsFor(locale string) localeTexts {
-	return templateTexts[normalizeLocale(locale)]
+	return templateTexts[NormalizeLocale(locale)]
 }
 
-// templateTexts 是五种界面语言的模板文案。
+// templateTexts 是四种界面语言的模板文案。
 var templateTexts = map[string]localeTexts{
 	"zh-CN": {
 		Columns: [textKindCount]columnText{
@@ -134,7 +132,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "审查",
-				Instruction: "这一列是审查区：只有这一列的任务才可以派发审查子 agent 处理，审查只验收，不修改代码。任务在这一列就直接在这里领取并审查，不要先移到「进行中」：只有研发任务才在「进行中」处理，审查不通过需要返工时才放回去。领取任务后读完描述、评论、研发的交接总结和分支，把任务原文按你的理解写成审查要求，派子 agent 逐条对照验收、跑测试，必要时实际运行。子 agent 先只读拟定审查方案并回传给你，你用 comment_card 代发到任务下，评论成功后才通知它开始验收。通过：在任务下留言写出审查结论，再把任务移到完成列，任务才算完成，这个决定只能由审查做出。不通过：在任务下留言写清楚哪里不对、怎么改，再把任务放回 agent 领取任务的那一列（通常是「进行中」），由研发返工。",
+				Instruction: "这一列是审查区：只有这一列的任务才可以派发审查子 agent 处理，审查只验收，不修改代码。任务在这一列就直接在这里领取并审查，不要先移到「进行中」：只有研发任务才在「进行中」处理，审查不通过需要返工时才放回去。领取任务后读完描述、评论、研发的交接总结和分支，把任务原文按你的理解写成审查要求，派子 agent 逐条对照验收、跑测试，必要时实际运行。子 agent 先只读拟定审查方案并回传给你，你用 comment_card 代发到任务下，评论成功后才通知它开始验收。用 comment_card 发布结论和证据：页面验收附实际截图，功能验收逐项勾选并写明依据（- [x] 通过，- [ ] 未通过或未验证）。缺少必要证据时写清原因，暂不判通过。通过：在任务下留言写出审查结论。适用本机专属 Slate 分支时，由调度 agent 按 Slate 技能第八节合并，记录提交后移到完成列并清理；其他任务直接移到完成列。不通过：在任务下留言写清楚哪里不对、怎么改，再把任务放回 agent 领取任务的那一列（通常是「进行中」），由研发返工。",
 			},
 			textDone: {
 				Name:        "完成",
@@ -159,7 +157,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "審查",
-				Instruction: "這一列是審查區：只有這一列的任務才可以派發審查子 agent 處理，審查只驗收，不修改程式碼。領取任務後讀完描述、留言、研發的交接總結與分支，把任務原文依你的理解寫成審查要求，派子 agent 逐條對照驗收、跑測試，必要時實際執行。子 agent 先以唯讀方式擬定審查方案並回傳給你，由你用 comment_card 代為留言，留言成功後才通知它開始驗收。通過：在任務下留言寫出審查結論，再把任務移到完成列，任務才算完成，這個決定只能由審查做出。不通過：在任務下留言寫清楚哪裡不對、怎麼改，再把任務放回 agent 領取任務的那一列（通常是「進行中」），由研發返工。",
+				Instruction: "這一列是審查區：只有這一列的任務才可以派發審查子 agent 處理，審查只驗收，不修改程式碼。領取任務後讀完描述、留言、研發的交接總結與分支，把任務原文依你的理解寫成審查要求，派子 agent 逐條對照驗收、跑測試，必要時實際執行。子 agent 先以唯讀方式擬定審查方案並回傳給你，由你用 comment_card 代為留言，留言成功後才通知它開始驗收。用 comment_card 發布結論與證據：頁面驗收附上實際畫面截圖，功能驗收逐項勾選並寫明依據（- [x] 通過，- [ ] 未通過或未驗證）。缺少必要證據時寫明原因，暫不判通過。通過：在任務下留言寫出審查結論。使用本機專屬 Slate 分支時，由調度 agent 按 Slate 技能第八節合併，記錄提交後移到完成列並清理；其他任務直接移到完成列。不通過：在任務下留言寫清楚哪裡不對、怎麼改，再把任務放回 agent 領取任務的那一列（通常是「進行中」），由研發返工。",
 			},
 			textDone: {
 				Name:        "完成",
@@ -184,7 +182,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "Review",
-				Instruction: "This is the review column: only tasks here may be handed to review sub-agents, and review only checks the work and never edits code. After claiming a task, read its description, comments, the developer's hand-over summary and the branch, write review requirements from the original task as you understand it, and have a sub-agent verify each point, run the tests and run the code when needed. The sub-agent first inspects the task without editing and sends you a review plan. Post it to the task with comment_card and tell the sub-agent to start review only after the comment is saved. Pass: leave a comment with the review conclusion, then move the task to the Done column; the task is complete only then, and only review may decide that. Fail: leave a comment saying what is wrong and how to fix it, then put the task back in the column where agents pick up work (usually “In progress”) for rework.",
+				Instruction: "This is the review column: only tasks here may be handed to review sub-agents, and review only checks the work and never edits code. After claiming a task, read its description, comments, the developer's hand-over summary and the branch, write review requirements from the original task as you understand it, and have a sub-agent verify each point, run the tests and run the code when needed. The sub-agent first inspects the task without editing and sends you a review plan. Post it to the task with comment_card and tell the sub-agent to start review only after the comment is saved. Use comment_card to publish the conclusion and evidence: attach screenshots of the actual pages reviewed. For functional review, record evidence and mark each checklist item (- [x] passed, - [ ] failed or unverified). If required evidence is missing, explain why and withhold a pass. Pass: leave the review conclusion in a comment. For a dedicated local Slate branch, the dispatcher follows section eight of the Slate skill to integrate, record the commits, move to Done and clean up. Other reviewed tasks go directly to Done. Fail: leave a comment saying what is wrong and how to fix it, then put the task back in the column where agents pick up work (usually “In progress”) for rework.",
 			},
 			textDone: {
 				Name:        "Done",
@@ -209,7 +207,7 @@ var templateTexts = map[string]localeTexts{
 			},
 			textReview: {
 				Name:        "レビュー",
-				Instruction: "この列はレビュー用です。サブエージェントにレビューを任せられるのは、この列のタスクだけで、レビューは検収のみでコードは変更しません。タスクを担当したら、説明、コメント、開発側の引き継ぎ要約、ブランチを読み、タスクの原文を自分の理解でレビュー要件にまとめ、サブエージェントに 1 項目ずつ検収させ、テストを実行し、必要なら実際に動かさせます。サブエージェントは最初に読み取りだけを行い、レビュー計画をあなたに返します。あなたが comment_card でタスクに計画を投稿し、保存されたことを確認してから検収を始めさせます。合格：レビュー結果をタスクにコメントしてから、タスクを完了列へ移します。それで初めてタスク完了となり、この判断はレビューだけが行えます。不合格：どこが違うか、どう直すかをコメントしてから、エージェントが作業を担当する列（通常は「進行中」）へタスクを戻し、開発側にやり直させます。",
+				Instruction: "この列はレビュー用です。サブエージェントにレビューを任せられるのは、この列のタスクだけで、レビューは検収のみでコードは変更しません。タスクを担当したら、説明、コメント、開発側の引き継ぎ要約、ブランチを読み、タスクの原文を自分の理解でレビュー要件にまとめ、サブエージェントに 1 項目ずつ検収させ、テストを実行し、必要なら実際に動かさせます。サブエージェントは最初に読み取りだけを行い、レビュー計画をあなたに返します。あなたが comment_card でタスクに計画を投稿し、保存されたことを確認してから検収を始めさせます。comment_card で結論と証拠を投稿します。画面の検収では実際の画面のスクリーンショットを添付し、機能の検収では各項目に根拠と結果（- [x] 合格、- [ ] 不合格または未確認）を記録します。必要な証拠がない場合は理由を記載し、合格判定を保留します。合格：レビュー結果をタスクにコメントします。ローカルの専用 Slate ブランチがある場合は、Slate スキルの第8節に従って取り込み、結果を記録して完了列に移し、作業領域を片付けます。それ以外は完了列へ移します。不合格：どこが違うか、どう直すかをコメントしてから、エージェントが作業を担当する列（通常は「進行中」）へタスクを戻し、開発側にやり直させます。",
 			},
 			textDone: {
 				Name:        "完了",
@@ -217,31 +215,6 @@ var templateTexts = map[string]localeTexts{
 			},
 		},
 		RuleStart: "開始時刻を記録", RuleFinish: "完了時刻を記録", RuleReopen: "再オープン",
-	},
-	"ko": {
-		Columns: [textKindCount]columnText{
-			textIdea: {
-				Name:        "받은 편지함",
-				Instruction: "이 열은 사람이 아이디어를 모으는 곳이며, 에이전트는 여기에 있는 작업을 처리하지 않습니다. 하위 에이전트를 배정하지 말고, 맡지 말고, 구현도 시작하지 말며, 다른 사람이 만든 작업을 옮기거나 수정하지 마세요. 여기에 새 작업을 만들고 직접 만든 작업을 다음 열로 옮길 수 있으며, 개발이 맡는 것은 그 이후입니다. 필요하면 작업에 댓글로 분석을 덧붙일 수 있습니다.",
-			},
-			textTodo: {
-				Name:        "할 일",
-				Instruction: "이 열의 작업은 확정되었지만 아직 시작할 예정이 없습니다. 하위 에이전트를 배정하지 말고, 맡지 말고, 작업을 직접 옮기지 마세요. 사람이 우선순위를 정하고 다음 열로 끌어다 놓습니다. 필요하면 댓글로 분석을 덧붙일 수 있습니다.",
-			},
-			textDoing: {
-				Name:        "진행 중",
-				Instruction: "이 열은 개발 영역입니다. 개발 하위 에이전트에게 맡길 수 있는 작업은 이 열의 작업뿐입니다. 당신은 조율자로서 작업을 맡고(next_card 또는 claim_card), 먼저 설명, 댓글, 의존 관계를 읽은 뒤, 작업 원문을 당신의 이해대로 역할과 프롬프트로 정리해 전용 worktree에서 작업할 하위 에이전트에게 넘기세요. 직접 코드를 작성하지 않습니다. 배정하기 전에 작업 전용 worktree와 브랜치를 만드세요. 하위 에이전트는 먼저 읽기 전용으로 조사하고 개발 계획을 조율자에게 전달합니다. 조율자가 comment_card로 작업에 계획을 남기고 저장을 확인한 뒤 개발을 시작하도록 하세요. 동시에 진행하는 작업 수는 사람이 알려 준 동시 처리 수를 넘지 않습니다(알려 주지 않으면 2). 작업이 불명확하거나 사람의 결정이 필요하면 먼저 작업에 의문점을 댓글로 남기고, 작업을 '할 일' 같은 맡지 않는 열로 옮겨 답을 기다리며 바로 시작하지 마세요. 맡은 뒤에는 작업 내용에 맞춰 update_card로 태그를 조정하세요. 보드에 이미 있는 태그만 고를 수 있고(tag_ids 사용), 새 태그를 만들지 말고, 알맞은 것이 없으면 붙이지 마세요. finish_card를 호출하기 전에 update_card로 설명 끝에 작업 항목 목록을 덧붙이세요. 한 줄에 한 항목, 구현한 것은 \"- [x] 내용\", 남은 것은 \"- [ ] 내용\"으로 적어 설명만 보고도 무엇을 구현했는지 알 수 있게 하세요. 끝나면 finish_card를 호출해 요약과 브랜치 이름, 링크를 남기세요. 작업은 자동으로 다음 열로 이동합니다. 작업이 끝났는지는 당신이 정하지 않으므로 작업을 완료 열로 옮기지 마세요.",
-			},
-			textReview: {
-				Name:        "검토",
-				Instruction: "이 열은 검토 영역입니다. 검토 하위 에이전트에게 맡길 수 있는 작업은 이 열의 작업뿐이며, 검토는 검수만 하고 코드를 수정하지 않습니다. 작업을 맡은 뒤 설명, 댓글, 개발 쪽 인수인계 요약, 브랜치를 읽고, 작업 원문을 당신의 이해대로 검토 요구 사항으로 정리해 하위 에이전트가 항목별로 검수하고 테스트를 돌리고 필요하면 실제로 실행하게 하세요. 하위 에이전트는 먼저 읽기 전용으로 조사하고 검토 계획을 조율자에게 전달합니다. 조율자가 comment_card로 작업에 계획을 남기고 저장을 확인한 뒤 검수를 시작하도록 하세요. 통과: 작업에 검토 결론을 댓글로 남긴 뒤 작업을 완료 열로 옮깁니다. 그때 비로소 작업이 완료되며, 이 결정은 검토만 내릴 수 있습니다. 통과하지 못함: 무엇이 틀렸고 어떻게 고칠지 댓글로 남긴 뒤, 에이전트가 작업을 맡는 열(보통 '진행 중')로 작업을 되돌려 개발이 다시 하게 하세요.",
-			},
-			textDone: {
-				Name:        "완료",
-				Instruction: "이 열은 완료된 작업입니다. 에이전트는 일절 건드리지 마세요. 이 열의 작업을 맡거나 옮기거나 수정하거나 댓글을 다는 것도, 하위 에이전트를 배정하는 것도 금지입니다. 작업을 옮겨 올 수 있는 것은 검토가 통과했을 때의 검토뿐이며, 그 밖의 이동과 수정은 사람이 합니다.",
-			},
-		},
-		RuleStart: "시작 시간 기록", RuleFinish: "완료 시간 기록", RuleReopen: "다시 열기",
 	},
 }
 

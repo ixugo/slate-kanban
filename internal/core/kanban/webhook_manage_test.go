@@ -101,3 +101,62 @@ func TestCreateDisabledWebhook(t *testing.T) {
 		t.Fatal("新建时显式禁用应持久化为停用状态")
 	}
 }
+
+// TestWebhookPartialSubscriptionModes exercises the stored modes after editing a legacy filter.
+func TestWebhookPartialSubscriptionModes(t *testing.T) {
+	restore := kanban.SetWebhookNotifyHookForTest(func(kanban.Core, context.Context, []*kanban.Event) {})
+	defer restore()
+	ctx := t.Context()
+	e := newCardEnv(t)
+	wh, err := e.core.CreateWebhook(ctx, testActor, e.board.ID, kanban.CreateWebhookInput{
+		Name: "旧通知", Type: kanban.WebhookTypeWeCom,
+		URL: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.core.UpdateWebhook(ctx, testActor, wh.ID, kanban.UpdateWebhookInput{
+		ActorKinds:        new([]string{"agent"}),
+		StrictFilterModes: kanban.WebhookFilterModes{ActorKinds: new(true)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	column, err := e.core.CreateColumn(ctx, testActor, e.board.ID, kanban.CreateColumnInput{Name: "后加的列"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	read := func() *kanban.Webhook {
+		t.Helper()
+		w, err := e.db.Webhook().GetByID(ctx, wh.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return w
+	}
+	claim := &kanban.Event{Type: kanban.EventCardClaimed, ActorKind: "agent"}
+	moved := &kanban.Event{Type: kanban.EventCardMoved, ActorKind: "agent", Payload: fmt.Sprintf(`{"to_id":%d}`, column.ID)}
+	saved := read()
+	if !kanban.WebhookMatchesEventForTest(saved, claim) || !kanban.WebhookMatchesEventForTest(saved, moved) {
+		t.Fatal("仅改操作者不应收窄事件或以后新增的列")
+	}
+	if kanban.WebhookMatchesEventForTest(saved, &kanban.Event{Type: kanban.EventCardMoved, ActorKind: "human", Payload: moved.Payload}) {
+		t.Fatal("已取消的操作者不应匹配")
+	}
+	if _, err := e.core.UpdateWebhook(ctx, testActor, wh.ID, kanban.UpdateWebhookInput{
+		MoveColumnIDs:     new([]int64{}),
+		StrictFilterModes: kanban.WebhookFilterModes{MoveColumnIDs: new(true)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	saved = read()
+	if !kanban.WebhookMatchesEventForTest(saved, claim) || kanban.WebhookMatchesEventForTest(saved, moved) ||
+		saved.StrictFilterModes.ActorKinds == nil || !*saved.StrictFilterModes.ActorKinds {
+		t.Fatal("清空移动目标列仅应过滤移动事件，并保留操作者模式")
+	}
+	if _, err := e.core.UpdateWebhook(ctx, testActor, wh.ID, kanban.UpdateWebhookInput{StrictFilters: new(false)}); err != nil {
+		t.Fatal(err)
+	}
+	if !kanban.WebhookMatchesEventForTest(read(), moved) {
+		t.Fatal("旧 API 的全局开关应继续适用于所有维度")
+	}
+}

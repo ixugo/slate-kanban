@@ -26,4 +26,7 @@ type FinishCardInput struct {
 	AfterID  int64 `json:"after_id"`
 	// Top 为真且没有指定 BeforeID、AfterID 时放到目标列最顶部，否则放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
 	Top bool `json:"-"`
+	// MergedCommits 和 Version 由 MCP 审查交接提供，REST 仍使用原有交接协议。
+	MergedCommits []string `json:"-"`
+	Version       *int64   `json:"-"`
 }

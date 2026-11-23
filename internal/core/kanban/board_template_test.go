@@ -6,8 +6,8 @@ import (
 	"unicode/utf8"
 )
 
-// 五种界面语言，模板必须全部提供。
-var supportedLocales = []string{"zh-CN", "zh-TW", "en", "ja", "ko"}
+// 四种界面语言，模板必须全部提供。
+var supportedLocales = []string{"zh-CN", "zh-TW", "en", "ja"}
 
 // TestNormalizeLocale 验证各种写法的语言标识都能归并到支持的五种，不认识的按 en。
 func TestNormalizeLocale(t *testing.T) {
@@ -15,11 +15,11 @@ func TestNormalizeLocale(t *testing.T) {
 		"zh-CN": "zh-CN", "zh_cn": "zh-CN", "zh": "zh-CN", "zh-Hans": "zh-CN", "ZH-SG": "zh-CN",
 		"zh-TW": "zh-TW", "zh-HK": "zh-TW", "zh-Hant": "zh-TW", "zh-Hant-TW": "zh-TW",
 		"en": "en", "en-US": "en", "": "en", "fr": "en", "xx-YY": "en",
-		"ja": "ja", "ja-JP": "ja", "ko": "ko", "ko_KR": "ko",
+		"ja": "ja", "ja-JP": "ja", "ko": "en", "ko_KR": "en",
 	}
 	for in, want := range cases {
-		if got := normalizeLocale(in); got != want {
-			t.Errorf("normalizeLocale(%q) = %q，期望 %q", in, got, want)
+		if got := NormalizeLocale(in); got != want {
+			t.Errorf("NormalizeLocale(%q) = %q，期望 %q", in, got, want)
 		}
 	}
 }
@@ -101,7 +101,6 @@ func TestPlanCommentInTemplate(t *testing.T) {
 		"zh-TW": "留言成功後",
 		"en":    "only after the comment is saved",
 		"ja":    "保存されたことを確認してから",
-		"ko":    "저장을 확인한 뒤",
 	}
 	for _, locale := range supportedLocales {
 		for _, kind := range []textKind{textDoing, textReview} {
@@ -114,6 +113,26 @@ func TestPlanCommentInTemplate(t *testing.T) {
 	}
 }
 
+func TestReviewEvidenceInTemplate(t *testing.T) {
+	screenshot := map[string]string{
+		"zh-CN": "实际截图",
+		"zh-TW": "畫面截圖",
+		"en":    "screenshots of the actual pages",
+		"ja":    "スクリーンショット",
+	}
+	for _, locale := range supportedLocales {
+		instruction := textsFor(locale).Columns[textReview].Instruction
+		for _, want := range []string{screenshot[locale], "- [x]", "- [ ]"} {
+			if !strings.Contains(instruction, want) {
+				t.Errorf("%s 的审查列证据要求缺少 %q", locale, want)
+			}
+		}
+	}
+	if !strings.Contains(seedEngineerTexts[seedReview].Prompt, "回传实际效果截图") {
+		t.Error("默认审查工程师应把实际页面截图回传给调度者")
+	}
+}
+
 // TestDoingInstructionTagsAndTaskItems 确认每种语言的进行中列都写明两条规则：
 // 领取后只能从看板已有的标签里挑，不新建标签；交接前要在描述里补上任务项清单。
 func TestDoingInstructionTagsAndTaskItems(t *testing.T) {
@@ -122,7 +141,6 @@ func TestDoingInstructionTagsAndTaskItems(t *testing.T) {
 		"zh-TW": {"不要新建標籤", "「任務項」清單"},
 		"en":    {"do not create new tags", "list of task items"},
 		"ja":    {"新しいタグは作らず", "タスク項目の一覧"},
-		"ko":    {"새 태그를 만들지 말고", "작업 항목 목록"},
 	}
 	for _, locale := range supportedLocales {
 		doing := textsFor(locale).Columns[textDoing].Instruction

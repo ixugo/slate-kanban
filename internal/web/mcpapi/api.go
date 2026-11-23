@@ -38,13 +38,13 @@ const (
 	viewAdmin view = "admin"
 )
 
-// API 持有看板领域的业务入口和两个视图各自的 MCP Server。
+// API 持有看板业务入口与 HTTP 会话共用的资源通知器。
 type API struct {
-	core    kanban.Core
-	version string
-	agent   *mcp.Server
-	admin   *mcp.Server
-	handler http.Handler
+	core     kanban.Core
+	version  string
+	notifier *notifier
+	schemas  *mcp.SchemaCache
+	handler  http.Handler
 }
 
 // config 是 New 的可选配置。
@@ -65,7 +65,7 @@ func WithNotifyDelay(d time.Duration) Option {
 	}
 }
 
-// New 创建 MCP 适配器：两个视图的 Server、通知器和 HTTP 处理器。version 是服务的构建版本号。
+// New 创建 MCP 适配器。version 是服务的构建版本号。
 // 它会在 core 上注册观察者，所以必须在开始处理请求之前调用，并且同一个 core 只能调用一次。
 // 返回的函数用来在服务退出时停止通知器，可以重复调用。
 func New(core kanban.Core, version string, opts ...Option) (API, func()) {
@@ -73,13 +73,10 @@ func New(core kanban.Core, version string, opts ...Option) (API, func()) {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	a := API{core: core, version: version}
-	a.agent = a.newServer(viewAgent)
-	a.admin = a.newServer(viewAdmin)
+	a := API{core: core, version: version, notifier: newNotifier(cfg.notifyDelay), schemas: mcp.NewSchemaCache()}
 	a.handler = a.newHandler()
-	n := newNotifier(cfg.notifyDelay, a.agent, a.admin)
-	core.Observe(observerKey, n.mark)
-	return a, n.close
+	core.Observe(observerKey, a.notifier.mark)
+	return a, a.notifier.close
 }
 
 // Handler 返回挂在 /mcp 上的 HTTP 处理器。
@@ -87,23 +84,32 @@ func (a API) Handler() http.Handler {
 	return a.handler
 }
 
-// newServer 创建一个视图对应的 MCP Server，并注册这个视图能用的全部工具。
+// newServer 为每个逻辑会话创建一个 Server。SDK 的注册表属于 Server，
+// 因此在一个会话披露管理工具不会改变同名 agent 的其他会话。
 func (a API) newServer(v view) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: serverName, Title: serverTitle, Version: a.version}, &mcp.ServerOptions{
-		Instructions:       instructionsFor(v),
-		SubscribeHandler:   a.subscribe,
+	var s *mcp.Server
+	s = mcp.NewServer(&mcp.Implementation{Name: serverName, Title: serverTitle, Version: a.version}, &mcp.ServerOptions{
+		Instructions: instructionsFor(v),
+		SchemaCache:  a.schemas,
+		SubscribeHandler: func(ctx context.Context, req *mcp.SubscribeRequest) error {
+			if err := a.subscribe(ctx, req); err != nil {
+				return err
+			}
+			a.notifier.track(s, req.Session)
+			return nil
+		},
 		UnsubscribeHandler: a.unsubscribe,
 	})
 	a.registerResources(s)
 	a.registerReadTools(s, v)
-	if v == viewAgent {
-		a.registerSyncTools(s)
-	}
 	a.registerWorkTools(s, v)
 	a.registerCreateBoard(s)
 	a.registerImageTools(s)
 	if v == viewAdmin {
 		a.registerAdminTools(s)
+	} else {
+		a.registerSyncTools(s)
+		a.registerManagementDisclosure(s)
 	}
 	return s
 }
@@ -137,11 +143,10 @@ func limitStream(next http.Handler) http.Handler {
 	})
 }
 
-// serverFor 按 role 参数挑 MCP Server：管理视图用 admin，工作视图用 agent。
-// 会话创建时调用一次，之后整个会话都用同一个 Server。
+// serverFor 创建会话。旧管理端点仍可迁移，默认接入使用按需披露。
 func (a API) serverFor(r *http.Request) *mcp.Server {
 	if r.Header.Get(headerViewRole) == "manager" {
-		return a.admin
+		return a.newServer(viewAdmin)
 	}
-	return a.agent
+	return a.newServer(viewAgent)
 }

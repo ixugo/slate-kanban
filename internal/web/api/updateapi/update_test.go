@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -233,7 +234,12 @@ func TestCheck(t *testing.T) {
 		}
 		infoOf(t, a)
 		if n := g.releaseHits.Load(); n != 1 {
-			t.Fatalf("一小时内应该走缓存，实际请求 %d 次", n)
+			t.Fatalf("10 秒内应该走缓存，实际请求 %d 次", n)
+		}
+		a.u.cachedAt = time.Now().Add(-11 * time.Second)
+		infoOf(t, a)
+		if n := g.releaseHits.Load(); n != 2 {
+			t.Fatalf("缓存过期后应重新请求，实际请求 %d 次", n)
 		}
 	})
 	t.Run("已是最新", func(t *testing.T) {
@@ -270,7 +276,7 @@ func TestCheck(t *testing.T) {
 			t.Fatalf("被拒绝时不能动现有程序，实际 %q", data)
 		}
 		g.noAssets.Store(false)
-		a.u.cachedAt = time.Now().Add(-2 * noAssetTTL)
+		a.u.cachedAt = time.Now().Add(-11 * time.Second)
 		if got := infoOf(t, a); !got.HasUpdate || !got.CanApply {
 			t.Fatalf("包传完后应立即提示并可更新: %+v", got)
 		}
@@ -300,7 +306,7 @@ func TestCheck(t *testing.T) {
 			t.Fatalf("短缓存期内不应重复请求，实际 %d 次", n)
 		}
 		g.noAssets.Store(false)
-		a.u.cachedAt = time.Now().Add(-2 * noAssetTTL)
+		a.u.cachedAt = time.Now().Add(-11 * time.Second)
 		if got := infoOf(t, a); !got.HasUpdate || !got.CanApply {
 			t.Fatalf("短缓存过期后应读到新上传的包: %+v", got)
 		}
@@ -428,5 +434,57 @@ func TestChecksumFor(t *testing.T) {
 	}
 	if _, ok := checksumFor(sums, "three.zip"); ok {
 		t.Error("不存在的文件不应找到")
+	}
+}
+
+func TestDesktopChecksOnlyItsOwnAssets(t *testing.T) {
+	g := newFakeGitHub(t, "v1.2.0", "linux", "SERVER")
+	a, _ := newAPI(t, g, "v1.1.0", func(opt *Options) { opt.Desktop = true })
+	if got := infoOf(t, a); got.HasUpdate {
+		t.Fatalf("服务器包不能更新桌面端: %+v", got)
+	}
+}
+
+func TestDesktopMacOpensOnlyVerifiedDiskImage(t *testing.T) {
+	for _, name := range []string{"verified", "mismatch"} {
+		t.Run(name, func(t *testing.T) {
+			g := newFakeGitHub(t, "v1.2.0", "darwin", "SERVER")
+			const archive = "slate_desktop_v1.2.0_darwin_amd64.dmg"
+			const prefix = "/dl/v1.2.0/"
+			image := []byte("disk image bytes")
+			g.files[prefix+archive] = image
+			sum := sha256.Sum256(image)
+			if name == "mismatch" {
+				sum = sha256.Sum256([]byte("tampered"))
+			}
+			g.files[prefix+"desktop-checksums.txt"] = []byte(fmt.Sprintf("%x  %s\n", sum, archive))
+			installDir := t.TempDir()
+			var opened string
+			a, exe := newAPI(t, g, "v1.1.0", func(opt *Options) {
+				opt.Desktop = true
+				opt.DesktopUpdateDir = installDir
+				opt.OpenInstaller = func(_ context.Context, path string) error {
+					opened = path
+					return nil
+				}
+			})
+			code, body := do(a, http.MethodPost)
+			if name == "mismatch" {
+				if code == http.StatusOK || opened != "" {
+					t.Fatalf("校验失败的 DMG 被打开: %d %s %q", code, body, opened)
+				}
+				assertNoTemp(t, installDir, false)
+			} else {
+				if code != http.StatusOK || !strings.Contains(string(body), `"installer_opened":true`) {
+					t.Fatalf("已校验的 DMG 未打开: %d %s", code, body)
+				}
+				if got, err := os.ReadFile(opened); err != nil || !bytes.Equal(got, image) {
+					t.Fatalf("打开的 DMG 内容错误: %q (%v)", got, err)
+				}
+			}
+			if got, _ := os.ReadFile(exe); string(got) != "old" {
+				t.Fatalf("打开更新 DMG 时改动了现有程序: %q", got)
+			}
+		})
 	}
 }

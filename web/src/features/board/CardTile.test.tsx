@@ -70,6 +70,34 @@ describe('CardTile 是指向任务的链接', () => {
     expect(screen.getByRole('link', { name: '#2 Beta' })).toHaveAttribute('href', '/b/1?x=1&card=2')
   })
 
+  it('编号和领取者同列靠左，未读角标放在该行最右', async () => {
+    renderBoard('/b/1', {
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({
+        cards: [makeCard({ id: 1, title: 'Alpha', column_id: 1, claim_active: true, claimed_by: 'Orion', unread_count: 4 })],
+      }),
+    })
+
+    const unread = await screen.findByLabelText('4 unread updates')
+    const number = screen.getByText('#1')
+    const holder = screen.getByText('Held by Orion')
+    expect(number.parentElement).toContainElement(holder)
+    expect(number.parentElement?.parentElement?.lastElementChild).toBe(unread)
+  })
+
+  it('本地分支在磁贴上展示只读合并状态及提交', async () => {
+    renderBoard('/b/1', {
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({
+        cards: [
+          { ...alpha, key: 'SLATE-1', branch: 'slate/slate-1-alpha', merged_commits: ['abc123', 'def456'] },
+          makeCard({ id: 2, title: 'Beta', key: 'SLATE-2', branch: 'slate/slate-2-beta' }),
+          makeCard({ id: 3, title: 'Gamma', key: 'SLATE-3', branch: 'fix/gamma' }),
+        ],
+      }),
+    })
+    expect(await screen.findByText(en.card.field.merged)).toHaveAttribute('title', 'Merged · abc123, def456')
+    expect(screen.getAllByText(en.card.field.mergePending)).toHaveLength(1)
+  })
+
   it('地址里已有 card 时只替换它', async () => {
     renderBoard('/b/1?card=2')
     const link = await screen.findByRole('link', { name: '#1 Alpha' })
@@ -148,6 +176,50 @@ describe('CardTile 是指向任务的链接', () => {
     await user.click(link)
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.getByTestId('location')).toHaveTextContent('/b/1?card=1')
+  })
+})
+
+describe('看板搜索高亮', () => {
+  afterEach(() => localStorage.clear())
+
+  it('只标记匹配的正向文字，清空搜索后恢复', async () => {
+    const hit = makeCard({ id: 126, title: '搜索 Alpha 与 A.B 预览 open A0B' })
+    const user = userEvent.setup()
+    renderBoard('/b/1', {
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ cards: [hit, makeCard({ id: 2, title: 'Beta' })] }),
+      'GET /api/v1/boards/:id/cards': { cards: [hit], total: 1, truncated: false },
+    })
+    const tile = await screen.findByRole('link', { name: `#126 ${hit.title}` })
+    const input = screen.getByPlaceholderText(en.search.placeholder)
+    expect(tile.querySelector('mark')).toBeNull()
+
+    await user.type(input, '"搜索 alpha" a.b title:预览 is:open -hidden')
+    await waitFor(() => expect([...tile.querySelectorAll('mark')].map((item) => item.textContent)).toEqual([
+      '搜索 Alpha', 'A.B', '预览',
+    ]))
+    expect(screen.queryByRole('link', { name: '#2 Beta' })).toBeNull()
+
+    await user.clear(input)
+    expect(tile.querySelector('mark')).toBeNull()
+    expect(await screen.findByRole('link', { name: '#2 Beta' })).toBeInTheDocument()
+  })
+
+  it('按字段标记编号与标签，切换列表视图时沿用同一结果', async () => {
+    const tag = { id: 9, text: '浏览器测试', color: 'green-3' }
+    const hit = makeCard({ id: 126, title: '检查浏览器测试', tag_ids: [9], tags: [tag.text] })
+    const user = userEvent.setup()
+    renderBoard('/b/1', {
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ cards: [hit], tags: [tag] }),
+      'GET /api/v1/boards/:id/cards': { cards: [hit], total: 1, truncated: false },
+    })
+    const tile = await screen.findByRole('link', { name: `#126 ${hit.title}` })
+    await user.type(screen.getByPlaceholderText(en.search.placeholder), 'key:slate-126 tag:浏览器测试')
+    await waitFor(() => expect([...tile.querySelectorAll('mark')].map((item) => item.textContent)).toEqual(['#126', tag.text]))
+
+    await user.click(screen.getByRole('button', { name: en.board.viewList }))
+    const table = await screen.findByRole('table', { name: en.list.caption })
+    expect([...table.querySelectorAll('mark')].map((item) => item.textContent)).toEqual(['#126', tag.text])
+    expect(within(table).getByRole('link', { name: hit.title })).toBeInTheDocument()
   })
 })
 

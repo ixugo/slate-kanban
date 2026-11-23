@@ -143,6 +143,8 @@ export interface Card {
   /** 现在领取这张卡的工程师，0 表示没有 */
   claim_engineer_id: number
   branch: string
+  /** 审查 agent 记录的主工作区合并提交前六位；没有合并记录时省略 */
+  merged_commits?: string[]
   url: string
   /** 乐观锁版本号 */
   version: number
@@ -199,6 +201,8 @@ export interface CardChange {
   actor_kind: ActorKind
   actor: string
   created_at: string
+  /** 对比左侧版本的时间，首次变更采用任务创建时间 */
+  previous_at?: string
   /** 同一个任务里前一条、后一条变更记录的编号，没有就是 0 */
   prev_id: number
   next_id: number
@@ -233,6 +237,7 @@ export interface Snapshot extends BoardDetail {
 export interface ArchivedCardsPage {
   cards: Card[]
   has_more: boolean
+  next_cursor?: string
 }
 
 export interface CardList {
@@ -483,10 +488,11 @@ export interface UpdateInfo {
   check_state?: UpdateCheckState
 }
 
-/** 立即更新成功的结果：程序已被替换；restarting 为真表示服务端会自动重启，为假要用户手动重启 */
+/** 立即更新结果。已打开安装包时，由用户完成安装。 */
 export interface UpdateApplied {
   version: string
   restarting: boolean
+  installer_opened?: boolean
 }
 
 /** 访问口令的状态：required 表示服务端启用了口令；authenticated 表示当前浏览器是否已通过 */
@@ -498,6 +504,9 @@ export interface AuthStatus {
 /** 群机器人 webhook 类型 */
 export type WebhookType = 'dingtalk' | 'wecom' | 'feishu'
 
+/** 各维的显式订阅开关，省略时继承 strict_filters。 */
+export type WebhookFilterModes = Partial<Record<'event_types' | 'actor_kinds' | 'move_column_ids', boolean>>
+
 /** 活动通知 webhook（密钥已脱敏） */
 export interface WebhookView {
   id: number
@@ -508,6 +517,8 @@ export interface WebhookView {
   secret_set: boolean
   secret_mask: string
   enabled: boolean
+  strict_filters?: boolean
+  strict_filter_modes?: WebhookFilterModes
   event_types: string[]
   actor_kinds: ActorKind[]
   move_column_ids: number[]
@@ -521,6 +532,8 @@ export interface CreateWebhookInput {
   url: string
   secret?: string
   enabled?: boolean
+  strict_filters?: boolean
+  strict_filter_modes?: WebhookFilterModes
   event_types?: string[]
   actor_kinds?: ActorKind[]
   move_column_ids?: number[]
@@ -533,6 +546,8 @@ export interface UpdateWebhookInput {
   secret?: string
   secret_clear?: boolean
   enabled?: boolean
+  strict_filters?: boolean
+  strict_filter_modes?: WebhookFilterModes
   event_types?: string[]
   actor_kinds?: ActorKind[]
   move_column_ids?: number[]

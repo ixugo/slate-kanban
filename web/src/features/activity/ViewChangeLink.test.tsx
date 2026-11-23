@@ -6,6 +6,7 @@ import { en } from '@/i18n/locales/en'
 import { installFakeApi } from '@/test/fakeApi'
 import { makeCard } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
+import { formatDateTime } from '@/lib/format'
 import type { BoardEvent, CardChange } from '@/lib/api/types'
 import { ActivityItem } from './ActivityItem'
 
@@ -22,6 +23,7 @@ const change: CardChange = {
   actor_kind: 'human',
   actor: 'human',
   created_at: '2026-11-18T08:00:00Z',
+  previous_at: '2026-11-17T08:00:00Z',
   prev_id: 0,
   next_id: 0,
 }
@@ -70,8 +72,8 @@ describe('活动里的「查看变更」', () => {
       expect(link.closest('p')).toHaveTextContent('我 修改了描述，查看变更')
       await userEvent.click(link)
       const dialog = await screen.findByRole('dialog', { name: '描述的变更' })
-      expect(await within(dialog).findByText('修改前')).toBeInTheDocument()
-      expect(within(dialog).getByText('修改后')).toBeInTheDocument()
+      expect(await within(dialog).findByText(formatDateTime(change.previous_at, 'zh-CN'))).toBeInTheDocument()
+      expect(within(dialog).getByText(formatDateTime(change.created_at, 'zh-CN'))).toBeInTheDocument()
     } finally {
       await setLanguage('en')
     }
@@ -92,8 +94,8 @@ describe('活动里的「查看变更」', () => {
     await userEvent.click(screen.getByRole('button', { name: en.activity.change.link }))
 
     const dialog = await screen.findByRole('dialog', { name: en.activity.change.title })
-    await waitFor(() => expect(within(dialog).getByText(en.activity.change.before)).toBeInTheDocument())
-    expect(within(dialog).getByText(en.activity.change.after)).toBeInTheDocument()
+    await waitFor(() => expect(within(dialog).getByText(formatDateTime(change.previous_at, 'en'))).toBeInTheDocument())
+    expect(within(dialog).getAllByText(formatDateTime(change.created_at, 'en'), { exact: false })).toHaveLength(2)
     expect(api.calls.map((c) => c.path)).toEqual(['/api/v1/cards/5/changes/7'])
     expect(dialog).toHaveTextContent('Me · ')
     expect(dialog.querySelectorAll('[data-kind="change"]')).toHaveLength(2)
@@ -108,12 +110,12 @@ describe('活动里的「查看变更」', () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole('button', { name: en.activity.change.link }))
     const dialog = await screen.findByRole('dialog')
-    await within(dialog).findByText(en.activity.change.before)
+    await within(dialog).findByText(formatDateTime(change.previous_at, 'en'))
 
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     await user.click(screen.getByRole('button', { name: en.activity.change.link }))
-    await within(await screen.findByRole('dialog')).findByText(en.activity.change.before)
+    await within(await screen.findByRole('dialog')).findByText(formatDateTime(change.previous_at, 'en'))
     expect(api.count(CHANGE_ROUTE)).toBe(1)
   })
 
@@ -130,7 +132,7 @@ describe('活动里的「查看变更」', () => {
     const dialog = await screen.findByRole('dialog')
     const prev = within(dialog).getByRole('button', { name: en.activity.change.prev })
     const next = within(dialog).getByRole('button', { name: en.activity.change.next })
-    await within(dialog).findByText(en.activity.change.before)
+    await within(dialog).findByText(formatDateTime(change.previous_at, 'en'))
     await waitFor(() => expect(prev).toBeEnabled())
     expect(next).toBeEnabled()
 
@@ -159,7 +161,7 @@ describe('活动里的「查看变更」', () => {
 
     missing = false
     await user.click(within(dialog).getByRole('button', { name: en.common.retry }))
-    await within(dialog).findByText(en.activity.change.before)
+    await within(dialog).findByText(formatDateTime(change.previous_at, 'en'))
     expect(api.count(CHANGE_ROUTE)).toBe(2)
     expect(within(dialog).queryByRole('alert')).toBeNull()
   })

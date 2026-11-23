@@ -1,4 +1,4 @@
-// 设置页「常规」：名称、说明、只读 slug、删除项目。
+// 设置页「常规」：名称、AGENTS.md、只读 slug、删除项目。
 
 import { Loader2Icon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
@@ -6,7 +6,7 @@ import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { LazyEditor } from '@/features/editor/LazyEditor'
 import type { Board } from '@/lib/api/types'
 import { BOARD_DESC_MAX, BOARD_NAME_MAX } from '@/lib/limits'
 import { DeleteBoardDialog } from './DeleteBoardDialog'
@@ -33,7 +33,7 @@ export function GeneralSection({ board }: Props) {
     if (Object.keys(found).length > 0) return
     updateBoard.mutate({
       name: name.trim(),
-      description: description.trim(),
+      description,
     })
   }
 
@@ -60,13 +60,14 @@ export function GeneralSection({ board }: Props) {
           {fieldError('name', 'board-name-error')}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="board-desc">{t('settings.general.description')}</Label>
-          <Textarea
-            id="board-desc"
+          <p className="text-ui font-medium">{t('settings.general.description')}</p>
+          <LazyEditor
+            label={t('settings.general.description')}
             value={description}
-            maxLength={BOARD_DESC_MAX}
-            rows={3}
-            onChange={(e) => setDescription(e.target.value)}
+            max={BOARD_DESC_MAX}
+            placeholder={t('boards.create.descriptionPlaceholder')}
+            onChange={setDescription}
+            compact
           />
         </div>
         <div className="space-y-1.5">

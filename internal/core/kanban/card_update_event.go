@@ -18,6 +18,8 @@ func (u *unit) cardUpdatePreviousValues(ctx context.Context, before *Card, chang
 		switch name {
 		case "branch":
 			previous[name] = before.Branch
+		case "merged_commits":
+			previous[name] = before.MergedCommits
 		case "url":
 			previous[name] = before.URL
 		case "human_only":

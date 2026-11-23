@@ -43,25 +43,19 @@ func TestApplyTimeActions(t *testing.T) {
 	}
 }
 
-// TestApplyFinishedAndDue 验证完成时间和到期时间的动作：完成时间和开始时间对称，
-// 到期时间是现在加上指定天数，清空只在有值时才算变化。
+// TestApplyFinishedAndDue 区分自动化的完成时间与人工维护的截止时间。
 func TestApplyFinishedAndDue(t *testing.T) {
-	card := &Card{}
+	card := &Card{DueAt: timeAt(earlier)}
 	if changed, _ := applyFieldAction(card, RuleAction{Type: ActionSetFinishedAt, Mode: ModeIfEmpty}, actionNow); !changed || !sameTime(card.FinishedAt, timeAt(actionNow)) {
 		t.Fatalf("应该写入完成时间: %v", card.FinishedAt)
 	}
 	if changed, _ := applyFieldAction(card, RuleAction{Type: ActionClearFinishedAt}, actionNow); !changed || card.FinishedAt != nil {
 		t.Fatalf("应该清空完成时间: %v", card.FinishedAt)
 	}
-	card.DueAt = timeAt(earlier)
-	if changed, _ := applyFieldAction(card, RuleAction{Type: ActionSetDue, Days: 3}, actionNow); !changed || !sameTime(card.DueAt, timeAt(actionNow.Add(72*time.Hour))) {
-		t.Fatalf("到期时间应该是现在加 3 天，并覆盖原来的值: %v", card.DueAt)
-	}
-	if changed, _ := applyFieldAction(card, RuleAction{Type: ActionClearDue}, actionNow); !changed || card.DueAt != nil {
-		t.Fatalf("应该清空到期时间: %v", card.DueAt)
-	}
-	if changed, _ := applyFieldAction(card, RuleAction{Type: ActionClearDue}, actionNow); changed {
-		t.Fatalf("本来就没有到期时间，不算变化")
+	for _, action := range []RuleAction{{Type: ActionSetDue, Days: 3}, {Type: ActionClearDue}} {
+		if changed, skip := applyFieldAction(card, action, actionNow); changed || skip == "" || !sameTime(card.DueAt, timeAt(earlier)) {
+			t.Fatalf("存量动作 %s 不应改截止时间: %v", action.Type, card.DueAt)
+		}
 	}
 }
 

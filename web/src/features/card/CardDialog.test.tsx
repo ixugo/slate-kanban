@@ -5,6 +5,7 @@ import { Route, Routes } from 'react-router-dom'
 import i18n from '@/i18n'
 import { en } from '@/i18n/locales/en'
 import { ja } from '@/i18n/locales/ja'
+import { zhCN } from '@/i18n/locales/zh-CN'
 import { installFakeApi, type FakeCall } from '@/test/fakeApi'
 import { makeCard, makeSnapshot } from '@/test/factories'
 import { renderApp } from '@/test/renderApp'
@@ -12,15 +13,15 @@ import { installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from '@/features/board/BoardPage'
 import { CARD_TAGS_MAX } from '@/lib/limits'
 import { formatDate, formatDateTime } from '@/lib/format'
-import type { Tag, TagInput } from '@/lib/api/types'
+import type { Comment, Tag, TagInput } from '@/lib/api/types'
 
 const baseDetail = {
   ...makeCard({ id: 1, title: '详情卡', version: 2, tag_ids: [1], tags: ['bug'] }),
   column_instruction: 'do work',
   dependencies: [],
-  comments: [],
+  comments: [] as Comment[],
   started_at: '2026-11-01T10:00:00Z' as string | null,
-  finished_at: null,
+  finished_at: null as string | null,
   claim_active: true,
   claimed_by: 'codex',
   claim_expires_at: '2026-11-18T12:00:00Z',
@@ -31,7 +32,10 @@ beforeAll(async () => {
   await import('@/features/card/CardDialog')
 }, 30000)
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 /** 取第一次 PATCH 请求的请求体 */
 function patchBody(calls: FakeCall[]): unknown {
@@ -88,7 +92,7 @@ function openCardReferences(commentBody = 'Comment #25, `#38`, [link #44](https:
     }],
   }
   const second = { ...baseDetail, id: 22, number: 14, key: 'TST-14', title: 'Second card', description: 'Read #25.', tag_ids: [7], due_at: '2026-12-01T00:00:00Z' }
-  const third = { ...baseDetail, id: 33, number: 25, title: 'Third card', description: '' }
+  const third = { ...baseDetail, id: 33, number: 25, key: 'TST-25', title: 'Third card', description: '' }
   const api = installFakeApi({
     'GET /api/v1/boards/:id/snapshot': makeSnapshot({
       tags: [{ id: 7, text: 'Urgent', color: 'red-3' }],
@@ -109,6 +113,69 @@ function openCardReferences(commentBody = 'Comment #25, `#38`, [link #44](https:
 }
 
 describe('CardDialog', () => {
+  it('依赖弹层保持打开，首个保存未返回时仍可勾选第二项', async () => {
+    const api = openCardReferences()
+    let current = { ...baseDetail, waits_on: [] as number[] }
+    api.set('GET /api/v1/cards/1', () => ({ body: current }))
+    api.set('PATCH /api/v1/cards/1', (call: FakeCall) => {
+      const input = call.body as { version: number; waits_on: number[] }
+      if (input.version !== current.version) return { status: 409, body: { reason: 'ErrCardVersionConflict' } }
+      current = { ...current, waits_on: input.waits_on, version: current.version + 1 }
+      return { body: current }
+    })
+    const originalFetch = vi.mocked(fetch).getMockImplementation()!
+    let finishFirst!: () => void
+    const firstResponse = new Promise<void>((resolve) => { finishFirst = resolve })
+    let firstPatch = true
+    vi.mocked(fetch).mockImplementation(async (...args) => {
+      if (args[1]?.method === 'PATCH' && firstPatch) {
+        firstPatch = false
+        await firstResponse
+      }
+      return originalFetch(...args)
+    })
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: en.card.field.deps }))
+    const search = await screen.findByRole('textbox', { name: en.card.depSearch })
+    const list = () => within(screen.getByRole('list', { name: en.card.depAdd }))
+    try {
+      await user.click(list().getByLabelText('#14 Second card'))
+      expect(screen.getByRole('textbox', { name: en.card.depSearch })).toBe(search)
+      const second = list().getByLabelText('#25 Third card')
+      await user.click(second)
+      expect(second).toHaveAttribute('aria-checked', 'true')
+    } finally {
+      finishFirst()
+    }
+    await waitFor(() => expect(current.waits_on).toEqual([22, 33]))
+    expect(api.calls.filter((call) => call.method === 'PATCH').map((call) => call.body)).toEqual([
+      { version: 2, waits_on: [22] },
+      { version: 3, waits_on: [22, 33] },
+    ])
+  })
+
+  it('首次点击归档即发送请求，并在当前详情显示归档状态', async () => {
+    const api = openBoardWithCard(baseDetail)
+    const archiveRoute = 'POST /api/v1/cards/:id/archive'
+    const archived = { ...baseDetail, archived_at: '2026-11-23T03:00:00Z', claim_active: false }
+    api.set(archiveRoute, () => {
+      api.set('GET /api/v1/cards/:id', archived)
+      return { body: archived }
+    })
+    const user = userEvent.setup()
+    const dialog = await screen.findByRole('dialog')
+    const more = await within(dialog).findByRole('button', { name: en.common.more })
+    await user.click(more)
+    await user.click(within(dialog).getByRole('button', { name: en.card.archive.action }))
+
+    await waitFor(() => expect(api.count(archiveRoute)).toBe(1))
+    expect(await within(dialog).findByText(en.card.archive.readOnly)).toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: en.card.archive.action })).toBeNull()
+    expect(more).toHaveFocus()
+    expect(within(dialog).getByRole('button', { name: en.common.delete })).toHaveAttribute('data-variant', 'destructive')
+    api.expectNoUnmatched()
+  })
+
   it('评论里的编号打开同板任务，Markdown 链接、代码和转义保留', async () => {
     const api = openCardReferences()
     const user = userEvent.setup()
@@ -397,6 +464,30 @@ describe('CardDialog', () => {
     await waitFor(() => expect(api.count('POST /api/v1/cards/:id/release')).toBe(1))
   })
 
+  it('底部隐藏更新时间，并按本地日期显示今天、昨天和更早的时间', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 0, 1, 13, 38))
+    await i18n.changeLanguage('zh-CN')
+    const created = new Date(2025, 11, 30, 23, 59).toISOString()
+    const started = new Date(2025, 11, 31, 23, 59).toISOString()
+    const finished = new Date(2026, 0, 1, 13, 37).toISOString()
+    openBoardWithCard({
+      ...baseDetail,
+      updated_at: new Date(2026, 0, 1, 13, 38).toISOString(),
+      created_at: created,
+      started_at: started,
+      finished_at: finished,
+    })
+    const dialog = within(await screen.findByRole('dialog'))
+    await dialog.findByLabelText(zhCN.card.field.title)
+    const today = await dialog.findByText('今天 13:37', { selector: 'time' })
+    expect(today).toHaveAttribute('datetime', finished)
+    expect(today).toHaveAttribute('title', formatDateTime(finished, 'zh-CN'))
+    expect(dialog.getByText('昨天 23:59', { selector: 'time' })).toHaveAttribute('datetime', started)
+    expect(dialog.getByText(formatDateTime(created, 'zh-CN'), { selector: 'time' })).toBeInTheDocument()
+    expect(dialog.queryByText(zhCN.card.field.updated)).not.toBeInTheDocument()
+  })
+
   it('领取横幅只给租约时间使用等宽字体，保留日语词序', async () => {
     await i18n.changeLanguage('ja')
     openBoardWithCard(baseDetail)
@@ -427,6 +518,34 @@ describe('CardDialog', () => {
     expect(within(dialog).getByText(en.card.comment.agent)).toBeInTheDocument()
     expect(within(dialog).getByText(en.card.comment.system)).toBeInTheDocument()
     expect(within(dialog).queryByText('system')).toBeNull()
+  })
+
+  it('评论未满一分钟时显示刚刚，满一分钟后恢复为相对时间', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const now = new Date(2026, 0, 1, 13, 38).getTime()
+    vi.setSystemTime(now)
+    await i18n.changeLanguage('zh-CN')
+    const recent = new Date(now - 59_000).toISOString()
+    const older = new Date(now - 60_000).toISOString()
+    openBoardWithCard({
+      ...baseDetail,
+      comments: [
+        { id: 1, board_id: 1, card_id: 1, author_kind: 'human', author: 'human', body: '59 秒', created_at: recent, updated_at: recent },
+        { id: 2, board_id: 1, card_id: 1, author_kind: 'human', author: 'human', body: '60 秒', created_at: older, updated_at: older },
+      ],
+    }, [
+      { id: 9, board_id: 1, card_id: 1, type: 'card.moved', actor_kind: 'agent', actor: 'codex', payload: { from: 'Alpha', to: 'Beta' }, created_at: recent },
+    ])
+    const dialog = within(await screen.findByRole('dialog'))
+    const timeFor = (body: HTMLElement) => body.closest('li')?.querySelector('time')
+    const recentTime = timeFor(await dialog.findByText('59 秒', { selector: 'p' }))
+    expect(recentTime).toHaveTextContent('刚刚')
+    expect(recentTime).toHaveAttribute('datetime', recent)
+    expect(recentTime).toHaveAttribute('title', formatDateTime(recent, 'zh-CN'))
+    expect(timeFor(dialog.getByText('60 秒', { selector: 'p' }))).toHaveTextContent('1分钟前')
+    expect(timeFor(await dialog.findByText(/Alpha/))).toHaveTextContent('59秒钟前')
+    vi.setSystemTime(now + 1000)
+    await waitFor(() => expect(recentTime).toHaveTextContent('1分钟前'))
   })
 
   it('弹窗内同时有属性区、描述与评论', async () => {
@@ -484,11 +603,12 @@ describe('CardDialog', () => {
       actor_kind: 'human',
       actor: 'human',
       created_at: '2026-11-18T11:00:00Z',
+      previous_at: '2026-11-18T08:00:00Z',
     })
     const dialog = await screen.findByRole('dialog')
     await userEvent.click(await within(dialog).findByRole('button', { name: en.activity.change.link }))
     const diff = await screen.findByRole('dialog', { name: en.activity.change.title })
-    expect(await within(diff).findByText(en.activity.change.before)).toBeInTheDocument()
+    expect(await within(diff).findByText(formatDateTime('2026-11-18T08:00:00Z', 'en'))).toBeInTheDocument()
     expect(api.calls.filter((c) => c.path === '/api/v1/cards/1/changes/4')).toHaveLength(1)
 
     // Esc 只关掉最上面的对比弹窗，任务弹窗还在

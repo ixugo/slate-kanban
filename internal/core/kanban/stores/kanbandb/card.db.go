@@ -75,6 +75,17 @@ func (d Card) ListByBoard(ctx context.Context, boardID int64) ([]*kanban.Card, e
 	return items, nil
 }
 
+// ListRecent 用限定的列和条数读取桌面状态栏需要的任务摘要。
+func (d Card) ListRecent(ctx context.Context, limit int) ([]kanban.RecentCard, error) {
+	var items []kanban.RecentCard
+	err := d.db.WithContext(ctx).Model(&kanban.Card{}).
+		Select("id", "board_id", "key", "title").
+		Where("archived_at IS NULL").
+		Order("COALESCE((SELECT MAX(created_at) FROM events WHERE events.card_id = cards.id), cards.updated_at) DESC, cards.id DESC").
+		Limit(limit).Find(&items).Error
+	return items, err
+}
+
 // ListArchivedByBoard 按 (archived_at, id) 倒序读取指定看板的归档任务。
 func (d Card) ListArchivedByBoard(ctx context.Context, boardID int64, before *kanban.Card, limit int) ([]*kanban.Card, error) {
 	q := d.db.WithContext(ctx).Where("board_id = ? AND archived_at IS NOT NULL", boardID)

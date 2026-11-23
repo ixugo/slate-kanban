@@ -12,6 +12,7 @@ import { AddCard } from './AddCard'
 import { columnDropId } from './dnd'
 import { cn } from '@/lib/utils'
 import { useTemplateText } from '@/lib/useTemplateText'
+import type { SearchHighlights } from './searchHighlights'
 
 interface ColumnViewProps {
   column: Column
@@ -23,6 +24,7 @@ interface ColumnViewProps {
   onAddCard: (title: string) => Promise<Card>
   addBusy?: boolean
   dragDisabled?: boolean
+  highlights?: SearchHighlights
   /** 当前是否收成 48px 窄边 */
   collapsed: boolean
   /** 在整板中的下标，用来决定收起箭头朝左还是朝右 */
@@ -52,6 +54,7 @@ export function ColumnView({
   onAddCard,
   addBusy,
   dragDisabled,
+  highlights,
   collapsed,
   columnIndex,
   columnCount,
@@ -162,7 +165,7 @@ export function ColumnView({
       >
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
           {cards.map((card) => (
-            <CardTile key={card.id} card={card} dragDisabled={dragDisabled} />
+            <CardTile key={card.id} card={card} dragDisabled={dragDisabled} highlights={highlights} />
           ))}
         </SortableContext>
       </div>

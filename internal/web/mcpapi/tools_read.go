@@ -8,9 +8,14 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-// boardIn 是只需要看板编号的工具的入参。
+// boardIn 是 get_board 的入参。
 type boardIn struct {
-	BoardID int64 `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
+	BoardID            int64 `json:"board_id" jsonschema:"看板编号"`
+	IncludeWatchPrompt *bool `json:"include_watch_prompt,omitempty" jsonschema:"缺省返回守候说明；传 false 省略"`
+}
+
+type listBoardsIn struct {
+	Summary bool `json:"summary,omitempty" jsonschema:"仅返回看板编号、名称、标识、项目路径"`
 }
 
 // cardIn 是只需要任务编号的工具的入参。
@@ -21,15 +26,8 @@ type cardIn struct {
 // listCardsIn 是 list_cards 的入参。
 type listCardsIn struct {
 	BoardID int64  `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
-	Query   string `json:"query,omitempty" jsonschema:"筛选条件，写法见工具说明；不填列出全部"`
+	Query   string `json:"query,omitempty" jsonschema:"搜索词和筛选条件。关键词匹配标题、描述、编号或标签。不填列出全部"`
 	Limit   int    `json:"limit,omitempty" jsonschema:"最多返回几个，默认 10，最多 30；还有更多时 truncated 为 true，收紧筛选条件再取下一批"`
-}
-
-// listEventsIn 是 list_events 的入参。
-type listEventsIn struct {
-	BoardID int64 `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
-	After   int64 `json:"after,omitempty" jsonschema:"起点事件序号，只返回比它大的事件；不填从最早保留的事件开始"`
-	Limit   int   `json:"limit,omitempty" jsonschema:"最多返回几条，不填用默认值"`
 }
 
 // whoamiOut 是 whoami 的输出。
@@ -46,6 +44,17 @@ type boardsOut struct {
 	Boards []*kanban.Board `json:"boards"`
 }
 
+type boardSummary struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	ProjectPath string `json:"project_path"`
+}
+
+type boardSummariesOut struct {
+	Boards []boardSummary `json:"boards"`
+}
+
 // cardsOut 是 list_cards 的输出：摘要列表，加上命中总数和是否被截断，调用方可以收紧筛选条件再查。
 type cardsOut struct {
 	Cards     []cardSummary `json:"cards"`
@@ -53,46 +62,30 @@ type cardsOut struct {
 	Truncated bool          `json:"truncated"`
 }
 
-// registerReadTools 注册读取类的工具：两个视图共用的几个，加上只有管理视图才有的活动流水。
+// registerReadTools 注册所有连接共用的读取工具。
 func (a API) registerReadTools(s *mcp.Server, v view) {
 	register(s, spec{
 		name: "whoami", kind: kindRead,
-		desc: "返回你当前的身份（名称和类型）、使用的工具视图、服务版本，以及订阅看板更新用的资源地址模板。连上之后先调用它确认自己是谁。",
+		desc: "核对身份、工具视图、服务版本与看板资源 URI 模板。",
 	}, a.whoami(v))
 	register(s, spec{
 		name: "list_boards", kind: kindRead,
-		desc: "列出所有看板（编号、标识、名称、说明、项目路径）。其他工具都要用看板编号 board_id，先用它找到要处理的看板。",
+		desc: "列出看板。只需定位项目时传 summary=true；详细设置用 get_board。",
 	}, a.listBoards)
 	register(s, spec{
 		name: "get_board", kind: kindRead,
-		desc: "读取一个看板的详情：全部列、自动化规则和工程师名册 engineers（每位是一个并发名额：id、name、kind 是 dev 全栈、frontend 前端、backend 后端、ui UI（这四种都做研发）或 review 测试、prompt 是角色提示词）。每一列有 " +
-			"instruction（人写给 agent 的提示词，写明这个状态下谁能做什么，必须遵守）、" +
-			"is_done（完成列）、next_column_id（交接后任务去的下一列）。开始工作前先读一遍。" +
-			"watch_prompt 是守候这个看板要照做的提示词（看板名已填好），核心是用 wait_for_updates 长连接持续监听；用户让你守候这个看板、或 loop 叫醒你检查监听时，读它并照做。",
+		desc: "读取看板、列指令、自动化与工程师名册。守候用 watch_prompt，普通查询可省略。",
 	}, a.getBoard)
 	register(s, spec{
 		name: "list_cards", kind: kindRead,
-		desc: "列出看板里的任务摘要，顺序和看板上看到的一致（先按列从左到右，同一列里从上到下）。摘要不含描述和评论，要全文请用 get_card。" +
-			"query 是空格分隔的多个词，所有词都满足才命中，词前加减号表示取反，双引号包起来的算一个词。写法：" +
-			"普通文字（匹配标题、描述、编号、标签）；tag:标签；col:列名（也可以写列 id）；key:SLATE-12；title:文字；desc:文字；" +
-			"priority:high、priority:3、priority:>=2（high、medium、low、none 对应 3、2、1、0）；claimed:agent 名称；" +
-			"is:done、is:open、is:human、is:claimed、is:free、is:waiting、is:overdue、is:started、is:finished；" +
-			"has:due、has:branch、has:url、has:tags、has:desc、has:deps（no: 表示没有）；due:today、due:<2026-12-01（created:、updated: 同理）。" +
-			"tag、col、key、priority、claimed、is、has、no 的取值可以用竖线写成多选一，例如 tag:bug|ui、col:待办|进行中、priority:high|medium。" +
-			"例如：col:进行中 is:free -is:waiting。每次最多返回 30 个（默认 10 个），total 是命中总数，truncated 为 true 说明还有更多：用筛选条件缩小范围，不要一次要很多。",
+		desc: "搜索或筛选看板任务，按看板顺序返回摘要。query 支持引号短语、减号取反、字段过滤和竖线多选。" +
+			"例如 col:进行中 is:free -is:waiting。完整语法见 skill。",
 	}, a.listCards)
 	register(s, spec{
 		name: "get_card", kind: kindRead,
-		desc: "读取一个任务的完整信息：全文描述、评论、依赖的任务，以及所在列给 agent 的指令（column_instruction）。" +
-			"领到任务后、动手之前先读它，评论里可能有人的补充要求或审查意见。结果里的 agent_notice 是提醒：任务不明确时先评论反馈并把任务移出领取列，不要直接开始。",
+		desc: "读取任务全文、评论、依赖和列指令。按最新评论及列指令处理。",
 	}, a.getCard)
-	if v == viewAdmin {
-		register(s, spec{
-			name: "list_events", kind: kindRead,
-			desc: "读取看板的活动流水：起点 after 之后的事件，按序号升序，不做过滤。用来了解看板最近发生了什么。" +
-				"latest 是看板当前最新的事件序号；has_more 为真表示还有更多，用最后一条的 id 作为下一次的 after 继续读。",
-		}, a.listEvents)
-	}
+
 }
 
 // whoami 返回调用者的身份和当前视图。身份来自 URL 的 ?name= / ?role=，不来自入参，所以没有入参。
@@ -106,10 +99,17 @@ func (a API) whoami(v view) func(context.Context, kanban.Actor, struct{}) (any, 
 }
 
 // listBoards 返回全部看板。没有看板时是空数组，不是 null。
-func (a API) listBoards(ctx context.Context, _ kanban.Actor, _ struct{}) (any, error) {
+func (a API) listBoards(ctx context.Context, _ kanban.Actor, in listBoardsIn) (any, error) {
 	boards, err := a.core.ListBoards(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if in.Summary {
+		out := make([]boardSummary, 0, len(boards))
+		for _, board := range boards {
+			out = append(out, boardSummary{ID: board.ID, Name: board.Name, Slug: board.Slug, ProjectPath: board.ProjectPath})
+		}
+		return boardSummariesOut{Boards: out}, nil
 	}
 	if boards == nil {
 		boards = []*kanban.Board{}
@@ -123,7 +123,11 @@ func (a API) getBoard(ctx context.Context, _ kanban.Actor, in boardIn) (any, err
 	if err != nil {
 		return nil, err
 	}
-	return boardOut{BoardDetail: detail, WatchPrompt: watchPromptOf(detail)}, nil
+	out := boardOut{BoardDetail: detail}
+	if in.IncludeWatchPrompt == nil || *in.IncludeWatchPrompt {
+		out.WatchPrompt = watchPromptOf(detail)
+	}
+	return out, nil
 }
 
 // listCards 按筛选条件列出任务摘要。数量默认 10、最多 30，保护 agent 的上下文。
@@ -142,9 +146,4 @@ func (a API) getCard(ctx context.Context, _ kanban.Actor, in cardIn) (any, error
 		return nil, err
 	}
 	return withNotice(detail), nil
-}
-
-// listEvents 返回起点之后的活动流水，不做过滤，只有管理视图提供。
-func (a API) listEvents(ctx context.Context, _ kanban.Actor, in listEventsIn) (any, error) {
-	return a.core.ListEvents(ctx, in.BoardID, in.After, in.Limit)
 }

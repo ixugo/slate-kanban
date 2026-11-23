@@ -50,7 +50,7 @@ func (c Core) CreateWebhook(ctx context.Context, actor Actor, boardID int64, in 
 		}
 		w := &Webhook{
 			BoardID: boardID, Name: in.Name, Type: in.Type, URL: in.URL, Secret: in.Secret, Enabled: enabled,
-			EventTypes: in.EventTypes, ActorKinds: in.ActorKinds, MoveColumnIDs: in.MoveColumnIDs,
+			StrictFilters: in.StrictFilters, StrictFilterModes: in.StrictFilterModes, EventTypes: in.EventTypes, ActorKinds: in.ActorKinds, MoveColumnIDs: in.MoveColumnIDs,
 			CreatedAt: now, UpdatedAt: now,
 		}
 		if err := normalizeWebhook(w, cols); err != nil {
@@ -115,8 +115,15 @@ func (c Core) UpdateWebhook(ctx context.Context, actor Actor, webhookID int64, i
 // sameWebhook 判断两条 webhook 可配置内容是否一致。
 func sameWebhook(a, b *Webhook) bool {
 	return a.Name == b.Name && a.Type == b.Type && a.URL == b.URL && a.Secret == b.Secret &&
-		a.Enabled == b.Enabled && sliceEqual(a.EventTypes, b.EventTypes) && sliceEqual(a.ActorKinds, b.ActorKinds) &&
-		int64SliceEqual(a.MoveColumnIDs, b.MoveColumnIDs)
+		a.Enabled == b.Enabled && a.StrictFilters == b.StrictFilters &&
+		sameOptionalBool(a.StrictFilterModes.EventTypes, b.StrictFilterModes.EventTypes) &&
+		sameOptionalBool(a.StrictFilterModes.ActorKinds, b.StrictFilterModes.ActorKinds) &&
+		sameOptionalBool(a.StrictFilterModes.MoveColumnIDs, b.StrictFilterModes.MoveColumnIDs) &&
+		sliceEqual(a.EventTypes, b.EventTypes) && sliceEqual(a.ActorKinds, b.ActorKinds) && int64SliceEqual(a.MoveColumnIDs, b.MoveColumnIDs)
+}
+
+func sameOptionalBool(a, b *bool) bool {
+	return a == b || a != nil && b != nil && *a == *b
 }
 
 func sliceEqual(a, b []string) bool {

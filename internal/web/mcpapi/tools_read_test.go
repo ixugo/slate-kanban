@@ -2,6 +2,7 @@ package mcpapi_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -92,6 +93,40 @@ func TestGetBoard(t *testing.T) {
 	}
 }
 
+func TestGetBoardReviewEvidenceWithCustomColumn(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	const projectPrompt = "项目发布前先核对版本记录。"
+	const instruction = "由审查工程师验收，交接前核对上线说明。"
+	human := s.human(t)
+	ok(t, human, "update_board", map[string]any{
+		"board_id": b.ID, "description": projectPrompt,
+	})
+	ok(t, human, "update_column", map[string]any{
+		"board_id": b.ID, "column_id": b.review, "instruction": instruction,
+	})
+	agent := s.agent(t, "claude")
+	for _, local := range []string{projectPrompt, instruction} {
+		if strings.Contains(agent.InitializeResult().Instructions, local) {
+			t.Errorf("全局初始化说明不应包含看板本地提示 %q", local)
+		}
+	}
+	got := ok(t, agent, "get_board", map[string]any{"board_id": b.ID}).Data
+	review := items(t, got, "columns")[3]
+	if review["instruction"] != instruction {
+		t.Errorf("自定义审查列指令应原样返回，实际 %q", review["instruction"])
+	}
+	prompt := fmt.Sprint(got["watch_prompt"])
+	if got["description"] != projectPrompt || !strings.Contains(prompt, "## 项目说明（AGENTS.md）\n\n"+projectPrompt) {
+		t.Errorf("项目提示应按看板原样返回: %q", got["description"])
+	}
+	for _, want := range []string{"所有审查入口", "upload_image", "实际截图", "- [x] 通过", "- [ ] 未通过或未验证", "暂不判通过"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("自定义看板的守候提示词缺少审查证据要求 %q", want)
+		}
+	}
+}
+
 // TestListCardsSummaries 验证任务列表只给摘要：没有描述和评论，有编号、所在列、派生状态；
 // 同时支持筛选语法，写错的筛选词是带说明的工具错误。
 func TestListCardsSummaries(t *testing.T) {
@@ -123,6 +158,75 @@ func TestListCardsSummaries(t *testing.T) {
 	bad := call(t, sess, "list_cards", map[string]any{"board_id": b.ID, "query": "is:foo"})
 	if !bad.IsError || !strings.Contains(bad.Text, "is:foo") {
 		t.Errorf("写错的筛选词应该是带说明的工具错误: %+v", bad)
+	}
+}
+
+func TestListCardsAdvertisesSearch(t *testing.T) {
+	s := newStack(t)
+	sess := s.agent(t, "claude")
+	for tool, err := range sess.Tools(t.Context(), nil) {
+		if err != nil {
+			t.Fatalf("列出工具失败: %v", err)
+		}
+		if tool.Name != "list_cards" {
+			continue
+		}
+		if !strings.Contains(tool.Description, "搜索") {
+			t.Errorf("list_cards 应明确说明支持搜索: %q", tool.Description)
+		}
+		schema, _ := tool.InputSchema.(map[string]any)
+		props, _ := schema["properties"].(map[string]any)
+		query, _ := props["query"].(map[string]any)
+		description, _ := query["description"].(string)
+		if !strings.Contains(description, "搜索") {
+			t.Errorf("query 应说明可传搜索词: %v", query)
+		}
+		return
+	}
+	t.Fatal("工具列表缺少 list_cards")
+}
+
+func TestListCardsSearch(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	sess := s.agent(t, "claude")
+	detail, err := s.core.CreateCard(t.Context(), humanActor, b.ID, kanban.CreateCardInput{
+		Title: "检查通知", Description: "验证 Webhook retries 和回放标记。", ColumnID: b.doing,
+	})
+	if err != nil {
+		t.Fatalf("创建描述命中的任务失败: %v", err)
+	}
+	docs := s.card(t, b, b.todo, "Webhook retries 文档")
+	s.card(t, b, b.doing, "发布说明")
+
+	cases := []struct {
+		name      string
+		query     string
+		limit     int
+		keys      []string
+		total     int
+		truncated bool
+	}{
+		{name: "描述命中", query: "回放标记", keys: []string{detail.Key}, total: 1},
+		{name: "短语与筛选组合", query: `"webhook retries" col:进行中`, keys: []string{detail.Key}, total: 1},
+		{name: "没有命中", query: "缺席的关键词"},
+		{name: "按看板顺序截断", query: `"webhook retries"`, limit: 1, keys: []string{docs.Key}, total: 2, truncated: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ok(t, sess, "list_cards", map[string]any{
+				"board_id": b.ID, "query": tc.query, "limit": tc.limit,
+			}).Data
+			cards := items(t, got, "cards")
+			keys := make([]string, 0, len(cards))
+			for _, card := range cards {
+				key, _ := card["key"].(string)
+				keys = append(keys, key)
+			}
+			if !slices.Equal(keys, tc.keys) || got["total"] != float64(tc.total) || got["truncated"] != tc.truncated {
+				t.Errorf("搜索 %q 返回 %v，总数 %v，截断 %v，期望 %v、%d、%v", tc.query, keys, got["total"], got["truncated"], tc.keys, tc.total, tc.truncated)
+			}
+		})
 	}
 }
 
@@ -183,18 +287,35 @@ func TestGetCard(t *testing.T) {
 	}
 }
 
-// TestListEvents 验证活动流水只在管理视图里：返回起点之后的全部事件、最新序号。
-func TestListEvents(t *testing.T) {
+func TestCompactBoardReads(t *testing.T) {
 	s := newStack(t)
 	b := s.seed(t, "SLATE")
-	s.card(t, b, b.todo, "写文档")
-	got := ok(t, s.human(t), "list_events", map[string]any{"board_id": b.ID}).Data
-	events := items(t, got, "events")
-	if len(events) < 2 || events[len(events)-1]["type"] != "card.created" || got["latest"] != events[len(events)-1]["id"] {
-		t.Errorf("事件列表不对: %v", got)
+	sess := s.agent(t, "claude")
+	summaries := items(t, ok(t, sess, "list_boards", map[string]any{"summary": true}).Data, "boards")
+	if len(summaries) != 1 || summaries[0]["slug"] != "SLATE" {
+		t.Fatalf("摘要缺少能定位看板的字段: %v", summaries)
 	}
-	after := ok(t, s.human(t), "list_events", map[string]any{"board_id": b.ID, "after": got["latest"]}).Data
-	if len(items(t, after, "events")) != 0 {
-		t.Errorf("起点是最新序号时不应该再有事件: %v", after)
+	summary := summaries[0]
+	for _, field := range []string{"id", "name", "slug", "project_path"} {
+		if _, exists := summary[field]; !exists {
+			t.Errorf("摘要缺少 %s", field)
+		}
+	}
+	for _, field := range []string{"tags", "engineers", "created_at", "description"} {
+		if _, exists := summary[field]; exists {
+			t.Errorf("摘要不应返回 %s", field)
+		}
+	}
+
+	board := ok(t, sess, "get_board", map[string]any{"board_id": b.ID, "include_watch_prompt": false}).Data
+	if _, exists := board["watch_prompt"]; exists {
+		t.Errorf("普通详情不应返回 watch_prompt")
+	}
+	if len(items(t, board, "columns")) != 5 || len(items(t, board, "engineers")) != 3 {
+		t.Errorf("普通详情仍须包含列与名册: %v", board)
+	}
+	full := ok(t, sess, "get_board", map[string]any{"board_id": b.ID, "include_watch_prompt": true}).Data
+	if full["watch_prompt"] == nil || full["watch_prompt"] == "" {
+		t.Fatal("显式请求守候说明时应返回长提示词")
 	}
 }

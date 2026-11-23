@@ -16,19 +16,26 @@ func webhookMatchesEvent(w *Webhook, ev *Event) bool {
 		return false
 	}
 	w.Normalize()
-	if len(w.EventTypes) > 0 && !slices.Contains(w.EventTypes, ev.Type) {
+	if (w.strictMode(w.StrictFilterModes.EventTypes) || len(w.EventTypes) > 0) && !slices.Contains(w.EventTypes, ev.Type) {
 		return false
 	}
-	if len(w.ActorKinds) > 0 && !slices.Contains(w.ActorKinds, ev.ActorKind) {
+	if (w.strictMode(w.StrictFilterModes.ActorKinds) || len(w.ActorKinds) > 0) && !slices.Contains(w.ActorKinds, ev.ActorKind) {
 		return false
 	}
-	if len(w.MoveColumnIDs) > 0 && ev.Type == EventCardMoved {
+	if ev.Type == EventCardMoved && (w.strictMode(w.StrictFilterModes.MoveColumnIDs) || len(w.MoveColumnIDs) > 0) {
 		toID := cardMovedToID(ev.Payload)
 		if toID == 0 || !slices.Contains(w.MoveColumnIDs, toID) {
 			return false
 		}
 	}
 	return true
+}
+
+func (w *Webhook) strictMode(override *bool) bool {
+	if override != nil {
+		return *override
+	}
+	return w.StrictFilters
 }
 
 // cardMovedToID 从 card.moved 事件载荷读出目标列主键。

@@ -6,9 +6,10 @@ import (
 )
 
 // DefaultConfig 返回首次生成配置文件时用的默认值：监听所有 IPv4 网卡的 7070 端口。
-// dir 是配置目录，SQLite 数据库（data.db）和日志（logs/）默认都放在它下面，写成绝对路径，和启动目录无关。
+// dir 用于默认资源和日志目录。数据库 DSN 留空，连接时选择默认 SQLite 文件。
 func DefaultConfig(dir string) Bootstrap {
 	return Bootstrap{
+		ConfigVersion: CurrentConfigVersion,
 		Server: Server{
 			HTTP: ServerHTTP{
 				Host:    "0.0.0.0",
@@ -23,7 +24,6 @@ func DefaultConfig(dir string) Bootstrap {
 		Data: Data{
 			ResourceDir: filepath.Join(dir, "resource"),
 			Database: Database{
-				Dsn:             filepath.Join(dir, "data.db"),
 				MaxIdleConns:    10,
 				MaxOpenConns:    50,
 				ConnMaxLifetime: Duration(6 * time.Hour),

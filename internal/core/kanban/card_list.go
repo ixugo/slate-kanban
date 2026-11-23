@@ -78,3 +78,23 @@ func (ix *boardIndex) list(f *filter, limit int) *CardList {
 	out.Truncated = out.Total > len(out.Cards)
 	return out
 }
+
+// RecentCard 是桌面状态栏所需的任务定位和显示信息。
+type RecentCard struct {
+	ID      int64
+	BoardID int64
+	Key     string
+	Title   string
+}
+
+// RecentCards 按最近活动返回未归档的任务，跨看板读取。
+func (c Core) RecentCards(ctx context.Context, limit int) ([]RecentCard, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+	items, err := c.store.Card().ListRecent(ctx, limit)
+	if err != nil {
+		return nil, wrapDB("读取最近任务", err)
+	}
+	return items, nil
+}

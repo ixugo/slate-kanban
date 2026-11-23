@@ -53,13 +53,31 @@ describe('BoardPage', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument()
   })
 
-  it('顶栏没有导出入口，导出在项目设置里；设置入口仍在', async () => {
+  it('在筛选后的更多菜单中提供设置、活动和归档，并支持键盘浏览', async () => {
     installFakeApi({ 'GET /api/v1/boards/:id/snapshot': snapshot })
+    const user = userEvent.setup()
     renderBoard()
     await screen.findByText('Alpha')
-    expect(screen.queryByRole('button', { name: en.settings.tabs.export })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: en.settings.tabs.export })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: en.board.settings })).toHaveAttribute('href', '/b/1/settings')
+
+    const more = screen.getByRole('button', { name: en.common.more })
+    expect(screen.getByRole('button', { name: en.filter.button }).nextElementSibling).toBe(more)
+    expect(screen.queryByRole('link', { name: en.board.settings })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: en.activity.open })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: en.card.archive.title })).not.toBeInTheDocument()
+    more.focus()
+    await user.keyboard('{ArrowDown}')
+    const menu = within(screen.getByRole('menu'))
+    const settings = menu.getByRole('menuitem', { name: en.board.settings })
+    const activity = menu.getByRole('menuitem', { name: en.activity.open })
+    expect(settings).toHaveAttribute('href', '/b/1/settings')
+    expect(settings).toHaveFocus()
+    expect(menu.getByRole('menuitem', { name: en.card.archive.title })).toBeInTheDocument()
+    expect(menu.queryByRole('menuitem', { name: en.settings.tabs.export })).not.toBeInTheDocument()
+    await user.keyboard('{ArrowDown}')
+    expect(activity).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(more).toHaveFocus()
   })
 
   it('非法看板编号时提示返回列表', async () => {

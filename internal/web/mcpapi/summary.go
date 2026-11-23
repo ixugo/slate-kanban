@@ -35,6 +35,7 @@ type cardBrief struct {
 	StartedAt       *time.Time `json:"started_at"`
 	FinishedAt      *time.Time `json:"finished_at"`
 	Branch          string     `json:"branch"`
+	MergedCommits   []string   `json:"merged_commits,omitempty"`
 	URL             string     `json:"url"`
 	Version         int64      `json:"version"`
 	UpdatedAt       time.Time  `json:"updated_at"`
@@ -57,7 +58,7 @@ func briefOf(c *kanban.Card, tags []string) cardBrief {
 		Tags: tags, TagIDs: c.TagIDs, HumanOnly: c.HumanOnly, ClaimedBy: c.ClaimedBy, WaitsOn: c.WaitsOn,
 		EngineerID: c.EngineerID, ClaimEngineerID: c.ClaimEngineerID,
 		DueAt: c.DueAt, StartedAt: c.StartedAt, FinishedAt: c.FinishedAt,
-		Branch: c.Branch, URL: c.URL, Version: c.Version, UpdatedAt: c.UpdatedAt,
+		Branch: c.Branch, MergedCommits: c.MergedCommits, URL: c.URL, Version: c.Version, UpdatedAt: c.UpdatedAt,
 	}
 	if b.Tags == nil {
 		b.Tags = []string{}

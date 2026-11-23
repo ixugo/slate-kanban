@@ -3,6 +3,8 @@ package mcpapi
 import (
 	"context"
 	"log/slog"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -26,12 +28,12 @@ const (
 // 它只是"有更新"的提示：不带数据，也不保证送达，agent 收到后用 pull_updates 取数据；
 // 通知丢了，下一次 pull_updates 或 wait_for_updates 照样能读到全部更新。
 type notifier struct {
-	servers []*mcp.Server // 两个视图各自管自己的订阅，所以每个都要发一遍
-	delay   time.Duration
+	delay time.Duration
 
-	mu    sync.Mutex
-	dirty map[int64]int64 // 有更新还没通知的看板：看板编号 -> 最大事件序号
-	wake  chan struct{}   // 容量为 1，表示"有看板脏了"
+	mu      sync.Mutex
+	servers map[*mcp.Server]struct{} // 已有资源订阅的会话 Server
+	dirty   map[int64]int64          // 有更新还没通知的看板：看板编号 -> 最大事件序号
+	wake    chan struct{}            // 容量为 1，表示"有看板脏了"
 
 	ctx    context.Context // 通知器停止时被取消
 	cancel context.CancelFunc
@@ -39,14 +41,32 @@ type notifier struct {
 }
 
 // newNotifier 创建通知器并启动它的发送协程。用完要调用 close。
-func newNotifier(delay time.Duration, servers ...*mcp.Server) *notifier {
+func newNotifier(delay time.Duration) *notifier {
 	ctx, cancel := context.WithCancel(context.Background())
 	n := &notifier{
-		servers: servers, delay: delay, dirty: make(map[int64]int64), wake: make(chan struct{}, 1),
+		servers: make(map[*mcp.Server]struct{}), delay: delay, dirty: make(map[int64]int64), wake: make(chan struct{}, 1),
 		ctx: ctx, cancel: cancel, done: make(chan struct{}),
 	}
 	go n.run()
 	return n
+}
+
+// track 在会话首次订阅资源时登记 Server，会话关闭后移除。
+func (n *notifier) track(server *mcp.Server, session *mcp.ServerSession) {
+	n.mu.Lock()
+	if _, exists := n.servers[server]; exists {
+		n.mu.Unlock()
+		return
+	}
+	n.servers[server] = struct{}{}
+	n.mu.Unlock()
+
+	go func() {
+		_ = session.Wait()
+		n.mu.Lock()
+		delete(n.servers, server)
+		n.mu.Unlock()
+	}()
 }
 
 // mark 是注册到 Core 的观察者。Core 在提交写入的请求协程里同步调用它，并且它返回的错误会让写请求失败，
@@ -101,7 +121,10 @@ func (n *notifier) send(boardID, latest int64) {
 	ctx, cancel := context.WithTimeout(n.ctx, sendTimeout)
 	defer cancel()
 	params := &mcp.ResourceUpdatedNotificationParams{URI: boardURI(boardID), Meta: mcp.Meta{"latest": latest}}
-	for _, s := range n.servers {
+	n.mu.Lock()
+	servers := slices.Collect(maps.Keys(n.servers))
+	n.mu.Unlock()
+	for _, s := range servers {
 		if err := s.ResourceUpdated(ctx, params); err != nil {
 			slog.Warn("发送看板更新通知失败", "board_id", boardID, "err", err)
 		}
