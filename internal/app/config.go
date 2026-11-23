@@ -53,6 +53,10 @@ func OpenConfig(dir string) (conf.Bootstrap, func(), error) {
 		closeConfig()
 		return bc, nil, err
 	}
+	if err := conf.UpgradeConfig(&bc, path); err != nil {
+		closeConfig()
+		return bc, nil, fmt.Errorf("升级 Slate 配置: %w", err)
+	}
 
 	bc.Runtime.ConfigDir = dir
 	bc.Runtime.ConfigPath = path

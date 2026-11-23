@@ -28,8 +28,7 @@ type Services struct {
 }
 
 // Run 装配依赖并启动 HTTP 服务，阻塞到收到退出信号或 stop 被关闭（stop 为 nil 时只看信号）；收到信号后先通知长连接结束，再等普通请求处理完并关闭。
-// 相对路径（配置、数据库、日志）都以启动时的工作目录为基准，
-// 以服务方式运行时请由服务管理器设置 WorkingDirectory。
+// SQLite 的相对路径以可执行文件目录为基准，配置目录参数和日志的相对路径以启动目录为基准。
 // 返回值是要重启成的新程序路径：非空表示是自动更新请求的重启，调用方要在 Run 返回（资源已释放）后调用 Restart；空表示正常退出。
 func Run(bc *conf.Bootstrap, stop <-chan struct{}) (restartExe string) {
 	log, clean := SetupLog(bc)

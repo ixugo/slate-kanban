@@ -6,11 +6,12 @@ import (
 )
 
 func TestWriteConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := WriteConfig(Bootstrap{Server: Server{
 		HTTP: ServerHTTP{
 			Port: 8080,
 		},
-	}}, "test.toml"); err != nil {
+	}}, path); err != nil {
 		t.Fatal(err)
 	}
 
@@ -18,7 +19,7 @@ func TestWriteConfig(t *testing.T) {
 		HTTP: ServerHTTP{
 			Port: 8081,
 		},
-	}}, "test.toml"); err != nil {
+	}}, path); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -37,12 +38,9 @@ func TestDefaultDirUnderHome(t *testing.T) {
 	}
 }
 
-// TestDefaultConfigDsnInConfDir 默认数据库放在配置目录下，并且是传入目录的绝对路径，不依赖启动目录。
-func TestDefaultConfigDsnInConfDir(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), ".slate-kanban")
-	got := DefaultConfig(dir).Data.Database.Dsn
-	if want := filepath.Join(dir, "data.db"); got != want {
-		t.Fatalf("Dsn = %q，期望 %q", got, want)
+func TestDefaultConfigLeavesDsnEmpty(t *testing.T) {
+	if got := DefaultConfig(t.TempDir()).Data.Database.Dsn; got != "" {
+		t.Fatalf("生成配置的 Dsn = %q，期望为空", got)
 	}
 }
 

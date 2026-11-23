@@ -20,6 +20,15 @@ func DefaultDir() (string, error) {
 	return filepath.Join(home, DefaultDirName), nil
 }
 
+// DefaultDatabasePath 返回独立服务与桌面端共用的默认 SQLite 文件。
+func DefaultDatabasePath() (string, error) {
+	dir, err := DefaultDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "data.db"), nil
+}
+
 // ResourceDirName 是资源目录在配置目录下的默认名字。
 const ResourceDirName = "resource"
 

@@ -2,6 +2,9 @@
 # 首次启动时，如果 ~/.slate-kanban/config.toml 不存在，程序会按默认值生成它。
 # 想手动准备配置：复制本文件为 ~/.slate-kanban/config.toml 再按需修改（-conf 指定了目录就放那里）。
 
+# 配置格式版本。保留本值。
+ConfigVersion = 1
+
 [Server]
   [Server.HTTP]
     # 监听地址，默认 0.0.0.0（所有 IPv4 网卡），端口默认 7070
@@ -23,10 +26,10 @@
   # 图片等资源文件的存放目录，按项目分子目录，数据库里只存相对它的路径；留空则用配置目录下的 resource
   ResourceDir = '/home/you/.slate-kanban/resource'
   [Data.Database]
-    # 按前缀自动识别数据库：postgres:// 或 postgresql:// 开头走 PostgreSQL，例如 postgres://用户:密码@127.0.0.1:5432/库名?sslmode=disable；
-    # sqlite:// 开头或直接写文件路径走 SQLite（相对路径以启动目录为基准）。两种驱动都已内置，不需要额外编译
-    # 首次生成的配置里是 ~/.slate-kanban/data.db 的绝对路径；这里换成你的实际路径
-    Dsn = '/home/you/.slate-kanban/data.db'
+    # 留空使用 ~/.slate-kanban/data.db
+    # postgres:// 或 postgresql:// 开头连接 PostgreSQL，例如 postgres://用户:密码@127.0.0.1:5432/库名?sslmode=disable
+    # SQLite 可以直接填文件路径，也可以加 sqlite:// 前缀。相对路径以可执行文件所在目录为基准
+    Dsn = ''
     MaxIdleConns = 1
     MaxOpenConns = 1
     ConnMaxLifetime = '6h0m0s'

@@ -2,6 +2,9 @@
 # 监听 0.0.0.0 是因为容器要接收 docker 转发进来的连接；
 # 对外是否开放由 docker 的端口映射决定（docker-compose.yml 默认只映射到宿主机的 127.0.0.1）。
 
+# 已按当前格式指定挂载卷中的数据库。
+ConfigVersion = 1
+
 [Server]
   [Server.HTTP]
     Host = '0.0.0.0'
