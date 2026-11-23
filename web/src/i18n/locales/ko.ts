@@ -403,6 +403,7 @@ export const ko: Messages = {
       title: '댓글',
       placeholder: '댓글 작성(Ctrl/Cmd+Enter로 전송)',
       empty: '댓글이 없습니다',
+      justNow: '방금',
       human: '나',
       agent: 'Agent',
       system: '시스템',

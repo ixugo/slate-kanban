@@ -403,6 +403,7 @@ export const ja: Messages = {
       title: 'コメント',
       placeholder: 'コメント（Ctrl/Cmd+Enter で送信）',
       empty: 'コメントはまだありません',
+      justNow: 'たった今',
       human: '自分',
       agent: 'Agent',
       system: 'システム',

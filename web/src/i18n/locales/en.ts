@@ -406,6 +406,7 @@ export const en = {
       title: 'Comments',
       placeholder: 'Write a comment (Ctrl/Cmd+Enter to send)',
       empty: 'No comments yet',
+      justNow: 'Just now',
       human: 'Me',
       agent: 'Agent',
       system: 'System',

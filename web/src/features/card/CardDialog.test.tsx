@@ -13,13 +13,13 @@ import { installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from '@/features/board/BoardPage'
 import { CARD_TAGS_MAX } from '@/lib/limits'
 import { formatDate, formatDateTime } from '@/lib/format'
-import type { Tag, TagInput } from '@/lib/api/types'
+import type { Comment, Tag, TagInput } from '@/lib/api/types'
 
 const baseDetail = {
   ...makeCard({ id: 1, title: '详情卡', version: 2, tag_ids: [1], tags: ['bug'] }),
   column_instruction: 'do work',
   dependencies: [],
-  comments: [],
+  comments: [] as Comment[],
   started_at: '2026-11-01T10:00:00Z' as string | null,
   finished_at: null as string | null,
   claim_active: true,
@@ -477,6 +477,34 @@ describe('CardDialog', () => {
     expect(within(dialog).getByText(en.card.comment.agent)).toBeInTheDocument()
     expect(within(dialog).getByText(en.card.comment.system)).toBeInTheDocument()
     expect(within(dialog).queryByText('system')).toBeNull()
+  })
+
+  it('评论未满一分钟时显示刚刚，满一分钟后恢复为相对时间', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const now = new Date(2026, 0, 1, 13, 38).getTime()
+    vi.setSystemTime(now)
+    await i18n.changeLanguage('zh-CN')
+    const recent = new Date(now - 59_000).toISOString()
+    const older = new Date(now - 60_000).toISOString()
+    openBoardWithCard({
+      ...baseDetail,
+      comments: [
+        { id: 1, board_id: 1, card_id: 1, author_kind: 'human', author: 'human', body: '59 秒', created_at: recent, updated_at: recent },
+        { id: 2, board_id: 1, card_id: 1, author_kind: 'human', author: 'human', body: '60 秒', created_at: older, updated_at: older },
+      ],
+    }, [
+      { id: 9, board_id: 1, card_id: 1, type: 'card.moved', actor_kind: 'agent', actor: 'codex', payload: { from: 'Alpha', to: 'Beta' }, created_at: recent },
+    ])
+    const dialog = within(await screen.findByRole('dialog'))
+    const timeFor = (body: HTMLElement) => body.closest('li')?.querySelector('time')
+    const recentTime = timeFor(await dialog.findByText('59 秒', { selector: 'p' }))
+    expect(recentTime).toHaveTextContent('刚刚')
+    expect(recentTime).toHaveAttribute('datetime', recent)
+    expect(recentTime).toHaveAttribute('title', formatDateTime(recent, 'zh-CN'))
+    expect(timeFor(dialog.getByText('60 秒', { selector: 'p' }))).toHaveTextContent('1分钟前')
+    expect(timeFor(await dialog.findByText(/Alpha/))).toHaveTextContent('59秒钟前')
+    vi.setSystemTime(now + 1000)
+    await waitFor(() => expect(recentTime).toHaveTextContent('1分钟前'))
   })
 
   it('弹窗内同时有属性区、描述与评论', async () => {
