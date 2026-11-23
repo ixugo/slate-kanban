@@ -104,6 +104,13 @@ func Run(build app.BuildInfo) (string, error) {
 		MinWidth:           760,
 		MinHeight:          520,
 		UseApplicationMenu: true,
+		Mac: application.MacWindow{
+			TitleBar:                application.MacTitleBarHidden,
+			InvisibleTitleBarHeight: 28,
+			WebviewPreferences: application.MacWebviewPreferences{
+				ApplicationNameForUserAgent: "SlateDesktop",
+			},
+		},
 	})
 	if runtime.GOOS == "darwin" {
 		window.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
