@@ -755,9 +755,6 @@ export const en = {
       watch: 'Keep running (terminal session)', resume: 'Resume the session', loop: 'Check the listening with /loop' },
     copyFailed: 'Could not copy. Select the text and copy manually.',
   },
-  pwa: {
-    offlineBanner: 'You are offline. Only the last opened content is available to view.',
-  },
   auth: {
     title: 'Passcode required',
     description: 'This Slate server is protected by a passcode. Enter it to view and edit projects.',

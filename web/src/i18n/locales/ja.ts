@@ -756,9 +756,6 @@ export const ja: Messages = {
       watch: '常時稼働（ターミナルセッション）', resume: 'セッションの再開', loop: '/loop で待ち受けを確認' },
     copyFailed: 'コピーできませんでした。テキストを選択して手動でコピーしてください。',
   },
-  pwa: {
-    offlineBanner: 'オフラインです。最後に開いた内容のみ閲覧できます。',
-  },
   auth: {
     title: 'アクセスパスコードが必要です',
     description: 'この Slate にはアクセスパスコードが設定されています。入力するとプロジェクトを表示・編集できます。',

@@ -8,7 +8,6 @@ import { useLanguage } from '@/i18n/useLanguage'
 import type { CardView, Column } from '@/lib/api/types'
 import { formatDate, formatDateTime, isPast } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { useOnlineStatus } from '@/pwa/useOnlineStatus'
 import { TagBadge } from '@/features/labels/TagBadge'
 import { Button } from '@/components/ui/button'
 import { useTemplateText } from '@/lib/useTemplateText'
@@ -91,7 +90,6 @@ export default function ListView({
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const { columnName: localizeName } = useTemplateText()
-  const online = useOnlineStatus()
   const [params] = useSearchParams()
   const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
 
@@ -114,7 +112,7 @@ export default function ListView({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 pb-4 sm:px-6">
       <div className="shrink-0">
-        {!online ? null : listAddOpen ? (
+        {listAddOpen ? (
           <AddCard
             open
             onOpen={onListAddOpen}

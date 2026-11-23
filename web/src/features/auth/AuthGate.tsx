@@ -9,7 +9,7 @@ const LoginPage = lazy(() => import('./LoginPage'))
 
 /**
  * 包住整个应用。判断规则：只有明确知道「需要口令且没通过」才挡住；
- * 状态还没读到时显示加载条；读状态失败（比如断网）时放行，让离线只读照常工作。
+ * 状态还没读到时显示加载条。读状态失败时，由页面显示相应请求的错误。
  */
 export function AuthGate({ children }: { children: ReactNode }) {
   const { data, isPending } = useAuthStatus()

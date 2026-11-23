@@ -752,9 +752,6 @@ export const zhTW: Messages = {
       watch: '長期掛著（終端機工作階段）', resume: '恢復工作階段', loop: '用 /loop 檢查監聽' },
     copyFailed: '無法複製，請手動選取文字後複製。',
   },
-  pwa: {
-    offlineBanner: '目前離線，只能查看上次開啟的內容。',
-  },
   auth: {
     title: '需要存取口令',
     description: '這個 Slate 設定了存取口令，輸入後才能檢視和修改專案。',

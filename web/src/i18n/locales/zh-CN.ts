@@ -751,9 +751,6 @@ export const zhCN: Messages = {
       watch: '长期挂着（终端会话）', resume: '恢复会话', loop: '用 /loop 检查监听' },
     copyFailed: '复制失败，请手动选中并复制。',
   },
-  pwa: {
-    offlineBanner: '当前离线，只能查看上次打开的内容。',
-  },
   auth: {
     title: '需要访问口令',
     description: '这个 Slate 设置了访问口令，输入后才能查看和修改项目。',

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * 从 public/favicon.svg 生成 PWA / Apple 用的 PNG 图标。
+ * 从 public/favicon.svg 生成桌面应用图标。
  *
  * 运行：在 web/ 目录执行 `node scripts/make-icons.mjs`
  * 依赖：本机已安装的 Google Chrome，以及开发依赖 playwright-core（随 @playwright/test 一起安装，
  *       只用来启动本机 Chrome 渲染图标，不下载浏览器，也不进入前端产物）
- * 输出：public/icons/*.png、public/apple-touch-icon.png、../desktop/icon.png
+ * 输出：../desktop/icon.png
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
@@ -28,21 +28,19 @@ const chromium = await loadChromium()
 const __dir = dirname(fileURLToPath(import.meta.url))
 const webRoot = join(__dir, '..')
 const svgPath = join(webRoot, 'public/favicon.svg')
-const iconsDir = join(webRoot, 'public/icons')
-
-/** maskable 图标四周至少留 20% 安全区，内容约占画布的 60% */
-const MASKABLE_CONTENT_RATIO = 0.6
+const iconPath = join(webRoot, '../desktop/icon.png')
 
 const svgRaw = readFileSync(svgPath, 'utf8')
 
 /**
- * 用 Chrome 把 SVG 画进指定尺寸的 PNG；可选背景色与内边距（maskable 用）。
+ * 用 Chrome 将 SVG 画到 1024px 透明画布中央，圆角底板占 824px。
  */
-async function rasterize(size, { padding = 0, bg = '#1d1d1f' } = {}) {
-  const inner = size - padding * 2
+async function rasterize() {
+  const size = 1024
+  const inner = 824
   const html = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
-<body style="margin:0;width:${size}px;height:${size}px;background:${bg};display:flex;align-items:center;justify-content:center;">
+<body style="margin:0;width:${size}px;height:${size}px;background:transparent;display:flex;align-items:center;justify-content:center;">
 <div style="width:${inner}px;height:${inner}px;">${svgRaw}</div>
 </body></html>`
 
@@ -53,7 +51,7 @@ async function rasterize(size, { padding = 0, bg = '#1d1d1f' } = {}) {
   })
   const page = await browser.newPage({ viewport: { width: size, height: size } })
   await page.setContent(html, { waitUntil: 'load' })
-  const png = await page.screenshot({ type: 'png', omitBackground: bg === 'transparent' })
+  const png = await page.screenshot({ type: 'png', omitBackground: true })
   await browser.close()
   return png
 }
@@ -67,28 +65,10 @@ function shrinkPng(file) {
 }
 
 async function main() {
-  mkdirSync(iconsDir, { recursive: true })
-
-  const jobs = [
-    { path: join(iconsDir, 'icon-192.png'), size: 192, padding: 0, bg: '#1d1d1f' },
-    { path: join(iconsDir, 'icon-512.png'), size: 512, padding: 0, bg: '#1d1d1f' },
-    {
-      path: join(iconsDir, 'icon-maskable-512.png'),
-      size: 512,
-      padding: Math.round(512 * (1 - MASKABLE_CONTENT_RATIO) / 2),
-      bg: '#1d1d1f',
-    },
-    { path: join(webRoot, 'public/apple-touch-icon.png'), size: 180, padding: 0, bg: '#1d1d1f' },
-    // macOS 图标在 1024px 透明画布内使用 824px 的圆角底板。
-    { path: join(webRoot, '../desktop/icon.png'), size: 1024, padding: 100, bg: 'transparent' },
-  ]
-
-  for (const job of jobs) {
-    const buf = await rasterize(job.size, { padding: job.padding, bg: job.bg })
-    writeFileSync(job.path, buf)
-    shrinkPng(job.path)
-    console.log(' wrote', job.path)
-  }
+  const png = await rasterize()
+  writeFileSync(iconPath, png)
+  shrinkPng(iconPath)
+  console.log(' wrote', iconPath)
 }
 
 main().catch((err) => {
