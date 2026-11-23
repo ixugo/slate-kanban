@@ -29,7 +29,7 @@
   3. 没带凭证或只有无效 cookie：401，不计失败次数。
 - 接口：`GET /api/v1/auth/status` 返回 `{required, authenticated}`；`POST /api/v1/auth/login {passcode}` 校验后种 cookie；`POST /api/v1/auth/logout` 清 cookie。这三个接口都不要求口令，但和 `/api/v1` 一样限制请求体大小（1 MiB）和 JSON 类型。
 - 口令比较：先各取 SHA-256 再做恒定时间比较，避免长度和内容的时序泄露。
-- 网页：`web/src/features/auth/`（`useAuth.ts` 读状态/登录/退出、`AuthGate.tsx`、`LoginPage.tsx`、`LogoutButton.tsx`）；`lib/queryClient.ts` 的全局错误处理负责 401 → 重读状态；`pwa/clearCaches.ts` 通知 SW 清缓存。登录页按需加载，不占首屏。
+- 网页：`web/src/features/auth/`（`useAuth.ts` 读状态/登录/退出、`AuthGate.tsx`、`LoginPage.tsx`、`LogoutButton.tsx`）；`lib/queryClient.ts` 的全局错误处理负责 401 → 重读状态。登录页按需加载，不占首屏。
 - 接入说明：`connectapi.New(passcodeRequired bool)`；Claude Code 用 `--header`（必须写在地址后面，否则被当成请求头值吞掉），Cursor 用 `headers`，Codex 用 `--bearer-token-env-var`（口令放环境变量，不写进配置文件）。
 
 ## 已知局限（都是有意取舍）
@@ -49,8 +49,8 @@
 | 真实路由装配 | `go test ./internal/web/api/passcodeflow`（独立包，因为路由装配只能在一个进程里做一次） |
 | 配置校验 | `go test ./internal/conf` |
 | 接入说明 | `go test ./internal/web/api/connectapi` |
-| 网页（单元与集成） | `cd web && npx vitest run src/features/auth src/lib/queryClient.test.ts src/pwa/clearCaches.test.ts src/app/AppShell.test.tsx`：门的各种状态、登录成功/口令不对/被限流/空口令、401 重读状态（含网关场景和不循环）、退出清缓存 |
-| 网页变异检查 | 去掉 401 处理、去掉状态码判断、去掉变更缓存的处理、去掉 `cancelRefetch: false`、去掉对状态接口自身的豁免（会死循环）、退出时不清内存、不通知 SW，对应测试都能失败 |
-| 网页真机 | 系统 Chrome 驱动启用口令的服务：首屏是登录页；错口令提示不对；对口令后进入，cookie 为 HttpOnly + SameSite=Strict，`document.cookie` 读不到；刷新仍登录；看板实时流带 cookie 返回 200；清掉 cookie 后在页面里新建任务，不刷新就跳回登录页且地址不变，重新登录回到同一看板；退出后 `slate-*` 缓存从 3 个变成 0、cookie 消失；连续猜错 11 次出现限流提示 |
+| 网页（单元与集成） | `cd web && npx vitest run src/features/auth src/lib/queryClient.test.ts src/app/AppShell.test.tsx`：门的各种状态、登录成功/口令不对/被限流/空口令、401 重读状态（含网关场景和不循环）、退出清理内存中的看板数据 |
+| 网页变异检查 | 去掉 401 处理、去掉状态码判断、去掉变更缓存的处理、去掉 `cancelRefetch: false`、去掉对状态接口自身的豁免（会死循环）、退出时不清内存，对应测试都能失败 |
+| 网页真机 | 系统 Chrome 驱动启用口令的服务：首屏是登录页；错口令提示不对；对口令后进入，cookie 为 HttpOnly + SameSite=Strict，`document.cookie` 读不到；刷新仍登录；看板实时流带 cookie 返回 200；清掉 cookie 后在页面里新建任务，不刷新就跳回登录页且地址不变，重新登录回到同一看板；退出后 cookie 消失；连续猜错 11 次出现限流提示 |
 | 变异检查 | 逐个去掉：口令中间件、`RemoteIP`、失效 cookie 不计数、登录体限制、status 限流、有效 cookie 放行、Bearer 比较，测试都能失败 |
 | 真机 | 编译出独立二进制、启用口令后用 curl 跑完整矩阵：公开路径 200、受保护 401、`/mcp` 带 `WWW-Authenticate`、Bearer 通过、登录 cookie 通过、失效 cookie 连发 30 次仍是 401、换 `X-Forwarded-For` 猜 11 次被封 429、封锁期内有效 cookie 仍通过、日志里没有口令 |
