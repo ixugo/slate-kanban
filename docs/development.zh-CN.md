@@ -23,7 +23,7 @@ make web/dev
 
 打开 [http://localhost:5173](http://localhost:5173)。Vite 会把 `/api`、`/mcp`、`/health`、`/install.md` 和 `/skills` 转发到 `http://127.0.0.1:7070`。前端的 Make 目标会按需执行 `npm ci`。如果后端用了不同地址，启动前端时设置 `SLATE_BACKEND`，例如 `SLATE_BACKEND=http://127.0.0.1:7071 make web/dev`。
 
-默认配置和数据位于 `~/.slate-kanban/`。为了使用独立的开发数据库，可将第一个终端的命令换成下面这条。Slate 首次运行会生成配置和 SQLite 数据库。
+默认配置和数据位于 `~/.slate-kanban/`。使用独立的开发库时，先将[配置样例](../configs/config.example.toml)保存为 `$HOME/.slate-kanban-dev/config.toml`，将 `Data.Database.Dsn`、`Data.ResourceDir` 和 `Log.Dir` 改成开发目录下的绝对路径，再运行：
 
 ```sh
 go run . -conf "$HOME/.slate-kanban-dev"
@@ -31,7 +31,11 @@ go run . -conf "$HOME/.slate-kanban-dev"
 
 如果本机已有 Slate 占用 7070，在开发配置的 `[Server.HTTP]` 里改用其他端口，再重启后端，并把 `SLATE_BACKEND` 指向新端口。配置字段见 [带注释的配置样例](../configs/config.example.toml)。
 
-数据库默认是 SQLite。把配置里的 `Data.Database.Dsn` 改成 `postgres://用户:密码@主机:5432/库名?sslmode=disable` 就切到 PostgreSQL，程序按前缀自动识别（`postgres://`、`postgresql://` 走 PostgreSQL，`sqlite://` 或只写文件路径走 SQLite），两种驱动都已内置，不需要构建标签。
+独立服务与桌面端在 `Data.Database.Dsn` 留空时使用 `~/.slate-kanban/data.db`。`-conf` 只改变配置文件的位置。SQLite 可以直接填路径，也可以加 `sqlite://` 前缀。相对路径以程序文件所在目录为基准。沿用旧版从启动目录解析的数据库时，请填写现有库的绝对路径。两端程序的安装目录不同时，使用空值或相同的绝对路径可以共用一份 SQLite。
+
+首次加载没有 `ConfigVersion` 的旧配置时，Slate 会保留 `postgres://` DSN，并将其余 DSN 写为 `~/.slate-kanban/data.db` 的绝对路径。升级会写入配置版本，现有数据库文件留在原处。需要继续使用其他位置的旧库时，在升级后填入原库绝对路径。使用旧 `postgresql://` 连接串的用户可在升级前改用 `postgres://`，以便保留连接配置。
+
+使用 `postgres://` 或 `postgresql://` 开头的连接串可切换到 PostgreSQL，例如 `postgres://用户:密码@主机:5432/库名?sslmode=disable`。两种驱动都已内置。
 
 ## 构建并运行单文件程序
 
