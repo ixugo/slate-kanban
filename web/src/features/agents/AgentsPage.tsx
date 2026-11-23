@@ -18,6 +18,7 @@ import { parseAgentsProjectParam } from '@/lib/agentsProject'
 import { bindWatchPrompt } from './watchPrompt'
 import { WatchSection } from './WatchSection'
 import { UninstallMcp } from './UninstallMcp'
+import { DesktopDispatch } from './DesktopDispatch'
 
 /** 接入页默认导出 */
 export default function AgentsPage() {
@@ -69,6 +70,7 @@ export default function AgentsPage() {
         <p className="text-ui">{prompt}</p>
         <CopyPromptButton text={prompt} label={t('common.copy')} ok={t('common.copied')} fail={t('agents.copyFailed')} />
       </section>
+      <DesktopDispatch boards={boards} />
       <WatchSection
         guide={data}
         board={board}

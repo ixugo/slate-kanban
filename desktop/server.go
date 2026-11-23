@@ -20,6 +20,7 @@ import (
 type service struct {
 	url         string
 	recentCards func(context.Context, int) ([]kanban.RecentCard, error)
+	dispatch    *desktopDispatch
 	close       func() error
 	done        <-chan struct{}
 	cleanup     worktreeCleanup
@@ -56,9 +57,12 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 	origin := strings.TrimSuffix(strings.ToLower(app.DisplayURL(&bc)), ":80")
 	handler := lifecycle.Wrap(services.Handler, closing)
 	localCleanup := newWorktreeCleanup()
+	var dispatch *desktopDispatch
 	if language != nil {
 		handler = language.wrap(origin, handler)
 		handler = wrapCleanup(origin, localCleanup.path, runWorktreeCleanup(services.Kanban), handler)
+		dispatch = newDesktopDispatch(services.Kanban, bc.Runtime.ConfigDir)
+		handler = dispatch.wrap(origin, handler)
 	}
 	httpServer := &http.Server{
 		Handler:           handler,
@@ -76,6 +80,9 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 
 	closeService := sync.OnceValue(func() error {
 		cancel()
+		if dispatch != nil {
+			dispatch.close()
+		}
 		ctx, stop := context.WithTimeout(context.Background(), 5*time.Second)
 		defer stop()
 		err := httpServer.Shutdown(ctx)
@@ -91,6 +98,7 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 	return &service{
 		url:         origin,
 		recentCards: services.Kanban.RecentCards,
+		dispatch:    dispatch,
 		close:       closeService,
 		done:        done,
 		cleanup:     localCleanup,

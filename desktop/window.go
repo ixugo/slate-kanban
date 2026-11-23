@@ -98,7 +98,7 @@ func Run(build app.BuildInfo) (string, error) {
 		Name:               "main",
 		Title:              displayName,
 		URL:                s.url,
-		JS:                 s.cleanup.script(s.url) + ";\n" + language.script(s.url),
+		JS:                 s.cleanup.script(s.url) + ";\n" + language.script(s.url) + ";\n" + s.dispatch.script(s.url),
 		Width:              1280,
 		Height:             820,
 		MinWidth:           760,
