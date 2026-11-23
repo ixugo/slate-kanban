@@ -11,9 +11,19 @@ const agentInstructions = `开始调度前读取 slate://skills/slate-kanban，�
 
 const adminInstructions = `管理看板设置、列和自动化时，先用 get_board 读取当前配置。删除前请用户确认。工作任务的完整流程见 slate://skills/slate-kanban。`
 
+const cardWritingInstructions = `
+
+用 Markdown 写卡片描述和评论。短段落或列表，**加粗重点与待决事项**。
+
+1. 短句，一句一事。规则编号。删开篇多余依据、套话、常识和重复。
+2. 需求先写用户何时能做什么、做完看到什么。
+3. 限量时写谁来计数、怎么算、到上限会怎样。
+4. 复用时写明对象和接法。字段、接口和验收写到可实施。
+5. Git 提交哈希只写前 6 位。`
+
 func instructionsFor(v view) string {
 	if v == viewAdmin {
-		return adminInstructions
+		return adminInstructions + cardWritingInstructions
 	}
-	return agentInstructions
+	return agentInstructions + cardWritingInstructions
 }

@@ -52,6 +52,18 @@ func TestInstructions(t *testing.T) {
 		if tc.text == "" || utf8.RuneCountInString(tc.text) > maxInstructionRunes {
 			t.Errorf("%s：使用说明不能为空，也不能超过 %d 字，实际 %d 字", tc.name, maxInstructionRunes, utf8.RuneCountInString(tc.text))
 		}
+		for _, want := range []string{
+			"用 Markdown 写卡片描述和评论", "短段落或列表", "**加粗重点与待决事项**",
+			"1. 短句，一句一事", "规则编号", "删开篇多余依据、套话、常识和重复",
+			"2. 需求先写用户何时能做什么、做完看到什么",
+			"3. 限量时写谁来计数、怎么算、到上限会怎样",
+			"4. 复用时写明对象和接法", "字段、接口和验收写到可实施",
+			"5. Git 提交哈希只写前 6 位",
+		} {
+			if !strings.Contains(tc.text, want) {
+				t.Errorf("%s：卡片写作说明缺少 %q", tc.name, want)
+			}
+		}
 		for _, word := range toolWord.FindAllString(tc.text, -1) {
 			if !slices.Contains(tc.tools, word) && !slices.Contains(notTools, word) {
 				t.Errorf("%s：说明里提到的 %s 不是这个视图里的工具", tc.name, word)
