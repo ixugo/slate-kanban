@@ -28,7 +28,8 @@ const longWatchPrompt = loopPrompt + " 已按接入说明设置长等待，空�
 
 // watchNotes 是和具体 host 无关的说明：持续监听怎么做到的、loop 负责什么、挂不住怎么办。
 var watchNotes = []string{
-	"Codex、Cursor、Claude Code、OpenCode、Pi、Oh My Pi 可通过 Python 监听器按事件启动本机调度。空闲时不调用模型，每五分钟只检查监听进程。",
+	"Codex、Cursor、Claude Code、OpenCode、Pi、Oh My Pi 可通过 Python 监听器按事件启动本机调度。空闲时不调用模型。",
+	"macOS 登录会话可启用 LaunchAgent，每五分钟检查监听进程。它独立于 Slate 服务和交互会话的 /loop 5m。",
 	"OpenCode、Pi、Oh My Pi 先在客户端连接 Slate 工作视图，用 whoami 验证。复用下方启动命令，将 --host 换成 opencode、pi、on-my-pi，--name 使用 whoami 的名称。各客户端的原生配置方法见安装文档。",
 	"省略 --host 时优先使用标准 Slate 身份对应的宿主，其次选唯一可用的 CLI。装了多个或使用自定义程序时，用 --host 明确选择，或用 --command-json 传本地 JSON 参数数组。自定义命令从标准输入接收提示词，成功结束时标准输出只写 SLATE_DISPATCH_DONE。",
 	"Codex 默认用结构化回执确认单轮派发。旧版 Codex CLI 如果没有 --output-schema，可在启动时加 --codex-legacy-receipt。补验留言和交接已保存、领取已处置、子 agent 已结束时，即使卡片仍在等待人工，也可确认本轮已处理。",
@@ -100,9 +101,13 @@ func eventWatch(endpoint, host, name string) []Snippet {
 		},
 		{
 			Kind:  "event-resume",
-			Title: "恢复监听器",
+			Title: "管理和恢复 Python 监听器",
 			Lang:  "text",
-			Code:  "启用访问口令时设置 SLATE_PASSCODE。遇到回执缺失、无效或宿主异常退出，监听器保留待确认游标并停止自动派发。用同样的启动参数加 --status 查询。确认旧调度已停止并核对卡片后，已处理用 --resolve done，确认可安全重跑时用 --resolve retry。随后用原命令重启，沿用同名、同地址和同一状态目录。",
+			Code: "启用访问口令时设置 SLATE_PASSCODE。\n\n" +
+				"macOS 图形登录会话：把脚本放在固定目录，用上方启动命令加 --supervise enable。用相同参数加 --supervise status 查看进程锁、最近检查和游标；加 --supervise disable 停止托管，保留游标。启用会保存启动参数、PATH 和环境中的访问口令，配置文件仅当前用户可读写。\n" +
+				"LaunchAgent 每五分钟检查进程。它不唤醒休眠的 Mac，错过的检查在唤醒后的下个周期继续。其他平台使用前台启动命令。Claude Code 和 Cursor 的 /loop 5m 只用于交互会话。\n\n" +
+				"回执缺失、无效或宿主异常退出时，监听器保留待确认游标并暂停派发。用原启动参数加 --status 查询。确认旧调度已停止并核对卡片后，已处理用 --resolve done，确认可安全重跑时用 --resolve retry。托管监听器会在下次检查恢复；手动监听器用原命令重启。沿用同名、同地址和同一状态目录。\n" +
+				"连续三次启动都未通过存活检查时，LaunchAgent 暂停重启。用 --supervise status 查日志目录，排除问题后停用再启用。",
 		},
 	}
 }

@@ -211,6 +211,11 @@ func TestWatchGuide(t *testing.T) {
 			!strings.Contains(h.Watch[1].Code, `--name "`+h.ID+`"`) {
 			t.Errorf("%s 的命令未绑定宿主和工作身份: %q", h.ID, h.Watch[1].Code)
 		}
+		for _, option := range []string{"--supervise enable", "--supervise status", "--supervise disable", "休眠"} {
+			if !strings.Contains(h.Watch[2].Code, option) {
+				t.Errorf("%s 的 Python 监听器说明缺少 %q", h.ID, option)
+			}
+		}
 	}
 	claude := g.Hosts[slices.IndexFunc(g.Hosts, func(h Host) bool { return h.ID == "claude-code" })]
 	if len(claude.Watch) != 5 || !strings.Contains(claude.Watch[3].Code, "screen -S") ||
@@ -228,7 +233,7 @@ func TestWatchGuide(t *testing.T) {
 	if strings.Contains(markdown, "role=manager") || !strings.Contains(markdown, "在当前会话开启管理工具") {
 		t.Error("安装文档应说明按需开启管理工具")
 	}
-	for _, want := range []string{"--host opencode", "--host pi", "--host on-my-pi", "--command-json"} {
+	for _, want := range []string{"--host opencode", "--host pi", "--host on-my-pi", "--command-json", "--supervise enable", "LaunchAgent"} {
 		if !strings.Contains(markdown, want) {
 			t.Errorf("安装文档缺少 %q", want)
 		}

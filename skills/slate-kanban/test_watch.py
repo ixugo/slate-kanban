@@ -2,8 +2,11 @@ from contextlib import closing
 import hashlib
 import io
 import json
+import os
+import plistlib
 import re
 import sqlite3
+import stat
 import subprocess
 import sys
 import tempfile
@@ -13,8 +16,8 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from watch import (
-    DONE, PendingDispatch, WatchState, command_argv, dispatch_agent, dispatch_succeeded,
-    handle_batch, listener_lock, resolve_dispatcher, watch_once,
+    DONE, MacSupervisor, PendingDispatch, WatchState, command_argv, dispatch_agent, dispatch_succeeded,
+    handle_batch, identity_in_use, listener_lock, resolve_dispatcher, watch_once,
 )
 
 
@@ -147,6 +150,103 @@ class WatchTests(unittest.TestCase):
                 self.assertEqual((data["cursor"], data["pending_cursor"], data["failure"]), (41, 42, "host_exit (9)"))
                 self.assertIn("--resolve done", data["recovery"])
                 self.assertEqual(state.status(), (1, 41, 42))
+
+
+class MacSupervisorTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.directory = Path(directory.name)
+        self.path = self.directory / "fixture.sqlite3"
+        self.args = SimpleNamespace(board=4, name="worker")
+        with patch("watch.os.getuid", return_value=501, create=True):
+            self.supervisor = MacSupervisor("fixture", self.directory)
+        self.supervisor.agents = self.directory
+        self.supervisor.launchctl = Mock()
+
+    def test_only_checker_has_native_five_minute_interval(self):
+        for kind in ("check", "listener"):
+            self.supervisor.write_job(kind, kind + ".log")
+        checker = plistlib.loads(self.supervisor.plist("check").read_bytes())
+        listener = plistlib.loads(self.supervisor.plist("listener").read_bytes())
+        self.assertTrue(checker["RunAtLoad"])
+        self.assertEqual(checker["StartInterval"], 300)
+        for key in ("RunAtLoad", "StartInterval", "KeepAlive"):
+            self.assertNotIn(key, listener)
+        self.assertEqual(listener["ProgramArguments"][-2:],
+                         ["--_supervisor-listener", str(self.supervisor.profile)])
+
+    def test_checker_does_not_start_with_an_existing_lock_or_pending_cursor(self):
+        lock = self.path.with_suffix(".lock")
+        self.assertFalse(identity_in_use(self.path))
+        self.assertFalse(lock.exists())
+        with closing(WatchState(self.path)) as state:
+            state.processed(41)
+            state.pending(42)
+            with listener_lock(lock):
+                self.assertTrue(identity_in_use(self.path))
+                self.supervisor.check(self.args, self.path)
+                self.assertEqual(self.supervisor.last_check()["health"], "running")
+            self.supervisor.check(self.args, self.path)
+            self.assertEqual(self.supervisor.last_check()["health"], "pending_dispatch")
+            self.assertEqual(state.status(), (1, 41, 42))
+            self.supervisor.launchctl.assert_not_called()
+            state.resolve("done")
+            self.supervisor.check(self.args, self.path)
+            self.assertEqual(state.status(), (1, 42, None))
+        self.supervisor.launchctl.assert_called_once_with(
+            "kickstart", "gui/501/dev.slate.kanban.watch.fixture.listener")
+
+    def test_repeated_failures_stop_kickstarts_and_healthy_listener_resets_budget(self):
+        self.supervisor.launchctl.side_effect = PendingDispatch("cannot start")
+        for _ in range(4):
+            self.supervisor.check(self.args, self.path)
+        self.assertEqual(self.supervisor.last_check()["health"], "start_failures")
+        self.assertEqual(self.supervisor.launchctl.call_count, 3)
+        with listener_lock(self.path.with_suffix(".lock")):
+            self.supervisor.check(self.args, self.path)
+            self.assertEqual(self.supervisor.last_check()["starts_without_healthy_check"], 0)
+
+    def test_disable_removes_jobs_and_keeps_listener_state(self):
+        self.supervisor.profile.touch()
+        for kind in ("check", "listener"):
+            self.supervisor.write_job(kind, kind + ".log")
+        with closing(WatchState(self.path)) as state:
+            state.processed(41)
+            self.supervisor.disable()
+            self.assertEqual(state.status(), (1, 41, None))
+        self.assertTrue(self.path.exists())
+        self.assertFalse(self.supervisor.profile.exists())
+        for kind in ("check", "listener"):
+            self.assertFalse(self.supervisor.plist(kind).exists())
+
+    def test_launcher_profile_keeps_credentials_out_of_launch_agent_arguments(self):
+        self.supervisor.launchctl.return_value = False
+        launch = SimpleNamespace(board=4, name="worker", host="auto", codex=None,
+                                 command_json=["local-host"], codex_legacy_receipt=False,
+                                 url="http://localhost/mcp", project=self.directory, timeout=5)
+        with patch("watch.resolve_dispatcher"), patch.dict(os.environ, {"SLATE_PASSCODE": "fixture-secret"}):
+            self.supervisor.enable(launch, self.path)
+        self.assertEqual(json.loads(self.supervisor.profile.read_text())["passcode"], "fixture-secret")
+        if os.name != "nt":
+            self.assertEqual(stat.S_IMODE(self.supervisor.profile.stat().st_mode), 0o600)
+        for kind in ("check", "listener"):
+            self.assertNotIn(b"fixture-secret", self.supervisor.plist(kind).read_bytes())
+        self.supervisor.verify_state_path(self.path)
+        with self.assertRaisesRegex(PendingDispatch, "different --state-dir"):
+            self.supervisor.verify_state_path(self.directory / "other.sqlite3")
+
+    def test_partial_installation_unloads_own_jobs(self):
+        self.supervisor.launchctl.side_effect = [False, False, True, PendingDispatch("bootstrap failed"), False, True, True]
+        launch = SimpleNamespace(board=4, name="worker", host="auto", codex=None,
+                                 command_json=None, codex_legacy_receipt=False,
+                                 url="http://localhost/mcp", project=self.directory, timeout=5)
+        with patch("watch.resolve_dispatcher"), self.assertRaisesRegex(PendingDispatch, "bootstrap failed"):
+            self.supervisor.enable(launch, self.path)
+        self.supervisor.launchctl.assert_called_with("bootout", "gui/501/dev.slate.kanban.watch.fixture.listener")
+        self.assertFalse(self.supervisor.profile.exists())
+        self.assertFalse(self.supervisor.plist("listener").exists())
+        self.assertFalse(self.supervisor.plist("check").exists())
 
 
 class DispatcherTests(unittest.TestCase):

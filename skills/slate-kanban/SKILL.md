@@ -91,6 +91,8 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 
 Python 监听器触发的会话只做一轮。必要留言和交接已写入、领取已按流程处置且子 agent 已结束时，即可按派发提示返回本轮回执。卡片可以继续等待人工补验或等待依赖。派发结果未确认时，监听器保留待确认游标并暂停自动派发。用原启动参数加 `--status` 查看。确认上一轮已停止并核对卡片后，已处理用 `--resolve done`，确认可安全重跑用 `--resolve retry`，再用原命令启动。
 
+macOS 图形登录会话可用原启动参数加 `--supervise enable`，让 LaunchAgent 每五分钟检查 Python 监听器。用 `--supervise status` 查看，用 `--supervise disable` 停用并保留游标。LaunchAgent 和交互会话的 `/loop 5m` 各自检查自己的监听入口。待确认派发须先通过 `--resolve done` 或 `--resolve retry` 人工处置，LaunchAgent 才会在下次检查恢复。
+
 Codex 的工作视图配置用 `tool_timeout_sec = 3660`（秒）。Claude Code 的工作视图 HTTP 服务用 `timeout: 3660000`（毫秒），在专用守候会话中可用 `CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS=0` 启动，确保客户端继续等待。具体安装和启动命令见 Slate 的 `/install.md`。链路上的代理也要允许超过 60 分钟的响应等待。超时或断线时先回到 50 秒或更短，按原游标续订；空超时直接续等。[Codex MCP 配置](https://developers.openai.com/codex/mcp) · [Claude Code 超时配置](https://code.claude.com/docs/en/env-vars#mcp_tool_timeout)
 
 ### 先把方案写到任务评论

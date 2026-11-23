@@ -6,11 +6,13 @@ identity, with its state directory on local disk. See --help for recovery.
 """
 import argparse
 from contextlib import contextmanager
+import errno
 import hashlib
 from http.client import HTTPException
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
 import shutil
 import sqlite3
@@ -31,7 +33,8 @@ RECOVERY = ("Use the same launch arguments with --status to inspect the saved ou
             "Make sure the previous dispatcher has stopped and verify its work and Slate card state. "
             "Use --resolve done if handled, or --resolve retry only if safe to run again. "
             "Then restart the listener with its original arguments.")
-WATCHDOG_SECONDS = 300
+SUPERVISOR_INTERVAL = 300
+SUPERVISOR_MAX_STARTS = 3
 NEEDS_ATTENTION = 2
 HOST_EXECUTABLES = {
     "codex": ("codex",),
@@ -54,6 +57,10 @@ class PendingDispatch(RuntimeError):
 
 class DispatchFailure(PendingDispatch):
     """A diagnostic generated locally, safe to persist without host output."""
+
+
+class ListenerBusy(PendingDispatch):
+    pass
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -201,7 +208,7 @@ def read_watch_status(db):
     return bootstrapped, cursor, pending, host, reason
 
 
-def show_status(args, path):
+def saved_status(args, path):
     bootstrapped, cursor, pending, host, reason = 0, None, None, None, None
     if path.exists():
         db = sqlite3.connect(path.absolute().as_uri() + "?mode=ro", uri=True)
@@ -209,11 +216,11 @@ def show_status(args, path):
             bootstrapped, cursor, pending, host, reason = read_watch_status(db)
         finally:
             db.close()
-    print(json.dumps({
+    return {
         "board": args.board, "name": args.name, "host": host,
         "bootstrapped": bool(bootstrapped), "cursor": cursor, "pending_cursor": pending,
         "failure": reason, "recovery": RECOVERY if pending is not None else None,
-    }))
+    }
 
 
 def pending_message(state, pending):
@@ -228,17 +235,34 @@ def listener_lock(path):
         if file.tell() == 0:
             file.write(b"\0")
             file.flush()
-        file.seek(0)
-        try:
-            if os.name == "nt":
-                import msvcrt
-                msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-                fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError as exc:
-            raise PendingDispatch("Another listener owns this state file") from exc
+        take_listener_lock(file)
         yield
+
+
+def take_listener_lock(file):
+    file.seek(0)
+    try:
+        if os.name == "nt":
+            import msvcrt
+            msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError as exc:
+        if exc.errno not in (errno.EAGAIN, errno.EACCES):
+            raise
+        raise ListenerBusy("Another listener owns this state file") from exc
+
+
+def identity_in_use(path):
+    try:
+        with path.with_suffix(".lock").open("r+b") as file:
+            take_listener_lock(file)
+    except ListenerBusy:
+        return True
+    except FileNotFoundError:
+        pass
+    return False
 
 
 def handle_batch(state, dispatch, updates, *, host=None):
@@ -593,12 +617,7 @@ def supervise():
     while True:
         worker = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), *sys.argv[1:], "--worker"])
         try:
-            while True:
-                try:
-                    status = worker.wait(timeout=WATCHDOG_SECONDS)
-                    break
-                except subprocess.TimeoutExpired:
-                    continue
+            status = worker.wait()
         except KeyboardInterrupt:
             # Ctrl+C reaches the worker and its dispatcher child in the same console group.
             try:
@@ -613,7 +632,186 @@ def supervise():
         time.sleep(5)
 
 
-def main():
+def write_private(path, data):
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as handle:
+        temporary = Path(handle.name)
+        try:
+            handle.write(data)
+            handle.close()
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+class MacSupervisor:
+    def __init__(self, identity, directory=None):
+        self.domain = f"gui/{os.getuid()}"
+        self.label = "dev.slate.kanban.watch." + identity
+        self.directory = directory or Path.home() / "Library" / "Application Support" / "Slate" / "Watch" / identity
+        self.profile = self.directory / "profile.json"
+        self.report = self.directory / "health.json"
+        self.agents = Path.home() / "Library" / "LaunchAgents"
+
+    def job(self, kind):
+        return f"{self.label}.{kind}"
+
+    def plist(self, kind):
+        return self.agents / (self.job(kind) + ".plist")
+
+    def launchctl(self, command, *arguments, missing_ok=False):
+        try:
+            result = subprocess.run(["/bin/launchctl", command, *arguments], capture_output=True, timeout=15)
+        except subprocess.TimeoutExpired:
+            raise PendingDispatch(f"launchctl {command} timed out for {self.label}") from None
+        if result.returncode == 113 and missing_ok:  # launchctl uses 113 for a missing service.
+            return False
+        if result.returncode:
+            raise PendingDispatch(f"launchctl {command} failed ({result.returncode}) for {self.label}; "
+                                  "check the macOS GUI login session and LaunchAgent permissions")
+        return True
+
+    def loaded(self, kind):
+        return self.launchctl("print", self.domain + "/" + self.job(kind), missing_ok=True)
+
+    def write_job(self, kind, log):
+        job = {
+            "Label": self.job(kind),
+            "ProgramArguments": [sys.executable, str(Path(__file__).resolve()),
+                                 "--_supervisor-" + kind, str(self.profile)],
+            "StandardErrorPath": str(self.directory / log),
+        }
+        if kind == "check":
+            job.update(RunAtLoad=True, StartInterval=SUPERVISOR_INTERVAL)
+        write_private(self.plist(kind), plistlib.dumps(job))
+
+    def enable(self, args, path):
+        if (self.profile.exists() or self.plist("listener").exists() or self.plist("check").exists()
+                or self.loaded("listener") or self.loaded("check")):
+            raise PendingDispatch("A supervisor already exists for this identity. Check --supervise status; "
+                                  "use --supervise disable before changing its settings.")
+        resolve_dispatcher(args)
+        arguments = ["--url", args.url, "--board", str(args.board), "--name", args.name,
+                     "--project", str(args.project.resolve()), "--state-dir", str(path.parent),
+                     "--host", args.host, "--timeout", str(args.timeout)]
+        if args.command_json:
+            arguments.extend(("--command-json", json.dumps(args.command_json)))
+        if args.codex:
+            arguments.extend(("--codex", args.codex))
+        if args.codex_legacy_receipt:
+            arguments.append("--codex-legacy-receipt")
+        profile = {"arguments": arguments, "state_path": str(path), "board": args.board,
+                   "name": args.name, "directory": str(Path.cwd()),
+                   "path": os.environ.get("PATH", os.defpath), "passcode": os.environ.get(PASSCODE_ENV)}
+        self.agents.mkdir(parents=True, exist_ok=True)
+        write_private(self.profile, json.dumps(profile).encode())
+        try:
+            for kind in ("listener", "check"):
+                self.write_job(kind, kind + ".log")
+                self.launchctl("bootstrap", self.domain, str(self.plist(kind)))
+        except (PendingDispatch, OSError) as error:
+            try:
+                self.disable()
+            except (PendingDispatch, OSError):
+                raise PendingDispatch(f"{error}. Partial installation remains; use --supervise disable.") from None
+            raise
+
+    def disable(self):
+        for kind in ("check", "listener"):
+            if self.loaded(kind):
+                self.launchctl("bootout", self.domain + "/" + self.job(kind))
+            self.plist(kind).unlink(missing_ok=True)
+        self.profile.unlink(missing_ok=True)
+        self.report.unlink(missing_ok=True)
+
+    def verify_state_path(self, path):
+        try:
+            profile = json.loads(self.profile.read_text())
+        except FileNotFoundError:
+            return
+        if Path(profile["state_path"]) != path:
+            raise PendingDispatch("The installed supervisor uses a different --state-dir for this identity")
+
+    def record(self, health, attempts, detail=None):
+        data = {"health": health, "starts_without_healthy_check": attempts,
+                "checked_at": int(time.time()), "detail": detail}
+        write_private(self.report, json.dumps(data).encode())
+
+    def last_check(self):
+        if self.report.exists():
+            return json.loads(self.report.read_text())
+        return {}
+
+    def check(self, args, path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with listener_lock(path.with_suffix(".lock")):
+                status = saved_status(args, path)
+        except ListenerBusy:
+            self.record("running", 0, "Identity lock is held; skipped starting another listener.")
+            return
+        if status["pending_cursor"] is not None:
+            self.record("pending_dispatch", 0, status["failure"] or "outcome_not_recorded")
+            return
+        attempts = self.last_check().get("starts_without_healthy_check", 0)
+        if attempts >= SUPERVISOR_MAX_STARTS:
+            self.record("start_failures", attempts,
+                        "Inspect listener.log; use --supervise disable and enable after fixing the cause.")
+            return
+        self.record("starting", attempts + 1)
+        try:
+            self.launchctl("kickstart", self.domain + "/" + self.job("listener"))
+        except PendingDispatch as error:
+            self.record("start_failed", attempts + 1, str(error))
+
+    def status(self, args, path):
+        self.verify_state_path(path)
+        status = saved_status(args, path)
+        status.update({"check_loaded": self.loaded("check"), "listener_loaded": self.loaded("listener"),
+                       "identity_in_use": identity_in_use(path),
+                       "label": self.label, "last_check": self.last_check(),
+                       "log_directory": str(self.directory)})
+        print(json.dumps(status))
+
+
+def supervisor_command(args, identity, path):
+    if sys.platform != "darwin":
+        raise PendingDispatch("--supervise is available in a macOS GUI login session")
+    supervisor = MacSupervisor(identity)
+    supervisor.launchctl("print", supervisor.domain)
+    if args.supervise == "status":
+        supervisor.status(args, path)
+        return 0
+    supervisor.directory.mkdir(parents=True, mode=0o700, exist_ok=True)
+    with listener_lock(supervisor.directory / "manage.lock"):
+        if args.supervise == "enable":
+            supervisor.enable(args, path)
+        else:
+            supervisor.verify_state_path(path)
+            supervisor.disable()
+    supervisor.status(args, path)
+    return 0
+
+
+def supervisor_job(kind, profile_path):
+    profile = json.loads(profile_path.read_text())
+    path = Path(profile["state_path"])
+    if kind == "check":
+        supervisor = MacSupervisor(path.stem, profile_path.parent)
+        supervisor.check(argparse.Namespace(board=profile["board"], name=profile["name"]), path)
+        return 0
+    os.chdir(profile["directory"])
+    os.environ["PATH"] = profile["path"]
+    os.environ.pop(PASSCODE_ENV, None)
+    if profile["passcode"]:
+        os.environ[PASSCODE_ENV] = profile["passcode"]
+    return main([*profile["arguments"], "--worker"])
+
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv[1:]
+    if len(argv) == 2 and argv[0] in ("--_supervisor-check", "--_supervisor-listener"):
+        return supervisor_job(argv[0].removeprefix("--_supervisor-"), Path(argv[1]))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", required=True, help="Slate /mcp URL; set SLATE_PASSCODE if required")
     parser.add_argument("--board", required=True, type=int, help="numeric board ID")
@@ -632,11 +830,13 @@ def main():
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     recovery = parser.add_mutually_exclusive_group()
     recovery.add_argument("--status", action="store_true", help="read saved listener state without starting a dispatcher")
+    recovery.add_argument("--supervise", choices=("enable", "status", "disable"),
+                          help="manage a macOS LaunchAgent supervisor for this listener identity")
     recovery.add_argument(
         "--resolve", choices=("done", "retry"),
         help="after verifying a stopped dispatch, mark handled or explicitly permit retry",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     args.host = HOST_ALIASES.get(args.host, args.host)
     if args.command_json and args.host != "auto":
         parser.error("choose --host or --command-json")
@@ -653,15 +853,16 @@ def main():
     query.pop("role", None)
     query["name"] = args.name
     url = urlunsplit(endpoint._replace(query=urlencode(sorted(query.items()))))
-    if not (args.resolve or args.status) and not args.project.is_dir():
+    if not (args.resolve or args.status or args.supervise in ("status", "disable")) and not args.project.is_dir():
         parser.error("--project must be an existing directory")
+    identity = hashlib.sha256(json.dumps([url, args.board]).encode()).hexdigest()
+    path = args.state_dir.resolve() / (identity + ".sqlite3")
+    if args.supervise:
+        return supervisor_command(args, identity, path)
     if not (args.worker or args.resolve or args.status):
         return supervise()
-
-    identity = hashlib.sha256(json.dumps([url, args.board]).encode()).hexdigest()
-    path = args.state_dir / (identity + ".sqlite3")
     if args.status:
-        show_status(args, path)
+        print(json.dumps(saved_status(args, path)))
         return 0
     args.state_dir.mkdir(parents=True, exist_ok=True)
     with listener_lock(path.with_suffix(".lock")):
