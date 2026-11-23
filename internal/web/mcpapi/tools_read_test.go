@@ -216,19 +216,3 @@ func TestGetCard(t *testing.T) {
 		t.Errorf("get_card 不应带 unread_count: %v", got["unread_count"])
 	}
 }
-
-// TestListEvents 验证活动流水只在管理视图里：返回起点之后的全部事件、最新序号。
-func TestListEvents(t *testing.T) {
-	s := newStack(t)
-	b := s.seed(t, "SLATE")
-	s.card(t, b, b.todo, "写文档")
-	got := ok(t, s.human(t), "list_events", map[string]any{"board_id": b.ID}).Data
-	events := items(t, got, "events")
-	if len(events) < 2 || events[len(events)-1]["type"] != "card.created" || got["latest"] != events[len(events)-1]["id"] {
-		t.Errorf("事件列表不对: %v", got)
-	}
-	after := ok(t, s.human(t), "list_events", map[string]any{"board_id": b.ID, "after": got["latest"]}).Data
-	if len(items(t, after, "events")) != 0 {
-		t.Errorf("起点是最新序号时不应该再有事件: %v", after)
-	}
-}

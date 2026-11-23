@@ -63,11 +63,6 @@ type deleteColumnIn struct {
 	MoveTo   int64 `json:"move_to,omitempty" jsonschema:"列里有任务时，把它们移入的列编号（追加到末尾）；列是空的不用填"`
 }
 
-// deleteCommentIn 是 delete_comment 的入参。
-type deleteCommentIn struct {
-	CommentID int64 `json:"comment_id" jsonschema:"评论编号，在 get_card 返回的 comments 里"`
-}
-
 // finished 把只返回 error 的 Core 方法的结果换成工具的输出：成功时是 {"ok": true}。
 func finished(err error) (any, error) {
 	if err != nil {
@@ -79,18 +74,12 @@ func finished(err error) (any, error) {
 // registerAdminTools 注册只有管理视图才有的工具：看板（项目）的修改、列、规则的管理，以及任务和评论的删除。
 // 它们对应的 Core 方法都只允许人调用，agent 视图里没有这些工具，减少它的干扰。
 // 项目只能创建和修改，不提供删除：删除项目只能由人在网页上输入项目名称确认后完成，MCP 不开这个口子。
-func (a API) registerAdminTools(s *mcp.Server) {
-	a.registerBoardTools(s)
-	a.registerColumnTools(s)
-	a.registerRuleTools(s)
-	register(s, spec{
-		name: "delete_card", kind: kindDestroy,
-		desc: "删除一个任务和它的全部评论，不可恢复。任务已经不存在也返回成功。",
-	}, a.deleteCard)
-	register(s, spec{
-		name: "delete_comment", kind: kindDestroy,
-		desc: "删除一条评论，不可恢复。评论已经不存在也返回成功。",
-	}, a.deleteComment)
+func (a API) registerAdminTools(s *mcp.Server) map[string]bool {
+	group := managementTools{server: s, names: make(map[string]bool)}
+	a.registerBoardTools(group)
+	a.registerColumnTools(group)
+	a.registerRuleTools(group)
+	return group.names
 }
 
 // registerCreateBoard 注册 create_board。工作视图和管理视图都有这个工具：
@@ -105,30 +94,30 @@ func (a API) registerCreateBoard(s *mcp.Server) {
 }
 
 // registerBoardTools 注册看板（项目）的修改；创建见 registerCreateBoard，有意不注册删除，见 registerAdminTools。
-func (a API) registerBoardTools(s *mcp.Server) {
-	register(s, spec{
+func (a API) registerBoardTools(group managementTools) {
+	registerManagement(group, spec{
 		name: "update_board", kind: kindWrite,
 		desc: "修改看板的名称、说明或项目路径，只更新填写的字段；project_path 传空字符串表示清除。看板标识创建后不能改。",
 	}, a.updateBoard)
 }
 
 // registerColumnTools 注册列的新增、修改、重排和删除。
-func (a API) registerColumnTools(s *mcp.Server) {
-	register(s, spec{
+func (a API) registerColumnTools(group managementTools) {
+	registerManagement(group, spec{
 		name: "create_column", kind: kindWrite,
 		desc: "在看板的最右边新增一列。instruction 是写给 agent 的提示词，写明任务在这个状态下谁能做什么、能不能派 subagent、做完去哪一列，agent 必须遵守；" +
 			"is_done 为 true 表示完成列；next_column_id 是 agent 用 finish_card 交接后任务去的下一列。",
 	}, a.createColumn)
-	register(s, spec{
+	registerManagement(group, spec{
 		name: "update_column", kind: kindWrite,
 		desc: "修改列，只更新填写的字段。next_column_id 传 0 表示清除；布尔字段传 false 也会生效。",
 	}, a.updateColumn)
-	register(s, spec{
+	registerManagement(group, spec{
 		name: "reorder_columns", kind: kindWrite,
 		desc: "按 ids 的顺序重排看板的列（从左到右）。ids 必须是看板当前的全部列，每列一次，" +
 			"否则返回 ErrColumnOrderStale，说明依据的数据已经过期，先用 get_board 重新读一遍。",
 	}, a.reorderColumns)
-	register(s, spec{
+	registerManagement(group, spec{
 		name: "delete_column", kind: kindDestroy,
 		desc: "删除一列。列里有任务时必须用 move_to 指定把它们移入的列（追加到那一列末尾），否则返回 ErrColumnNotEmpty。" +
 			"其他列指向它的「下一列」会被清除，用到它的规则会被停用。列已经不存在也返回成功。",
@@ -178,14 +167,4 @@ func (a API) reorderColumns(ctx context.Context, actor kanban.Actor, in reorderC
 // deleteColumn 删除一列，列里有任务时先搬到 move_to 指定的列。
 func (a API) deleteColumn(ctx context.Context, actor kanban.Actor, in deleteColumnIn) (any, error) {
 	return finished(a.core.DeleteColumn(ctx, actor, in.BoardID, in.ColumnID, in.MoveTo))
-}
-
-// deleteCard 删除一个任务和它的评论。
-func (a API) deleteCard(ctx context.Context, actor kanban.Actor, in cardIn) (any, error) {
-	return finished(a.core.DeleteCard(ctx, actor, in.CardID))
-}
-
-// deleteComment 删除一条评论。
-func (a API) deleteComment(ctx context.Context, actor kanban.Actor, in deleteCommentIn) (any, error) {
-	return finished(a.core.DeleteComment(ctx, actor, in.CommentID))
 }

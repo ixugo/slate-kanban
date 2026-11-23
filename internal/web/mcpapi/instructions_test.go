@@ -10,10 +10,10 @@ import (
 
 // maxInstructionRunes 是使用说明的字数上限：它在每个会话开始时都会进入模型的上下文，
 // 所以要短，完整的流程放在 skill 里。
-const maxInstructionRunes = 1500
+const maxInstructionRunes = 500
 
 // toolWord 匹配说明里像工具名的词：whoami，或者以工具常用的动词开头的下划线词。
-var toolWord = regexp.MustCompile(`\b(?:whoami|(?:list|get|set|create|update|delete|move|claim|release|finish|comment|pull|wait_for|next|reorder)_[a-z_]+)\b`)
+var toolWord = regexp.MustCompile(`\b(?:whoami|(?:list|get|set|enable|create|update|delete|move|claim|release|finish|comment|pull|wait_for|next|reorder)_[a-z_]+)\b`)
 
 // notTools 是说明里出现的、长得像工具名但其实是字段名的词。
 var notTools = []string{"next_column_id", "claim_engineer_id"}
@@ -31,32 +31,21 @@ func TestInstructions(t *testing.T) {
 	}{
 		{
 			"agent", agentTools,
-			[]string{"whoami", "list_boards", "get_board", "set_project_path", "next_card", "comment_card", "create_card", "finish_card", "release_card", "wait_for_updates", "pull_updates", "list_cards", "slate://skills/slate-kanban"},
+			[]string{"whoami", "list_boards", "get_board", "finish_card", "enable_management", "slate://skills/slate-kanban"},
 			agent,
 		},
 		{
 			"人", adminTools,
-			[]string{"create_rule", "update_column"},
+			[]string{"get_board", "slate://skills/slate-kanban"},
 			s.human(t).InitializeResult().Instructions,
 		},
 	}
-	if !strings.Contains(agent, "先只读拟定方案") || !strings.Contains(agent, "评论成功后") {
-		t.Errorf("agent 初始化说明应该要求调度者先记录方案再让子 agent 开工: %q", agent)
-	}
-	if !strings.Contains(agent, "仍有空位必须查待办") || !strings.Contains(agent, "只表示当前列") {
-		t.Errorf("agent 初始化说明应该要求查完可办列及待办再等待: %q", agent)
-	}
-	if !strings.Contains(agent, "不触发终端阻塞式提问") || !strings.Contains(agent, "路径为空且经人明确确认") {
-		t.Errorf("agent 初始化说明应该在看板澄清并确认路径: %q", agent)
-	}
-	for _, want := range []string{"已有的标签", "不要新建", "任务项"} {
+	for _, want := range []string{
+		"先只读拟定方案", "评论成功后", "用户明确要求", "由监听器触发的一轮调度",
+		"Python 监听脚本 slate://scripts/slate-watch.py", "看板的 watch_prompt",
+	} {
 		if !strings.Contains(agent, want) {
-			t.Errorf("agent 初始化说明应该提醒标签只用已有的、交接前补任务项，缺少 %q", want)
-		}
-	}
-	for _, want := range []string{"审查用 comment_card 写结论和证据", "实际截图", "逐项勾选清单", "暂不判通过"} {
-		if !strings.Contains(agent, want) {
-			t.Errorf("agent 初始化说明的审查证据要求缺少 %q", want)
+			t.Errorf("agent 初始化说明缺少 %q", want)
 		}
 	}
 	for _, tc := range cases {

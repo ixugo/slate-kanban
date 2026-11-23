@@ -3,8 +3,6 @@ package mcpapi
 import (
 	"context"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
-
 	"slate-kanban/internal/core/kanban"
 )
 
@@ -61,8 +59,8 @@ func toRuleActions(in []ruleActionIn) []kanban.RuleAction {
 }
 
 // registerRuleTools 注册自动化规则的创建、修改和删除。
-func (a API) registerRuleTools(s *mcp.Server) {
-	register(s, spec{
+func (a API) registerRuleTools(group managementTools) {
+	registerManagement(group, spec{
 		name: "create_rule", kind: kindWrite,
 		desc: "创建自动化规则：某件事发生并且任务满足条件时，按顺序执行一组动作，人和 agent 的操作都会触发。\n" +
 			"触发时机 trigger：card_created（创建任务时）、card_entered（任务进入某一列，创建任务也算进入初始列）、" +
@@ -74,11 +72,11 @@ func (a API) registerRuleTools(s *mcp.Server) {
 			"add_comment（text：自动写一条评论）；move_to_column（column_id：把任务移到另一列，会继续触发那一列的规则，连锁最多 3 层）。\n" +
 			"保存时就会校验整条规则，写错的规则会被拒绝，不会保存成永远不触发的样子。",
 	}, a.createRule)
-	register(s, spec{
+	registerManagement(group, spec{
 		name: "update_rule", kind: kindWrite,
 		desc: "修改规则，只更新填写的字段，修改后整条规则重新校验；actions 是整体替换。想临时关掉规则，把 enabled 设为 false。",
 	}, a.updateRule)
-	register(s, spec{
+	registerManagement(group, spec{
 		name: "delete_rule", kind: kindDestroy,
 		desc: "删除规则，不可恢复；只是想暂停的话用 update_rule 把 enabled 设为 false。规则已经不存在也返回成功。",
 	}, a.deleteRule)

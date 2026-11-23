@@ -194,33 +194,12 @@ func TestRuleTools(t *testing.T) {
 	ok(t, human, "delete_rule", map[string]any{"rule_id": ruleID})
 }
 
-// TestDeleteCardAndComment 验证人删除任务和评论：删除后读不到，重复删除也成功。
-func TestDeleteCardAndComment(t *testing.T) {
-	s := newStack(t)
-	b := s.seed(t, "SLATE")
-	human := s.human(t)
-	card := s.card(t, b, b.todo, "要删的")
-	comment := idOf(t, ok(t, human, "comment_card", map[string]any{"card_id": card.ID, "body": "评论"}).Data)
-
-	ok(t, human, "delete_comment", map[string]any{"comment_id": comment})
-	ok(t, human, "delete_comment", map[string]any{"comment_id": comment})
-	if got := ok(t, human, "get_card", map[string]any{"card_id": card.ID}).Data; len(items(t, got, "comments")) != 0 {
-		t.Errorf("评论应该已经删了: %v", got["comments"])
-	}
-
-	if got := ok(t, human, "delete_card", map[string]any{"card_id": card.ID}).Data; got["ok"] != true {
-		t.Errorf("删除应该返回 ok: %v", got)
-	}
-	ok(t, human, "delete_card", map[string]any{"card_id": card.ID})
-	fails(t, call(t, human, "get_card", map[string]any{"card_id": card.ID}), "ErrCardNotFound")
-}
-
 // TestToolAnnotations 验证给 host 的工具注解：读取类标只读，删除类标破坏性，其余写入类明确标非破坏性，
 // 所有工具都标"不和外部世界打交道"。host 靠它们判断哪些调用可以放心自动执行、哪些要先问人。
 func TestToolAnnotations(t *testing.T) {
 	s := newStack(t)
-	readOnly := setOf([]string{"whoami", "list_boards", "get_board", "list_cards", "get_card", "list_events", "get_image"})
-	destroy := setOf([]string{"delete_column", "delete_rule", "delete_card", "delete_comment"})
+	readOnly := setOf([]string{"whoami", "list_boards", "get_board", "list_cards", "get_card", "get_image"})
+	destroy := setOf([]string{"delete_column", "delete_rule"})
 
 	sessions := []struct {
 		name string

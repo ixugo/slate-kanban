@@ -25,13 +25,6 @@ type listCardsIn struct {
 	Limit   int    `json:"limit,omitempty" jsonschema:"最多返回几个，默认 10，最多 30；还有更多时 truncated 为 true，收紧筛选条件再取下一批"`
 }
 
-// listEventsIn 是 list_events 的入参。
-type listEventsIn struct {
-	BoardID int64 `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
-	After   int64 `json:"after,omitempty" jsonschema:"起点事件序号，只返回比它大的事件；不填从最早保留的事件开始"`
-	Limit   int   `json:"limit,omitempty" jsonschema:"最多返回几条，不填用默认值"`
-}
-
 // whoamiOut 是 whoami 的输出。
 type whoamiOut struct {
 	Name     string           `json:"name"`
@@ -53,7 +46,7 @@ type cardsOut struct {
 	Truncated bool          `json:"truncated"`
 }
 
-// registerReadTools 注册读取类的工具：两个视图共用的几个，加上只有管理视图才有的活动流水。
+// registerReadTools 注册所有连接共用的读取工具。
 func (a API) registerReadTools(s *mcp.Server, v view) {
 	register(s, spec{
 		name: "whoami", kind: kindRead,
@@ -86,13 +79,7 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 		desc: "读取一个任务的完整信息：全文描述、评论、依赖的任务，以及所在列给 agent 的指令（column_instruction）。" +
 			"领到任务后、动手之前先读它，评论里可能有人的补充要求或审查意见。结果里的 agent_notice 是提醒：任务不明确时先评论反馈并把任务移出领取列，不要直接开始。",
 	}, a.getCard)
-	if v == viewAdmin {
-		register(s, spec{
-			name: "list_events", kind: kindRead,
-			desc: "读取看板的活动流水：起点 after 之后的事件，按序号升序，不做过滤。用来了解看板最近发生了什么。" +
-				"latest 是看板当前最新的事件序号；has_more 为真表示还有更多，用最后一条的 id 作为下一次的 after 继续读。",
-		}, a.listEvents)
-	}
+
 }
 
 // whoami 返回调用者的身份和当前视图。身份来自 URL 的 ?name= / ?role=，不来自入参，所以没有入参。
@@ -142,9 +129,4 @@ func (a API) getCard(ctx context.Context, _ kanban.Actor, in cardIn) (any, error
 		return nil, err
 	}
 	return withNotice(detail), nil
-}
-
-// listEvents 返回起点之后的活动流水，不做过滤，只有管理视图提供。
-func (a API) listEvents(ctx context.Context, _ kanban.Actor, in listEventsIn) (any, error) {
-	return a.core.ListEvents(ctx, in.BoardID, in.After, in.Limit)
 }

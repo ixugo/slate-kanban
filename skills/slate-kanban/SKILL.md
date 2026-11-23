@@ -27,6 +27,8 @@ description: 接入 Slate 看板替人干活的工作流程：确认看板和项
 
 这个 skill 的最新版可以从服务取：`/skills/slate-kanban/SKILL.md`，或者读 MCP 资源 `slate://skills/slate-kanban`。
 
+只有用户明确要求管理看板设置、列或自动化时，才调用 `enable_management` 在当前 MCP 会话显示管理工具。客户端未刷新列表时，传 `{"include_tools":true}` 获取管理工具目录，再在同一会话调用 `enable_management`，传入目标工具名 `tool` 和参数对象 `arguments`。只在实际执行用户要求的管理操作时传入这些参数。创建任务、领取、交接等日常工作直接用工作工具。
+
 ## 二、找到看板和项目路径
 
 1. 用 `list_boards` 列出看板。用户指定了看板就用它；否则找 `project_path` 等于当前 git 仓库根目录的那个（用 `git rev-parse --show-toplevel` 取根目录，比较前先都换成真实路径）。没有唯一匹配且用户未指定看板时，只报告现状，等待明确的看板选择。不要猜选看板或在终端触发阻塞式提问。
