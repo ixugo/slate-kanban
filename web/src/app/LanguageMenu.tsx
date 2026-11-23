@@ -1,4 +1,4 @@
-// 语言选择：原生 select，五种语言 option 自带 lang；窄屏用透明 select 盖住地球图标扩大点击区域。
+// 语言选择：原生 select，四种语言 option 自带 lang；窄屏用透明 select 盖住地球图标扩大点击区域。
 
 import { ChevronsUpDownIcon, GlobeIcon } from 'lucide-react'
 import type { ChangeEvent } from 'react'

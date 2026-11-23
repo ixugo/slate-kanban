@@ -22,9 +22,10 @@ func TestDesktopLanguageFollowsWebView(t *testing.T) {
 			t.Fatalf("origin %s, language %s: %d, want %d", from, code, w.Code, want)
 		}
 	}
-	send("http://elsewhere.invalid", "ko", http.StatusForbidden)
+	send("http://elsewhere.invalid", "ja", http.StatusForbidden)
 	send(origin, "unsupported", http.StatusBadRequest)
-	for _, code := range []string{"ja", "ko", "zh-TW", "en", "zh-CN"} {
+	send(origin, "ko", http.StatusBadRequest)
+	for _, code := range []string{"ja", "zh-TW", "en", "zh-CN"} {
 		send(origin, code, http.StatusNoContent)
 		if got := lang.text(); got != desktopTexts[code] || got.startup == "" || got.inUse == "" || got.show == "" {
 			t.Errorf("桌面语言未同步或缺少文案: %s %+v", code, got)
@@ -44,7 +45,8 @@ func TestSystemLanguageFallback(t *testing.T) {
 		{[]string{"fr-FR", "zh_Hant_HK"}, "zh-TW"},
 		{[]string{"zh_CN.UTF-8"}, "zh-CN"},
 		{[]string{"ja-JP"}, "ja"},
-		{[]string{"ko-KR"}, "ko"},
+		{[]string{"ko-KR"}, "en"},
+		{[]string{"ko-KR", "ja-JP"}, "ja"},
 		{[]string{"en-AU", "ja"}, "en"},
 		{[]string{"es", "fr"}, "en"},
 	} {

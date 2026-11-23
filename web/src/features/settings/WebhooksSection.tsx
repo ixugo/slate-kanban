@@ -65,6 +65,7 @@ const EVENT_LABEL_KEYS: Record<(typeof EVENT_TYPES)[number], TranslationKey> = {
 }
 
 const ACTOR_KINDS = ['human', 'agent', 'system'] as const
+// 保留老看板的默认收件箱名，以便升级后新建 Webhook 时仍排除此列。
 const INBOX_NAMES = new Set(['收件箱', '收件匣', 'Inbox', '受信トレイ', '받은 편지함'])
 
 interface Props {

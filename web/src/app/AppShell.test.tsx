@@ -95,11 +95,11 @@ describe('AppShell', () => {
     expect(i18n.language).toBe('ja')
   })
 
-  it('语言下拉里五种语言都用自己的文字显示', async () => {
+  it('语言下拉里四种语言都用自己的文字显示', async () => {
     setup()
     const select = (await openSettings()).getByRole('combobox', { name: en.language.label })
     const options = within(select).getAllByRole('option')
-    expect(options.map((o) => o.textContent)).toEqual(['简体中文', '繁體中文', 'English', '日本語', '한국어'])
+    expect(options.map((o) => o.textContent)).toEqual(['简体中文', '繁體中文', 'English', '日本語'])
   })
 
   it('切换到深色主题：<html> 带上 dark 类', async () => {

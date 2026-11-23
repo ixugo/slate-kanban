@@ -20,7 +20,7 @@ type createBoardIn struct {
 	Description string `json:"description,omitempty" jsonschema:"项目 AGENTS.md，Markdown 文本，最多 2000 字"`
 	ProjectPath string `json:"project_path,omitempty" jsonschema:"这个看板对应的项目在本机的绝对路径"`
 	Template    string `json:"template,omitempty" jsonschema:"起步模板：dev（收件箱、待办、进行中、审查、完成，默认）、simple（待办、进行中、完成）、empty（没有列）"`
-	Locale      string `json:"locale,omitempty" jsonschema:"起步列名的语言：zh-CN、zh-TW、en、ja、ko；不填按 en"`
+	Locale      string `json:"locale,omitempty" jsonschema:"起步列名的语言：zh-CN、zh-TW、en、ja；不填按 en"`
 }
 
 // updateBoardIn 是 update_board 的入参，指针字段不填或为 null 都表示不改。

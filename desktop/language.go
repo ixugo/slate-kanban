@@ -50,13 +50,6 @@ var desktopTexts = map[string]desktopText{
 		edit: "編集", undo: "取り消す", redo: "やり直す", cut: "切り取り", copy: "コピー", paste: "貼り付け", selectAll: "すべてを選択",
 		about: "Slate について", hide: "Slate を隠す", hideOthers: "ほかを隠す", showAll: "すべてを表示",
 	},
-	"ko": {
-		navigate: "이동", show: "Slate 표시", boards: "보드", agents: "에이전트 설정", quit: "Slate 종료",
-		empty: "최근 카드가 없습니다", unavailable: "최근 카드를 불러올 수 없습니다", startup: "Slate를 시작할 수 없습니다. 설정을 확인한 후 다시 시도하세요.",
-		inUse: "다른 Slate가 이 설정을 사용 중입니다. 실행 중인 서버 또는 데스크톱 앱을 종료한 후 Slate를 다시 여세요.", confirm: "확인",
-		edit: "편집", undo: "실행 취소", redo: "다시 실행", cut: "잘라내기", copy: "복사", paste: "붙여넣기", selectAll: "모두 선택",
-		about: "Slate 정보", hide: "Slate 가리기", hideOthers: "다른 항목 가리기", showAll: "모두 보기",
-	},
 }
 
 func preferredLanguage(candidates []string) string {
@@ -65,7 +58,7 @@ func preferredLanguage(candidates []string) string {
 		tag = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(tag), "_", "-"))
 		base, _, _ := strings.Cut(tag, "-")
 		switch base {
-		case "en", "zh", "ja", "ko":
+		case "en", "zh", "ja":
 			return kanban.NormalizeLocale(tag)
 		}
 	}

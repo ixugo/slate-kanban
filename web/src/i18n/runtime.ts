@@ -40,7 +40,7 @@ export function initialLanguage(): Lang {
   return readStoredLanguage() ?? pickLanguage(navigator.languages)
 }
 
-// 让 <html lang> 跟着界面语言走：中日韩共用的汉字要靠它才会选对字形，读屏软件也靠它选发音。
+// 让 <html lang> 跟着界面语言走：中日文共用的汉字要靠它才会选对字形，读屏软件也靠它选发音。
 function syncHtmlLang(lng: Lang): void {
   document.documentElement.lang = normalizeLanguage(lng)
 }

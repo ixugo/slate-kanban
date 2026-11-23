@@ -6,8 +6,8 @@ import (
 	"unicode/utf8"
 )
 
-// 五种界面语言，模板必须全部提供。
-var supportedLocales = []string{"zh-CN", "zh-TW", "en", "ja", "ko"}
+// 四种界面语言，模板必须全部提供。
+var supportedLocales = []string{"zh-CN", "zh-TW", "en", "ja"}
 
 // TestNormalizeLocale 验证各种写法的语言标识都能归并到支持的五种，不认识的按 en。
 func TestNormalizeLocale(t *testing.T) {
@@ -15,7 +15,7 @@ func TestNormalizeLocale(t *testing.T) {
 		"zh-CN": "zh-CN", "zh_cn": "zh-CN", "zh": "zh-CN", "zh-Hans": "zh-CN", "ZH-SG": "zh-CN",
 		"zh-TW": "zh-TW", "zh-HK": "zh-TW", "zh-Hant": "zh-TW", "zh-Hant-TW": "zh-TW",
 		"en": "en", "en-US": "en", "": "en", "fr": "en", "xx-YY": "en",
-		"ja": "ja", "ja-JP": "ja", "ko": "ko", "ko_KR": "ko",
+		"ja": "ja", "ja-JP": "ja", "ko": "en", "ko_KR": "en",
 	}
 	for in, want := range cases {
 		if got := NormalizeLocale(in); got != want {
@@ -101,7 +101,6 @@ func TestPlanCommentInTemplate(t *testing.T) {
 		"zh-TW": "留言成功後",
 		"en":    "only after the comment is saved",
 		"ja":    "保存されたことを確認してから",
-		"ko":    "저장을 확인한 뒤",
 	}
 	for _, locale := range supportedLocales {
 		for _, kind := range []textKind{textDoing, textReview} {
@@ -120,7 +119,6 @@ func TestReviewEvidenceInTemplate(t *testing.T) {
 		"zh-TW": "畫面截圖",
 		"en":    "screenshots of the actual pages",
 		"ja":    "スクリーンショット",
-		"ko":    "스크린샷",
 	}
 	for _, locale := range supportedLocales {
 		instruction := textsFor(locale).Columns[textReview].Instruction
@@ -143,7 +141,6 @@ func TestDoingInstructionTagsAndTaskItems(t *testing.T) {
 		"zh-TW": {"不要新建標籤", "「任務項」清單"},
 		"en":    {"do not create new tags", "list of task items"},
 		"ja":    {"新しいタグは作らず", "タスク項目の一覧"},
-		"ko":    {"새 태그를 만들지 말고", "작업 항목 목록"},
 	}
 	for _, locale := range supportedLocales {
 		doing := textsFor(locale).Columns[textDoing].Instruction

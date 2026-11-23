@@ -94,8 +94,8 @@ var templateColumns = map[string][]columnSpec{
 	TemplateEmpty: nil,
 }
 
-// NormalizeLocale 把各种写法的语言标识归并到支持的五种之一：
-// zh-CN、zh-TW、en、ja、ko。大小写和下划线都不敏感，不认识的返回 defaultLocale。
+// NormalizeLocale 把各种写法的语言标识归并到支持的四种之一：
+// zh-CN、zh-TW、en、ja。大小写和下划线都不敏感，不认识的返回 defaultLocale。
 func NormalizeLocale(locale string) string {
 	l := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(locale), "_", "-"))
 	switch {
@@ -105,8 +105,6 @@ func NormalizeLocale(locale string) string {
 		return "zh-CN"
 	case l == "ja" || strings.HasPrefix(l, "ja-"):
 		return "ja"
-	case l == "ko" || strings.HasPrefix(l, "ko-"):
-		return "ko"
 	}
 	return defaultLocale
 }
@@ -116,7 +114,7 @@ func textsFor(locale string) localeTexts {
 	return templateTexts[NormalizeLocale(locale)]
 }
 
-// templateTexts 是五种界面语言的模板文案。
+// templateTexts 是四种界面语言的模板文案。
 var templateTexts = map[string]localeTexts{
 	"zh-CN": {
 		Columns: [textKindCount]columnText{
@@ -217,31 +215,6 @@ var templateTexts = map[string]localeTexts{
 			},
 		},
 		RuleStart: "開始時刻を記録", RuleFinish: "完了時刻を記録", RuleReopen: "再オープン",
-	},
-	"ko": {
-		Columns: [textKindCount]columnText{
-			textIdea: {
-				Name:        "받은 편지함",
-				Instruction: "이 열은 사람이 아이디어를 모으는 곳이며, 에이전트는 여기에 있는 작업을 처리하지 않습니다. 하위 에이전트를 배정하지 말고, 맡지 말고, 구현도 시작하지 말며, 다른 사람이 만든 작업을 옮기거나 수정하지 마세요. 여기에 새 작업을 만들고 직접 만든 작업을 다음 열로 옮길 수 있으며, 개발이 맡는 것은 그 이후입니다. 필요하면 작업에 댓글로 분석을 덧붙일 수 있습니다.",
-			},
-			textTodo: {
-				Name:        "할 일",
-				Instruction: "이 열의 작업은 확정되었지만 아직 시작할 예정이 없습니다. 하위 에이전트를 배정하지 말고, 맡지 말고, 작업을 직접 옮기지 마세요. 사람이 우선순위를 정하고 다음 열로 끌어다 놓습니다. 필요하면 댓글로 분석을 덧붙일 수 있습니다.",
-			},
-			textDoing: {
-				Name:        "진행 중",
-				Instruction: "이 열은 개발 영역입니다. 개발 하위 에이전트에게 맡길 수 있는 작업은 이 열의 작업뿐입니다. 당신은 조율자로서 작업을 맡고(next_card 또는 claim_card), 먼저 설명, 댓글, 의존 관계를 읽은 뒤, 작업 원문을 당신의 이해대로 역할과 프롬프트로 정리해 전용 worktree에서 작업할 하위 에이전트에게 넘기세요. 직접 코드를 작성하지 않습니다. 배정하기 전에 작업 전용 worktree와 브랜치를 만드세요. 하위 에이전트는 먼저 읽기 전용으로 조사하고 개발 계획을 조율자에게 전달합니다. 조율자가 comment_card로 작업에 계획을 남기고 저장을 확인한 뒤 개발을 시작하도록 하세요. 동시에 진행하는 작업 수는 사람이 알려 준 동시 처리 수를 넘지 않습니다(알려 주지 않으면 2). 작업이 불명확하거나 사람의 결정이 필요하면 먼저 작업에 의문점을 댓글로 남기고, 작업을 '할 일' 같은 맡지 않는 열로 옮겨 답을 기다리며 바로 시작하지 마세요. 맡은 뒤에는 작업 내용에 맞춰 update_card로 태그를 조정하세요. 보드에 이미 있는 태그만 고를 수 있고(tag_ids 사용), 새 태그를 만들지 말고, 알맞은 것이 없으면 붙이지 마세요. finish_card를 호출하기 전에 update_card로 설명 끝에 작업 항목 목록을 덧붙이세요. 한 줄에 한 항목, 구현한 것은 \"- [x] 내용\", 남은 것은 \"- [ ] 내용\"으로 적어 설명만 보고도 무엇을 구현했는지 알 수 있게 하세요. 끝나면 finish_card를 호출해 요약과 브랜치 이름, 링크를 남기세요. 작업은 자동으로 다음 열로 이동합니다. 작업이 끝났는지는 당신이 정하지 않으므로 작업을 완료 열로 옮기지 마세요.",
-			},
-			textReview: {
-				Name:        "검토",
-				Instruction: "이 열은 검토 영역입니다. 검토 하위 에이전트에게 맡길 수 있는 작업은 이 열의 작업뿐이며, 검토는 검수만 하고 코드를 수정하지 않습니다. 작업을 맡은 뒤 설명, 댓글, 개발 쪽 인수인계 요약, 브랜치를 읽고, 작업 원문을 당신의 이해대로 검토 요구 사항으로 정리해 하위 에이전트가 항목별로 검수하고 테스트를 돌리고 필요하면 실제로 실행하게 하세요. 하위 에이전트는 먼저 읽기 전용으로 조사하고 검토 계획을 조율자에게 전달합니다. 조율자가 comment_card로 작업에 계획을 남기고 저장을 확인한 뒤 검수를 시작하도록 하세요. comment_card로 결론과 증거를 게시하세요. 화면 검수는 실제 화면의 스크린샷을 첨부하고, 기능 검수는 체크리스트 항목별로 근거와 결과(- [x] 통과, - [ ] 실패 또는 미검증)를 기록하세요. 필요한 증거가 없으면 이유를 적고 통과 판정을 보류하세요. 통과: 검토 결론을 작업에 남깁니다. 로컬 전용 Slate 브랜치가 있으면 Slate 스킬 8절에 따라 병합 및 기록 후 완료 열로 옮기고 작업 영역을 정리합니다. 그 외에는 완료 열로 옮깁니다. 통과하지 못함: 무엇이 틀렸고 어떻게 고칠지 댓글로 남긴 뒤, 에이전트가 작업을 맡는 열(보통 '진행 중')로 작업을 되돌려 개발이 다시 하게 하세요.",
-			},
-			textDone: {
-				Name:        "완료",
-				Instruction: "이 열은 완료된 작업입니다. 에이전트는 일절 건드리지 마세요. 이 열의 작업을 맡거나 옮기거나 수정하거나 댓글을 다는 것도, 하위 에이전트를 배정하는 것도 금지입니다. 작업을 옮겨 올 수 있는 것은 검토가 통과했을 때의 검토뿐이며, 그 밖의 이동과 수정은 사람이 합니다.",
-			},
-		},
-		RuleStart: "시작 시간 기록", RuleFinish: "완료 시간 기록", RuleReopen: "다시 열기",
 	},
 }
 

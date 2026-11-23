@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { Lang } from '@/i18n/languages'
 import { localizeColumnName, localizeRuleName } from './templateText'
 
-const LANGS: Lang[] = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
+const LANGS: Lang[] = ['zh-CN', 'zh-TW', 'en', 'ja']
 
 describe('起步模板文案的换语言显示', () => {
   it.each(LANGS)('任意语言写下的列名都能换成 %s 的说法', (lang) => {
-    expect(localizeColumnName('收件箱', lang)).toBe({ 'zh-CN': '收件箱', 'zh-TW': '收件匣', en: 'Inbox', ja: '受信トレイ', ko: '받은 편지함' }[lang])
-    expect(localizeColumnName('In progress', lang)).toBe({ 'zh-CN': '进行中', 'zh-TW': '進行中', en: 'In progress', ja: '進行中', ko: '진행 중' }[lang])
+    expect(localizeColumnName('收件箱', lang)).toBe({ 'zh-CN': '收件箱', 'zh-TW': '收件匣', en: 'Inbox', ja: '受信トレイ' }[lang])
+    expect(localizeColumnName('In progress', lang)).toBe({ 'zh-CN': '进行中', 'zh-TW': '進行中', en: 'In progress', ja: '進行中' }[lang])
     expect(localizeColumnName('待辦', lang)).toBe(localizeColumnName('To do', lang))
   })
 

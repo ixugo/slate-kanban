@@ -1,5 +1,5 @@
 // 所有测试共用的初始化：加载 jest-dom 的断言扩展，补上 jsdom 缺少的浏览器接口（Radix 组件会用到），
-// 预加载五种语言包，并在每个测试后清理页面、本地存储和界面语言，保证测试互不影响。
+// 预加载四种语言包，并在每个测试后清理页面、本地存储和界面语言，保证测试互不影响。
 import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach } from 'vitest'
