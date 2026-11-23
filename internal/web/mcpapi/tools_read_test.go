@@ -2,6 +2,7 @@ package mcpapi_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -157,6 +158,75 @@ func TestListCardsSummaries(t *testing.T) {
 	bad := call(t, sess, "list_cards", map[string]any{"board_id": b.ID, "query": "is:foo"})
 	if !bad.IsError || !strings.Contains(bad.Text, "is:foo") {
 		t.Errorf("写错的筛选词应该是带说明的工具错误: %+v", bad)
+	}
+}
+
+func TestListCardsAdvertisesSearch(t *testing.T) {
+	s := newStack(t)
+	sess := s.agent(t, "claude")
+	for tool, err := range sess.Tools(t.Context(), nil) {
+		if err != nil {
+			t.Fatalf("列出工具失败: %v", err)
+		}
+		if tool.Name != "list_cards" {
+			continue
+		}
+		if !strings.Contains(tool.Description, "搜索") {
+			t.Errorf("list_cards 应明确说明支持搜索: %q", tool.Description)
+		}
+		schema, _ := tool.InputSchema.(map[string]any)
+		props, _ := schema["properties"].(map[string]any)
+		query, _ := props["query"].(map[string]any)
+		description, _ := query["description"].(string)
+		if !strings.Contains(description, "搜索") {
+			t.Errorf("query 应说明可传搜索词: %v", query)
+		}
+		return
+	}
+	t.Fatal("工具列表缺少 list_cards")
+}
+
+func TestListCardsSearch(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	sess := s.agent(t, "claude")
+	detail, err := s.core.CreateCard(t.Context(), humanActor, b.ID, kanban.CreateCardInput{
+		Title: "检查通知", Description: "验证 Webhook retries 和回放标记。", ColumnID: b.doing,
+	})
+	if err != nil {
+		t.Fatalf("创建描述命中的任务失败: %v", err)
+	}
+	docs := s.card(t, b, b.todo, "Webhook retries 文档")
+	s.card(t, b, b.doing, "发布说明")
+
+	cases := []struct {
+		name      string
+		query     string
+		limit     int
+		keys      []string
+		total     int
+		truncated bool
+	}{
+		{name: "描述命中", query: "回放标记", keys: []string{detail.Key}, total: 1},
+		{name: "短语与筛选组合", query: `"webhook retries" col:进行中`, keys: []string{detail.Key}, total: 1},
+		{name: "没有命中", query: "缺席的关键词"},
+		{name: "按看板顺序截断", query: `"webhook retries"`, limit: 1, keys: []string{docs.Key}, total: 2, truncated: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ok(t, sess, "list_cards", map[string]any{
+				"board_id": b.ID, "query": tc.query, "limit": tc.limit,
+			}).Data
+			cards := items(t, got, "cards")
+			keys := make([]string, 0, len(cards))
+			for _, card := range cards {
+				key, _ := card["key"].(string)
+				keys = append(keys, key)
+			}
+			if !slices.Equal(keys, tc.keys) || got["total"] != float64(tc.total) || got["truncated"] != tc.truncated {
+				t.Errorf("搜索 %q 返回 %v，总数 %v，截断 %v，期望 %v、%d、%v", tc.query, keys, got["total"], got["truncated"], tc.keys, tc.total, tc.truncated)
+			}
+		})
 	}
 }
 

@@ -26,7 +26,7 @@ type cardIn struct {
 // listCardsIn 是 list_cards 的入参。
 type listCardsIn struct {
 	BoardID int64  `json:"board_id" jsonschema:"看板编号，来自 list_boards"`
-	Query   string `json:"query,omitempty" jsonschema:"筛选条件，写法见工具说明；不填列出全部"`
+	Query   string `json:"query,omitempty" jsonschema:"搜索词和筛选条件。关键词匹配标题、描述、编号或标签。不填列出全部"`
 	Limit   int    `json:"limit,omitempty" jsonschema:"最多返回几个，默认 10，最多 30；还有更多时 truncated 为 true，收紧筛选条件再取下一批"`
 }
 
@@ -78,8 +78,8 @@ func (a API) registerReadTools(s *mcp.Server, v view) {
 	}, a.getBoard)
 	register(s, spec{
 		name: "list_cards", kind: kindRead,
-		desc: "按看板顺序列任务摘要。query 支持关键词、引号短语、减号取反、字段过滤和竖线多选。" +
-			"例如 col:进行中 is:free -is:waiting。字段见 skill。limit 默认 10，最大 30，truncated 表示有更多。",
+		desc: "搜索或筛选看板任务，按看板顺序返回摘要。query 支持引号短语、减号取反、字段过滤和竖线多选。" +
+			"例如 col:进行中 is:free -is:waiting。完整语法见 skill。",
 	}, a.listCards)
 	register(s, spec{
 		name: "get_card", kind: kindRead,
