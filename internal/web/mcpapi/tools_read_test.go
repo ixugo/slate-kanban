@@ -216,3 +216,36 @@ func TestGetCard(t *testing.T) {
 		t.Errorf("get_card 不应带 unread_count: %v", got["unread_count"])
 	}
 }
+
+func TestCompactBoardReads(t *testing.T) {
+	s := newStack(t)
+	b := s.seed(t, "SLATE")
+	sess := s.agent(t, "claude")
+	summaries := items(t, ok(t, sess, "list_boards", map[string]any{"summary": true}).Data, "boards")
+	if len(summaries) != 1 || summaries[0]["slug"] != "SLATE" {
+		t.Fatalf("摘要缺少能定位看板的字段: %v", summaries)
+	}
+	summary := summaries[0]
+	for _, field := range []string{"id", "name", "slug", "project_path"} {
+		if _, exists := summary[field]; !exists {
+			t.Errorf("摘要缺少 %s", field)
+		}
+	}
+	for _, field := range []string{"tags", "engineers", "created_at", "description"} {
+		if _, exists := summary[field]; exists {
+			t.Errorf("摘要不应返回 %s", field)
+		}
+	}
+
+	board := ok(t, sess, "get_board", map[string]any{"board_id": b.ID, "include_watch_prompt": false}).Data
+	if _, exists := board["watch_prompt"]; exists {
+		t.Errorf("普通详情不应返回 watch_prompt")
+	}
+	if len(items(t, board, "columns")) != 5 || len(items(t, board, "engineers")) != 3 {
+		t.Errorf("普通详情仍须包含列与名册: %v", board)
+	}
+	full := ok(t, sess, "get_board", map[string]any{"board_id": b.ID, "include_watch_prompt": true}).Data
+	if full["watch_prompt"] == nil || full["watch_prompt"] == "" {
+		t.Fatal("显式请求守候说明时应返回长提示词")
+	}
+}

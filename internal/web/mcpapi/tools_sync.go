@@ -31,20 +31,11 @@ type waitIn struct {
 func (a API) registerSyncTools(s *mcp.Server) {
 	register(s, spec{
 		name: "pull_updates", kind: kindWrite,
-		desc: "拉取你在这个看板上还没读到的更新（事件列表），不阻塞。读取进度记在服务端：只有下一次调用的 since 才会推进进度，" +
-			"所以结果丢了或没处理完，重新调用还能拿到同样的事件，你离线多久都不会漏。你自己的操作、任务排序和自动化流水已经被过滤掉。" +
-			"返回的 cursor 是这一批最后一条事件的序号，处理完之后把它作为下一次的 since。" +
-			"has_more 为 true 表示后面还有，立刻再拉一次。" +
-			"first 为 true 表示你第一次读这个看板，不补发历史，请用 list_cards 了解现状。" +
-			"truncated 为 true 表示你离线太久、中间的事件已被清理，请用 list_cards 重新了解现状。",
+		desc: "非阻塞拉取更新。只在处理完上一批后用 since 确认其 cursor；has_more 继续拉取。first 或 truncated 时用 list_cards 对账。",
 	}, a.pullUpdates)
 	register(s, spec{
 		name: "wait_for_updates", kind: kindWrite,
-		desc: "和 pull_updates 一样，但现在没有值得处理的事件时会阻塞等待，直到有更新、超时或服务关闭。" +
-			"用它代替定时轮询：挂着等，有事立刻醒。timeout_seconds 默认 30，最长 3600，长等待需要客户端和代理允许；" +
-			"超时不是错误，返回 timed_out 为 true 和空事件，带上返回的 cursor 作为 since 立刻再等一次即可。" +
-			"第一次读这个看板（first）和离线太久（truncated）会立刻返回，不等待。" +
-			"服务关闭时返回 ErrServiceUnavailable，稍后重试。",
+		desc: "沿用 pull_updates 的游标语义，阻塞到有更新或超时。timed_out 不是错误；服务关闭后重试。",
 	}, a.waitForUpdates)
 }
 

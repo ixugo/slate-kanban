@@ -32,7 +32,7 @@ const watchPromptFormat = `你是 Slate 看板「%s」的调度 agent，现在�
 // boardOut 是 get_board 的输出：看板详情，加上这个看板专用的守候提示词（看板名和并发名额已填好）。
 type boardOut struct {
 	*kanban.BoardDetail
-	WatchPrompt string `json:"watch_prompt"`
+	WatchPrompt string `json:"watch_prompt,omitempty"`
 }
 
 // watchPromptOf 生成某个看板的守候提示词：填上看板名，并按名册写明这个看板能同时跑几个研发和审查子 agent。
