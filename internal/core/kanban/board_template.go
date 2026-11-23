@@ -94,9 +94,9 @@ var templateColumns = map[string][]columnSpec{
 	TemplateEmpty: nil,
 }
 
-// normalizeLocale 把各种写法的语言标识归并到支持的五种之一：
+// NormalizeLocale 把各种写法的语言标识归并到支持的五种之一：
 // zh-CN、zh-TW、en、ja、ko。大小写和下划线都不敏感，不认识的返回 defaultLocale。
-func normalizeLocale(locale string) string {
+func NormalizeLocale(locale string) string {
 	l := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(locale), "_", "-"))
 	switch {
 	case l == "zh-tw" || l == "zh-hk" || l == "zh-mo" || strings.HasPrefix(l, "zh-hant"):
@@ -113,7 +113,7 @@ func normalizeLocale(locale string) string {
 
 // textsFor 返回某种界面语言的模板文案。
 func textsFor(locale string) localeTexts {
-	return templateTexts[normalizeLocale(locale)]
+	return templateTexts[NormalizeLocale(locale)]
 }
 
 // templateTexts 是五种界面语言的模板文案。

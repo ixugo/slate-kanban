@@ -5,7 +5,7 @@
  * 运行：在 web/ 目录执行 `node scripts/make-icons.mjs`
  * 依赖：本机已安装的 Google Chrome，以及开发依赖 playwright-core（随 @playwright/test 一起安装，
  *       只用来启动本机 Chrome 渲染图标，不下载浏览器，也不进入前端产物）
- * 输出：public/icons/*.png、public/apple-touch-icon.png
+ * 输出：public/icons/*.png、public/apple-touch-icon.png、../desktop/icon.png
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -53,7 +53,7 @@ async function rasterize(size, { padding = 0, bg = '#1d1d1f' } = {}) {
   })
   const page = await browser.newPage({ viewport: { width: size, height: size } })
   await page.setContent(html, { waitUntil: 'load' })
-  const png = await page.screenshot({ type: 'png', omitBackground: false })
+  const png = await page.screenshot({ type: 'png', omitBackground: bg === 'transparent' })
   await browser.close()
   return png
 }
@@ -79,6 +79,8 @@ async function main() {
       bg: '#1d1d1f',
     },
     { path: join(webRoot, 'public/apple-touch-icon.png'), size: 180, padding: 0, bg: '#1d1d1f' },
+    // macOS 图标在 1024px 透明画布内使用 824px 的圆角底板。
+    { path: join(webRoot, '../desktop/icon.png'), size: 1024, padding: 100, bg: 'transparent' },
   ]
 
   for (const job of jobs) {

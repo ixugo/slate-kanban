@@ -18,8 +18,8 @@ func TestNormalizeLocale(t *testing.T) {
 		"ja": "ja", "ja-JP": "ja", "ko": "ko", "ko_KR": "ko",
 	}
 	for in, want := range cases {
-		if got := normalizeLocale(in); got != want {
-			t.Errorf("normalizeLocale(%q) = %q，期望 %q", in, got, want)
+		if got := NormalizeLocale(in); got != want {
+			t.Errorf("NormalizeLocale(%q) = %q，期望 %q", in, got, want)
 		}
 	}
 }
