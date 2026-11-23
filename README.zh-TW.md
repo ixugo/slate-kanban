@@ -2,7 +2,7 @@
 
 **為 harness engineering 與 loop engineering 打造的看板。** 你來設計看板：欄、提示詞，以及決定並行數的工程師。程式開發 Agent 在上面跑迴圈：領取任務、在 git worktree 裡工作、交付審查、等待下一個。
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md)
 
 ## 安裝
 

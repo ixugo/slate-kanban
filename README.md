@@ -2,7 +2,7 @@
 
 **A kanban board for harness engineering and loop engineering.** You design the board: columns, prompts, and the engineers that set concurrency. Coding agents run the loop on it: claim a task, work in a git worktree, hand off for review, wait for the next one.
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md)
 
 ## Install
 

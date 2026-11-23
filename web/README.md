@@ -60,12 +60,12 @@ Vite 8、React 19、TypeScript 7、Tailwind 4、shadcn/ui（vendored 在 `src/co
 
 | 键 | 含义 |
 |----|------|
-| `slate.lang` | 界面语言（`zh-CN` / `zh-TW` / `en` / `ja` / `ko`） |
+| `slate.lang` | 界面语言（`zh-CN` / `zh-TW` / `en` / `ja`） |
 | `slate.theme` | `light` / `dark` / `system` |
 
 ## 测试
 
-`npm run test` 跑全量 vitest（jsdom）。`src/test/setup.ts` 会预加载五种语言包，并为每个用例安装假的 `EventSource`。
+`npm run test` 跑全量 vitest（jsdom）。`src/test/setup.ts` 会预加载四种语言包，并为每个用例安装假的 `EventSource`。
 
 浏览器端到端验收只有一套：`make -C web/.e2e-strict run`（用 e2e-strict skill 生成，不提交到 git，用本机 Chrome、临时数据库，不碰 `~/.slate-kanban`），说明见 `.cursor/scopes/web.e2e.md`。
 

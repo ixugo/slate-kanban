@@ -2,7 +2,7 @@
 
 **面向 harness engineering 与 loop engineering 的看板。** 你来设计看板：列、提示词，以及决定并发数的工程师。编码 Agent 在上面跑循环：领取任务、在 git worktree 里干活、交付审查、等待下一个。
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md)
 
 ## 安装
 

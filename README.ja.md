@@ -2,7 +2,7 @@
 
 **harness engineering と loop engineering のためのカンバンボード。** ボードを設計するのはあなたです：列、プロンプト、並行数を決めるエンジニア。コーディングエージェントはその上でループを回します：タスクを引き受け、git worktree で作業し、レビューに引き継ぎ、次のタスクを待ちます。
 
-[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md)
 
 ## インストール
 
