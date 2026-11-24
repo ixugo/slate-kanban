@@ -724,13 +724,20 @@ export const zhTW: Messages = {
   },
   agents: {
     title: '連接 Agent',
-    subtitle: '連接 MCP，讓程式 Agent 讀寫這個專案。',
+    subtitle: '選擇一種方式連接 Agent 即可。',
+    methods: {
+      title: '連接方式',
+      number: '方法 {{number}}',
+      prompt: '用提示連接',
+      manual: '手動連接',
+      desktop: '桌面自動派發',
+    },
     promptTitle: '一句話提示',
     oneLiner: '請閱讀 {{url}} 並依說明完成連接。',
     nameHint: '每個 Agent 在 MCP 網址使用各自的 ?name=，作為評論、接手與更新游標的名稱。',
     watch: {
       title: '怎麼持續監聽',
-      intro: '連接好之後，Agent 可以一直盯著看板、有任務就接。原理是：',
+      intro: '選用。完成 MCP 連接後，可以讓 Agent 持續監聽指定看板並接手新任務。',
       how: {
         connect: 'Agent 保持工作階段，反覆呼叫 MCP 工具 wait_for_updates。',
         push: '伺服器保持請求等待，看板有更新時立即回傳。設定長時間等待後，閒置時可等待最多 60 分鐘。不支援長時間等待的連線請使用 50 秒或更短。',
@@ -741,12 +748,12 @@ export const zhTW: Messages = {
       invalidProject: '請在網址的 project 參數中填寫現有看板的任務編號前綴，例如 ?project=SLATE。',
       loopTitle: '一行守候提示詞（貼給 Agent，完整內容由 MCP 的 get_board 回傳）',
       notes: {
-        resume: '關掉終端機或工作階段、電腦休眠後監聽會斷：用「恢復工作階段」的指令回來，再執行一次 loop，Agent 會找回自己持有的任務並重新掛上監聽。',
+        resume: '關閉終端機或工作階段、電腦休眠後，監聽會中斷。恢復工作階段後再執行一次 loop，Agent 會找回自己持有的任務。',
         perm: '無人值守時權限彈窗會卡住工作階段：先把 slate 的工具與常用操作設成「一律允許」；只有在隔離環境裡才考慮關閉權限檢查。',
       },
     },
     advanced: '手動安裝與移除',
-    advancedHint: '上面的一句話提示可以讓 Agent 為你安裝 Slate MCP。',
+    advancedHint: '選擇正在使用的工具，複製對應的 Slate MCP 連接指令。',
     uninstallMcp: '移除 Slate MCP',
     uninstallMcpCursor: '在 ~/.cursor/mcp.json 的 mcpServers 中移除 slate（工作檢視）或 slate-manager（管理檢視）。保留其他項目，儲存檔案並重新啟動 Cursor。',
     skillOptional:

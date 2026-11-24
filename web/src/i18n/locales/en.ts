@@ -726,14 +726,21 @@ export const en = {
   },
   agents: {
     title: 'Connect agents',
-    subtitle: 'Connect MCP so coding agents can read and update this project.',
+    subtitle: 'Choose one way to connect an agent.',
+    methods: {
+      title: 'Connection methods',
+      number: 'Method {{number}}',
+      prompt: 'Use a prompt',
+      manual: 'Set up manually',
+      desktop: 'Desktop dispatch',
+    },
     promptTitle: 'One-line prompt',
     oneLiner: 'Please read {{url}} and follow the setup steps.',
     nameHint:
       'Each agent must use its own ?name= in the MCP URL. That name is used for comments, claims, and update cursors.',
     watch: {
       title: 'How agents keep listening',
-      intro: 'Once connected, an agent can stay on the board and take tasks as they appear. It works like this:',
+      intro: 'Optional. After connecting through MCP, you can keep the agent listening for new tasks on a board.',
       how: {
         connect: 'The agent keeps its session open and calls the MCP tool wait_for_updates over and over.',
         push: 'The server holds each call open and answers as soon as the board changes. When idle, a configured connection can wait up to 60 minutes. Use 50 seconds or less on connections that do not support long waits.',
@@ -744,12 +751,12 @@ export const en = {
       invalidProject: 'Use an existing board’s task prefix in the project URL parameter, for example ?project=SLATE.',
       loopTitle: 'One-line watch prompt (paste it to the agent; the full prompt comes from the MCP get_board)',
       notes: {
-        resume: 'Listening drops when the terminal or session closes, or the computer sleeps: come back with the commands under “Resume the session” and run the loop again; the agent will find the tasks it still holds and attach again.',
+        resume: 'Listening stops when the terminal or session closes, or the computer sleeps. Resume the session and run the loop again. The agent will find the tasks it still holds.',
         perm: 'Permission prompts stall an unattended session: set slate\'s tools and common actions to “always allow” first, and only turn permission checks off inside an isolated environment.',
       },
     },
     advanced: 'Manual setup and removal',
-    advancedHint: 'The one-line prompt above lets the agent install Slate MCP for you.',
+    advancedHint: 'Choose your tool and copy its Slate MCP setup commands.',
     uninstallMcp: 'Remove Slate MCP',
     uninstallMcpCursor: 'In ~/.cursor/mcp.json, remove slate (worker) or slate-manager (manager) from mcpServers. Keep the other entries, save the file, and restart Cursor.',
     skillOptional:

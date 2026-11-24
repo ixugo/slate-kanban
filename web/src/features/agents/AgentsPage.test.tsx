@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
@@ -65,11 +65,69 @@ const boards = [
   makeBoard({ id: 2, name: sameName, slug: 'SLATE' }),
 ]
 
+const promptTab = 'Method 1 Use a prompt'
+const manualTab = 'Method 2 Set up manually'
+const desktopTab = 'Method 3 Desktop dispatch'
+
 describe('AgentsPage', () => {
+  it('在网页上用键盘切换两种接入方式，每次只显示一种', async () => {
+    const user = userEvent.setup()
+    installFakeApi({ 'GET /api/v1/connect': guide, 'GET /api/v1/boards': boards })
+    renderApp(<AgentsPage />, { route: '/agents' })
+
+    const prompt = await screen.findByRole('tab', { name: promptTab, selected: true })
+    expect(screen.queryByRole('tab', { name: desktopTab })).not.toBeInTheDocument()
+    expect(screen.getByRole('tabpanel', { name: promptTab })).toHaveTextContent('http://127.0.0.1:7070/install.md')
+    expect(screen.queryByRole('tabpanel', { name: manualTab })).not.toBeInTheDocument()
+
+    await user.tab()
+    expect(prompt).toHaveFocus()
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByRole('tab', { name: manualTab, selected: true })).toHaveFocus()
+    expect(screen.getByRole('tabpanel', { name: manualTab })).toHaveTextContent('cursor mcp --name=test')
+    expect(screen.queryByRole('tabpanel', { name: promptTab })).not.toBeInTheDocument()
+  })
+
+  it('桌面桥接就绪后显示派发，切换标签保留未保存的工程师配置', async () => {
+    const user = userEvent.setup()
+    const bridge = '/desktop-dispatch-fixture'
+    const api = installFakeApi({
+      'GET /api/v1/connect': guide,
+      'GET /api/v1/boards': boards,
+      [`GET ${bridge}`]: {
+        config: { board_id: 0, hosts: {}, enabled: false },
+        hosts: [{ id: 'codex', name: 'Codex', available: true }],
+        status: {},
+        engineers: [{ id: 12, name: 'Atlas', kind: 'dev' }],
+        template: true,
+      },
+    })
+    renderApp(<AgentsPage />, { route: '/agents' })
+    await screen.findByRole('tab', { name: promptTab })
+    expect(screen.queryByRole('tab', { name: desktopTab })).not.toBeInTheDocument()
+
+    act(() => {
+      vi.stubGlobal('slateDesktopDispatch', bridge)
+      window.dispatchEvent(new Event('slate-desktop-dispatch'))
+    })
+    await user.click(await screen.findByRole('tab', { name: desktopTab }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Select a development board' }), '1')
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Atlas' }), 'codex')
+    await user.click(screen.getByRole('tab', { name: promptTab }))
+    expect(screen.queryByRole('tabpanel', { name: desktopTab })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Atlas' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: desktopTab }))
+    expect(screen.getByRole('combobox', { name: 'Select a development board' })).toHaveValue('1')
+    expect(screen.getByRole('combobox', { name: 'Atlas' })).toHaveValue('codex')
+    expect(screen.getByRole('button', { name: 'Enable and save' })).toBeEnabled()
+    expect(api.count(`PUT ${bridge}`)).toBe(0)
+  })
+
   it('渲染片段并按 kind 显示标题', async () => {
     installFakeApi({ 'GET /api/v1/connect': guide })
     renderApp(<AgentsPage />, { route: '/agents' })
-    expect(await screen.findByText(en.agents.title)).toBeInTheDocument()
+    await userEvent.click(await screen.findByRole('tab', { name: manualTab }))
     expect(screen.getByText(en.agents.snippets.worker)).toBeInTheDocument()
     expect(screen.getByText('cursor mcp --name=test')).toBeInTheDocument()
     expect(screen.getByText(en.agents.snippets.skill)).toBeInTheDocument()
@@ -77,23 +135,26 @@ describe('AgentsPage', () => {
     expect(screen.queryByText('cursor mcp --role=manager')).not.toBeInTheDocument()
   })
 
-  it('先讲清持续监听的原理，skill 标明可选，命令片段收在手动安装折叠里', async () => {
+  it('持续监听是可选步骤，手动接入显示独立的配置命令', async () => {
     installFakeApi({ 'GET /api/v1/connect': guide })
     renderApp(<AgentsPage />, { route: '/agents' })
+    expect(await screen.findByText(en.agents.watch.intro)).toHaveTextContent('Optional.')
     expect(await screen.findByText(en.agents.watch.how.push)).toBeInTheDocument()
     expect(screen.getByText(en.agents.watch.how.connect)).toBeInTheDocument()
     expect(screen.getByText(en.agents.watch.how.loop)).toBeInTheDocument()
-    const fold = screen.getByText(en.agents.advanced).closest('details')
-    expect(fold).not.toHaveAttribute('open')
-    expect(fold).toContainElement(screen.getByText(en.agents.skillOptional))
-    expect(fold).toContainElement(screen.getByText('cursor mcp --name=test'))
+    expect(screen.queryByText('cursor mcp --name=test')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('tab', { name: manualTab }))
+    const panel = within(screen.getByRole('tabpanel', { name: manualTab }))
+    expect(panel.getByText(en.agents.skillOptional)).toBeVisible()
+    expect(panel.getByText('cursor mcp --name=test')).toBeVisible()
+    expect(panel.getByText(en.agents.watch.intro)).toBeVisible()
   })
 
   it('按宿主提供仅移除 Slate 工作和管理视图的说明及命令', async () => {
     const user = userEvent.setup()
     installFakeApi({ 'GET /api/v1/connect': guide })
     renderApp(<AgentsPage />, { route: '/agents' })
-    await user.click(await screen.findByText(en.agents.advanced))
+    await user.click(await screen.findByRole('tab', { name: manualTab }))
 
     const cursor = screen.getByText(en.agents.uninstallMcp)
     expect(cursor.closest('details')).not.toHaveAttribute('open')
@@ -119,15 +180,16 @@ describe('AgentsPage', () => {
   it('无 project 参数时，可以按 value 选择两个同名看板', async () => {
     installFakeApi({ 'GET /api/v1/connect': guide, 'GET /api/v1/boards': boards })
     renderApp(<AgentsPage />, { route: '/agents' })
-    const select = await screen.findByRole('combobox', { name: en.agents.watch.board })
+    const promptSelect = await screen.findByRole('combobox', { name: en.agents.watch.board })
     expect(screen.queryByRole('heading', { name: en.agents.watch.loopTitle })).not.toBeInTheDocument()
-    await userEvent.click(screen.getByText(en.agents.advanced))
-    expect(screen.getByText(`/loop 5m ${loopPrompt}`)).toBeInTheDocument()
-
-    await userEvent.selectOptions(select, "1")
+    await userEvent.selectOptions(promptSelect, '1')
     expect(screen.getByText(boundPrompt(1))).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('tab', { name: manualTab }))
+    const manualSelect = screen.getByRole('combobox', { name: en.agents.watch.board })
+    expect(manualSelect).toHaveValue('1')
     expect(screen.getByText(`/loop 5m ${boundPrompt(1)}`)).toBeInTheDocument()
-    await userEvent.selectOptions(select, "2")
+    await userEvent.selectOptions(manualSelect, '2')
     expect(screen.getByText(boundPrompt(2))).toBeInTheDocument()
     expect(screen.getByText(`/loop 5m ${boundPrompt(2)}`)).toBeInTheDocument()
     expect(screen.queryByText(boundPrompt(1))).not.toBeInTheDocument()
@@ -143,7 +205,8 @@ describe('AgentsPage', () => {
     expect(select).toBeDisabled()
     expect(select).toHaveValue(String(id))
 
-    await userEvent.click(screen.getByText(en.agents.advanced))
+    await userEvent.click(screen.getByRole('tab', { name: manualTab }))
+    expect(screen.getByRole('combobox', { name: en.agents.watch.board })).toBeDisabled()
     expect(screen.getByText(`/loop 5m ${prompt}`)).toBeInTheDocument()
     expect(screen.getByText('cursor mcp --name=test')).toBeInTheDocument()
     expect(screen.getByText(eventWatchCommand('cursor').replace('<看板编号>', String(id)))).toBeInTheDocument()
@@ -190,6 +253,6 @@ describe('AgentsPage', () => {
     const retry = await screen.findByRole('button', { name: en.common.retry })
     api.set('GET /api/v1/connect', guide)
     await userEvent.click(retry)
-    expect(await screen.findByText('cursor mcp --name=test')).toBeInTheDocument()
+    expect(await screen.findByRole('tab', { name: promptTab, selected: true })).toBeInTheDocument()
   })
 })

@@ -55,18 +55,7 @@ const copy = {
   },
 }
 
-export function DesktopDispatch({ boards }: { boards: Board[] | undefined }) {
-  const [bridge, setBridge] = useState(() => window.slateDesktopDispatch)
-  useEffect(() => {
-    const listen = () => setBridge(window.slateDesktopDispatch)
-    window.addEventListener('slate-desktop-dispatch', listen)
-    listen()
-    return () => window.removeEventListener('slate-desktop-dispatch', listen)
-  }, [])
-  return bridge ? <DispatchPanel bridge={bridge} boards={boards ?? []} /> : null
-}
-
-function DispatchPanel({ bridge, boards }: { bridge: string; boards: Board[] }) {
+export function DesktopDispatch({ bridge, boards = [] }: { bridge: string; boards: Board[] | undefined }) {
   const { i18n } = useTranslation()
   const language = i18n.language as keyof typeof copy
   const label = copy[language] ?? copy.en

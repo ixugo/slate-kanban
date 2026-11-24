@@ -723,13 +723,20 @@ export const zhCN: Messages = {
   },
   agents: {
     title: '接入 Agent',
-    subtitle: '接入 MCP，让编程 agent 读写这个项目。',
+    subtitle: '选择一种方式接入 Agent 即可。',
+    methods: {
+      title: '接入方式',
+      number: '方法 {{number}}',
+      prompt: '提示词接入',
+      manual: '手动接入',
+      desktop: '桌面自动派发',
+    },
     promptTitle: '一句话提示词',
     oneLiner: '请阅读 {{url}} 并按其中说明完成接入。',
     nameHint: '每个 agent 在 MCP 网址里用自己的 ?name=，名字用于评论、领取和各自的更新游标。',
     watch: {
       title: '怎么持续监听',
-      intro: '接好之后，agent 可以一直盯着看板、有任务就接。原理是：',
+      intro: '可选。完成 MCP 接入后，可以让 Agent 持续监听指定看板并领取新任务。',
       how: {
         connect: 'agent 保持会话，反复调用 MCP 工具 wait_for_updates。',
         push: '服务端保持请求等待，看板有更新时立即返回。配置长等待后，空闲时可等待最多 60 分钟。不支持长等待的链路请使用 50 秒或更短。',
@@ -740,12 +747,12 @@ export const zhCN: Messages = {
       invalidProject: '请在 URL 的 project 参数中填写已有看板的任务编号前缀，例如 ?project=SLATE。',
       loopTitle: '一行守候提示词（贴给 agent，完整内容由 MCP 的 get_board 返回）',
       notes: {
-        resume: '关掉终端或会话、电脑休眠后监听会断：用「恢复会话」里的命令回来，再执行一次 loop，agent 会找回自己持有的任务并重新挂上监听。',
+        resume: '关闭终端或会话、电脑休眠后，监听会断开。恢复会话后再执行一次 loop，Agent 会找回自己持有的任务。',
         perm: '无人值守时权限弹窗会卡住会话：先把 slate 的工具和常用操作设成“总是允许”；只有在隔离环境里才考虑关闭权限检查。',
       },
     },
     advanced: '手动安装与卸载',
-    advancedHint: '上面的一句话提示词可以让 agent 为你安装 Slate MCP。',
+    advancedHint: '选择正在使用的工具，复制对应的 Slate MCP 接入命令。',
     uninstallMcp: '卸载 Slate MCP',
     uninstallMcpCursor: '在 ~/.cursor/mcp.json 的 mcpServers 中移除 slate（工作视图）或 slate-manager（管理视图）。保留其他条目，保存文件并重启 Cursor。',
     skillOptional:
