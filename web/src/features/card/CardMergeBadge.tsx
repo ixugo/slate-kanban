@@ -20,7 +20,7 @@ export function CardMergeBadge({ card, compact = false }: CardMergeBadgeProps) {
       className={cn(
         'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 font-sans font-medium',
         compact ? 'py-0.5 text-[0.6875rem]' : 'h-8 px-2.5 text-sm',
-        merged ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground',
+        merged ? 'bg-accent text-accent-foreground' : 'text-muted-foreground',
       )}
       title={merged ? `${label} · ${hashes.join(', ')}` : undefined}
     >
