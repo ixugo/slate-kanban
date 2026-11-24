@@ -29,6 +29,8 @@ type desktopText struct {
 	dispatchOutputLanguage, dispatchProjectPath                 string
 	dispatchPriorUnconfirmed, dispatchUnconfirmed               string
 	dispatchRetryInstruction, dispatchCommit, dispatchTaskItems string
+
+	dispatchMerged, dispatchMergeBlocked, dispatchMergeConflict string
 }
 
 var desktopTexts = map[string]desktopText{
@@ -52,6 +54,10 @@ var desktopTexts = map[string]desktopText{
 		dispatchUnconfirmed:      "Desktop dispatch could not confirm the formal execution result.",
 		dispatchRetryInstruction: "Confirm the prior host has stopped, then inspect the task worktree and results. To authorize another dispatch, post this exact text as a new human comment:",
 		dispatchCommit:           "Commit: `%s`.", dispatchTaskItems: "Task items",
+
+		dispatchMerged:        "Slate desktop integrated the reviewed commits into the project's current branch.",
+		dispatchMergeBlocked:  "Slate desktop could not integrate the approved branch:\n\n```\n%s\n```\n\nThe review result is kept and the card stays in Review. Fix the cause, then add a comment on the card to try the integration again.",
+		dispatchMergeConflict: "The approved branch conflicts with the project's current branch `%s`. The card returns to In Progress. Rebase the task branch onto commit `%s`, resolve the conflicts, run the checks and commit. The result is reviewed again before it is integrated.",
 	},
 	"zh-CN": {
 		window: "窗口", minimise: "最小化",
@@ -73,6 +79,10 @@ var desktopTexts = map[string]desktopText{
 		dispatchUnconfirmed:      "桌面派发未能确认正式执行结果。",
 		dispatchRetryInstruction: "请确认之前的宿主已停止，然后检查任务工作树和执行结果。要授权重新派发，请复制下方完整文字，作为一条新的人工评论发送：",
 		dispatchCommit:           "提交：`%s`。", dispatchTaskItems: "任务项",
+
+		dispatchMerged:        "Slate 桌面端已把审查通过的提交合入项目当前分支。",
+		dispatchMergeBlocked:  "Slate 桌面端无法合并已审查通过的分支：\n\n```\n%s\n```\n\n审查结论已保留，任务停在审查列。处理好原因后，在卡片下留一条评论即可重试合并。",
+		dispatchMergeConflict: "已审查通过的分支与项目当前分支 `%s` 有冲突，任务退回「进行中」。请把任务分支变基到提交 `%s`，解决冲突、运行检查并提交。结果会重新审查，再合并。",
 	},
 	"zh-TW": {
 		window: "視窗", minimise: "縮到最小",
@@ -94,6 +104,10 @@ var desktopTexts = map[string]desktopText{
 		dispatchUnconfirmed:      "桌面派發未能確認正式執行結果。",
 		dispatchRetryInstruction: "請確認之前的宿主已停止，然後檢查任務工作樹和執行結果。若要授權重新派發，請複製下方完整文字，作為一則新的人工留言送出：",
 		dispatchCommit:           "提交：`%s`。", dispatchTaskItems: "任務項",
+
+		dispatchMerged:        "Slate 桌面端已將審查通過的提交合入專案目前分支。",
+		dispatchMergeBlocked:  "Slate 桌面端無法合併已審查通過的分支：\n\n```\n%s\n```\n\n審查結論已保留，任務停在審查列。處理好原因後，在卡片下留一則評論即可重試合併。",
+		dispatchMergeConflict: "已審查通過的分支與專案目前分支 `%s` 有衝突，任務退回「進行中」。請把任務分支變基到提交 `%s`，解決衝突、執行檢查並提交。結果會重新審查，再合併。",
 	},
 	"ja": {
 		window: "ウインドウ", minimise: "しまう",
@@ -115,6 +129,10 @@ var desktopTexts = map[string]desktopText{
 		dispatchUnconfirmed:      "デスクトップで正式な実行結果を確認できませんでした。",
 		dispatchRetryInstruction: "以前のホストが停止したことを確認してから、タスクの作業ツリーと実行結果を確認してください。再割り当てを許可するには、次の文字列をそのまま新しい手動コメントとして投稿してください：",
 		dispatchCommit:           "コミット：`%s`。", dispatchTaskItems: "タスク項目",
+
+		dispatchMerged:        "Slate デスクトップが、レビュー済みのコミットをプロジェクトの現在のブランチに統合しました。",
+		dispatchMergeBlocked:  "Slate デスクトップは承認済みのブランチを統合できませんでした：\n\n```\n%s\n```\n\nレビュー結果は保持され、カードはレビューに残ります。原因を解消してから、カードにコメントを追加すると統合を再試行します。",
+		dispatchMergeConflict: "承認済みのブランチがプロジェクトの現在のブランチ `%s` と競合しています。カードは進行中に戻ります。タスクブランチをコミット `%s` にリベースし、競合を解消してチェックを実行し、コミットしてください。結果は再度レビューされてから統合されます。",
 	},
 }
 

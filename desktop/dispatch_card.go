@@ -91,6 +91,12 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		_, err = d.core.AddComment(ctx, job.actor(), job.id, text.dispatchProjectPath)
 		return errors.Join(err, errors.New("missing local project path"))
 	}
+	// 审查已经通过、只是合并没成功的任务，直接重试合并，不再调用模型重新审查。
+	if job.review {
+		if resumed, err := d.resumeApproved(ctx, job, card, text); resumed {
+			return err
+		}
+	}
 	// 关联上下文准备好以前，不移列也不创建工作树。内容变更或租约丢失时直接重排。
 	related, retrievalErr := d.retrieveHistory(ctx, job, card)
 	card, err = d.checkDispatchContext(ctx, job, card)
@@ -197,8 +203,8 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		}
 		// The reviewer may build and test in its disposable checkout, but must
 		// leave it exactly as it found it. A passed review is the board's only
-		// path to the done column, so the desktop completes the card after
-		// leaving the evidence. Merging the branch remains a human decision.
+		// path to the done column, so the desktop leaves the evidence, integrates
+		// the reviewed commits and only then completes the card.
 		if err := checkoutUnchanged(ctx, workDir, before); err != nil {
 			return d.recordDispatchFailure(ctx, job, errUnconfirmedRun, text)
 		}
@@ -209,11 +215,10 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 			_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.dev, Top: true})
 			return err
 		}
-		if _, err := d.core.AddCommentWithExt(ctx, job.actor(), job.id, final.Summary, markerExt(completedReview)); err != nil {
-			return err
-		}
 		if final.Outcome == "passed" {
-			_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.done})
+			return d.completeReviewPassed(ctx, job, latest, final.Summary, before, text)
+		}
+		if _, err := d.core.AddCommentWithExt(ctx, job.actor(), job.id, final.Summary, markerExt(completedReview)); err != nil {
 			return err
 		}
 		// waiting：缺的验证要人来补，和规划阶段的 clarify 一样交给收件箱。
@@ -230,7 +235,11 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 			return d.recordDispatchFailure(ctx, job, err, text)
 		}
 	} else {
-		head, err := dispatchCommit(ctx, workDir, branch, before, dispatchCommitMessage(latest.Key, latest.Title))
+		ancestor := before
+		if tip := rebaseTarget(latest); tip != "" {
+			ancestor = tip
+		}
+		head, err := dispatchCommitAfter(ctx, workDir, branch, before, ancestor, dispatchCommitMessage(latest.Key, latest.Title))
 		if err != nil {
 			return d.recordDispatchFailure(ctx, job, err, text)
 		}
@@ -621,6 +630,13 @@ func verifyTaskWorktree(ctx context.Context, project, dir, branch string) error 
 // 这样结果不依赖宿主能否执行 git commit。没有任何新提交也没有改动时仍视为未交付；
 // 宿主明确声明任务不需要改仓库（reported）时不走这里，见 dispatchUnchanged。
 func dispatchCommit(ctx context.Context, dir, branch, before, message string) (string, error) {
+	return dispatchCommitAfter(ctx, dir, branch, before, before, message)
+}
+
+// dispatchCommitAfter 在 dispatchCommit 的基础上允许指定"必须是新提交祖先"的提交 ancestor。
+// 普通研发就是任务开始时的提交；合并冲突后研发会把分支变基到项目分支，
+// 旧提交不再是祖先，此时改为要求项目分支当时的提交是祖先。
+func dispatchCommitAfter(ctx context.Context, dir, branch, before, ancestor, message string) (string, error) {
 	actual, err := gitOutput(ctx, dir, "symbolic-ref", "--short", "HEAD")
 	if err != nil || actual != branch {
 		return "", errors.New("development changed the worktree branch")
@@ -632,7 +648,7 @@ func dispatchCommit(ctx context.Context, dir, branch, before, message string) (s
 	}
 	head, err := gitOutput(ctx, dir, "rev-parse", "HEAD")
 	status, statusErr := gitOutput(ctx, dir, "status", "--porcelain")
-	_, historyErr := gitOutput(ctx, dir, "merge-base", "--is-ancestor", before, head)
+	_, historyErr := gitOutput(ctx, dir, "merge-base", "--is-ancestor", ancestor, head)
 	if err != nil || statusErr != nil || historyErr != nil || len(head) < 6 || head == before || status != "" {
 		return "", errors.New("no confirmed clean development commit")
 	}

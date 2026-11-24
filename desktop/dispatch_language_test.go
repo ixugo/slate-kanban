@@ -77,7 +77,7 @@ func TestDesktopDispatchUsesWebViewLanguage(t *testing.T) {
 					return dispatchReply{Outcome: "plan", Summary: tt.plan}, nil
 				}
 				if calls == 2 {
-					if err := os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("implementation"), 0o600); err != nil {
+					if err := os.WriteFile(filepath.Join(dir, "feature.txt"), []byte("implementation "+tt.code), 0o600); err != nil {
 						return dispatchReply{}, err
 					}
 					return dispatchReply{Outcome: "ready", Summary: tt.summary, Items: items}, nil
@@ -111,8 +111,13 @@ func TestDesktopDispatchUsesWebViewLanguage(t *testing.T) {
 				t.Fatal(err)
 			}
 			got, err = core.GetCardDetail(ctx, card.ID)
-			if err != nil || got.ColumnID != flow.done || lastDesktopComment(got) != tt.review || calls != len(outcomes) {
+			if err != nil || got.ColumnID != flow.done || calls != len(outcomes) {
 				t.Fatalf("unexpected review handoff: calls=%d err=%v", calls, err)
+			}
+			// 审查通过后桌面端先留审查证据（末尾带审批行），合并完成后再留一条合并说明，两条都跟随界面语言（合并提交列表由看板核心追加）。
+			if len(got.Comments) < 2 || !strings.HasPrefix(got.Comments[len(got.Comments)-2].Body, tt.review+"\n\n"+approvalLinePrefix) ||
+				!strings.HasPrefix(lastDesktopComment(got), desktopTexts[tt.code].dispatchMerged+"\n\n") || len(got.MergedCommits) != 1 {
+				t.Fatalf("review evidence or merge note is not localized: %q", lastDesktopComment(got))
 			}
 		})
 	}

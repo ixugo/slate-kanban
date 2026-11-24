@@ -83,7 +83,7 @@ func desktopDispatchRecovery(card *kanban.CardDetail, review bool) dispatchRecov
 			// Older versions used one marker for both start and failure.
 			// Issue a new recovery notice after the lease ends in either case.
 			return dispatchNeedsRecoveryNotice
-		case completedReview:
+		case completedReview, reviewApproved:
 			if review {
 				return dispatchAvailable
 			}

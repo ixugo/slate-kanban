@@ -187,9 +187,13 @@ func (d *dispatchRun) run(ctx context.Context, snapshot *kanban.Snapshot) {
 	}
 }
 
+// versionAfterRun 在一次派发结束后记下任务当前版本，调度器在版本变化前不再重复派发它，
+// 避免失败或退回的任务被不停地重新领取。研发交接到审查列的任务例外，要让审查马上看到。
 func (d *dispatchRun) versionAfterRun(ctx context.Context, job dispatchJob, blocked map[int64]int64) {
 	card, err := d.core.GetCardDetail(ctx, job.id)
-	if err == nil && (card.ColumnID == job.flow.dev || card.ColumnID == job.flow.todo || card.ColumnID == job.flow.review) {
+	// 合并冲突退回研发的任务要让研发立刻接手，不能按"审查退回"等人来动它。
+	conflictReturned := err == nil && job.review && card.ColumnID == job.flow.dev && rebaseTarget(card) != ""
+	if err == nil && !conflictReturned && (card.ColumnID == job.flow.dev || card.ColumnID == job.flow.todo || card.ColumnID == job.flow.review) {
 		// Development handoff must be visible to a review worker immediately.
 		if job.review || card.ColumnID != job.flow.review {
 			blocked[job.id] = card.Version
