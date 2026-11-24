@@ -37,6 +37,10 @@ export function useSettingsMutations(boardId: number) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.boards })
   }
 
+  // 只取消整板快照的在途请求，免得它回来盖掉乐观结果；
+  // 任务详情的活动流等查询也挂在看板键下面，设置页改动时它们可能正在加载，不能被连带中止
+  const cancelSnapshot = () => queryClient.cancelQueries({ queryKey: boardKey, exact: true })
+
   const patchSnapshot = (patch: (s: Snapshot) => Snapshot) => {
     const prev = queryClient.getQueryData<Snapshot>(boardKey)
     if (prev) queryClient.setQueryData(boardKey, patch(prev))
@@ -47,7 +51,7 @@ export function useSettingsMutations(boardId: number) {
     mutationFn: (input: Parameters<typeof updateBoard>[1]) => updateBoard(boardId, input),
     // 名称和说明先改快照；工程师和标签的新增要服务端分配编号，不预测
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: boardKey })
+      await cancelSnapshot()
       const previous = patchSnapshot((s) => ({
         ...s,
         ...(input.name !== undefined ? { name: input.name } : {}),
@@ -79,7 +83,7 @@ export function useSettingsMutations(boardId: number) {
     mutationFn: ({ columnId, input }: { columnId: number; input: UpdateColumnInput }) =>
       updateColumn(boardId, columnId, input),
     onMutate: async ({ columnId, input }) => {
-      await queryClient.cancelQueries({ queryKey: boardKey })
+      await cancelSnapshot()
       const previous = patchSnapshot((s) => ({
         ...s,
         columns: s.columns.map((c) => (c.id === columnId ? { ...c, ...input } : c)),
@@ -96,7 +100,7 @@ export function useSettingsMutations(boardId: number) {
   const reorderColumnsM = useMutation({
     mutationFn: (ids: number[]) => reorderColumns(boardId, ids),
     onMutate: async (ids) => {
-      await queryClient.cancelQueries({ queryKey: boardKey })
+      await cancelSnapshot()
       const previous = patchSnapshot((s) => ({
         ...s,
         columns: ids
@@ -129,7 +133,7 @@ export function useSettingsMutations(boardId: number) {
   const updateRuleM = useMutation({
     mutationFn: ({ ruleId, input }: { ruleId: number; input: UpdateRuleInput }) => updateRule(ruleId, input),
     onMutate: async ({ ruleId, input }) => {
-      await queryClient.cancelQueries({ queryKey: boardKey })
+      await cancelSnapshot()
       const previous = patchSnapshot((s) => ({
         ...s,
         rules: s.rules.map((r) =>
@@ -155,7 +159,7 @@ export function useSettingsMutations(boardId: number) {
   const deleteRuleM = useMutation({
     mutationFn: (ruleId: number) => deleteRule(ruleId),
     onMutate: async (ruleId) => {
-      await queryClient.cancelQueries({ queryKey: boardKey })
+      await cancelSnapshot()
       const previous = patchSnapshot((s) => ({ ...s, rules: s.rules.filter((r) => r.id !== ruleId) }))
       return { previous }
     },
@@ -169,7 +173,7 @@ export function useSettingsMutations(boardId: number) {
   const toggleRuleM = useMutation({
     mutationFn: ({ ruleId, enabled }: { ruleId: number; enabled: boolean }) => updateRule(ruleId, { enabled }),
     onMutate: async ({ ruleId, enabled }) => {
-      await queryClient.cancelQueries({ queryKey: boardKey })
+      await cancelSnapshot()
       const previous = patchSnapshot((s) => ({
         ...s,
         rules: s.rules.map((r) => (r.id === ruleId ? { ...r, enabled } : r)),

@@ -22,9 +22,10 @@ export function useMoveCard(boardId: number) {
   return useMutation({
     mutationFn: ({ cardId, plan }: MoveVariables) =>
       moveCard(cardId, { column_id: plan.columnId, before_id: plan.beforeId, after_id: plan.afterId }),
-    // 先取消正在飞的快照请求，免得它回来把乐观结果盖掉；再记下旧快照，失败时恢复
+    // 先取消正在飞的快照请求，免得它回来把乐观结果盖掉；再记下旧快照，失败时恢复。
+    // 只取消整板快照：任务详情的活动流等查询也挂在看板键下面，在详情里换列时它们可能正在加载，不能被连带中止
     onMutate: async ({ cardId, plan }) => {
-      await queryClient.cancelQueries({ queryKey: key })
+      await queryClient.cancelQueries({ queryKey: key, exact: true })
       const previous = queryClient.getQueryData<Snapshot>(key)
       if (previous) queryClient.setQueryData(key, applyMoveToSnapshot(previous, cardId, plan))
       return { previous }

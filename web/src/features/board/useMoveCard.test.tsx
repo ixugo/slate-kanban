@@ -7,6 +7,7 @@ import type { Snapshot } from '@/lib/api/types'
 import { createQueryClient } from '@/lib/queryClient'
 import { queryKeys } from '@/lib/queryKeys'
 import { makeCard, makeSnapshot } from '@/test/factories'
+import { startInflightQuery } from '@/test/inflightQuery'
 import { useMoveCard } from './useMoveCard'
 
 vi.mock('@/lib/api/endpoints', () => ({ moveCard: vi.fn() }))
@@ -78,7 +79,22 @@ describe('useMoveCard', () => {
     moveApi.mockResolvedValue(makeCard({ id: 1 }))
     const { result, cancel } = setup()
     await act(async () => result.current.mutate({ cardId: 1, plan: { columnId: 2 } }))
-    expect(cancel).toHaveBeenCalledWith({ queryKey: queryKeys.board(1) })
+    expect(cancel).toHaveBeenCalledWith({ queryKey: queryKeys.board(1), exact: true })
+  })
+
+  // 任务详情里换列也走这个钩子，此时详情的活动流可能正在加载，它和整板快照挂在同一个看板键下面；
+  // 取消只该针对整板快照，否则时间线会缺事件，而且没有任何东西会重新读取。
+  it('只中止整板快照请求，不会连带中止同一看板键下正在加载的任务活动流', async () => {
+    moveApi.mockResolvedValue(makeCard({ id: 1 }))
+    const { result, queryClient } = setup()
+    const snapshotRequest = startInflightQuery(queryClient, queryKeys.board(1))
+    const activityRequest = startInflightQuery(queryClient, queryKeys.cardActivity(1, 9))
+
+    await act(async () => result.current.mutate({ cardId: 1, plan: { columnId: 2 } }))
+
+    expect(snapshotRequest.aborted()).toBe(true)
+    expect(activityRequest.aborted()).toBe(false)
+    await expect(activityRequest.result).resolves.toEqual({ ok: true })
   })
 
   it('缓存里还没有快照时不会崩溃，照常发请求', async () => {
