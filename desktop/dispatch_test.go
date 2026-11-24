@@ -333,6 +333,141 @@ exit 1
 	}
 }
 
+func TestDesktopDispatchFindsVersionedHomebrewNode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("executable fixtures are POSIX shell scripts")
+	}
+	core, human, board, flow := newDispatchTestBoard(t)
+	card, err := core.CreateCard(t.Context(), human, board.ID, kanban.CreateCardInput{Title: "Implement", ColumnID: flow.dev})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := t.TempDir()
+	bin := filepath.Join(prefix, "bin")
+	nodeBin := filepath.Join(prefix, "opt", "node@22", "bin")
+	for _, dir := range []string{bin, nodeBin} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	launcher := `#!/bin/sh
+case ":$PATH:" in
+  *":$SLATE_FIXTURE_NODE_DIR:"*) exec "$SLATE_FIXTURE_NODE_DIR/node" "$@" ;;
+esac
+exit 127
+`
+	launcherRuntime := `#!/bin/sh
+case "$*" in
+  *read-only*) reply='{"outcome":"plan","summary":"Setup plan","items":""}' ;;
+  *)
+    printf '%s' 'dispatch integration' > feature.txt
+    git add feature.txt && git -c user.name=Test -c user.email=test@example.local commit -m Implement || exit 1
+    reply='{"outcome":"ready","summary":"Setup complete","items":"- [x] Implementation"}' ;;
+esac
+while [ "$#" -gt 1 ]; do
+  if [ "$1" = '--output-last-message' ]; then
+    printf '%s' "$reply" > "$2"
+    exit 0
+  fi
+  shift
+done
+exit 1
+`
+	for file, script := range map[string]string{filepath.Join(bin, "codex"): launcher, filepath.Join(nodeBin, "node"): launcherRuntime} {
+		if err := os.WriteFile(file, []byte(script), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", strings.Join([]string{bin, "/usr/bin", "/bin"}, string(os.PathListSeparator)))
+	t.Setenv("SLATE_FIXTURE_NODE_DIR", nodeBin)
+	run := dispatchRun{core: core, host: localDispatchHost, actor: desktopDispatchActor()}
+	job := dispatchJob{id: card.ID, engineer: *board.Engineers[0], host: "codex", flow: flow, project: board.ProjectPath}
+	if err := run.handle(t.Context(), job); err != nil {
+		t.Fatalf("restricted PATH dispatch failed: %v", err)
+	}
+	got, err := core.GetCardDetail(t.Context(), card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ColumnID != flow.review || got.ClaimActive || got.Branch == "" || !strings.Contains(got.Description, "- [x] Implementation") {
+		t.Fatalf("expected an unclaimed task with a branch and task items in review: %+v", got.Card)
+	}
+	if commit, err := gitOutput(t.Context(), board.ProjectPath, "show", got.Branch+":feature.txt"); err != nil || commit != "dispatch integration" {
+		t.Fatalf("branch content %q, error %v", commit, err)
+	}
+}
+
+func TestDesktopDispatchExplainsPreparationFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("executable fixtures are POSIX shell scripts")
+	}
+	for _, tt := range []struct {
+		name, script, want string
+		worktree           bool
+	}{
+		{
+			name: "missing-node", want: "找不到 Node.js",
+			script: `printf '%s\n' 'env: node: No such file or directory' 'private provider diagnostic' >&2; exit 127`,
+		},
+		{
+			name: "invalid-plan", want: "未生成可用的任务方案",
+			script: `printf '%s\n' 'private provider diagnostic' >&2; exit 1`,
+		},
+		{
+			name: "worktree", want: "无法准备任务工作树", worktree: true,
+			script: `while [ "$#" -gt 1 ]; do
+  if [ "$1" = '--output-last-message' ]; then
+    printf '%s' '{"outcome":"plan","summary":"Plan accepted","items":""}' > "$2"
+    exit 0
+  fi
+  shift
+done
+exit 1`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			core, human, board, flow := newDispatchTestBoard(t)
+			card, err := core.CreateCard(t.Context(), human, board.ID, kanban.CreateCardInput{Title: "Implement", ColumnID: flow.dev})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.worktree {
+				dir, err := taskWorktreePath(board.ProjectPath, card.Key)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(dir, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			bin := t.TempDir()
+			t.Setenv("PATH", strings.Join([]string{bin, "/usr/bin", "/bin"}, string(os.PathListSeparator)))
+			if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\n"+tt.script+"\n"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			run := dispatchRun{core: core, host: localDispatchHost, actor: desktopDispatchActor(), text: func() desktopText { return desktopTexts["zh-CN"] }}
+			job := dispatchJob{id: card.ID, engineer: *board.Engineers[0], host: "codex", flow: flow, project: board.ProjectPath}
+			if err := run.handle(t.Context(), job); err == nil {
+				t.Fatal("expected preparation failure")
+			}
+			got, err := core.GetCardDetail(t.Context(), card.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.ClaimActive || got.ColumnID != flow.dev || got.Branch != "" {
+				t.Fatalf("expected unclaimed, unchanged development task: %+v", got.Card)
+			}
+			if len(got.Comments) == 0 {
+				t.Fatal("expected a preparation failure comment")
+			}
+			comment := got.Comments[len(got.Comments)-1].Body
+			if !strings.Contains(comment, tt.want) || strings.Contains(comment, "private provider diagnostic") {
+				t.Fatalf("unexpected failure comment: %q", comment)
+			}
+		})
+	}
+}
+
 func TestDesktopDispatchResumesOnlySameTaskAndStage(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("executable fixtures are POSIX shell scripts")
@@ -759,5 +894,52 @@ func verifyProviderRefusal(t *testing.T, dirty bool) {
 	got, err := core.GetCardDetail(t.Context(), card.ID)
 	if err != nil || got.ClaimActive || desktopDispatchRecovery(got, false) != wantState {
 		t.Fatalf("incorrect state after provider refusal: %v", err)
+	}
+}
+
+// 保存被拒绝时，桥接接口要返回稳定的原因标识，前端据此显示具体提示。
+func TestDesktopDispatchBridgeReportsRejectionCode(t *testing.T) {
+	ctx := t.Context()
+	core, human, board, _ := newDispatchTestBoard(t)
+	noPath, err := core.CreateBoard(ctx, human, kanban.CreateBoardInput{Name: "No path", Slug: "NOPATH"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	simple, err := core.CreateBoard(ctx, human, kanban.CreateBoardInput{Name: "Simple", Slug: "SIMPLE", Template: "simple", ProjectPath: board.ProjectPath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := newDesktopDispatch(core, t.TempDir(), nil)
+	t.Cleanup(d.close)
+	handler := d.wrap("http://localhost:7070", http.NotFoundHandler())
+	put := func(cfg dispatchConfig) (int, map[string]string) {
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodPut, d.path, strings.NewReader(string(raw)))
+		req.Header.Set("Origin", "http://localhost:7070")
+		req.Header.Set("X-Slate-Desktop", "dispatch")
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		var body map[string]string
+		_ = json.Unmarshal(res.Body.Bytes(), &body)
+		return res.Code, body
+	}
+	engineer := func(b *kanban.BoardDetail) int64 { return b.Engineers[0].ID }
+	for name, test := range map[string]struct {
+		cfg  dispatchConfig
+		code string
+	}{
+		"missing board":   {dispatchConfig{Enabled: true}, "board"},
+		"no project path": {dispatchConfig{BoardID: noPath.ID, Hosts: map[int64]string{engineer(noPath): "codex"}, Enabled: true}, "project"},
+		"no host":         {dispatchConfig{BoardID: board.ID, Hosts: map[int64]string{}, Enabled: true}, "host"},
+		"unknown host":    {dispatchConfig{BoardID: board.ID, Hosts: map[int64]string{engineer(board): "missing-host"}, Enabled: true}, "host"},
+		"other engineer":  {dispatchConfig{BoardID: board.ID, Hosts: map[int64]string{engineer(noPath): "codex"}, Enabled: true}, "engineer"},
+		"not a template":  {dispatchConfig{BoardID: simple.ID, Hosts: map[int64]string{engineer(simple): "codex"}, Enabled: true}, "template"},
+	} {
+		if code, body := put(test.cfg); code != http.StatusBadRequest || body["code"] != test.code {
+			t.Errorf("%s: status %d body %v, want code %q", name, code, body, test.code)
+		}
 	}
 }

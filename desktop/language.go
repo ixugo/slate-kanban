@@ -18,12 +18,13 @@ import (
 )
 
 type desktopText struct {
-	window, minimise                              string
-	navigate, show, boards, agents, quit          string
-	empty, unavailable, startup, inUse, confirm   string
-	listenUnavailable                             string
-	edit, undo, redo, cut, copy, paste, selectAll string
-	about, settings, hide, hideOthers, showAll    string
+	window, minimise                                              string
+	navigate, show, boards, agents, quit                          string
+	empty, unavailable, startup, inUse, confirm                   string
+	listenUnavailable                                             string
+	edit, undo, redo, cut, copy, paste, selectAll                 string
+	about, settings, hide, hideOthers, showAll                    string
+	dispatchNode, dispatchPlan, dispatchSession, dispatchWorktree string
 }
 
 var desktopTexts = map[string]desktopText{
@@ -35,6 +36,10 @@ var desktopTexts = map[string]desktopText{
 		listenUnavailable: "Slate could not listen on %s. Check the listening address and port in config.toml. If the port is in use, quit the program using it before reopening Slate.",
 		edit:              "Edit", undo: "Undo", redo: "Redo", cut: "Cut", copy: "Copy", paste: "Paste", selectAll: "Select All",
 		about: "About Slate", settings: "Settings…", hide: "Hide Slate", hideOthers: "Hide Others", showAll: "Show All",
+		dispatchNode:     "The desktop host launcher could not find Node.js. Install Node.js or make it available to Slate, then retry dispatch.",
+		dispatchPlan:     "The desktop host did not produce a usable task plan. Check that the selected host CLI starts and that its account is configured, then retry dispatch.",
+		dispatchSession:  "Slate could not prepare the local task session. Check write access to the Slate configuration directory, then retry dispatch.",
+		dispatchWorktree: "Slate could not prepare the task worktree. Check the board's Git project path, task branch and worktree changes before retrying dispatch.",
 	},
 	"zh-CN": {
 		window: "窗口", minimise: "最小化",
@@ -44,6 +49,10 @@ var desktopTexts = map[string]desktopText{
 		listenUnavailable: "Slate 无法监听 %s。请检查 config.toml 中的监听地址和端口。如果端口已被占用，请退出占用该端口的程序，再打开 Slate。",
 		edit:              "编辑", undo: "撤销", redo: "重做", cut: "剪切", copy: "复制", paste: "粘贴", selectAll: "全选",
 		about: "关于 Slate", settings: "设置…", hide: "隐藏 Slate", hideOthers: "隐藏其他", showAll: "显示全部",
+		dispatchNode:     "桌面宿主启动时找不到 Node.js。请安装 Node.js 或让 Slate 能找到它，再重试派发。",
+		dispatchPlan:     "桌面宿主未生成可用的任务方案。请检查所选宿主命令行能否启动、账号是否已配置，再重试派发。",
+		dispatchSession:  "Slate 无法准备本地任务会话。请检查 Slate 配置目录的写入权限，再重试派发。",
+		dispatchWorktree: "Slate 无法准备任务工作树。请检查看板的 Git 项目路径、任务分支和工作树改动，再重试派发。",
 	},
 	"zh-TW": {
 		window: "視窗", minimise: "縮到最小",
@@ -53,6 +62,10 @@ var desktopTexts = map[string]desktopText{
 		listenUnavailable: "Slate 無法監聽 %s。請檢查 config.toml 中的監聽位址和連接埠。如果連接埠已被占用，請結束占用該連接埠的程式，再開啟 Slate。",
 		edit:              "編輯", undo: "復原", redo: "重做", cut: "剪下", copy: "複製", paste: "貼上", selectAll: "全選",
 		about: "關於 Slate", settings: "設定…", hide: "隱藏 Slate", hideOthers: "隱藏其他", showAll: "顯示全部",
+		dispatchNode:     "桌面宿主啟動時找不到 Node.js。請安裝 Node.js 或讓 Slate 能找到它，再重試派發。",
+		dispatchPlan:     "桌面宿主未產生可用的任務方案。請檢查所選宿主命令列能否啟動、帳號是否已設定，再重試派發。",
+		dispatchSession:  "Slate 無法準備本機任務工作階段。請檢查 Slate 設定目錄的寫入權限，再重試派發。",
+		dispatchWorktree: "Slate 無法準備任務工作樹。請檢查看板的 Git 專案路徑、任務分支和工作樹變更，再重試派發。",
 	},
 	"ja": {
 		window: "ウインドウ", minimise: "しまう",
@@ -62,6 +75,10 @@ var desktopTexts = map[string]desktopText{
 		listenUnavailable: "Slate は %s で待ち受けできませんでした。config.toml の待ち受けアドレスとポートを確認してください。ポートが使用中の場合は、そのアプリを終了してから Slate を開き直してください。",
 		edit:              "編集", undo: "取り消す", redo: "やり直す", cut: "切り取り", copy: "コピー", paste: "貼り付け", selectAll: "すべてを選択",
 		about: "Slate について", settings: "設定…", hide: "Slate を隠す", hideOthers: "ほかを隠す", showAll: "すべてを表示",
+		dispatchNode:     "デスクトップホストの起動時に Node.js が見つかりません。Node.js をインストールするか、Slate が見つけられるようにしてから再試行してください。",
+		dispatchPlan:     "デスクトップホストが有効なタスク計画を生成できませんでした。選択したホストの CLI が起動し、アカウントが設定されていることを確認してから再試行してください。",
+		dispatchSession:  "Slate はローカルのタスクセッションを準備できませんでした。設定ディレクトリの書き込み権限を確認してから再試行してください。",
+		dispatchWorktree: "Slate はタスクの作業ツリーを準備できませんでした。ボードの Git プロジェクトパス、タスクブランチ、作業ツリーの変更を確認してから再試行してください。",
 	},
 }
 

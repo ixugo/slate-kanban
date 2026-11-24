@@ -89,6 +89,7 @@ type dispatchRun struct {
 	config   dispatchConfig
 	actor    kanban.Actor
 	host     dispatchHost
+	text     func() desktopText
 	sessions string
 	update   func(int64, engineerStatus)
 

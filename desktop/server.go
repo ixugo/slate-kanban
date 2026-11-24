@@ -76,7 +76,7 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 	if language != nil {
 		handler = language.wrap(origin, handler)
 		handler = wrapCleanup(origin, localCleanup.path, runWorktreeCleanup(services.Kanban), handler)
-		dispatch = newDesktopDispatch(services.Kanban, bc.Runtime.ConfigDir)
+		dispatch = newDesktopDispatch(services.Kanban, bc.Runtime.ConfigDir, language.text)
 		handler = dispatch.wrap(origin, handler)
 		if runtime.GOOS == "darwin" {
 			menu = newDesktopMenuBridge()

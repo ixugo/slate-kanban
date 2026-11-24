@@ -107,11 +107,19 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 	if err != nil {
 		return err
 	}
+	text := desktopTexts["en"]
+	if d.text != nil {
+		text = d.text()
+	}
 	if planErr != nil {
-		return d.recordDispatchFailure(ctx, job, planErr, false)
+		message := text.dispatchPlan
+		if errors.Is(planErr, errHostNodeUnavailable) {
+			message = text.dispatchNode
+		}
+		return d.recordDispatchPreparationFailure(ctx, job, planErr, message)
 	}
 	if plan.Outcome != "plan" && plan.Outcome != "clarify" {
-		return d.recordDispatchFailure(ctx, job, errUnconfirmedRun, false)
+		return d.recordDispatchPreparationFailure(ctx, job, errUnconfirmedRun, text.dispatchPlan)
 	}
 	planLabel := "**Desktop development plan**"
 	if job.review {
@@ -127,11 +135,11 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 
 	session, err := taskDispatchSession(d.sessions, job, card.Key)
 	if err != nil {
-		return d.recordDispatchFailure(ctx, job, err, false)
+		return d.recordDispatchPreparationFailure(ctx, job, err, text.dispatchSession)
 	}
 	workDir, branch, before, cleanup, err := prepareDispatchWorktree(ctx, job.project, card.Key, branch, job.review, session)
 	if err != nil {
-		return d.recordDispatchFailure(ctx, job, err, false)
+		return d.recordDispatchPreparationFailure(ctx, job, err, text.dispatchWorktree)
 	}
 	defer cleanup()
 	if !job.review && branch != card.Branch {
@@ -154,22 +162,22 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		if !started {
 			return err
 		}
-		return d.recordDispatchFailure(ctx, job, err, true)
+		return d.recordDispatchFailure(ctx, job, err)
 	}
 	latest, err := d.checkJob(ctx, job)
 	if err != nil || latest.Version != card.Version || latest.ColumnID != card.ColumnID || !sameHumanComments(card.Comments, latest.Comments) {
-		return d.recordDispatchFailure(ctx, job, errDesktopClaimChanged, true)
+		return d.recordDispatchFailure(ctx, job, errDesktopClaimChanged)
 	}
 	if job.review {
 		if final.Outcome != "passed" && final.Outcome != "failed" && final.Outcome != "waiting" {
-			return d.recordDispatchFailure(ctx, job, errUnconfirmedRun, true)
+			return d.recordDispatchFailure(ctx, job, errUnconfirmedRun)
 		}
 		// Review remains read-only. A human confirms the evidence and any
 		// local merge before completing an approved branch.
 		head, err := gitOutput(ctx, workDir, "rev-parse", "HEAD")
 		status, statusErr := gitOutput(ctx, workDir, "status", "--porcelain")
 		if err != nil || statusErr != nil || head != before || status != "" {
-			return d.recordDispatchFailure(ctx, job, errUnconfirmedRun, true)
+			return d.recordDispatchFailure(ctx, job, errUnconfirmedRun)
 		}
 		body := "**Desktop review · " + final.Outcome + "**\n\n" + final.Summary + "\n\n" + completedReview
 		if final.Outcome == "failed" {
@@ -183,11 +191,11 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		return err
 	}
 	if final.Outcome != "ready" || !validTaskItems(final.Items) {
-		return d.recordDispatchFailure(ctx, job, errUnconfirmedRun, true)
+		return d.recordDispatchFailure(ctx, job, errUnconfirmedRun)
 	}
 	head, err := dispatchCommit(ctx, workDir, branch, before)
 	if err != nil {
-		return d.recordDispatchFailure(ctx, job, err, true)
+		return d.recordDispatchFailure(ctx, job, err)
 	}
 	if final.Items != "" {
 		desc := latest.Description + "\n\n## Task items\n\n" + final.Items
@@ -248,11 +256,19 @@ func (d *dispatchRun) checkJob(ctx context.Context, job dispatchJob) (*kanban.Ca
 	return card, nil
 }
 
-func (d *dispatchRun) recordDispatchFailure(ctx context.Context, job dispatchJob, cause error, couldHaveChanged bool) error {
+func (d *dispatchRun) recordDispatchPreparationFailure(ctx context.Context, job dispatchJob, cause error, message string) error {
 	if ctx.Err() != nil {
-		if !couldHaveChanged {
-			return ctx.Err()
-		}
+		return ctx.Err()
+	}
+	if _, err := d.checkJob(ctx, job); err != nil {
+		return errors.Join(cause, err)
+	}
+	_, err := d.core.AddComment(ctx, d.actor, job.id, message)
+	return errors.Join(cause, err)
+}
+
+func (d *dispatchRun) recordDispatchFailure(ctx context.Context, job dispatchJob, cause error) error {
+	if ctx.Err() != nil {
 		// A graceful stop must leave a marker after any human comments
 		// that arrived while a host was running.
 		writeCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -262,11 +278,7 @@ func (d *dispatchRun) recordDispatchFailure(ctx context.Context, job dispatchJob
 	if _, err := d.checkJob(ctx, job); err != nil {
 		return errors.Join(cause, err)
 	}
-	if couldHaveChanged {
-		return errors.Join(cause, d.publishDispatchRecovery(ctx, job, "Desktop dispatch could not confirm the formal execution result."))
-	}
-	_, err := d.core.AddComment(ctx, d.actor, job.id, "Desktop dispatch could not prepare the task. Inspect the host and task checkout before retrying.")
-	return errors.Join(cause, err)
+	return errors.Join(cause, d.publishDispatchRecovery(ctx, job, "Desktop dispatch could not confirm the formal execution result."))
 }
 
 func validTaskItems(items string) bool {

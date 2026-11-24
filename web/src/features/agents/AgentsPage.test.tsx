@@ -124,6 +124,34 @@ describe('AgentsPage', () => {
     expect(api.count(`PUT ${bridge}`)).toBe(0)
   })
 
+  it('桌面保存被拒绝时按服务端给出的原因提示，不再统一报同一句话', async () => {
+    const user = userEvent.setup()
+    const bridge = '/desktop-dispatch-reject'
+    installFakeApi({
+      'GET /api/v1/connect': guide,
+      'GET /api/v1/boards': boards,
+      [`GET ${bridge}`]: {
+        config: { board_id: 0, hosts: {}, enabled: false },
+        hosts: [{ id: 'codex', name: 'Codex', available: true }],
+        status: {},
+        engineers: [{ id: 12, name: 'Atlas', kind: 'dev' }],
+        template: true,
+      },
+      [`PUT ${bridge}`]: () => ({ status: 400, body: { error: 'board project path is unavailable', code: 'project' } }),
+    })
+    renderApp(<AgentsPage />, { route: '/agents' })
+    await screen.findByRole('tab', { name: promptTab })
+    act(() => {
+      vi.stubGlobal('slateDesktopDispatch', bridge)
+      window.dispatchEvent(new Event('slate-desktop-dispatch'))
+    })
+    await user.click(await screen.findByRole('tab', { name: desktopTab }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Select a development board' }), '1')
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Atlas' }), 'codex')
+    await user.click(screen.getByRole('button', { name: 'Enable and save' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('This board has no usable local project path')
+  })
+
   it('渲染片段并按 kind 显示标题', async () => {
     installFakeApi({ 'GET /api/v1/connect': guide })
     renderApp(<AgentsPage />, { route: '/agents' })
