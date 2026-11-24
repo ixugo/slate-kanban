@@ -327,7 +327,9 @@ func (u *unit) updateCard(ctx context.Context, actor Actor, card *Card, in Updat
 			return err
 		}
 	}
-	u.renewLease(actor, card)
+	if _, err := u.renewLease(ctx, actor, card); err != nil {
+		return err
+	}
 	if err := u.saveCard(ctx, actor, card); err != nil {
 		return err
 	}

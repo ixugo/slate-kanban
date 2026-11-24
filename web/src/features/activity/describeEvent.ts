@@ -182,7 +182,7 @@ function firedDetail(payload: Record<string, unknown>, t: TFunction): string {
     .join(' · ')
 }
 
-// 任务释放事件有三种原因，句子不一样：持有者主动释放、人收回、任务换列。
+// 任务释放事件有四种原因，句子不一样：持有者主动释放、人收回、任务换列、租约到期。
 function releasedText(payload: Record<string, unknown>, engineers: readonly Engineer[], t: TFunction): string {
   const agent = agentDisplayName(field(payload, 'agent'), engineers)
   switch (field(payload, 'why')) {
@@ -190,6 +190,8 @@ function releasedText(payload: Record<string, unknown>, engineers: readonly Engi
       return t('activity.event.cardRevoked', { agent })
     case 'moved':
       return t('activity.event.cardClaimEnded', { agent })
+    case 'expired':
+      return t('activity.event.cardLeaseExpired', { agent })
     default:
       return t('activity.event.cardReleased')
   }

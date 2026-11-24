@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -203,7 +204,7 @@ func TestDesktopDispatchRunsDevelopmentThenReview(t *testing.T) {
 		board.Engineers[0].ID: board.Engineers[0].Name,
 		board.Engineers[2].ID: board.Engineers[2].Name,
 	}
-	desktopEngineers := make(map[int64]bool)
+	desktopEngineers := make(map[int64]int)
 	ordinaryClaim := false
 	for _, event := range claims.Events {
 		var payload struct {
@@ -219,12 +220,17 @@ func TestDesktopDispatchRunsDevelopmentThenReview(t *testing.T) {
 			if event.Actor != want || !known || payload.EngineerName == nil || *payload.EngineerName != want {
 				t.Errorf("desktop claim lost the actor or engineer display name: %+v", event)
 			}
-			desktopEngineers[payload.EngineerID] = true
+			desktopEngineers[payload.EngineerID]++
 		case competing.ID:
 			if event.Actor != other.Name || payload.EngineerName == nil || *payload.EngineerName != "" {
 				t.Errorf("ordinary claim should keep the actor display name: %+v", event)
 			}
 			ordinaryClaim = true
+		}
+	}
+	for id, name := range wantNames {
+		if got := desktopEngineers[id]; got != 1 {
+			t.Errorf("expected exactly one claim by %s for its stage, got %d", name, got)
 		}
 	}
 	if len(desktopEngineers) != len(wantNames) || !ordinaryClaim {
@@ -273,6 +279,49 @@ func waitDesktopCheck(t *testing.T, check func() bool) {
 			t.Fatal("desktop dispatch did not reach the expected state")
 		case <-ticker.C:
 		}
+	}
+}
+
+func TestDesktopDispatchClaimDoesNotStartTwiceOrReacquireOnHeartbeat(t *testing.T) {
+	ctx := t.Context()
+	now := time.Now()
+	core, human, board, flow := newDispatchTestBoard(t, kanban.WithClock(func() time.Time { return now }))
+	card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "Lease", ColumnID: flow.dev})
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := dispatchJob{engineer: *board.Engineers[0]}
+	actor := job.actor()
+	claim := kanban.ClaimCardInput{EngineerID: job.engineer.ID, LeaseMinutes: 5, DesktopDispatch: true}
+	first, err := core.ClaimCard(ctx, actor, card.ID, claim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.ClaimCard(ctx, actor, card.ID, claim); !errors.Is(err, kanban.ErrCardClaimed) {
+		t.Fatalf("second dispatch by the same engineer should be rejected: %v", err)
+	}
+
+	renew := kanban.ClaimCardInput{EngineerID: job.engineer.ID, LeaseMinutes: 10, RenewOnly: true}
+	latest, err := core.ClaimCard(ctx, actor, card.ID, renew)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if latest.Version != first.Version || !latest.ClaimExpiresAt.After(*first.ClaimExpiresAt) {
+		t.Fatalf("heartbeat should only extend the lease: %+v", latest)
+	}
+
+	now = *latest.ClaimExpiresAt
+	if _, err := core.ClaimCard(ctx, actor, card.ID, renew); !errors.Is(err, kanban.ErrNotHolder) {
+		t.Fatalf("heartbeat should not reacquire an expired lease: %v", err)
+	}
+	activity, err := core.ListActivity(ctx, board.ID, kanban.ActivityQuery{
+		ActivityFilter: kanban.ActivityFilter{CardID: card.ID, Types: []string{kanban.EventCardClaimed}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(activity.Events); got != 1 {
+		t.Fatalf("expected one claim event, got %d", got)
 	}
 }
 
@@ -1106,6 +1155,95 @@ func lastDesktopComment(card *kanban.CardDetail) string {
 	return card.Comments[len(card.Comments)-1].Body
 }
 
+// renewCountingCore 统计桌面端后台续租的次数（只续租的领取请求），用来核对租约有没有在续。
+type renewCountingCore struct {
+	dispatchCore
+	renewals atomic.Int32
+}
+
+// ClaimCard 先数一下只续租的请求，再交给真正的实现。
+func (c *renewCountingCore) ClaimCard(ctx context.Context, actor kanban.Actor, id int64, in kanban.ClaimCardInput) (*kanban.CardDetail, error) {
+	if in.RenewOnly {
+		c.renewals.Add(1)
+	}
+	return c.dispatchCore.ClaimCard(ctx, actor, id, in)
+}
+
+// stallGitCommonDir 在 PATH 最前面放一个 git 包装脚本：查 git 公共目录时先睡 delay 秒再交给真 git，
+// 模拟「访问项目目录被系统授权弹窗卡住」。
+func stallGitCommonDir(t *testing.T, delay string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("包装脚本只在类 Unix 系统上可用")
+	}
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\ncase \"$*\" in\n*--git-common-dir*) sleep " + delay + " ;;\nesac\nexec '" + strings.ReplaceAll(realGit, "'", `'\''`) + "' \"$@\"\n"
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "git"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+// 第一次访问项目目录就可能被系统卡很久（例如 macOS 弹出文稿目录授权，人不在就一直等）。
+// 后台续租必须在这之前就启动，否则卡住期间租约悄悄过期，一恢复整次派发就被中止。
+func TestDesktopDispatchRenewsLeaseWhileProjectAccessIsBlocked(t *testing.T) {
+	ctx := t.Context()
+	// 时钟拨慢 25 分钟：领取后租约只剩约 5 分钟，后台马上需要续租。
+	core, human, board, flow := newDispatchTestBoard(t, kanban.WithClock(func() time.Time { return time.Now().Add(-25 * time.Minute) }))
+	if _, err := gitOutput(ctx, board.ProjectPath, "branch", "task-branch"); err != nil {
+		t.Fatal(err)
+	}
+	card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "Review me", ColumnID: flow.review, Branch: "task-branch"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stallGitCommonDir(t, "0.5")
+	counting := &renewCountingCore{dispatchCore: core}
+	run := dispatchRun{core: counting, sessions: t.TempDir(), renewEvery: 20 * time.Millisecond}
+	run.host = func(_ context.Context, _, _, prompt string, _ bool, _ dispatchSession) (dispatchReply, error) {
+		if strings.Contains(prompt, "Outcome must be plan or clarify.") {
+			if counting.renewals.Load() == 0 {
+				t.Error("lease was not renewed while the first project access was blocked")
+			}
+			return dispatchReply{Outcome: "plan", Summary: "Review plan"}, nil
+		}
+		return dispatchReply{Outcome: "passed", Summary: "Evidence"}, nil
+	}
+	job := dispatchJob{id: card.ID, review: true, engineer: *board.Engineers[2], host: "pi", flow: flow, project: board.ProjectPath}
+	if err := run.handle(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// 规划阶段的检查碰上上下文已取消（例如租约失效，后台续租中止了本次派发）时，
+// 按「任务在规划期间变了」处理，调度器会马上重新安排；否则审查任务会被当成已处理而停放，要人去触发。
+func TestDesktopDispatchPlanCheckTreatsCancelAsSuperseded(t *testing.T) {
+	ctx := t.Context()
+	core, human, board, flow := newDispatchTestBoard(t)
+	card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "Review me", ColumnID: flow.review})
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := dispatchJob{id: card.ID, review: true, engineer: *board.Engineers[2], host: "pi", flow: flow, project: board.ProjectPath}
+	if _, err := core.ClaimCard(ctx, job.actor(), card.ID, kanban.ClaimCardInput{EngineerID: job.engineer.ID, LeaseMinutes: dispatchLeaseMinutes}); err != nil {
+		t.Fatal(err)
+	}
+	planned, err := core.GetCardDetail(ctx, card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	run := dispatchRun{core: core}
+	if _, err := run.checkDispatchPlan(canceled, job, planned); !errors.Is(err, errDispatchPlanSuperseded) {
+		t.Fatalf("a canceled plan check must count as superseded, got %v", err)
+	}
+}
+
 // 新版本把派发标记放在评论扩展字段里，恢复判断要和旧版正文末行的标记得到同样的结果；
 // 扩展字段存在时不再回头读正文，正文里的标记文字不能冒充。
 func TestDesktopDispatchRecoveryReadsExtMarker(t *testing.T) {
@@ -1135,8 +1273,20 @@ func TestDesktopDispatchRecoveryReadsExtMarker(t *testing.T) {
 	}
 }
 
+// countCardEvents 统计看板活动里某个任务的某类事件有几条，用来核对领取、释放有没有重复。
+func countCardEvents(t *testing.T, core kanban.Core, boardID, cardID int64, eventType string) int {
+	t.Helper()
+	page, err := core.ListActivity(t.Context(), boardID, kanban.ActivityQuery{
+		ActivityFilter: kanban.ActivityFilter{Types: []string{eventType}, CardID: cardID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(page.Events)
+}
+
 // 任务不需要改仓库时（例如只要求在评论区输出内容），宿主回 reported 也能正常交接：
-// 摘要原样发成交接评论，任务进入审查列，分支上没有新提交。
+// 摘要原样发成交接评论，任务进入审查列，分支上没有新提交；从待办开始的整个过程只领取一次，也没有中途释放。
 func TestDesktopDispatchReportedOutcomeHandsOffWithoutCommit(t *testing.T) {
 	ctx := t.Context()
 	core, human, board, flow := newDispatchTestBoard(t)
@@ -1166,6 +1316,12 @@ func TestDesktopDispatchReportedOutcomeHandsOffWithoutCommit(t *testing.T) {
 	tip, tipErr := gitOutput(ctx, board.ProjectPath, "rev-parse", got.Branch)
 	if baseErr != nil || tipErr != nil || base != tip {
 		t.Fatalf("reported hand-off must not add commits: main=%q branch=%q errs=%v %v", base, tip, baseErr, tipErr)
+	}
+	if claimed := countCardEvents(t, core, board.ID, card.ID, kanban.EventCardClaimed); claimed != 1 {
+		t.Errorf("want exactly one claim event, got %d", claimed)
+	}
+	if released := countCardEvents(t, core, board.ID, card.ID, kanban.EventCardReleased); released != 0 {
+		t.Errorf("hand-off must not write a release event, got %d", released)
 	}
 }
 

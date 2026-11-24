@@ -71,10 +71,12 @@ func (c Core) AddCommentWithExt(ctx context.Context, actor Actor, cardID int64, 
 		if err != nil {
 			return err
 		}
-		if out, err = u.addComment(ctx, actor, card, body, ext); err != nil {
+		// 先续租再写评论：租约到期后重新开始的那两条事件要排在评论前面
+		if err := u.saveRenewedLease(ctx, actor, card); err != nil {
 			return err
 		}
-		return u.saveRenewedLease(ctx, actor, card)
+		out, err = u.addComment(ctx, actor, card, body, ext)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -179,13 +181,21 @@ func (c Core) DeleteComment(ctx context.Context, actor Actor, commentID int64) e
 	})
 }
 
-// saveRenewedLease 持有者在自己的任务下写评论时顺延租约并保存。续租不改变任务内容，所以不涨版本号也不写事件。
+// saveRenewedLease 持有者在自己的任务下写评论时顺延租约并保存。
+// 租约一直有效时，续租不改变任务内容，所以不涨版本号也不写事件；
+// 租约已经到期则按新的领取处理（事件由 renewLease 写好），保存时涨版本号。
 func (u *unit) saveRenewedLease(ctx context.Context, actor Actor, card *Card) error {
-	if !u.renewLease(actor, card) {
-		return nil
+	renewal, err := u.renewLease(ctx, actor, card)
+	if err != nil {
+		return err
 	}
-	if err := u.card.Save(ctx, card); err != nil {
-		return wrapDB("顺延租约", err)
+	switch renewal {
+	case leaseExtended:
+		if err := u.card.Save(ctx, card); err != nil {
+			return wrapDB("顺延租约", err)
+		}
+	case leaseRestarted:
+		return u.saveCard(ctx, actor, card)
 	}
 	return nil
 }

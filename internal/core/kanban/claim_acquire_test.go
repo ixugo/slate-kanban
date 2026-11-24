@@ -43,6 +43,7 @@ func TestClaimCard(t *testing.T) {
 		t.Fatalf("设置列指令失败: %v", err)
 	}
 	c := e.card(t, colDoing, "任务")
+	events := len(e.events(t))
 
 	d, err := e.core.ClaimCard(ctx, testAgent, c.ID, kanban.ClaimCardInput{})
 	if err != nil {
@@ -50,6 +51,9 @@ func TestClaimCard(t *testing.T) {
 	}
 	if d.ClaimedBy != "claude" || !d.ClaimActive || d.Version != 2 || d.ColumnInstruction != instruction || d.UpdatedBy != "claude" {
 		t.Fatalf("详情不对: %+v 指令=%q", d.CardView.Card, d.ColumnInstruction)
+	}
+	if after := e.events(t); len(after) != events+1 {
+		t.Fatalf("领取空闲任务只应该写一条 card.claimed，不该有租约到期: %+v", after[events:])
 	}
 	wantExpire := claimNow.Add(30 * time.Minute)
 	if got := e.stored(t, c.ID); got.ClaimedBy != "claude" || got.ClaimExpiresAt == nil || !got.ClaimExpiresAt.Equal(wantExpire) {
@@ -61,7 +65,7 @@ func TestClaimCard(t *testing.T) {
 	}
 }
 
-// TestClaimCardRenew 验证持有者再次领取只顺延租约：用新的时长重新算到期时间，版本不变，仍然写 card.claimed。
+// TestClaimCardRenew 验证持有者再次领取只顺延租约：用新的时长重新算到期时间，版本不变，也不再次写 card.claimed。
 func TestClaimCardRenew(t *testing.T) {
 	ctx := context.Background()
 	e := newClaimEnv(t)
@@ -81,8 +85,37 @@ func TestClaimCardRenew(t *testing.T) {
 	if got := e.stored(t, c.ID); !got.ClaimExpiresAt.Equal(claimNow.Add(2 * time.Hour)) {
 		t.Fatalf("到期时间应该顺延到两小时后: %v", got.ClaimExpiresAt)
 	}
-	if after := e.events(t); len(after) != events+1 || after[events].Type != kanban.EventCardClaimed {
-		t.Fatalf("续租应该再写一条 card.claimed: %+v", after[events:])
+	if after := e.events(t); len(after) != events {
+		t.Fatalf("续租不应该新增事件: %+v", after[events:])
+	}
+}
+
+// TestClaimCardReacquiresExpiredLeaseForSameAgent 验证同一个 agent 在自己的租约到期后重新领取：
+// 版本加一，先记一条租约到期（card.released，why 为 expired），再记一条新的 card.claimed。
+func TestClaimCardReacquiresExpiredLeaseForSameAgent(t *testing.T) {
+	ctx := t.Context()
+	e := newClaimEnv(t)
+	c := e.card(t, colDoing, "任务")
+	e.holdUntil(t, c.ID, testAgent.Name, claimNow)
+	events := len(e.events(t))
+
+	d, err := e.core.ClaimCard(ctx, testAgent, c.ID, kanban.ClaimCardInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !d.ClaimActive || d.Version != c.Version+1 {
+		t.Fatalf("同一 agent 重新取得过期租约应该涨版本: %+v", d)
+	}
+	after := e.events(t)
+	if len(after) != events+2 {
+		t.Fatalf("重新领取过期租约应该写租约到期和新领取两条事件: %+v", after[events:])
+	}
+	wantExpired := `{"agent":"claude","expired_at":"2026-11-17T12:00:00Z","key":"TST-1","title":"任务","why":"expired"}`
+	if ev := after[events]; ev.Type != kanban.EventCardReleased || ev.CardID != c.ID || ev.Actor != "claude" || ev.Payload != wantExpired {
+		t.Fatalf("第一条应该是租约到期，实际 %+v，期望内容 %s", ev, wantExpired)
+	}
+	if ev := after[events+1]; ev.Type != kanban.EventCardClaimed || ev.CardID != c.ID {
+		t.Fatalf("第二条应该是新的领取: %+v", ev)
 	}
 }
 
@@ -102,9 +135,22 @@ func TestClaimCardTakeover(t *testing.T) {
 	}
 
 	e.holdUntil(t, c.ID, "codex", claimNow.Add(-time.Second))
+	events := len(e.events(t))
 	d, err := e.core.ClaimCard(ctx, testAgent, c.ID, kanban.ClaimCardInput{})
 	if err != nil || d.ClaimedBy != "claude" || d.Version != 2 {
 		t.Fatalf("租约过期应该可以接手: %+v %v", d, err)
+	}
+	after := e.events(t)
+	if len(after) != events+2 {
+		t.Fatalf("接手过期租约应该写租约到期和新领取两条事件: %+v", after[events:])
+	}
+	// 到期事件记在接手者名下，原持有者才能在看板更新里收到「你的租约到期了」。
+	wantExpired := `{"agent":"codex","expired_at":"2026-11-17T11:59:59Z","key":"TST-1","title":"任务","why":"expired"}`
+	if ev := after[events]; ev.Type != kanban.EventCardReleased || ev.Actor != "claude" || ev.Payload != wantExpired {
+		t.Fatalf("第一条应该是原持有者的租约到期，实际 %+v，期望内容 %s", ev, wantExpired)
+	}
+	if ev := after[events+1]; ev.Type != kanban.EventCardClaimed || ev.Actor != "claude" {
+		t.Fatalf("第二条应该是接手者的领取: %+v", ev)
 	}
 }
 
@@ -241,10 +287,15 @@ func TestNextCardPrefersOwnHeldCard(t *testing.T) {
 	e.card(t, colDoing, "前面的空闲卡")
 	mine := e.card(t, colDoing, "我持有的")
 	e.holdUntil(t, mine.ID, "claude", claimNow.Add(-time.Hour)) // 租约过期了也算自己的
+	events := len(e.events(t))
 
 	d, err := e.core.NextCard(ctx, testAgent, e.board.ID, kanban.NextCardInput{ColumnID: e.col(colDoing), LeaseMinutes: 10})
 	if err != nil || d == nil || d.ID != mine.ID || !d.ClaimActive {
 		t.Fatalf("应该先返回自己持有的并续租: %+v %v", d, err)
+	}
+	after := e.events(t)
+	if len(after) != events+2 || after[events].Type != kanban.EventCardReleased || after[events+1].Type != kanban.EventCardClaimed {
+		t.Fatalf("租约已到期时取回自己的任务应该先记租约到期再记新领取: %+v", after[events:])
 	}
 }
 

@@ -32,11 +32,18 @@ func (c Core) ClaimCard(ctx context.Context, actor Actor, cardID int64, in Claim
 		if err := checkClaimable(actor, card, ix); err != nil {
 			return err
 		}
+		if in.RenewOnly {
+			if !claimActive(card, ix.now) || card.ClaimedBy != actor.Name || card.ClaimEngineerID != in.EngineerID {
+				return ErrNotHolder
+			}
+		} else if in.DesktopDispatch && claimActive(card, ix.now) {
+			return ErrCardClaimed
+		}
 		engineer, err := u.chooseEngineer(ctx, actor, card, in.EngineerID)
 		if err != nil {
 			return err
 		}
-		return u.grantClaim(ctx, actor, card, lease, engineer, in.DesktopDispatch)
+		return u.grantClaim(ctx, actor, card, ix.now, lease, engineer, in.DesktopDispatch)
 	})
 	if err != nil {
 		return nil, err
@@ -110,7 +117,7 @@ func (u *unit) claimNext(ctx context.Context, actor Actor, boardID, columnID int
 	if pick == nil {
 		return 0, nil
 	}
-	return pick.ID, u.grantClaim(ctx, actor, pick, lease, pickBy, false)
+	return pick.ID, u.grantClaim(ctx, actor, pick, ix.now, lease, pickBy, false)
 }
 
 // pickEngineerFor 判断取下一张卡时这张卡能不能由工程师承担，返回承担者和是否可领。
@@ -188,34 +195,43 @@ func (u *unit) claimIndex(ctx context.Context, card *Card) (*boardIndex, error) 
 	return newBoardIndex(u.now(), time.Local, cols, tags, append([]*Card{card}, deps...)), nil
 }
 
-// grantClaim 把任务记到 agent 和工程师名下，租约从现在起算 lease 这么长，并追加 card.claimed 事件。
-// 持有者本人用同一位工程师再次领取只是顺延到期时间，不涨版本号，因为任务内容没有变；
-// 新领取或者接手别人过期的领取，版本号加一。
-func (u *unit) grantClaim(ctx context.Context, actor Actor, card *Card, lease time.Duration, engineer *Engineer, desktopDispatch bool) error {
+// grantClaim 把任务记到 agent 和工程师名下，租约从现在起算。
+// 同一个有效租约只更新到期时间，不涨版本号，也不追加事件：续租没有断过，就不重复记录。
+// 新领取才追加 card.claimed；盖掉的是一条已经到期的旧租约时，先追加一条租约到期（expireClaim），再追加新的领取。
+func (u *unit) grantClaim(ctx context.Context, actor Actor, card *Card, now time.Time, lease time.Duration, engineer *Engineer, desktopDispatch bool) error {
 	var engineerID int64
 	if engineer != nil {
 		engineerID = engineer.ID
 	}
-	expires := u.now().Add(lease).UTC()
-	renewal := card.ClaimedBy == actor.Name && card.ClaimEngineerID == engineerID
+	expires := now.Add(lease).UTC()
+	renewal := claimActive(card, now) && card.ClaimedBy == actor.Name && card.ClaimEngineerID == engineerID
+	if err := u.expireClaim(ctx, actor, card, now); err != nil {
+		return err
+	}
 	card.ClaimedBy, card.ClaimExpiresAt, card.ClaimEngineerID = actor.Name, &expires, engineerID
 	if engineer != nil && stageOf(engineer.Kind) == EngineerDev && card.EngineerID == 0 {
-		card.EngineerID, renewal = engineerID, false
+		card.EngineerID = engineerID
+		if renewal {
+			return u.saveCard(ctx, actor, card)
+		}
 	}
 	if renewal {
 		if err := u.card.Save(ctx, card); err != nil {
 			return wrapDB("续租", err)
 		}
-	} else if err := u.saveCard(ctx, actor, card); err != nil {
+		return nil
+	}
+	if err := u.saveCard(ctx, actor, card); err != nil {
 		return err
 	}
-	payload := cardPayload(card, map[string]any{"agent": actor.Name, "engineer_id": engineerID, "expires_at": expires.Format(time.RFC3339)})
+	var engineerName *string
 	if engineer != nil {
 		// 空名称让普通 agent 的新事件可与尚未记录名称的旧桌面事件区分。
-		payload["engineer_name"] = ""
+		name := ""
 		if desktopDispatch {
-			payload["engineer_name"] = engineer.Name
+			name = engineer.Name
 		}
+		engineerName = &name
 	}
-	return u.emit(ctx, actor, newEvent{BoardID: card.BoardID, CardID: card.ID, Type: EventCardClaimed, Payload: payload})
+	return u.emitClaimed(ctx, actor, card, expires, engineerName)
 }

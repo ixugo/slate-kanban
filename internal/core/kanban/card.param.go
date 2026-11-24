@@ -75,6 +75,9 @@ type MoveCardInput struct {
 	AfterID  int64 `json:"after_id"`
 	// Top 为真且没有指定 BeforeID、AfterID 时放到目标列最顶部，否则放到列尾；只由 MCP 设置，不出现在 REST 的请求体里。
 	Top bool `json:"-"`
+	// 桌面从待办移入研发列时，只有持有指定工程师的有效租约且版本一致才移动。
+	KeepClaimForEngineerID int64  `json:"-" form:"-"`
+	ExpectedVersion        *int64 `json:"-" form:"-"`
 }
 
 // asPatch 把创建入参转成"所有字段都出现"的修改入参，创建和修改因此共用同一套校验和赋值。

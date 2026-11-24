@@ -217,6 +217,7 @@ export const en = {
       cardReleased: 'released the task',
       cardRevoked: 'took the task back from {{agent}}',
       cardClaimEnded: 'the task moved, so the claim by {{agent}} ended',
+      cardLeaseExpired: 'found that {{agent}}’s lease had expired, so the claim ended',
       commentAdded: 'commented',
       commentDeleted: 'deleted a comment',
       ruleCreated: 'added rule “{{name}}”',

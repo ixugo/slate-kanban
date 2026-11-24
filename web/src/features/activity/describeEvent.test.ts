@@ -52,6 +52,7 @@ describe('describeEvent', () => {
     ['card.released', { why: 'released', agent: 'codex' }, 'released the task'],
     ['card.released', { why: 'revoked', agent: 'codex' }, 'took the task back from codex'],
     ['card.released', { why: 'moved', agent: 'codex' }, 'the task moved, so the claim by codex ended'],
+    ['card.released', { why: 'expired', agent: 'codex' }, 'found that codex’s lease had expired, so the claim ended'],
     ['comment.added', { snippet: '收到' }, 'commented'],
     ['comment.deleted', {}, 'deleted a comment'],
     ['rule.created', { name: '开始计时' }, 'added rule “开始计时”'],

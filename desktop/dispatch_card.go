@@ -21,6 +21,10 @@ const (
 	// reported 表示任务不需要改仓库（例如只要求在评论区输出内容），结果全在摘要里。
 	outcomeReady    = "ready"
 	outcomeReported = "reported"
+
+	// 后台每隔多久核对一次任务归属；租约剩余不足 dispatchRenewWithin 时顺带续上。
+	dispatchRenewEvery  = 5 * time.Second
+	dispatchRenewWithin = 10 * time.Minute
 )
 
 var (
@@ -30,6 +34,7 @@ var (
 
 // handle 处理一张任务的一次派发：先领取，再只读规划，规划通过后到任务专属工作树里正式执行，
 // 最后按角色交接。研发把结果交到审查列，审查按结论放行、退回或只留言等待。
+// 待办里的任务领取后带着租约移入进行中，整个过程只领取一次。
 // 任何一步无法确认结果，都留下恢复留言交给人核对，不自动重试。
 func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 	ctx, cancel := context.WithCancel(parent)
@@ -71,10 +76,13 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		return errors.Join(errUnconfirmedRun, err)
 	}
 	if card.ColumnID == job.flow.todo {
-		if _, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.dev}); err != nil {
+		_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{
+			ColumnID: job.flow.dev, KeepClaimForEngineerID: job.engineer.ID, ExpectedVersion: &card.Version,
+		})
+		if err != nil {
 			return err
 		}
-		card, err = d.core.ClaimCard(ctx, job.actor(), job.id, lease)
+		card, err = d.checkJob(ctx, job)
 		if err != nil || card.ColumnID != job.flow.dev {
 			return errDesktopClaimChanged
 		}
@@ -84,37 +92,15 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		_, err = d.core.AddComment(ctx, job.actor(), job.id, "Desktop dispatch needs this board's absolute local project path.")
 		return errors.Join(err, errors.New("missing local project path"))
 	}
+	// 后台续租要赶在第一次访问项目目录之前启动：目录访问可能被系统卡住很久（例如等人点授权），
+	// 卡住期间租约不续就会过期，恢复后整次派发会被中止。
+	stopRenew := d.keepLease(ctx, cancel, job)
+	defer stopRenew()
 	branch := card.Branch
 	planDir := workDir
 	if selected, err := dispatchExistingWorktree(ctx, workDir, card.Key, branch); err == nil {
 		planDir = selected
 	}
-	stopRenew := make(chan struct{})
-	renewed := make(chan struct{})
-	go func() {
-		defer close(renewed)
-		for {
-			select {
-			case <-stopRenew:
-				return
-			case <-ctx.Done():
-				return
-			case <-time.After(5 * time.Second):
-				current, err := d.core.GetCardDetail(ctx, job.id)
-				if err != nil || !job.matches(current) || !current.ClaimActive || current.ClaimedBy != job.actor().Name {
-					cancel()
-					return
-				}
-				if till := current.ClaimExpiresAt; till != nil && time.Until(*till) < 10*time.Minute {
-					if _, err := d.core.ClaimCard(ctx, job.actor(), job.id, lease); err != nil {
-						cancel()
-						return
-					}
-				}
-			}
-		}
-	}()
-	defer func() { close(stopRenew); <-renewed }()
 
 	plan, _, planErr := d.hostWithBackoff(ctx, job, planDir, dispatchPrompt(job, card, "", true), true, dispatchSession{}, nil)
 	card, err = d.checkDispatchPlan(ctx, job, card)
@@ -226,10 +212,49 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 	return err
 }
 
-// checkDispatchPlan is used only before the host starts its formal work.
+// keepLease 在后台定期核对任务仍归这位工程师持有，并在租约快到期时续上；
+// 核对不过或续租失败就调用 cancel 中止本次派发。返回的函数用来停掉后台协程并等它退出。
+// 间隔取 d.renewEvery，零值用 dispatchRenewEvery。
+func (d *dispatchRun) keepLease(ctx context.Context, cancel context.CancelFunc, job dispatchJob) func() {
+	every := d.renewEvery
+	if every <= 0 {
+		every = dispatchRenewEvery
+	}
+	renewal := kanban.ClaimCardInput{EngineerID: job.engineer.ID, LeaseMinutes: dispatchLeaseMinutes, RenewOnly: true}
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ctx.Done():
+				return
+			case <-time.After(every):
+				current, err := d.checkJob(ctx, job)
+				if err != nil {
+					cancel()
+					return
+				}
+				if till := current.ClaimExpiresAt; till != nil && time.Until(*till) < dispatchRenewWithin {
+					if _, err := d.core.ClaimCard(ctx, job.actor(), job.id, renewal); err != nil {
+						cancel()
+						return
+					}
+				}
+			}
+		}
+	}()
+	return func() { close(stop); <-done }
+}
+
+// checkDispatchPlan 只在宿主开始正式工作前使用，核对任务在规划期间没有变化。
+// 任务变了、租约丢了，或本次派发已被中止（上下文已取消，例如后台续租失败），
+// 都算「规划期间变了」：调度器会立即重新安排，而不是把任务当成已处理而停放。
 func (d *dispatchRun) checkDispatchPlan(ctx context.Context, job dispatchJob, planned *kanban.CardDetail) (*kanban.CardDetail, error) {
 	current, err := d.checkJob(ctx, job)
-	if errors.Is(err, errDesktopClaimChanged) {
+	if errors.Is(err, errDesktopClaimChanged) || ctx.Err() != nil {
 		return nil, errDispatchPlanSuperseded
 	}
 	if err != nil {

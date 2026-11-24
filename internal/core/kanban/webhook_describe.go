@@ -86,6 +86,8 @@ func DescribeEventZH(ev *Event) string {
 			return plain(fmt.Sprintf("收回了 agent「%s」对任务的持有", field("agent")))
 		case "moved":
 			return plain(fmt.Sprintf("任务换列，结束了 agent「%s」的持有", field("agent")))
+		case releaseExpired:
+			return plain(fmt.Sprintf("发现 agent「%s」的租约已到期，领取结束", field("agent")))
 		default:
 			return plain("释放了任务")
 		}

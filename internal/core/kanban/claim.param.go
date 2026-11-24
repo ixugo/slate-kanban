@@ -5,8 +5,10 @@ type ClaimCardInput struct {
 	LeaseMinutes int `json:"lease_minutes"`
 	// EngineerID 是由哪位工程师承担这次领取，0 表示由服务端挑：任务绑定了就用绑定的，否则随机挑一位空闲的。
 	EngineerID int64 `json:"engineer_id"`
-	// DesktopDispatch 由本机桌面调度设置，用于在领取事件中保存工程师名称。
+	// DesktopDispatch 由桌面调度设置，只领取空闲任务，并在事件中保存工程师名称。
 	DesktopDispatch bool `json:"-" form:"-"`
+	// RenewOnly 由桌面心跳设置，只续当前工程师的有效租约。
+	RenewOnly bool `json:"-" form:"-"`
 }
 
 // NextCardInput 是取下一张卡的入参，租约时长的含义同 ClaimCardInput。

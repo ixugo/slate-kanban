@@ -90,6 +90,8 @@ type dispatchRun struct {
 	text     func() desktopText
 	sessions string
 	update   func(int64, engineerStatus)
+	// renewEvery 是后台检查任务归属、续租约的间隔，零值用 dispatchRenewEvery；测试里调小以免干等。
+	renewEvery time.Duration
 
 	dev, review chan dispatchJob
 	completed   chan dispatchCompletion

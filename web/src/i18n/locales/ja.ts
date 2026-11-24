@@ -214,6 +214,7 @@ export const ja: Messages = {
       cardReleased: 'タスクの担当を外れました',
       cardRevoked: '{{agent}} の担当を外しました',
       cardClaimEnded: 'タスクが移動したため {{agent}} の担当が終わりました',
+      cardLeaseExpired: '{{agent}} の担当の有効期限が切れていたため、担当が終わりました',
       commentAdded: 'コメントしました',
       commentDeleted: 'コメントを削除しました',
       ruleCreated: 'ルール「{{name}}」を追加しました',

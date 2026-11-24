@@ -214,6 +214,7 @@ export const zhCN: Messages = {
       cardReleased: '释放了任务',
       cardRevoked: '收回了 {{agent}} 领取的任务',
       cardClaimEnded: '任务被移走，{{agent}} 的领取结束',
+      cardLeaseExpired: '发现 {{agent}} 的租约已到期，领取结束',
       commentAdded: '发表了评论',
       commentDeleted: '删除了一条评论',
       ruleCreated: '新增了规则「{{name}}」',

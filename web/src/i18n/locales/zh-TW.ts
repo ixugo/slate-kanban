@@ -214,6 +214,7 @@ export const zhTW: Messages = {
       cardReleased: '釋放了任務',
       cardRevoked: '收回了 {{agent}} 領取的任務',
       cardClaimEnded: '任務被移走，{{agent}} 的領取結束',
+      cardLeaseExpired: '發現 {{agent}} 的租約已到期，領取結束',
       commentAdded: '發表了評論',
       commentDeleted: '刪除了一則評論',
       ruleCreated: '新增了規則「{{name}}」',
