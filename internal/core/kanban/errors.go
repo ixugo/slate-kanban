@@ -102,6 +102,12 @@ var (
 
 	// ErrProjectPathLocked agent 只能在项目路径为空时写入，已经有值就只有人能改。
 	ErrProjectPathLocked = reason.NewError("ErrProjectPathLocked", "项目路径已经设置，只有人可以修改").WithHTTPStatus(403)
+
+	// ErrProjectPathNotFound 网页填写的工作目录不存在或不是目录。
+	ErrProjectPathNotFound = reason.NewError("ErrProjectPathNotFound", "该目录不存在")
+
+	// ErrProjectPathCheckFailed 服务端无法确认目录是否存在，例如没有访问权限。
+	ErrProjectPathCheckFailed = reason.NewError("ErrProjectPathCheckFailed", "无法检查该目录，请重试")
 )
 
 // invalidf 生成一个"输入不合法"的错误，Msg 是面向用户的具体说明。

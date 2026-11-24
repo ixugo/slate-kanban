@@ -2,6 +2,8 @@ package kanbanapi_test
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -32,14 +34,98 @@ func TestBoardLifecycle(t *testing.T) {
 	wantFail(t, "删除后读取", s.human(t, http.MethodGet, "/boards/"+id(b.ID), nil), http.StatusNotFound, "ErrBoardNotFound")
 }
 
-// TestBoardProjectPath 验证人可以通过 REST 设置项目路径。
+// TestCheckProjectPath 使用服务端的实际文件系统验证目录，不创建看板。
+func TestCheckProjectPath(t *testing.T) {
+	s := newStack(t)
+	dir := t.TempDir()
+	file := filepath.Join(dir, "file")
+	if err := os.WriteFile(file, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	foreignPath := `C:\project`
+	if filepath.IsAbs(foreignPath) {
+		foreignPath = "/project"
+	}
+	for _, tt := range []struct {
+		name, path, reason string
+	}{
+		{name: "存在的目录", path: "  " + dir + "  "},
+		{name: "选填", path: "  "},
+		{name: "不存在的目录", path: filepath.Join(dir, "missing"), reason: "ErrProjectPathNotFound"},
+		{name: "普通文件", path: file, reason: "ErrProjectPathNotFound"},
+		{name: "文件下的子目录", path: filepath.Join(file, "child"), reason: "ErrProjectPathNotFound"},
+		{name: "相对路径", path: "relative/dir", reason: "ErrInvalidInput"},
+		{name: "其他系统的绝对路径", path: foreignPath, reason: "ErrInvalidInput"},
+		{name: "非法字符", path: dir + "\x00", reason: "ErrInvalidInput"},
+		{name: "超过长度", path: dir + strings.Repeat("a", 512), reason: "ErrInvalidInput"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := s.human(t, http.MethodPost, "/boards/check-project-path", map[string]string{"project_path": tt.path})
+			if tt.reason == "" {
+				wantEmptyObject(t, tt.name, resp)
+			} else {
+				wantFail(t, tt.name, resp, http.StatusBadRequest, tt.reason)
+			}
+		})
+	}
+	t.Run("无法确认目录", func(t *testing.T) {
+		loop := filepath.Join(dir, "loop")
+		if err := os.Symlink(loop, loop); err != nil {
+			t.Skipf("当前系统无法创建符号链接: %v", err)
+		}
+		wantFail(t, "无法确认目录", s.human(t, http.MethodPost, "/boards/check-project-path", map[string]string{"project_path": loop}),
+			http.StatusBadRequest, "ErrProjectPathCheckFailed")
+	})
+	if boards := decode[[]board](t, s.human(t, http.MethodGet, "/boards", nil)); len(boards) != 0 {
+		t.Fatalf("检查目录不应该创建看板: %+v", boards)
+	}
+}
+
+// TestBoardProjectPath 验证 REST 创建、更新时都重新检查目录，不依赖网页预先校验。
 func TestBoardProjectPath(t *testing.T) {
 	s := newStack(t)
-	b := s.newBoard(t, "PERM")
+	dir := t.TempDir()
+	vanished := filepath.Join(dir, "vanished")
+	if err := os.Mkdir(vanished, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	wantEmptyObject(t, "目录存在", s.human(t, http.MethodPost, "/boards/check-project-path", map[string]string{"project_path": vanished}))
+	if err := os.Remove(vanished); err != nil {
+		t.Fatal(err)
+	}
+	wantFail(t, "校验通过后目录消失，拒绝创建", s.human(t, http.MethodPost, "/boards", map[string]string{"name": "Invalid", "project_path": vanished}),
+		http.StatusBadRequest, "ErrProjectPathNotFound")
+	if boards := decode[[]board](t, s.human(t, http.MethodGet, "/boards", nil)); len(boards) != 0 {
+		t.Fatalf("无效目录不应该创建看板: %+v", boards)
+	}
+	b := decode[board](t, s.human(t, http.MethodPost, "/boards", map[string]string{"name": "Valid", "project_path": " " + dir + " "}))
+	if b.ProjectPath != dir {
+		t.Fatalf("创建时应保存整理后的目录: %+v", b)
+	}
 	path := "/boards/" + id(b.ID)
-	set := decode[board](t, s.human(t, http.MethodPatch, path, map[string]string{"project_path": "/work/demo"}))
-	if set.ProjectPath != "/work/demo" {
-		t.Fatalf("应该能写项目路径: %+v", set)
+	wantFail(t, "目录不存在，拒绝更新", s.human(t, http.MethodPatch, path, map[string]string{"name": "Invalid", "project_path": vanished}),
+		http.StatusBadRequest, "ErrProjectPathNotFound")
+	if got := decode[board](t, s.human(t, http.MethodGet, path, nil)); got.ProjectPath != dir || got.Name != b.Name {
+		t.Fatalf("失败的保存不应改变任何字段: %+v", got)
+	}
+	updatedDir := filepath.Join(dir, "new")
+	if err := os.Mkdir(updatedDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	set := decode[board](t, s.human(t, http.MethodPatch, path, map[string]string{"project_path": updatedDir}))
+	if set.ProjectPath != updatedDir {
+		t.Fatalf("应该能修改项目路径: %+v", set)
+	}
+	if err := os.Remove(updatedDir); err != nil {
+		t.Fatal(err)
+	}
+	wantFail(t, "再次保存已消失的目录", s.human(t, http.MethodPatch, path, map[string]string{"project_path": updatedDir}),
+		http.StatusBadRequest, "ErrProjectPathNotFound")
+	if got := decode[board](t, s.human(t, http.MethodPatch, path, map[string]string{"name": "Renamed"})); got.ProjectPath != updatedDir || got.Name != "Renamed" {
+		t.Fatalf("未提交目录时应保留原路径并允许修改其他字段: %+v", got)
+	}
+	if got := decode[board](t, s.human(t, http.MethodPatch, path, map[string]string{"project_path": ""})); got.ProjectPath != "" {
+		t.Fatalf("应该能清空项目路径: %+v", got)
 	}
 }
 

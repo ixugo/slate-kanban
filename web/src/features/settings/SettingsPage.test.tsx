@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -49,6 +49,116 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: en.common.save }))
     await waitFor(() => expect(api.count('PATCH /api/v1/boards/:id')).toBe(1))
     expect(api.calls.find((call) => call.method === 'PATCH')?.body).toMatchObject({ description: markdown })
+  })
+
+  it('回显工作目录，仅在目录修改后提交，允许保存为空以清除路径', async () => {
+    let snapshot = makeSnapshot({ project_path: '/work/old' })
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': () => ({ body: snapshot }),
+      'POST /api/v1/boards/check-project-path': {},
+      'PATCH /api/v1/boards/:id': ({ body }: { body: unknown }) => {
+        snapshot = { ...snapshot, ...(body as Partial<typeof snapshot>) }
+        return { body: snapshot }
+      },
+    })
+    renderSettings()
+    const input = await screen.findByRole('textbox', { name: /Working directory/ })
+    expect(input).toHaveValue('/work/old')
+    const save = screen.getByRole('button', { name: en.common.save })
+    // MCP 登记的路径可能指向其他机器，未编辑时不提交路径
+    await userEvent.click(save)
+    await waitFor(() => expect(api.count('PATCH /api/v1/boards/:id')).toBe(1))
+    expect(api.calls.find((c) => c.method === 'PATCH')?.body).not.toHaveProperty('project_path')
+    expect(api.count('POST /api/v1/boards/check-project-path')).toBe(0)
+    await waitFor(() => expect(save).toBeEnabled())
+
+    await userEvent.clear(input)
+    await userEvent.type(input, '  /work/new  ')
+    await userEvent.tab()
+    await waitFor(() => expect(api.count('POST /api/v1/boards/check-project-path')).toBe(1))
+    await waitFor(() => expect(save).toBeEnabled())
+    await userEvent.click(save)
+    await waitFor(() => expect(api.count('PATCH /api/v1/boards/:id')).toBe(2))
+    expect(api.calls.filter((c) => c.method === 'PATCH')[1].body).toMatchObject({ project_path: '/work/new' })
+    await waitFor(() => expect(input).toHaveValue('/work/new'))
+    await waitFor(() => expect(save).toBeEnabled())
+
+    await userEvent.clear(input)
+    await userEvent.tab()
+    await userEvent.click(save)
+    await waitFor(() => expect(api.count('PATCH /api/v1/boards/:id')).toBe(3))
+    expect(api.calls.filter((c) => c.method === 'PATCH')[2].body).toMatchObject({ project_path: '' })
+    expect(api.count('POST /api/v1/boards/check-project-path')).toBe(1)
+    await waitFor(() => expect(input).toHaveValue(''))
+  })
+
+  it('桌面客户端不允许清空工作目录', async () => {
+    vi.stubGlobal('slateDesktopServer', { port: 49152, openPath: '/open' })
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ project_path: '/work/old' }),
+      'POST /api/v1/boards/check-project-path': {},
+      'PATCH /api/v1/boards/:id': {},
+    })
+    renderSettings()
+    const input = await screen.findByRole('textbox', { name: /Working directory/ })
+    const save = screen.getByRole('button', { name: en.common.save })
+    expect(save).toBeEnabled()
+    await userEvent.clear(input)
+    await userEvent.tab()
+    expect(await screen.findByRole('alert')).toHaveTextContent(en.boards.projectPath.required)
+    expect(save).toBeDisabled()
+    fireEvent.submit(input.closest('form')!)
+    expect(api.count('PATCH /api/v1/boards/:id')).toBe(0)
+  })
+
+  it('桌面客户端在尚未配置工作目录时禁止保存其他字段', async () => {
+    vi.stubGlobal('slateDesktopServer', { port: 49152, openPath: '/open' })
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ project_path: '' }),
+      'PATCH /api/v1/boards/:id': {},
+    })
+    renderSettings()
+    const save = await screen.findByRole('button', { name: en.common.save })
+    expect(save).toBeDisabled()
+    await userEvent.type(screen.getByLabelText(en.settings.general.name), 'Renamed')
+    fireEvent.submit(save.closest('form')!)
+    expect(api.count('PATCH /api/v1/boards/:id')).toBe(0)
+  })
+
+  it('常规设置的工作目录失焦校验失败时，不允许保存其他表单字段', async () => {
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ project_path: '/work/old' }),
+      'POST /api/v1/boards/check-project-path': () => ({ status: 400, body: { reason: 'ErrProjectPathNotFound' } }),
+    })
+    renderSettings()
+    const input = await screen.findByRole('textbox', { name: /Working directory/ })
+    await userEvent.clear(input)
+    await userEvent.type(input, '/work/missing')
+    await userEvent.tab()
+    expect(await screen.findByRole('alert')).toHaveTextContent('This directory does not exist.')
+    expect(screen.getByRole('button', { name: en.common.save })).toBeDisabled()
+    fireEvent.submit(input.closest('form')!)
+    expect(api.count('PATCH /api/v1/boards/:id')).toBe(0)
+  })
+
+  it('修改目录通过预校验但保存失败时，保留输入并显示目录错误', async () => {
+    const api = installFakeApi({
+      'GET /api/v1/boards/:id/snapshot': makeSnapshot({ project_path: '/work/old' }),
+      'POST /api/v1/boards/check-project-path': {},
+      'PATCH /api/v1/boards/:id': () => ({ status: 400, body: { reason: 'ErrProjectPathNotFound' } }),
+    })
+    renderSettings()
+    const input = await screen.findByRole('textbox', { name: /Working directory/ })
+    await userEvent.clear(input)
+    await userEvent.type(input, '/work/vanished')
+    await userEvent.tab()
+    const save = screen.getByRole('button', { name: en.common.save })
+    await waitFor(() => expect(save).toBeEnabled())
+    await userEvent.click(save)
+    expect(await within(input.closest('form')!).findByRole('alert')).toHaveTextContent('This directory does not exist.')
+    expect(input).toHaveValue('/work/vanished')
+    expect(save).toBeDisabled()
+    expect(api.count('PATCH /api/v1/boards/:id')).toBe(1)
   })
 
   it('「导出」页签给出 JSON 和 Markdown 两个下载链接，指向当前项目的导出接口', async () => {

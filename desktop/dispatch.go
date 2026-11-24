@@ -10,8 +10,10 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-const dispatchQueueSize = 128
-const dispatchLeaseMinutes = 30
+const (
+	dispatchQueueSize    = 128
+	dispatchLeaseMinutes = 30
+)
 
 type dispatchConfig struct {
 	BoardID int64            `json:"board_id"`
@@ -149,6 +151,8 @@ func (d *dispatchRun) run(ctx context.Context, snapshot *kanban.Snapshot) {
 			}
 			needSnapshot = true
 		case <-changed:
+			// 快照里带着 project_path，看板字段一改就要重拉，不能只等任务事件。
+			needSnapshot = true
 		case <-time.After(10 * time.Second):
 			// Hub notifications are process-local. Check the event tail
 			// when another desktop writes to a shared database.

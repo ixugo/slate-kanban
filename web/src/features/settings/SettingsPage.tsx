@@ -78,7 +78,7 @@ export default function SettingsPage() {
           <TabsTrigger value="export">{t('settings.tabs.export')}</TabsTrigger>
         </TabsList>
         <TabsContent value="general">
-          <GeneralSection board={data} />
+          <GeneralSection key={boardId} board={data} />
         </TabsContent>
         <TabsContent value="columns">
           <ColumnsSection boardId={boardId} columns={view.columns} cards={data.cards} />

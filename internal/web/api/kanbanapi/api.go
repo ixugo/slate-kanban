@@ -1,5 +1,6 @@
 // Package kanbanapi 是看板领域的 REST 适配器。处理函数只做四件事：解析请求、取出调用者身份、
-// 调用 kanban.Core、返回结果；权限判断和字段校验都留在 Core 里，这样 REST 和 MCP 两个入口行为一致。
+// 调用 kanban.Core、返回结果；权限判断和通用字段校验都留在 Core 里。
+// REST 填写的本机工作目录额外检查存在性，MCP 可以继续登记其他机器上的项目路径。
 package kanbanapi
 
 import (

@@ -56,6 +56,11 @@ export function createBoard(input: CreateBoardInput): Promise<BoardDetail> {
   return request<BoardDetail>('/boards', { method: 'POST', body: input })
 }
 
+/** 检查工作目录在服务端是否存在，不创建或修改项目 */
+export function checkProjectPath(projectPath: string, signal?: Signal): Promise<Empty> {
+  return request<Empty>('/boards/check-project-path', { method: 'POST', body: { project_path: projectPath }, signal })
+}
+
 /** 修改看板的名称、说明、项目路径 */
 export function updateBoard(boardId: number, input: UpdateBoardInput): Promise<Board> {
   return request<Board>(`/boards/${boardId}`, { method: 'PATCH', body: input })

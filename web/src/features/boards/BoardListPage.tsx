@@ -18,7 +18,7 @@ const CreateBoardDialog = lazy(() =>
 )
 import { useBoards } from './useBoards'
 
-/** 列表里的一张项目卡片：名称、说明、最近更新时间；agent 回填过项目路径时才显示路径 */
+/** 列表里的一张项目卡片：名称、说明、最近活动时间；工作目录在项目设置中展示。 */
 function BoardCard({ board }: { board: Board }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()

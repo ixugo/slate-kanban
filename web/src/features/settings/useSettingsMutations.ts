@@ -63,6 +63,10 @@ export function useSettingsMutations(boardId: number) {
       if (ctx?.previous) queryClient.setQueryData(boardKey, ctx.previous)
       toastError(err)
     },
+    // 工作目录必须由服务端确认后才写入快照，避免回显已被拒绝的路径。
+    onSuccess: (saved, input) => {
+      if (input.project_path !== undefined) patchSnapshot((s) => ({ ...s, project_path: saved.project_path }))
+    },
     onSettled: () => invalidateBoardAndList(),
   })
 
