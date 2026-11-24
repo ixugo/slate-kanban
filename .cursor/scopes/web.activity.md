@@ -92,7 +92,7 @@ flowchart TD
 | 服务端查询 | `event_activity_test.go`（翻页、筛选、has_more 边界、参数校验，对每个分支改坏过）；`event.db_test.go` 在 SQLite 和 PostgreSQL 上各跑一遍 |
 | 接口 | `kanbanapi/event_test.go` 的 `TestActivity`、`TestActivityInvalid` |
 | 筛选条件 | `filters.test.ts`（含和后端事件类型的核对） |
-| 句子 | `describeEvent.test.ts`（每个事件类型、释放的三种原因、规则动作的翻译、缺字段、非对象载荷） |
+| 句子 | `describeEvent.test.ts`（每个事件类型、释放的四种原因、规则动作的翻译、缺字段、非对象载荷） |
 | 查看变更 | `ViewChangeLink.test.tsx`（带下划线的链接、点开前不请求、左旧右新和增删统计、再次打开用缓存、记录不存在时提示和重试、前后一样、旧事件和已删任务没有链接、中文界面）；`CardDialog.test.tsx` 里任务弹窗上叠对比弹窗、Esc 只关最上面一层；`DiffView.test.tsx` 和 `lineDiff.test.ts` 覆盖行比较和词级比较；每个关键分支都改坏过一次确认测试会失败 |
 | 抽屉集成 | `ActivityDrawer.test.tsx`（打开、筛选请求参数、翻页、实时出现、关着不请求、任务链接、错误重试、空状态） |
 | 语言 | `i18n/locales.test.ts` 核对五种语言的键和占位符一致 |

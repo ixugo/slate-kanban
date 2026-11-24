@@ -33,7 +33,7 @@
 | 看板名称 | 必填，去掉首尾空白后 1 到 100 个字符 |
 | slug | 2 到 10 位，首字符是大写字母，其余是大写字母或数字；全局唯一；创建后不可改 |
 | 看板说明 | 最多 2000 个字符 |
-| 项目路径 | 最多 512 个字符；非空时必须是绝对路径（以斜线开头，或盘符加冒号加斜线或反斜线，或双反斜线开头）；不允许出现空字符 |
+| 项目路径 | 最多 512 个字符；非空时必须是绝对路径（以斜线开头，或盘符加冒号加斜线或反斜线，或双反斜线开头）；不允许出现控制字符。REST 创建及显式更新目录时还必须是服务端实际存在的目录，MCP 保留跨机器路径登记能力 |
 | 列名 | 必填，1 到 60 个字符，同一看板内不区分大小写唯一 |
 | agent 指令 | 最多 4000 个字符 |
 | 每个看板的列数 | 最多 30 |
@@ -279,6 +279,7 @@ sequenceDiagram
 | 删除看板的事务内步骤 | unit.deleteBoard | internal/core/kanban/board.go |
 | slug 生成与校验 | generateSlug, validateSlug, maxSlugAttempts | internal/core/kanban/board.param.go |
 | 项目路径校验 | validateProjectPath | internal/core/kanban/board.param.go |
+| REST 工作目录存在性校验 | ValidateLocalProjectPath | internal/core/kanban/board.param.go |
 | 起步模板的列与文案 | normalizeLocale, textsFor, unit.seedColumns | internal/core/kanban/board_template.go |
 | 起步模板的规则 | defaultRules, unit.seedRules | internal/core/kanban/board_template.go |
 | 列的增删改与排序 | Core.CreateColumn, UpdateColumn, DeleteColumn, ReorderColumns | internal/core/kanban/column.go |

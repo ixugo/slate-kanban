@@ -4,8 +4,7 @@
 
 网页、各种脚本、不支持 MCP 的 agent 都要通过 HTTP 读写同一个看板；网页还要在别人改了看板时马上看到变化。
 REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP 是第二个；默认免登录，操作者固定为人（`human`）。可选的访问口令只负责「进门」，不是账号体系，见 `security.passcode.go.md`。
-两个适配器必须表现一致，所以 REST 层只做四件事：解析请求、取出调用者身份、调用 Core、返回结果。
-权限判断、字段校验、业务规则一律留在 Core 里，REST 层不写任何业务判断。
+两个适配器共用 Core 的权限、通用字段校验和业务规则。REST 填写的工作目录还调用 `kanban.ValidateLocalProjectPath` 检查服务端目录是否存在；MCP 路径可以来自其他机器，只检查格式。
 
 | 编号 | 问题场景 | 不解决的后果 | 解决方案 | 状态 |
 |------|----------|-------------|---------|------|
@@ -42,8 +41,9 @@ REST 层是看板领域（kanban）对外的第一个适配器，后面的 MCP �
 | POST /auth/logout | 同上 | 全部（本身不要求口令） | — | `{}`，并清掉会话 cookie |
 | GET /boards | ListBoards | 全部 | — | 看板数组 |
 | POST /boards | CreateBoard | 人 | CreateBoardInput | BoardDetail |
+| POST /boards/check-project-path | ValidateLocalProjectPath | 人 | `{project_path: "绝对目录"}`（空串合法） | `{}`；不存在或不是目录返回 400 `ErrProjectPathNotFound` |
 | GET /boards/:board_id | GetBoard | 全部 | — | BoardDetail（含列和规则） |
-| PATCH /boards/:board_id | UpdateBoard | 人；agent 只能在项目路径为空时写项目路径，不能改标签库（`tags`） | UpdateBoardInput（含 tags，见 kanban.board.go.md「标签库」） | Board（含 tags） |
+| PATCH /boards/:board_id | UpdateBoard | 人 | UpdateBoardInput（含 tags，见 kanban.board.go.md「标签库」；提交的 `project_path` 必须存在于服务端，空串清除，不传不改） | Board（含 tags） |
 | DELETE /boards/:board_id | DeleteBoard | 人 | — | `{}` |
 | GET /boards/:board_id/snapshot | BoardSnapshot | 全部 | — | Snapshot（看板、列、规则、全部任务、seq） |
 | GET /boards/:board_id/export | ExportBoard | 全部 | 查询 format=json\|md，默认 json | JSON 信封或 Markdown 附件（见 kanban.board.go.md） |

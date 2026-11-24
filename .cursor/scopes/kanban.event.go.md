@@ -44,8 +44,8 @@ Event 的 JSON 序列化会把它直接输出成 JSON 对象，不再套一层�
 | card.moved | 任务换列 | key, title, from_id, from, to_id, to |
 | card.reordered | 任务在同一列内调整顺序 | key, column_id |
 | card.deleted | 删除任务 | key, title |
-| card.claimed | agent 领取或续期 | key, title, agent, expires_at |
-| card.released | 领取被释放或被收回 | key, title, agent, why；why 取 released（持有者主动释放）、revoked（人收回）、moved（agent 把任务换了列；人换列不写这个事件，领取保留） |
+| card.claimed | agent 新领取，或接手已过期的领取，或租约已过期的持有者回来写评论、改任务（这两种情况前面紧挨着一条 why 为 expired 的 card.released）；持有者在有效期内续租不写这个事件 | key, title, agent, engineer_id, expires_at。分配工程师时记录 engineer_name，桌面调度用领取时的名称，普通 agent 留空。 |
+| card.released | 领取被释放、被收回，或旧租约到期后被新领取盖掉 | key, title, agent, why；why 取 released（持有者主动释放）、revoked（人收回）、moved（agent 把任务换了列；人换列不写这个事件，领取保留；桌面开始研发时 agent 带着自己的有效租约换列，也不写）、expired（旧租约到期没人续上，在下一次新领取时补记，操作者是发起新领取的人，含原持有者回来写评论、改任务，内容多一个 expired_at；续租没断过不写） |
 | comment.added | 新增评论 | key, comment_id, author, author_kind, snippet |
 | comment.deleted | 删除评论 | key, comment_id |
 | rule.created / rule.updated / rule.deleted | 规则变更 | rule_id, name |

@@ -19,7 +19,9 @@ const (
 	skillIntro = "## 2. 安装 skill（可选）\n\n" +
 		"skill 是 agent 使用看板的操作手册：怎么确认项目路径、怎么守候、怎么开分支做事、做完怎么交接。" +
 		"这一步可以跳过：MCP 资源 slate://skills/slate-kanban 返回的内容和 skill 完全相同，没装 skill 时，" +
-		"MCP 的使用说明和守候提示词都会让 agent 自己去读它。装在 host 的 skills 目录里的好处只是 host 会按需自动加载。\n\n"
+		"旧客户端的 MCP 使用说明和守候提示词会让 agent 自己去读它。" +
+		"支持 MCP Skills 扩展的宿主可直接从 skills/list 发现简介，再按需读取 Skill，无需重复安装。" +
+		"普通资源客户端也可读取 slate://skills/catalog 发现内置及自定义 Skill。网页全局设置的 Skill 页可以管理自定义 Markdown Skill。\n\n"
 	verifyStep = "## 3. 验证\n\n" +
 		"装完 MCP 和 skill 之后，在 host 里新开一个会话（已经打开的会话不会获得新装的 MCP 和 skill）。让 agent 调用 whoami：" +
 		"返回的名称应该和网址里 name 一致，工作视图类型是 agent。确认之后，让它按 " + skillName + " skill 开始工作。\n\n" +
@@ -35,7 +37,7 @@ const (
 	faqSection = "## 常见问题\n\n" +
 		"- 连接返回 400：检查 name 格式（小写字母数字开头，最长 64，不能用 human 或 system）。\n" +
 		"- Claude Code 添加成功时打印的地址里没有 `?name=…`，那只是提示文字省略了查询参数，配置里存的是完整地址；以 whoami 返回的名称为准。\n" +
-		"- skill 要更新：服务升级之后，重新执行第 2 步里的命令。\n" +
+		"- 本地安装的旧 skill 要更新：服务升级之后，重新执行第 2 步里的命令；MCP Skills 目录和正文由服务提供，再次查询即可获取最新版本。\n" +
 		"- 如果宿主开启管理后没有刷新工具列表，agent 可以通过开启管理的工具查询目录并执行管理操作，也可在 Slate 网页的设置中操作。已安装额外旧管理连接的用户，可以移除该连接，保留日常使用的 Slate 连接。\n"
 )
 

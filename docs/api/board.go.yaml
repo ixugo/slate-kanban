@@ -37,7 +37,7 @@ paths:
       tags:
         - admin/看板
       summary: 创建看板
-      description: 创建看板并按模板生成起步的列。slug 不填就按名称生成。
+      description: 创建看板并按模板生成起步的列。slug 不填就按名称生成。project_path 可选，非空时必须是服务端实际存在的绝对目录，保存时重新校验。
       operationId: createBoard
       requestBody:
         required: true
@@ -57,7 +57,8 @@ paths:
                   description: 项目 AGENTS.md，Markdown 文本
                 project_path:
                   type: string
-                  description: 关联的本地项目路径
+                  description: Agent 使用的工作目录，以服务端所在机器为准。可留空，非空时必须是已存在的绝对目录。
+                  maxLength: 512
                 template:
                   type: string
                   description: 起步模板，不填按 dev
@@ -94,6 +95,43 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: 状态冲突
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  "/api/v1/boards/check-project-path":
+    post:
+      tags:
+        - admin/看板
+      summary: 检查工作目录
+      description: 检查服务端是否存在指定的绝对目录，不修改项目。空路径表示未设置，视为合法。
+      operationId: checkProjectPath
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                project_path:
+                  type: string
+                  description: 工作目录（首尾空白会被去除）
+                  maxLength: 512
+      responses:
+        "200":
+          description: 工作目录合法并存在，或未设置目录
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Empty"
+        "400":
+          description: 格式不合法（ErrInvalidInput）、目录不存在或不是目录（ErrProjectPathNotFound）、无法确认目录（ErrProjectPathCheckFailed）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 需要访问口令（只在设置了访问口令时出现）
           content:
             application/json:
               schema:
@@ -141,7 +179,7 @@ paths:
       tags:
         - admin/看板
       summary: 修改看板
-      description: 只更新请求里出现的字段。tags 整体替换标签库：库里原有、请求里没有的算删除（同时从所有任务上摘掉），编号相同的算修改文字或颜色，请求里的顺序就是显示顺序。engineers 整体替换工程师名册，规则相同：没有的算解聘（同时清掉任务上的绑定和占用）。
+      description: 只更新请求里出现的字段。提交 project_path 时重新检查目录是否存在，空字符串清除目录。tags 整体替换标签库：库里原有、请求里没有的算删除（同时从所有任务上摘掉），编号相同的算修改文字或颜色，请求里的顺序就是显示顺序。engineers 整体替换工程师名册，规则相同：没有的算解聘（同时清掉任务上的绑定和占用）。
       operationId: updateBoard
       parameters:
         - name: board_id
@@ -165,7 +203,8 @@ paths:
                   description: 项目 AGENTS.md，Markdown 文本
                 project_path:
                   type: string
-                  description: 关联的本地项目路径
+                  description: Agent 使用的工作目录，以服务端所在机器为准。非空时必须是已存在的绝对目录，空串清除，不传不修改。
+                  maxLength: 512
                 tags:
                   type: array
                   items:
