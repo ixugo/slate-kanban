@@ -29,16 +29,23 @@ import { LiveView } from './LiveView'
 import { COMMANDS, type Command } from './keymap'
 import './editor.css'
 
-interface LiveEditorProps {
+export interface LiveEditorDraft {
   value: string
-  onChange: (value: string) => void
+  /** 外部填入正文时省略。编辑器生成的草稿保留本次挂载的来源。 */
+  valueSource?: symbol
+}
+
+interface LiveEditorProps extends LiveEditorDraft {
+  onChange: (draft: LiveEditorDraft) => void
   /** 文字长度上限 */
   max: number
   placeholder: string
   /** 给读屏软件的名称 */
   label: string
   /** Ctrl/Cmd+Enter */
-  onSubmit?: () => void
+  onSubmit?: (value: string) => void
+  /** 焦点离开整个编辑器，且输入法上屏后保存当前文字 */
+  onCommitOnBlur?: (value: string) => void
   /** Esc */
   onCancel?: () => void
   /** 挂载后自动获得焦点，光标在末尾 */
@@ -105,13 +112,15 @@ const SHORTCUTS = [
 const TOOL_BUTTON = 'size-8 pointer-coarse:size-10'
 
 /** 实时渲染编辑器 */
-export default function LiveEditor({ value, onChange, max, placeholder, label, onSubmit, onCancel, autoFocus, compact, boardId, toolbarOnFocus }: LiveEditorProps) {
+export default function LiveEditor({ value, valueSource, onChange, max, placeholder, label, onSubmit, onCommitOnBlur, onCancel, autoFocus, compact, boardId, toolbarOnFocus }: LiveEditorProps) {
   const { t } = useTranslation()
   const rootRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<LiveView | null>(null)
+  const source = useRef(Symbol())
   const [headingOpen, setHeadingOpen] = useState(false)
   const [uploading, setUploading] = useState(0)
   const [focused, setFocused] = useState(false)
+  const focusWithin = useRef(false)
   const showError = useErrorToast()
   // 回调放进 ref：父组件每次渲染都会生成新函数，不能因此重建编辑器
   const latest = useRef({ onChange, onSubmit, onCancel, showError })
@@ -139,8 +148,8 @@ export default function LiveEditor({ value, onChange, max, placeholder, label, o
     if (!root) return
     const view = new LiveView(root, value, {
       max,
-      onChange: (v) => latest.current.onChange(v),
-      onSubmit: () => latest.current.onSubmit?.(),
+      onChange: (v) => latest.current.onChange({ value: v, valueSource: source.current }),
+      onSubmit: (v) => latest.current.onSubmit?.(v),
       onCancel: latest.current.onCancel ? () => latest.current.onCancel?.() : undefined,
       onPasteImages: boardId === undefined ? undefined : (files) => void pasteImages(boardId, files),
     })
@@ -155,8 +164,9 @@ export default function LiveEditor({ value, onChange, max, placeholder, label, o
   }, [])
 
   useEffect(() => {
-    viewRef.current?.setValue(value)
-  }, [value])
+    // React 可能在下一次原生输入之后才提交上一笔草稿。自己的回显已经在 DOM 中应用。
+    if (valueSource !== source.current) viewRef.current?.setValue(value)
+  }, [value, valueSource])
 
   /** 执行一条命令后把焦点还给编辑区 */
   const run = (command: Command) => {
@@ -168,14 +178,23 @@ export default function LiveEditor({ value, onChange, max, placeholder, label, o
   const onBlur = (e: FocusEvent<HTMLDivElement>) => {
     const next = e.relatedTarget as HTMLElement | null
     if (next && (e.currentTarget.contains(next) || next.closest('[data-slot="popover-content"]'))) return
+    focusWithin.current = false
     setFocused(false)
+    if (onCommitOnBlur) {
+      viewRef.current?.whenSettled((nextValue) => {
+        if (!focusWithin.current) onCommitOnBlur(nextValue)
+      })
+    }
   }
   const collapsed = Boolean(toolbarOnFocus) && !focused && !headingOpen
 
   return (
     <div
       className="overflow-hidden rounded-xl border border-input bg-field transition-[border-color,box-shadow] duration-200 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/25"
-      onFocus={() => setFocused(true)}
+      onFocus={() => {
+        focusWithin.current = true
+        setFocused(true)
+      }}
       onBlur={onBlur}
     >
       {!collapsed && (

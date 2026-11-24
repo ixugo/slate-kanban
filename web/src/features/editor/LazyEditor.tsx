@@ -5,6 +5,8 @@ import { lazy, Suspense, type ComponentProps } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
+export type { LiveEditorDraft } from './LiveEditor'
+
 const LiveEditor = lazy(() => import('./LiveEditor'))
 
 /** 和 LiveEditor 用法完全一样；加载期间显示一块和编辑区等高的占位 */

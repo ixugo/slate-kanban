@@ -9,7 +9,7 @@ import { useLanguage } from '@/i18n/useLanguage'
 import { addComment, deleteComment } from '@/lib/api/endpoints'
 import type { ActorKind, BoardEvent, Comment } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
-import { LazyEditor } from '@/features/editor/LazyEditor'
+import { LazyEditor, type LiveEditorDraft } from '@/features/editor/LazyEditor'
 import { actorLabel, describeEvent } from '@/features/activity/describeEvent'
 import { EventPreviousValues } from '@/features/activity/EventPreviousValues'
 import { ViewChangeLink } from '@/features/activity/ViewChangeLink'
@@ -81,7 +81,7 @@ function EventLine({ event, renderCardReference }: { event: BoardEvent; renderCa
 export function CardTimeline({ cardId, boardId, comments, renderCardReference, readOnly }: CardTimelineProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
-  const [body, setBody] = useState('')
+  const [body, setBody] = useState<LiveEditorDraft>({ value: '' })
   const [showDetails, setShowDetails] = useState(true)
   const queryClient = useQueryClient()
   const toastError = useErrorToast()
@@ -89,9 +89,9 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference, r
   const items = useMemo(() => buildTimeline(comments ?? [], activity.data?.events ?? [], showDetails), [comments, activity.data, showDetails])
 
   const send = useMutation({
-    mutationFn: () => addComment(cardId, body.trim().slice(0, COMMENT_MAX)),
+    mutationFn: (value: string) => addComment(cardId, value.trim().slice(0, COMMENT_MAX)),
     onSuccess: () => {
-      setBody('')
+      setBody({ value: '' })
       void queryClient.invalidateQueries({ queryKey: queryKeys.card(cardId) })
       void queryClient.invalidateQueries({ queryKey: queryKeys.board(boardId) })
     },
@@ -120,18 +120,18 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference, r
       </div>
       {!readOnly && <LazyEditor
         compact
-        value={body}
+        {...body}
         onChange={setBody}
         max={COMMENT_MAX}
         placeholder={t('card.comment.placeholder')}
         label={t('card.comment.title')}
-        onSubmit={() => body.trim() && send.mutate()}
+        onSubmit={(value) => value.trim() && send.mutate(value)}
         boardId={boardId}
         toolbarOnFocus
       />}
-      {!readOnly && body.trim() && (
+      {!readOnly && body.value.trim() && (
         // mousedown 时不让编辑区失焦：失焦会收起记号和图片旁的原文，按钮被顶得移位，这次点击就落空了
-        <Button type="button" size="sm" disabled={send.isPending} onMouseDown={(e) => e.preventDefault()} onClick={() => send.mutate()}>
+        <Button type="button" size="sm" disabled={send.isPending} onMouseDown={(e) => e.preventDefault()} onClick={() => send.mutate(body.value)}>
           {t('card.comment.send')}
         </Button>
       )}

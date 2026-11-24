@@ -6,7 +6,7 @@ import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LazyEditor } from '@/features/editor/LazyEditor'
+import { LazyEditor, type LiveEditorDraft } from '@/features/editor/LazyEditor'
 import type { Board } from '@/lib/api/types'
 import { BOARD_DESC_MAX, BOARD_NAME_MAX } from '@/lib/limits'
 import { DeleteBoardDialog } from './DeleteBoardDialog'
@@ -22,18 +22,18 @@ export function GeneralSection({ board }: Props) {
   const { t } = useTranslation()
   const { updateBoard } = useSettingsMutations(board.id)
   const [name, setName] = useState(board.name)
-  const [description, setDescription] = useState(board.description)
+  const [description, setDescription] = useState<LiveEditorDraft>({ value: board.description })
   const [errors, setErrors] = useState<GeneralFormErrors>({})
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    const found = validateGeneralForm({ name, description })
+    const found = validateGeneralForm({ name, description: description.value })
     setErrors(found)
     if (Object.keys(found).length > 0) return
     updateBoard.mutate({
       name: name.trim(),
-      description,
+      description: description.value,
     })
   }
 
@@ -63,7 +63,7 @@ export function GeneralSection({ board }: Props) {
           <p className="text-ui font-medium">{t('settings.general.description')}</p>
           <LazyEditor
             label={t('settings.general.description')}
-            value={description}
+            {...description}
             max={BOARD_DESC_MAX}
             placeholder={t('boards.create.descriptionPlaceholder')}
             onChange={setDescription}

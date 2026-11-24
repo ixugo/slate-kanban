@@ -111,6 +111,67 @@ describe('输入与删除', () => {
     expect(readSelection(root)).toEqual({ anchor: 2, head: 2 })
   })
 
+  it('浏览器暂时拒绝续输后的光标时，保留编辑位置并恢复选区', async () => {
+    const { root, view } = setup('中文输入')
+    root.tabIndex = 0
+    root.focus()
+    select(root, 4)
+    const selection = document.getSelection()!
+    const setSelection = selection.setBaseAndExtent.bind(selection)
+    const paint = vi.spyOn(selection, 'setBaseAndExtent').mockImplementationOnce(() => {
+      const line = root.children[0]
+      setSelection(line, 0, line, 0)
+    })
+
+    try {
+      input(root, 'insertText', '!')
+      expect(readSelection(root)).toEqual({ anchor: 0, head: 0 })
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(view.getState()).toEqual({ value: '中文输入!', anchor: 5, head: 5 })
+      await vi.waitFor(() => expect(readSelection(root)).toEqual({ anchor: 5, head: 5 }))
+    } finally {
+      paint.mockRestore()
+    }
+  })
+
+  it('同步回写成功后，浏览器迟到的光标重置不会覆盖编辑位置', async () => {
+    const { root, view } = setup('中文输入')
+    root.tabIndex = 0
+    root.focus()
+    select(root, 4)
+
+    input(root, 'insertText', '!')
+    expect(readSelection(root)).toEqual({ anchor: 5, head: 5 })
+
+    select(root, 0)
+    expect(view.getState()).toEqual({ value: '中文输入!', anchor: 5, head: 5 })
+    await vi.waitFor(() => expect(readSelection(root)).toEqual({ anchor: 5, head: 5 }))
+  })
+
+  it('下一个方向键从续输后的正确光标位置开始移动', () => {
+    const { root, view } = setup('中文输入')
+    root.tabIndex = 0
+    root.focus()
+    select(root, 4)
+
+    vi.useFakeTimers()
+    try {
+      input(root, 'insertText', '!')
+      writeSelection(root, 0, 0)
+
+      expect(key(root, 'ArrowLeft', { key: 'ArrowLeft' }).defaultPrevented).toBe(false)
+      expect(readSelection(root)).toEqual({ anchor: 5, head: 5 })
+
+      select(root, 4)
+      vi.runOnlyPendingTimers()
+      expect(view.getState()).toEqual({ value: '中文输入!', anchor: 4, head: 4 })
+      expect(readSelection(root)).toEqual({ anchor: 4, head: 4 })
+    } finally {
+      view.destroy()
+      vi.useRealTimers()
+    }
+  })
+
   it('输入替换选区；超过上限的输入被丢弃', () => {
     const { root, view } = setup('abc', { max: 3 })
     select(root, 0, 3)
@@ -351,6 +412,134 @@ describe('输入法与浏览器自行改 DOM', () => {
     input(root, 'insertText', '!')
     expect(view.getState().value).toBe('你好!')
     expect(readValue(root)).toBe('你好!')
+  })
+
+  it.each([0, 7])('WebKit 空组合结束后的普通文本上屏保留前缀，原生选区终点为 %i', (head) => {
+    const { root, view, changes } = setup('中文')
+    select(root, 2)
+    root.dispatchEvent(new CompositionEvent('compositionstart'))
+    root.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'shuru' }))
+    root.children[0].replaceChildren(document.createTextNode('中文shuru'))
+    writeSelection(root, 7, head)
+    root.dispatchEvent(new CompositionEvent('compositionend', { data: '' }))
+
+    expect(input(root, 'insertText', '输入').defaultPrevented).toBe(true)
+    expect(view.getState()).toEqual({ value: '中文输入', anchor: 4, head: 4 })
+    expect(readSelection(root)).toEqual({ anchor: 4, head: 4 })
+    input(root, 'insertText', '!')
+    expect(view.getState()).toEqual({ value: '中文输入!', anchor: 5, head: 5 })
+    expect(readSelection(root)).toEqual({ anchor: 5, head: 5 })
+    expect(readValue(root)).toBe('中文输入!')
+
+    const save = vi.fn()
+    root.dispatchEvent(new Event('blur'))
+    view.whenSettled(save)
+    expect(save).toHaveBeenCalledExactlyOnceWith('中文输入!')
+    expect(changes).toEqual(['中文输入', '中文输入!'])
+  })
+
+  it.each([
+    { head: 2, expected: '中文a正文' },
+    { head: 0, expected: 'a正文' },
+  ])('真正取消组合后保留普通英文输入和选区替换，选区终点为 $head', ({ head, expected }) => {
+    const { root, view, changes } = setup('中文正文')
+    select(root, 2)
+    root.dispatchEvent(new CompositionEvent('compositionstart'))
+    root.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'shuru' }))
+    root.children[0].replaceChildren(document.createTextNode('中文shuru正文'))
+    root.children[0].replaceChildren(document.createTextNode('中文正文'))
+    writeSelection(root, 2, head)
+    root.dispatchEvent(new CompositionEvent('compositionend', { data: '' }))
+
+    input(root, 'insertText', 'a')
+    expect(view.getState().value).toBe(expected)
+    expect(changes).toEqual([expected])
+  })
+
+  it('迟到的上屏替换组合开始时的选区，并把最终值交给等待中的失焦保存', () => {
+    const { root, view, changes } = setup('前旧字后')
+    select(root, 3, 1)
+    root.dispatchEvent(new CompositionEvent('compositionstart'))
+    root.dispatchEvent(new CompositionEvent('compositionupdate', { data: 'xin' }))
+    root.children[0].replaceChildren(document.createTextNode('前xin后'))
+    writeSelection(root, 4, 0)
+    root.dispatchEvent(new CompositionEvent('compositionend', { data: '' }))
+
+    const save = vi.fn()
+    root.dispatchEvent(new Event('blur'))
+    view.whenSettled(save)
+    expect(save).not.toHaveBeenCalled()
+    input(root, 'insertText', '新')
+    expect(view.getState()).toEqual({ value: '前新后', anchor: 2, head: 2 })
+    expect(readValue(root)).toBe('前新后')
+    expect(changes).toEqual(['前新后'])
+    expect(save).toHaveBeenCalledExactlyOnceWith('前新后')
+  })
+
+  it('组合结束后等浏览器写入确认文字，保留第二行的光标和其他行', async () => {
+    const { root, view, changes } = setup('第一行\n\n末行')
+    select(root, 4)
+    root.dispatchEvent(new CompositionEvent('compositionstart'))
+    const line = root.children[1]
+    line.replaceChildren(document.createTextNode('nihao'))
+    writeSelection(root, 9, 9)
+    root.dispatchEvent(new CompositionEvent('compositionend', { data: '你好' }))
+
+    document.dispatchEvent(new Event('selectionchange'))
+    expect(root.children[1]).toBe(line)
+    expect(changes).toEqual([])
+
+    expect(input(root, 'insertFromComposition', '你好').defaultPrevented).toBe(false)
+    line.replaceChildren(document.createTextNode('你好'))
+    writeSelection(root, 6, 6)
+    root.dispatchEvent(new InputEvent('input', { inputType: 'insertFromComposition', data: '你好' }))
+
+    await vi.waitFor(() => expect(changes).toEqual(['第一行\n你好\n末行']))
+    expect(view.getState()).toEqual({ value: '第一行\n你好\n末行', anchor: 6, head: 6 })
+    expect(readSelection(root)).toEqual({ anchor: 6, head: 6 })
+  })
+
+  it('WebKit 将空行上屏为根节点下的文字与 BR，保留第二行的中文和光标', async () => {
+    const { root, view, changes } = setup('首行\n\n末行')
+    select(root, 3)
+    root.dispatchEvent(new CompositionEvent('compositionstart'))
+    const text = document.createTextNode('你好')
+    root.children[1].replaceWith(text, document.createElement('br'))
+    document.getSelection()!.setBaseAndExtent(text, 2, text, 2)
+    root.dispatchEvent(new CompositionEvent('compositionend', { data: '你好' }))
+
+    await vi.waitFor(() => expect(changes).toEqual(['首行\n你好\n末行']))
+    expect(view.getState()).toEqual({ value: '首行\n你好\n末行', anchor: 5, head: 5 })
+    expect(readSelection(root)).toEqual({ anchor: 5, head: 5 })
+  })
+
+  it('浏览器的不可取消输入由原生处理，编辑器只接收一次', () => {
+    const { root, view, changes } = setup('甲\n乙')
+    select(root, 3)
+    root.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: '中' }))
+    expect(changes).toEqual([])
+
+    root.children[1].replaceChildren(document.createTextNode('乙中'))
+    writeSelection(root, 4, 4)
+    root.dispatchEvent(new InputEvent('input', { inputType: 'insertText', data: '中' }))
+    expect(view.getState()).toEqual({ value: '甲\n乙中', anchor: 4, head: 4 })
+    expect(changes).toEqual(['甲\n乙中'])
+  })
+
+  it('组合中的失焦不重画正在输入的 Markdown 行', async () => {
+    const { root, view, changes } = setup('甲\n**乙**')
+    select(root, 5)
+    root.dispatchEvent(new CompositionEvent('compositionstart'))
+    const line = root.children[1]
+    line.querySelector('.md-b')!.textContent = '候选'
+
+    root.dispatchEvent(new Event('blur'))
+    expect(root.children[1]).toBe(line)
+    expect(changes).toEqual([])
+
+    line.querySelector('.md-b')!.textContent = '中文'
+    root.dispatchEvent(new CompositionEvent('compositionend', { data: '中文' }))
+    await vi.waitFor(() => expect(view.getState().value).toBe('甲\n**中文**'))
   })
 
   it('没拦截的输入类型：放行，input 之后从 DOM 读回', () => {
