@@ -94,11 +94,15 @@ func Run(build app.BuildInfo) (string, error) {
 		}
 		closeConfig()
 	})
+	js := s.cleanup.script(s.url) + ";\n" + language.script(s.url) + ";\n" + s.dispatch.script(s.url)
+	if s.menu != nil {
+		js += ";\n" + s.menu.script(s.url)
+	}
 	window = native.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:               "main",
 		Title:              displayName,
 		URL:                s.url,
-		JS:                 s.cleanup.script(s.url) + ";\n" + language.script(s.url) + ";\n" + s.dispatch.script(s.url),
+		JS:                 js,
 		Width:              1280,
 		Height:             820,
 		MinWidth:           760,
@@ -120,8 +124,12 @@ func Run(build app.BuildInfo) (string, error) {
 		native.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) { show() })
 		addTray(native, s, window, show, language)
 	}
+	openSettings := func(tab string) {
+		show()
+		s.menu.open(tab)
+	}
 	updateMenu := func() {
-		menu := applicationMenu(native, window, s.url, show, language.text())
+		menu := applicationMenu(native, window, s.url, show, openSettings, language.text())
 		native.Menu.Set(menu)
 		if runtime.GOOS != "darwin" {
 			window.SetMenu(menu)
@@ -170,29 +178,29 @@ func showStartupError(native *application.App, err error, text desktopText) erro
 	return errors.Join(err, native.Run())
 }
 
-func applicationMenu(native *application.App, window *application.WebviewWindow, origin string, show func(), text desktopText) *application.Menu {
+func applicationMenu(native *application.App, window *application.WebviewWindow, origin string, show func(), openSettings func(string), text desktopText) *application.Menu {
 	menu := application.NewMenu()
 	if runtime.GOOS == "darwin" {
 		appMenu := menu.AddSubmenu(displayName)
-		addRole(appMenu, application.About, text.about)
+		appMenu.Add(text.about).OnClick(func(*application.Context) { openSettings("about") })
+		appMenu.Add(text.settings).SetAccelerator("Cmd+,").OnClick(func(*application.Context) { openSettings("general") })
 		appMenu.AddSeparator()
 		addRole(appMenu, application.Hide, text.hide)
 		addRole(appMenu, application.HideOthers, text.hideOthers)
 		addRole(appMenu, application.UnHide, text.showAll)
 		appMenu.AddSeparator()
 		addRole(appMenu, application.Quit, text.quit)
-	}
-	navigation := menu.AddSubmenu(text.navigate)
-	navigation.Add(text.show).OnClick(func(*application.Context) { show() })
-	navigation.Add(text.boards).OnClick(func(*application.Context) {
-		window.SetURL(origin)
-		show()
-	})
-	navigation.Add(text.agents).OnClick(func(*application.Context) {
-		window.SetURL(origin + "/agents")
-		show()
-	})
-	if runtime.GOOS != "darwin" {
+	} else {
+		navigation := menu.AddSubmenu(text.navigate)
+		navigation.Add(text.show).OnClick(func(*application.Context) { show() })
+		navigation.Add(text.boards).OnClick(func(*application.Context) {
+			window.SetURL(origin)
+			show()
+		})
+		navigation.Add(text.agents).OnClick(func(*application.Context) {
+			window.SetURL(origin + "/agents")
+			show()
+		})
 		navigation.AddSeparator()
 		navigation.Add(text.quit).OnClick(func(*application.Context) { native.Quit() })
 	}
@@ -205,6 +213,10 @@ func applicationMenu(native *application.App, window *application.WebviewWindow,
 	addRole(edit, application.Copy, text.copy)
 	addRole(edit, application.Paste, text.paste)
 	addRole(edit, application.SelectAll, text.selectAll)
+	if runtime.GOOS == "darwin" {
+		windowMenu := menu.AddSubmenu(text.window)
+		addRole(windowMenu, application.Minimise, text.minimise)
+	}
 	return menu
 }
 

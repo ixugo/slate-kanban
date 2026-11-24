@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +23,7 @@ type service struct {
 	url         string
 	recentCards func(context.Context, int) ([]kanban.RecentCard, error)
 	dispatch    *desktopDispatch
+	menu        *desktopMenuBridge
 	close       func() error
 	done        <-chan struct{}
 	cleanup     worktreeCleanup
@@ -62,11 +65,18 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 	handler := lifecycle.Wrap(services.Handler, closing)
 	localCleanup := newWorktreeCleanup()
 	var dispatch *desktopDispatch
+	var menu *desktopMenuBridge
 	if language != nil {
 		handler = language.wrap(origin, handler)
 		handler = wrapCleanup(origin, localCleanup.path, runWorktreeCleanup(services.Kanban), handler)
 		dispatch = newDesktopDispatch(services.Kanban, bc.Runtime.ConfigDir)
 		handler = dispatch.wrap(origin, handler)
+		if runtime.GOOS == "darwin" {
+			menu = newDesktopMenuBridge()
+			handler = menu.wrap(closing, origin, func(ctx context.Context) error {
+				return exec.CommandContext(ctx, "/usr/bin/open", "https://github.com/ixugo/slate-kanban").Run()
+			}, handler)
+		}
 	}
 	httpServer := &http.Server{
 		Handler:           handler,
@@ -103,6 +113,7 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 		url:         origin,
 		recentCards: services.Kanban.RecentCards,
 		dispatch:    dispatch,
+		menu:        menu,
 		close:       closeService,
 		done:        done,
 		cleanup:     localCleanup,

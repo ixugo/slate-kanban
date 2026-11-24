@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { en } from '@/i18n/locales/en'
@@ -38,6 +38,24 @@ describe('AppSettingsDialog', () => {
     expect(link).toHaveAttribute('href', PROJECT_URL)
     expect(screen.queryByText(PROJECT_URL)).not.toBeInTheDocument()
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
+  it('原生菜单请求可在设置加载前打开关于，弹窗开启时也能切回通用', async () => {
+    installFakeApi({ 'GET /api/v1/version': { version: 'v0.1.0' } })
+    const html = document.documentElement
+    html.setAttribute('data-slate-settings-tab', 'about')
+    try {
+      renderApp(<AppSettingsButton />)
+      expect(await screen.findByRole('tab', { name: en.nav.about, selected: true })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', PROJECT_URL)
+      expect(html).not.toHaveAttribute('data-slate-settings-tab')
+
+      await act(async () => html.setAttribute('data-slate-settings-tab', 'general'))
+      expect(screen.getByRole('tab', { name: en.preferences.general, selected: true })).toBeInTheDocument()
+      expect(html).not.toHaveAttribute('data-slate-settings-tab')
+    } finally {
+      html.removeAttribute('data-slate-settings-tab')
+    }
   })
 
   it('关于里的手动检查发现新版本时，复用更新说明和安装弹窗', async () => {

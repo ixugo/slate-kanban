@@ -10,6 +10,8 @@ import { AboutSettings } from './AboutSettings'
 import { TemplatesSettings } from './TemplatesSettings'
 
 interface Props {
+  tab: string
+  onTabChange: (tab: string) => void
   onClose: () => void
   onCloseAutoFocus: (event: Event) => void
 }
@@ -18,7 +20,7 @@ const THEME_CHOICES = ['light', 'dark', 'system'] as const satisfies readonly Th
 
 const controlClass = 'h-9 w-full max-w-56 rounded-lg border border-input bg-field px-2.5 text-ui outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25'
 
-export default function AppSettingsDialog({ onClose, onCloseAutoFocus }: Props) {
+export default function AppSettingsDialog({ tab, onTabChange, onClose, onCloseAutoFocus }: Props) {
   const { t } = useTranslation()
   const { lang, setLang } = useLanguage()
   const { theme, setTheme } = useTheme()
@@ -33,7 +35,8 @@ export default function AppSettingsDialog({ onClose, onCloseAutoFocus }: Props) 
           <DialogTitle>{t('nav.settings')}</DialogTitle>
         </DialogHeader>
         <Tabs
-          defaultValue="general"
+          value={tab}
+          onValueChange={onTabChange}
           orientation="vertical"
           className="flex min-h-0 flex-1 gap-0 overflow-hidden"
         >
