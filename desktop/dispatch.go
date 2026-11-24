@@ -57,7 +57,8 @@ type dispatchCore interface {
 	MoveCard(context.Context, kanban.Actor, int64, kanban.MoveCardInput) (*kanban.Card, error)
 	UpdateCard(context.Context, kanban.Actor, int64, kanban.UpdateCardInput) (*kanban.Card, error)
 	AddComment(context.Context, kanban.Actor, int64, string) (*kanban.Comment, error)
-	FinishCard(context.Context, kanban.Actor, int64, kanban.FinishCardInput) (*kanban.CardDetail, error)
+	AddCommentWithExt(context.Context, kanban.Actor, int64, string, string) (*kanban.Comment, error)
+	FinishCardWithExt(context.Context, kanban.Actor, int64, kanban.FinishCardInput, string) (*kanban.CardDetail, error)
 	ReleaseCard(context.Context, kanban.Actor, int64) error
 }
 

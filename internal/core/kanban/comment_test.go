@@ -174,3 +174,41 @@ func TestDeleteCommentHumanOnly(t *testing.T) {
 		t.Fatalf("被拒绝的删除不应该删评论: %+v", list)
 	}
 }
+
+// TestAddCommentWithExt 验证带扩展字段的评论：扩展字段随评论一起读出；
+// 正文为空但有扩展字段的评论可以保存，且不写活动事件；没有扩展字段时空正文仍然不合法；
+// 扩展字段必须是 JSON 对象且不能超长。
+func TestAddCommentWithExt(t *testing.T) {
+	ctx := context.Background()
+	e := newCardEnv(t)
+	c := e.card(t, colTodo, "A")
+	const ext = `{"desktop_marker":"started"}`
+
+	got, err := e.core.AddCommentWithExt(ctx, testActor, c.ID, "有正文", ext)
+	if err != nil || got.Ext != ext || got.Body != "有正文" {
+		t.Fatalf("带扩展字段的评论不对: %+v %v", got, err)
+	}
+	events := len(e.events(t))
+	mark, err := e.core.AddCommentWithExt(ctx, testActor, c.ID, "  ", ext)
+	if err != nil || mark.Body != "" || mark.Ext != ext {
+		t.Fatalf("只有扩展字段的评论应该保存成功: %+v %v", mark, err)
+	}
+	if len(e.events(t)) != events {
+		t.Fatal("只有扩展字段的评论不应该写活动事件")
+	}
+	detail, err := e.core.GetCardDetail(ctx, c.ID)
+	if err != nil || len(detail.Comments) != 2 || detail.Comments[1].Ext != ext {
+		t.Fatalf("读取任务时扩展字段要随评论返回: %+v %v", detail, err)
+	}
+
+	for name, args := range map[string][2]string{
+		"空正文无扩展字段":   {"", ""},
+		"扩展字段不是对象":   {"正文", `["a"]`},
+		"扩展字段不是JSON": {"正文", `not json`},
+		"扩展字段超长":     {"正文", `{"k":"` + strings.Repeat("x", 2000) + `"}`},
+	} {
+		if _, err := e.core.AddCommentWithExt(ctx, testActor, c.ID, args[0], args[1]); !errors.Is(err, kanban.ErrInvalidInput) {
+			t.Errorf("%s 应该返回 ErrInvalidInput，实际 %v", name, err)
+		}
+	}
+}

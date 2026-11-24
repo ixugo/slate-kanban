@@ -38,6 +38,12 @@ describe('buildTimeline', () => {
     expect(describeIds(items)).toEqual(['e8', 'c2', 'e7', 'c1'])
   })
 
+  it('正文为空的内部标识评论不进时间线', () => {
+    const marker = { ...comment(2, '2026-11-01T11:00:00Z'), body: '' }
+    const items = buildTimeline([comment(1, '2026-11-01T10:00:00Z'), marker], [], true)
+    expect(describeIds(items)).toEqual(['c1'])
+  })
+
   it('不显示详情时只剩评论', () => {
     const items = buildTimeline([comment(1, '2026-11-01T10:00:00Z')], [event(7, '2026-11-01T11:00:00Z')], false)
     expect(describeIds(items)).toEqual(['c1'])

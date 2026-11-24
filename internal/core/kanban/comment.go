@@ -2,6 +2,7 @@ package kanban
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/ixugo/goddd/pkg/orm"
@@ -12,6 +13,8 @@ const (
 	maxCommentLen = 20000
 	// commentSnippetLen 事件里评论摘要的最大字符数，完整正文要通过读取任务获得，避免事件表膨胀。
 	commentSnippetLen = 200
+	// maxCommentExtLen 评论扩展字段的最大字符数。扩展字段只放几个短标识，不是第二份正文。
+	maxCommentExtLen = 2000
 )
 
 // CommentStorer 是任务评论的数据持久化接口。评论只能新增和删除，不能修改。
@@ -38,12 +41,25 @@ type CommentStorer interface {
 // 这样 agent 能随时回复人留下的问题；评论只能新增和删除，不能修改。
 // 正文去掉首尾空白后必须有 1 到 20000 个字符。
 func (c Core) AddComment(ctx context.Context, actor Actor, cardID int64, body string) (*Comment, error) {
+	return c.AddCommentWithExt(ctx, actor, cardID, body, "")
+}
+
+// AddCommentWithExt 在 AddComment 的基础上带一个扩展字段，只供服务内部的调用方使用，
+// HTTP 和 MCP 的写评论入口不接收扩展字段，所以外部写不出带扩展字段的评论。
+// 扩展字段必须是 JSON 对象文本，网页不显示，读取评论时随正文一起返回。
+// 带扩展字段时正文可以为空：这样的评论只是一条内部标识，不写活动事件，网页也不显示。
+func (c Core) AddCommentWithExt(ctx context.Context, actor Actor, cardID int64, body, ext string) (*Comment, error) {
 	if err := requireWriter(actor); err != nil {
 		return nil, err
 	}
 	body = strings.TrimSpace(body)
-	if err := checkText("评论内容", body, 1, maxCommentLen); err != nil {
+	if err := checkCommentExt(ext); err != nil {
 		return nil, err
+	}
+	if body != "" || ext == "" {
+		if err := checkText("评论内容", body, 1, maxCommentLen); err != nil {
+			return nil, err
+		}
 	}
 	boardID, err := c.boardOfCard(ctx, cardID)
 	if err != nil {
@@ -55,7 +71,7 @@ func (c Core) AddComment(ctx context.Context, actor Actor, cardID int64, body st
 		if err != nil {
 			return err
 		}
-		if out, err = u.addComment(ctx, actor, card, body); err != nil {
+		if out, err = u.addComment(ctx, actor, card, body, ext); err != nil {
 			return err
 		}
 		return u.saveRenewedLease(ctx, actor, card)
@@ -66,18 +82,37 @@ func (c Core) AddComment(ctx context.Context, actor Actor, cardID int64, body st
 	return out, nil
 }
 
+// checkCommentExt 校验扩展字段：空表示没有，否则必须是不超过上限的 JSON 对象文本。
+func checkCommentExt(ext string) error {
+	if ext == "" {
+		return nil
+	}
+	if err := checkText("评论扩展字段", ext, 0, maxCommentExtLen); err != nil {
+		return err
+	}
+	var object map[string]any
+	if err := json.Unmarshal([]byte(ext), &object); err != nil || object == nil {
+		return invalidf("评论扩展字段必须是 JSON 对象")
+	}
+	return nil
+}
+
 // addComment 在事务里保存评论并追加 comment.added 事件，事件里只放评论的摘要。
-func (u *unit) addComment(ctx context.Context, actor Actor, card *Card, body string) (*Comment, error) {
+// 正文为空的评论只是内部标识，不写事件，免得活动里出现一条没有内容的“评论了”。
+func (u *unit) addComment(ctx context.Context, actor Actor, card *Card, body, ext string) (*Comment, error) {
 	if err := checkCardUnarchived(card); err != nil {
 		return nil, err
 	}
 	now := u.now()
 	comment := &Comment{
 		BoardID: card.BoardID, CardID: card.ID, AuthorKind: string(actor.Kind), Author: actor.Name,
-		Body: body, CreatedAt: now, UpdatedAt: now,
+		Body: body, Ext: ext, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := u.comment.Create(ctx, comment); err != nil {
 		return nil, wrapDB("保存评论", err)
+	}
+	if body == "" {
+		return comment, nil
 	}
 	if err := u.commitImages(ctx, card.BoardID, body); err != nil {
 		return nil, err

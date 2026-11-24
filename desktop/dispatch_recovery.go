@@ -3,6 +3,8 @@ package desktop
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
+	"fmt"
 	"strings"
 
 	"slate-kanban/internal/core/kanban"
@@ -14,7 +16,33 @@ const (
 	completedDevelopment = "<!-- slate-desktop:development-confirmed -->"
 	completedReview      = "<!-- slate-desktop:reviewed -->"
 	retryCommandPrefix   = "Slate desktop retry: "
+	// markerExtKey 是评论扩展字段里存放派发标记的键。
+	markerExtKey = "desktop_marker"
 )
+
+// markerExt 把派发标记写成评论扩展字段的 JSON 文本。
+// 标记只含可见 ASCII 字符，%q 的输出就是合法的 JSON 字符串。
+func markerExt(marker string) string {
+	return fmt.Sprintf(`{%q:%q}`, markerExtKey, marker)
+}
+
+// commentMarker 取出一条评论带的派发标记。新评论存在扩展字段里；
+// 旧版本把标记写在正文最后一行，仍然要认，否则升级前遗留的待核对状态会丢。
+func commentMarker(comment *kanban.Comment) string {
+	if comment.Ext != "" {
+		var ext map[string]any
+		if json.Unmarshal([]byte(comment.Ext), &ext) == nil {
+			if marker, ok := ext[markerExtKey].(string); ok {
+				return marker
+			}
+		}
+		return ""
+	}
+	if _, last, ok := strings.CutLast(comment.Body, "\n"); ok {
+		return last
+	}
+	return comment.Body
+}
 
 type dispatchRecovery uint8
 
@@ -40,10 +68,7 @@ func desktopDispatchRecovery(card *kanban.CardDetail, review bool) dispatchRecov
 		if comment.AuthorKind != string(kanban.ActorAgent) {
 			continue
 		}
-		marker := comment.Body
-		if _, last, ok := strings.CutLast(marker, "\n"); ok {
-			marker = last
-		}
+		marker := commentMarker(comment)
 		switch marker {
 		case completedDevelopment, job.deferredMarker():
 			return dispatchAvailable
@@ -74,8 +99,8 @@ func desktopDispatchRecovery(card *kanban.CardDetail, review bool) dispatchRecov
 func (d *dispatchRun) publishDispatchRecovery(ctx context.Context, job dispatchJob, reason string) error {
 	code := strings.ToLower(rand.Text())
 	body := reason + "\n\nConfirm the prior host has stopped, then inspect the task worktree and results. To authorize another dispatch, post this exact text as a new human comment:\n\n`" +
-		retryCommandPrefix + code + "`\n\n" + job.retryPrefix() + code + " -->"
-	_, err := d.core.AddComment(ctx, job.actor(), job.id, body)
+		retryCommandPrefix + code + "`"
+	_, err := d.core.AddCommentWithExt(ctx, job.actor(), job.id, body, markerExt(job.retryPrefix()+code+" -->"))
 	return err
 }
 

@@ -169,10 +169,29 @@ func TestDesktopDispatchRunsDevelopmentThenReview(t *testing.T) {
 	waitDesktopCheck(t, func() bool {
 		got, err := core.GetCardDetail(ctx, card.ID)
 		return err == nil && got.ColumnID == flow.review && !got.ClaimActive &&
-			strings.Contains(got.Description, "- [x] Implementation") && desktopDispatchRecovery(got, true) == dispatchAwaitingConfirmation
+			strings.Contains(got.Description, "- [x] Implementation") && desktopDispatchRecovery(got, true) == dispatchAwaitingConfirmation && lastDesktopMarker(got) == completedReview
 	})
 	if got := calls.Load(); got != 4 {
 		t.Fatalf("wanted the development and review phases only, got %d host calls", got)
+	}
+	finished, err := core.GetCardDetail(ctx, card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	visible, markers := 0, 0
+	for _, c := range finished.Comments {
+		if strings.Contains(c.Body, "Desktop") || strings.Contains(c.Body, "slate-desktop:") {
+			t.Errorf("desktop comment carries auxiliary text: %q", c.Body)
+		}
+		if c.Body != "" {
+			visible++
+		}
+		if commentMarker(c) != "" && c.Ext != "" {
+			markers++
+		}
+	}
+	if visible < 3 || markers < 4 {
+		t.Errorf("expected plan, handoff and review text plus start and handoff and review markers, got %d visible comments, %d markers", visible, markers)
 	}
 	claims, err := core.ListActivity(ctx, board.ID, kanban.ActivityQuery{
 		ActivityFilter: kanban.ActivityFilter{Types: []string{kanban.EventCardClaimed}},
@@ -866,10 +885,8 @@ func waitForRecoveryCode(t *testing.T, core kanban.Core, job dispatchJob, previo
 			return false
 		}
 		for i := len(card.Comments) - 1; i >= 0; i-- {
-			if _, last, _ := strings.CutLast(card.Comments[i].Body, "\n"); last != "" {
-				if code = job.retryCode(last); code != "" {
-					return code != previous
-				}
+			if code = job.retryCode(commentMarker(card.Comments[i])); code != "" {
+				return code != previous
 			}
 		}
 		return false
@@ -978,6 +995,43 @@ func TestDesktopDispatchBridgeReportsRejectionCode(t *testing.T) {
 	} {
 		if code, body := put(test.cfg); code != http.StatusBadRequest || body["code"] != test.code {
 			t.Errorf("%s: status %d body %v, want code %q", name, code, body, test.code)
+		}
+	}
+}
+
+// lastDesktopMarker 返回任务最后一条评论带的派发标记，没有评论时返回空串。
+func lastDesktopMarker(card *kanban.CardDetail) string {
+	if len(card.Comments) == 0 {
+		return ""
+	}
+	return commentMarker(card.Comments[len(card.Comments)-1])
+}
+
+// 新版本把派发标记放在评论扩展字段里，恢复判断要和旧版正文末行的标记得到同样的结果；
+// 扩展字段存在时不再回头读正文，正文里的标记文字不能冒充。
+func TestDesktopDispatchRecoveryReadsExtMarker(t *testing.T) {
+	job := dispatchJob{}
+	agent := string(kanban.ActorAgent)
+	comment := func(body, marker string) *kanban.Comment {
+		c := &kanban.Comment{AuthorKind: agent, Author: "Atlas", Body: body}
+		if marker != "" {
+			c.Ext = markerExt(marker)
+		}
+		return c
+	}
+	human := &kanban.Comment{AuthorKind: string(kanban.ActorHuman), Author: "me", Body: retryCommandPrefix + "abc"}
+	for name, tt := range map[string]struct {
+		comments []*kanban.Comment
+		want     dispatchRecovery
+	}{
+		"扩展字段里的开始标记": {[]*kanban.Comment{comment("", job.startedMarker())}, dispatchNeedsRecoveryNotice},
+		"扩展字段里的暂缓标记": {[]*kanban.Comment{comment("", job.startedMarker()), comment("", job.deferredMarker())}, dispatchAvailable},
+		"待核对留言等人确认":  {[]*kanban.Comment{comment("notice", job.retryPrefix()+"abc"+" -->")}, dispatchAwaitingConfirmation},
+		"人确认后可以重试":   {[]*kanban.Comment{comment("notice", job.retryPrefix()+"abc"+" -->"), human}, dispatchAvailable},
+		"正文末行不能冒充标记": {[]*kanban.Comment{comment("hello\n"+completedDevelopment, job.startedMarker())}, dispatchNeedsRecoveryNotice},
+	} {
+		if got := desktopDispatchRecovery(&kanban.CardDetail{Comments: tt.comments}, false); got != tt.want {
+			t.Errorf("%s: got %v, want %v", name, got, tt.want)
 		}
 	}
 }

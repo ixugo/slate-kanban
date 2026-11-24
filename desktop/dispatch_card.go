@@ -121,11 +121,7 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 	if plan.Outcome != "plan" && plan.Outcome != "clarify" {
 		return d.recordDispatchPreparationFailure(ctx, job, errUnconfirmedRun, text.dispatchPlan)
 	}
-	planLabel := "**Desktop development plan**"
-	if job.review {
-		planLabel = "**Desktop review plan**"
-	}
-	if _, err := d.core.AddComment(ctx, job.actor(), job.id, planLabel+"\n\n"+plan.Summary); err != nil {
+	if _, err := d.core.AddComment(ctx, job.actor(), job.id, plan.Summary); err != nil {
 		return err
 	}
 	if plan.Outcome == "clarify" {
@@ -179,15 +175,14 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		if err != nil || statusErr != nil || head != before || status != "" {
 			return d.recordDispatchFailure(ctx, job, errUnconfirmedRun)
 		}
-		body := "**Desktop review · " + final.Outcome + "**\n\n" + final.Summary + "\n\n" + completedReview
 		if final.Outcome == "failed" {
-			if _, err := d.core.AddComment(ctx, job.actor(), job.id, body); err != nil {
+			if _, err := d.core.AddCommentWithExt(ctx, job.actor(), job.id, final.Summary, markerExt(completedReview)); err != nil {
 				return err
 			}
 			_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.dev, Top: true})
 			return err
 		}
-		_, err = d.core.AddComment(ctx, job.actor(), job.id, body)
+		_, err = d.core.AddCommentWithExt(ctx, job.actor(), job.id, final.Summary, markerExt(completedReview))
 		return err
 	}
 	if final.Outcome != "ready" || !validTaskItems(final.Items) {
@@ -205,8 +200,8 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		}
 		latest.Version = updated.Version
 	}
-	summary := "**Desktop development handoff**\n\n" + final.Summary + "\n\nCommit: `" + head[:6] + "`.\n\n" + completedDevelopment
-	_, err = d.core.FinishCard(ctx, job.actor(), job.id, kanban.FinishCardInput{Summary: summary, ColumnID: job.flow.review, Branch: branch, Version: &latest.Version, Top: true})
+	summary := final.Summary + "\n\nCommit: `" + head[:6] + "`."
+	_, err = d.core.FinishCardWithExt(ctx, job.actor(), job.id, kanban.FinishCardInput{Summary: summary, ColumnID: job.flow.review, Branch: branch, Version: &latest.Version, Top: true}, markerExt(completedDevelopment))
 	return err
 }
 
@@ -305,7 +300,7 @@ func (d *dispatchRun) hostWithBackoff(ctx context.Context, job dispatchJob, dir,
 			if _, err := d.checkDispatchPlan(ctx, job, formal); err != nil {
 				return dispatchReply{}, false, err
 			}
-			if _, err := d.core.AddComment(ctx, job.actor(), job.id, "Desktop dispatch started.\n\n"+job.startedMarker()); err != nil {
+			if _, err := d.core.AddCommentWithExt(ctx, job.actor(), job.id, "", markerExt(job.startedMarker())); err != nil {
 				return dispatchReply{}, false, err
 			}
 			started = true
@@ -323,7 +318,7 @@ func (d *dispatchRun) hostWithBackoff(ctx context.Context, job dispatchJob, dir,
 			if _, err := d.checkJob(ctx, job); err != nil {
 				return dispatchReply{}, true, err
 			}
-			if _, err := d.core.AddComment(ctx, job.actor(), job.id, "Desktop dispatch was declined by a provider limit. The task worktree is unchanged.\n\n"+job.deferredMarker()); err != nil {
+			if _, err := d.core.AddCommentWithExt(ctx, job.actor(), job.id, "", markerExt(job.deferredMarker())); err != nil {
 				return dispatchReply{}, true, err
 			}
 			started = false

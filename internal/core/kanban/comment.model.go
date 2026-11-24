@@ -11,6 +11,7 @@ type Comment struct {
 	AuthorKind string    `gorm:"column:author_kind;size:16;notNull;default:'';comment:作者类型：human、agent、system" json:"author_kind"`
 	Author     string    `gorm:"column:author;size:64;notNull;default:'';comment:作者名称" json:"author"`
 	Body       string    `gorm:"column:body;type:text;notNull;default:'';comment:评论正文" json:"body"`
+	Ext        string    `gorm:"column:ext;type:text;notNull;default:'';comment:扩展标识，JSON 对象文本，网页不显示，不作查询条件" json:"ext,omitempty"`
 	CreatedAt  time.Time `gorm:"column:created_at;notNull;default:CURRENT_TIMESTAMP;comment:创建时间" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"column:updated_at;notNull;default:CURRENT_TIMESTAMP;comment:更新时间" json:"updated_at"`
 }
