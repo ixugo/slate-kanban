@@ -344,6 +344,27 @@ export interface CreateBoardInput {
 }
 
 /** 项目模板列表项 */
+/** MCP Skill 的目录元数据（不包含正文）。 */
+export interface SkillSummary {
+  name: string
+  description: string
+  uri: string
+  digest: string
+  size: number
+  builtin: boolean
+  updated_at?: string
+}
+
+export interface SkillDetail extends SkillSummary {
+  body: string
+}
+
+export interface SkillInput {
+  name: string
+  description: string
+  body: string
+}
+
 export interface ProjectTemplateSummary {
   id: number
   name: string

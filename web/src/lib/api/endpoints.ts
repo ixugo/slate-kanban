@@ -32,6 +32,9 @@ import type {
   UpdateApplied,
   UpdateInfo,
   VersionInfo,
+  SkillSummary,
+  SkillDetail,
+  SkillInput,
   ProjectTemplateSummary,
   ProjectTemplateDetail,
   WebhookView,
@@ -261,6 +264,27 @@ export function importProjectTemplate(body: unknown, replace?: boolean): Promise
 /** 删除自定义项目模板 */
 export function deleteProjectTemplate(templateId: number): Promise<Empty> {
   return request<Empty>(`/templates/${templateId}`, { method: 'DELETE' })
+}
+
+/** 服务级 MCP Skill 目录。 */
+export function listSkills(signal?: Signal): Promise<SkillSummary[]> {
+  return request<SkillSummary[]>('/skills', { signal })
+}
+
+export function getSkill(name: string, signal?: Signal): Promise<SkillDetail> {
+  return request<SkillDetail>(`/skills/${encodeURIComponent(name)}`, { signal })
+}
+
+export function createSkill(input: SkillInput): Promise<SkillDetail> {
+  return request<SkillDetail>('/skills', { method: 'POST', body: input })
+}
+
+export function updateSkill(name: string, input: SkillInput): Promise<SkillDetail> {
+  return request<SkillDetail>(`/skills/${encodeURIComponent(name)}`, { method: 'PUT', body: input })
+}
+
+export function deleteSkill(name: string): Promise<Empty> {
+  return request<Empty>(`/skills/${encodeURIComponent(name)}`, { method: 'DELETE' })
 }
 
 /** 看板的活动 webhook 列表 */

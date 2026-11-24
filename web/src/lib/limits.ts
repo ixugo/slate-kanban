@@ -58,3 +58,8 @@ export const WEBHOOK_NAME_MAX = 100
 export const WEBHOOK_URL_MAX = 512
 export const WEBHOOKS_PER_BOARD_MAX = 20
 export const WEBHOOK_SECRET_MAX = 200
+
+/** MCP Skill 名称、简介和正文（UTF-8 字节）的上限 */
+export const SKILL_NAME_MAX = 64
+export const SKILL_DESCRIPTION_MAX = 1024
+export const SKILL_BODY_MAX = 262144

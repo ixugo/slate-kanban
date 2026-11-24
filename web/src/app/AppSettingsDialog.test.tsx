@@ -9,7 +9,7 @@ import { PROJECT_URL } from './AboutSettings'
 
 describe('AppSettingsDialog', () => {
   it('键盘打开设置、切换到关于，Escape 返回设置按钮', async () => {
-    installFakeApi({ 'GET /api/v1/version': { version: 'v0.1.0' } })
+    installFakeApi({ 'GET /api/v1/version': { version: 'v0.1.0' }, 'GET /api/v1/skills': [], 'GET /api/v1/templates': [] })
     renderApp(<AppSettingsButton />)
     const trigger = screen.getByRole('button', { name: en.nav.settings })
     trigger.focus()
@@ -20,6 +20,8 @@ describe('AppSettingsDialog', () => {
     expect(screen.getByRole('tab', { name: en.preferences.general, selected: true })).toHaveFocus()
     await userEvent.keyboard('{ArrowDown}')
     expect(await screen.findByRole('tab', { name: en.preferences.templates, selected: true })).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(await screen.findByRole('tab', { name: en.preferences.skills, selected: true })).toHaveFocus()
     await userEvent.keyboard('{ArrowDown}')
     expect(await screen.findByRole('tab', { name: en.nav.about, selected: true })).toHaveFocus()
     await userEvent.keyboard('{Escape}')

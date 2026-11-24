@@ -1,4 +1,4 @@
-import { InfoIcon, LayoutTemplateIcon, SlidersHorizontalIcon } from 'lucide-react'
+import { BookOpenIcon, InfoIcon, LayoutTemplateIcon, SlidersHorizontalIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LogoutButton } from '@/features/auth/LogoutButton'
@@ -9,6 +9,7 @@ import { useTheme, type ThemeChoice } from '@/lib/theme-context'
 import { AboutSettings } from './AboutSettings'
 import { DesktopConnectionSettings } from './DesktopConnectionSettings'
 import { TemplatesSettings } from './TemplatesSettings'
+import { SkillsSettings } from './SkillsSettings'
 
 interface Props {
   tab: string
@@ -50,6 +51,10 @@ export default function AppSettingsDialog({ tab, onTabChange, onClose, onCloseAu
               <TabsTrigger value="templates" className="min-h-9 justify-start rounded-lg px-2 sm:px-3">
                 <LayoutTemplateIcon aria-hidden className="hidden sm:block" />
                 {t('preferences.templates')}
+              </TabsTrigger>
+              <TabsTrigger value="skills" className="min-h-9 justify-start rounded-lg px-2 sm:px-3">
+                <BookOpenIcon aria-hidden className="hidden sm:block" />
+                {t('preferences.skills')}
               </TabsTrigger>
               <TabsTrigger value="about" className="min-h-9 justify-start rounded-lg px-2 sm:px-3">
                 <InfoIcon aria-hidden className="hidden sm:block" />
@@ -95,6 +100,9 @@ export default function AppSettingsDialog({ tab, onTabChange, onClose, onCloseAu
           </TabsContent>
           <TabsContent value="templates" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
             <TemplatesSettings />
+          </TabsContent>
+          <TabsContent value="skills" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
+            <SkillsSettings />
           </TabsContent>
           <TabsContent value="about" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
             <AboutSettings />

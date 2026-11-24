@@ -25,6 +25,12 @@ var (
 	// ErrBoardSlugTaken 看板标识已经被别的看板使用。
 	ErrBoardSlugTaken = reason.NewError("ErrBoardSlugTaken", "看板标识已被使用").WithHTTPStatus(409)
 
+	// ErrSkillNotFound Skill 不存在。
+	ErrSkillNotFound = reason.NewError("ErrSkillNotFound", "Skill 不存在").WithHTTPStatus(404)
+
+	// ErrSkillNameTaken Skill 名称已被内置或自定义 Skill 使用。
+	ErrSkillNameTaken = reason.NewError("ErrSkillNameTaken", "已有同名 Skill").WithHTTPStatus(409)
+
 	// ErrProjectTemplateNotFound 自定义项目模板不存在。
 	ErrProjectTemplateNotFound = reason.NewError("ErrProjectTemplateNotFound", "项目模板不存在").WithHTTPStatus(404)
 

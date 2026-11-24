@@ -36,6 +36,7 @@ func Register(r gin.IRouter, a API) {
 	a.eventRoutes(r)
 	a.attachmentRoutes(r)
 	a.templateRoutes(r)
+	a.skillRoutes(r)
 	a.webhookRoutes(r)
 }
 

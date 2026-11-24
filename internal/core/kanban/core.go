@@ -23,6 +23,7 @@ type Storer interface {
 	Attachment() AttachmentStorer
 	Tag() TagStorer
 	Engineer() EngineerStorer
+	Skill() SkillStorer
 	ProjectTemplate() ProjectTemplateStorer
 	Webhook() WebhookStorer
 }
