@@ -61,7 +61,7 @@ func (m *desktopMenuBridge) wrap(closing context.Context, origin string, openPro
 			return
 		}
 		from := r.Header.Get("Origin")
-		if !desktopMenuLocalPeer(r) || (from != "" && from != origin) {
+		if !desktopLocalPeer(r) || (from != "" && from != origin) {
 			http.NotFound(w, r)
 			return
 		}
@@ -81,7 +81,7 @@ func (m *desktopMenuBridge) wrap(closing context.Context, origin string, openPro
 	})
 }
 
-func desktopMenuLocalPeer(r *http.Request) bool {
+func desktopLocalPeer(r *http.Request) bool {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return false

@@ -7,6 +7,7 @@ import { useTranslation } from '@/i18n/react'
 import { useLanguage } from '@/i18n/useLanguage'
 import { useTheme, type ThemeChoice } from '@/lib/theme-context'
 import { AboutSettings } from './AboutSettings'
+import { DesktopConnectionSettings } from './DesktopConnectionSettings'
 import { TemplatesSettings } from './TemplatesSettings'
 
 interface Props {
@@ -89,6 +90,7 @@ export default function AppSettingsDialog({ tab, onTabChange, onClose, onCloseAu
                 ))}
               </select>
             </label>
+            <DesktopConnectionSettings />
             <LogoutButton />
           </TabsContent>
           <TabsContent value="templates" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">

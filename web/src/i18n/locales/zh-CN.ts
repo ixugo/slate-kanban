@@ -50,7 +50,11 @@ export const zhCN: Messages = {
     skipToContent: '跳到正文',
     about: '关于',
   },
-  preferences: { general: '通用', templates: '模板' },
+  preferences: {
+    general: '通用', templates: '模板', listeningPort: '监听端口',
+    openInBrowser: '在浏览器中打开', browserOpenFailed: '无法打开默认浏览器。',
+    browserOpenTimedOut: '未能在规定时间内确认默认浏览器已打开。',
+  },
   about: {
     title: '关于 Slate',
     intro: 'Slate 是人和 AI agent 共用的看板：人在网页上拖任务、写需求，agent 通过 MCP 读看板、领任务、干活，做完把任务交到「审查」列等人检查。',

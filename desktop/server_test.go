@@ -3,12 +3,14 @@ package desktop
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,11 +24,17 @@ import (
 	"slate-kanban/internal/core/kanban"
 )
 
-const processDataDir = "SLATE_DESKTOP_TEST_DATA_DIR"
+const (
+	processDataDir    = "SLATE_DESKTOP_TEST_DATA_DIR"
+	openedBrowserFile = "opened-browser-url"
+)
 
 type serviceReady struct {
-	URL    string
-	Recent []kanban.RecentCard
+	URL              string
+	Port             int
+	BrowserPath      string
+	ConnectionScript string
+	Recent           []kanban.RecentCard
 }
 
 func TestDesktopServiceRestartsWithSameData(t *testing.T) {
@@ -43,6 +51,8 @@ func TestDesktopServiceRestartsWithSameData(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, stop := startTestProcess(t, dataDir)
+	checkDesktopListeningPort(t, first)
+	checkDesktopBrowser(t, dataDir, first)
 	if data := request(t, first.URL, http.MethodGet, "/health", ""); !strings.Contains(string(data), "v1.2.3") {
 		t.Fatalf("桌面健康检查未返回构建版本: %s", data)
 	}
@@ -107,6 +117,8 @@ func TestDesktopServiceRestartsWithSameData(t *testing.T) {
 				})
 			}
 			second, _ := startTestProcess(t, dataDir)
+			checkDesktopListeningPort(t, second)
+			checkDesktopBrowser(t, dataDir, second)
 			if (second.URL != first.URL) != test.occupied {
 				t.Fatalf("桌面访问地址错误: 配置 %q, 实际 %q", first.URL, second.URL)
 			}
@@ -128,11 +140,66 @@ func TestDesktopServiceRestartsWithSameData(t *testing.T) {
 	}
 }
 
+func checkDesktopListeningPort(t *testing.T, ready serviceReady) {
+	t.Helper()
+	origin, err := url.Parse(ready.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ready.Port <= 0 || strconv.Itoa(ready.Port) != origin.Port() {
+		t.Fatalf("设置显示的监听端口 %d 与访问地址 %q 不符", ready.Port, ready.URL)
+	}
+}
+
+func checkDesktopBrowser(t *testing.T, dataDir string, ready serviceReady) {
+	t.Helper()
+	opened := filepath.Join(dataDir, openedBrowserFile)
+	for _, tt := range []struct {
+		name, method, origin, header string
+		want                         int
+	}{
+		{name: "wrong method", method: http.MethodGet, origin: ready.URL, header: "browser", want: http.StatusNotFound},
+		{name: "foreign origin", method: http.MethodPost, origin: "https://example.org", header: "browser", want: http.StatusNotFound},
+		{name: "no origin", method: http.MethodPost, header: "browser", want: http.StatusNotFound},
+		{name: "no desktop header", method: http.MethodPost, origin: ready.URL, want: http.StatusNotFound},
+		{name: "desktop click", method: http.MethodPost, origin: ready.URL, header: "browser", want: http.StatusNoContent},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			// Even a supplied URL cannot override the listening instance's URL.
+			req, err := http.NewRequestWithContext(t.Context(), tt.method, ready.URL+ready.BrowserPath+"?url=https://example.org", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req.Header.Set("Origin", tt.origin)
+			req.Header.Set("X-Slate-Desktop", tt.header)
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer res.Body.Close()
+			if res.StatusCode != tt.want {
+				t.Fatalf("browser request status = %d, want %d", res.StatusCode, tt.want)
+			}
+			actual, err := os.ReadFile(opened)
+			if tt.want == http.StatusNoContent {
+				if err != nil || string(actual) != ready.URL {
+					t.Fatalf("opened %q, want %q (%v)", actual, ready.URL, err)
+				}
+				if err := os.Remove(opened); err != nil {
+					t.Fatal(err)
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("rejected request set the target to %q (%v)", actual, err)
+			}
+		})
+	}
+}
+
 func TestDesktopStartupRejectsInvalidPort(t *testing.T) {
 	cfg := conf.DefaultConfig(t.TempDir())
 	cfg.Server.HTTP.Host = "127.0.0.1"
 	cfg.Server.HTTP.Port = -1
-	s, err := startService(cfg, app.BuildInfo{}, nil)
+	s, err := startService(cfg, app.BuildInfo{}, nil, nil)
 	if err == nil {
 		t.Cleanup(func() {
 			if err := s.close(); err != nil {
@@ -158,7 +225,9 @@ func TestDesktopServiceProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(closeConfig)
-	s, err := startService(cfg, build, nil)
+	s, err := startService(cfg, build, nil, func(_ context.Context, target string) error {
+		return os.WriteFile(filepath.Join(dataDir, openedBrowserFile), []byte(target), 0o600)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +240,10 @@ func TestDesktopServiceProcess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload, err := json.Marshal(serviceReady{URL: s.url, Recent: recent})
+	payload, err := json.Marshal(serviceReady{
+		URL: s.url, Port: s.connection.port, BrowserPath: s.connection.openPath,
+		ConnectionScript: s.connection.script(s.url), Recent: recent,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

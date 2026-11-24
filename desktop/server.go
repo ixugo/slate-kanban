@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net"
@@ -21,6 +22,7 @@ import (
 
 type service struct {
 	url         string
+	connection  desktopConnection
 	recentCards func(context.Context, int) ([]kanban.RecentCard, error)
 	dispatch    *desktopDispatch
 	menu        *desktopMenuBridge
@@ -41,7 +43,7 @@ func loadConfig(version string) (conf.Bootstrap, func(), error) {
 	return bc, closeConfig, err
 }
 
-func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLanguage) (*service, error) {
+func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLanguage, openURL func(context.Context, string) error) (*service, error) {
 	host, port := bc.Server.HTTP.Host, bc.Server.HTTP.Port
 	listener, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if port != 0 && errors.Is(err, errAddressInUse) {
@@ -63,6 +65,11 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 	closing, cancel := context.WithCancel(context.Background())
 	origin := strings.TrimSuffix(strings.ToLower(app.DisplayURL(&bc)), ":80")
 	handler := lifecycle.Wrap(services.Handler, closing)
+	connection := desktopConnection{port: bc.Server.HTTP.Port}
+	if openURL != nil {
+		connection.openPath = "/.slate-desktop/" + rand.Text() + "/browser"
+		handler = connection.wrap(origin, openURL, handler)
+	}
 	localCleanup := newWorktreeCleanup()
 	var dispatch *desktopDispatch
 	var menu *desktopMenuBridge
@@ -111,6 +118,7 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 
 	return &service{
 		url:         origin,
+		connection:  connection,
 		recentCards: services.Kanban.RecentCards,
 		dispatch:    dispatch,
 		menu:        menu,

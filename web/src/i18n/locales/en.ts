@@ -53,7 +53,11 @@ export const en = {
     skipToContent: 'Skip to content',
     about: 'About',
   },
-  preferences: { general: 'General', templates: 'Templates' },
+  preferences: {
+    general: 'General', templates: 'Templates', listeningPort: 'Listening port',
+    openInBrowser: 'Open in browser', browserOpenFailed: 'Could not open the default browser.',
+    browserOpenTimedOut: 'Could not confirm that the default browser opened in time.',
+  },
   about: {
     title: 'About Slate',
     intro: 'Slate is a kanban board shared by people and AI agents: people drag tasks and write requirements on the web, agents read the board, claim tasks and do the work over MCP, then hand the task to the Review column.',

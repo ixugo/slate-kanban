@@ -83,7 +83,7 @@ func Run(build app.BuildInfo) (string, error) {
 		}
 		return true
 	}
-	s, err := startService(cfg, build, language)
+	s, err := startService(cfg, build, language, openDesktopBrowser)
 	if err != nil {
 		return "", showStartupError(native, err, language.text())
 	}
@@ -95,6 +95,7 @@ func Run(build app.BuildInfo) (string, error) {
 		closeConfig()
 	})
 	js := s.cleanup.script(s.url) + ";\n" + language.script(s.url) + ";\n" + s.dispatch.script(s.url)
+	js += ";\n" + s.connection.script(s.url)
 	if s.menu != nil {
 		js += ";\n" + s.menu.script(s.url)
 	}
