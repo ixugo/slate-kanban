@@ -135,8 +135,8 @@ func TestDesktopDispatchRunsDevelopmentThenReview(t *testing.T) {
 			return dispatchReply{Outcome: "plan", Summary: "Isolated plan"}, nil
 		}
 		if id == "pi" {
-			if !readOnly {
-				t.Error("formal review host was given write capability")
+			if readOnly {
+				t.Error("formal review host cannot build or test in its disposable checkout")
 			}
 			return dispatchReply{Outcome: "passed", Summary: "Review evidence"}, nil
 		}
@@ -169,8 +169,9 @@ func TestDesktopDispatchRunsDevelopmentThenReview(t *testing.T) {
 	t.Cleanup(func() { cancel(); <-done })
 	waitDesktopCheck(t, func() bool {
 		got, err := core.GetCardDetail(ctx, card.ID)
-		return err == nil && got.ColumnID == flow.review && !got.ClaimActive &&
-			strings.Contains(got.Description, "- [x] Implementation") && desktopDispatchRecovery(got, true) == dispatchAwaitingConfirmation && lastDesktopMarker(got) == completedReview
+		// A passed review completes the card; the review evidence stays as a comment.
+		return err == nil && got.ColumnID == flow.done && !got.ClaimActive &&
+			strings.Contains(got.Description, "- [x] Implementation") && lastDesktopMarker(got) == completedReview
 	})
 	if got := calls.Load(); got != 4 {
 		t.Fatalf("wanted the development and review phases only, got %d host calls", got)
@@ -436,6 +437,56 @@ exit 1
 				t.Fatalf("invalid %s receipt: %#v (%v)", host, output, err)
 			}
 		})
+	}
+}
+
+// 可写的运行要在沙箱里构建和测试，而 Go 默认的构建缓存在用户目录下，沙箱不让写，go test 会直接失败；
+// 所以可写运行拿到一个放在系统临时目录里的私有 GOCACHE（运行时存在且可写，结束后删除）；只读运行不改环境。
+func TestLocalDispatchHostGivesWritableRunsAPrivateGoCache(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("executable fixtures are POSIX shell scripts")
+	}
+	bin, checkout := t.TempDir(), t.TempDir()
+	t.Setenv("HOME", bin)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+"/usr/bin"+string(os.PathListSeparator)+"/bin")
+	const userCache = "/user/own/go-cache"
+	t.Setenv("GOCACHE", userCache)
+	script := `#!/bin/sh
+state=missing
+if [ -d "$GOCACHE" ]; then
+  state=dir
+  touch "$GOCACHE/probe" || exit 1
+fi
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--output-last-message" ]; then
+    printf '{"outcome":"plan","summary":"%s %s","items":""}' "$GOCACHE" "$state" > "$2"
+    exit 0
+  fi
+  shift
+done
+exit 1
+`
+	if err := os.WriteFile(filepath.Join(bin, "codex"), []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	run := func(readOnly bool) (cache, state string) {
+		t.Helper()
+		reply, err := localDispatchHost(t.Context(), "codex", checkout, "prompt", readOnly, dispatchSession{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		cache, state, _ = strings.Cut(reply.Summary, " ")
+		return cache, state
+	}
+	if cache, state := run(true); cache != userCache || state != "missing" {
+		t.Fatalf("a read-only run must keep the caller's environment, got %q %q", cache, state)
+	}
+	cache, state := run(false)
+	if state != "dir" || cache == userCache || strings.HasPrefix(cache, checkout) {
+		t.Fatalf("a writable run needs an existing private cache outside the checkout, got %q %q", cache, state)
+	}
+	if _, err := os.Stat(cache); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the private cache was not removed after the run: %v", err)
 	}
 }
 
@@ -1082,6 +1133,59 @@ func TestDispatchUnchanged(t *testing.T) {
 	}
 }
 
+// 审查副本是游离 HEAD 的检出：提交没变且工作树干净才算原样不动，不要求停在某个分支上；
+// 被 .gitignore 忽略的文件不算改动，其余任何新增、修改和提交都不行。
+func TestCheckoutUnchanged(t *testing.T) {
+	ctx := t.Context()
+	git := func(t *testing.T, repo string, args ...string) {
+		t.Helper()
+		if _, err := gitOutput(ctx, repo, append([]string{"-c", "user.name=T", "-c", "user.email=t@e.l"}, args...)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write := func(t *testing.T, repo, name, content string) {
+		t.Helper()
+		path := filepath.Join(repo, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, tt := range map[string]struct {
+		change  func(t *testing.T, repo string)
+		wantErr bool
+	}{
+		"原样不动":       {func(*testing.T, string) {}, false},
+		"只多出被忽略的文件":  {func(t *testing.T, repo string) { write(t, repo, "build.log", "ignored\n") }, false},
+		"新增未跟踪文件":    {func(t *testing.T, repo string) { write(t, repo, "new.txt", "new\n") }, true},
+		"未跟踪文件在新目录里": {func(t *testing.T, repo string) { write(t, repo, "cache/new.txt", "new\n") }, true},
+		"修改已跟踪文件":    {func(t *testing.T, repo string) { write(t, repo, "base.txt", "changed\n") }, true},
+		"多出一个提交":     {func(t *testing.T, repo string) { git(t, repo, "commit", "--allow-empty", "-m", "Extra") }, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := t.TempDir()
+			t.Setenv("HOME", repo)
+			t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+			git(t, repo, "init", "-b", "task")
+			write(t, repo, "base.txt", "base\n")
+			write(t, repo, ".gitignore", "*.log\n")
+			git(t, repo, "add", "base.txt", ".gitignore")
+			git(t, repo, "commit", "-m", "Initial")
+			git(t, repo, "checkout", "--detach")
+			before, err := gitOutput(ctx, repo, "rev-parse", "HEAD")
+			if err != nil {
+				t.Fatal(err)
+			}
+			tt.change(t, repo)
+			if err := checkoutUnchanged(ctx, repo, before); (err != nil) != tt.wantErr {
+				t.Fatalf("wantErr=%v got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 // 提交说明只取标题首行，并限制在固定长度内。
 func TestDispatchCommitMessage(t *testing.T) {
 	if got := dispatchCommitMessage("SLATE-9", "标题\n第二行"); got != "SLATE-9 标题" {
@@ -1153,6 +1257,169 @@ func lastDesktopComment(card *kanban.CardDetail) string {
 		return ""
 	}
 	return card.Comments[len(card.Comments)-1].Body
+}
+
+// 审查结论 passed 时桌面端把任务移入完成列；waiting 表示要人补验，
+// 留言后把任务移进收件箱等人处理，不停放在审查列。
+func TestDesktopDispatchReviewOutcomeMovesCard(t *testing.T) {
+	for _, tt := range []struct {
+		outcome string
+		column  func(dispatchFlow) int64
+	}{
+		{"passed", func(f dispatchFlow) int64 { return f.done }},
+		{"waiting", func(f dispatchFlow) int64 { return f.inbox }},
+	} {
+		t.Run(tt.outcome, func(t *testing.T) {
+			ctx := t.Context()
+			core, human, board, flow := newDispatchTestBoard(t)
+			if _, err := gitOutput(ctx, board.ProjectPath, "branch", "task-branch"); err != nil {
+				t.Fatal(err)
+			}
+			card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "Review me", ColumnID: flow.review, Branch: "task-branch"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			host := func(_ context.Context, _, _, _ string, readOnly bool, _ dispatchSession) (dispatchReply, error) {
+				if !readOnly {
+					t.Error("review planning host was given write capability")
+				}
+				return dispatchReply{Outcome: "plan", Summary: "Review plan"}, nil
+			}
+			formal := false
+			run := dispatchRun{core: core, sessions: t.TempDir()}
+			run.host = func(ctx context.Context, id, dir, prompt string, readOnly bool, s dispatchSession) (dispatchReply, error) {
+				if !strings.Contains(prompt, "Outcome must be plan or clarify.") {
+					formal = true
+					if readOnly {
+						t.Error("review host cannot build or test in its disposable checkout")
+					}
+					return dispatchReply{Outcome: tt.outcome, Summary: "Evidence"}, nil
+				}
+				return host(ctx, id, dir, prompt, readOnly, s)
+			}
+			job := dispatchJob{id: card.ID, review: true, engineer: *board.Engineers[2], host: "pi", flow: flow, project: board.ProjectPath}
+			if err := run.handle(ctx, job); err != nil {
+				t.Fatal(err)
+			}
+			got, err := core.GetCardDetail(ctx, card.ID)
+			if err != nil || !formal || got.ColumnID != tt.column(flow) || got.ClaimActive ||
+				lastDesktopMarker(got) != completedReview || lastDesktopComment(got) != "Evidence" {
+				t.Fatalf("unexpected review result: formal=%v column=%d claim=%v err=%v", formal, got.ColumnID, got.ClaimActive, err)
+			}
+		})
+	}
+}
+
+// newReviewHost 返回审查用的假宿主：规划阶段回 plan，正式审查阶段按顺序回放 outcomes
+// （用完后一直回最后一个），同时记下正式审查被调用的次数，用来核对任务有没有被（重新）审查。
+func newReviewHost(outcomes ...string) (dispatchHost, *atomic.Int32) {
+	var formal atomic.Int32
+	host := func(_ context.Context, _, _, prompt string, _ bool, _ dispatchSession) (dispatchReply, error) {
+		if strings.Contains(prompt, "Outcome must be plan or clarify.") {
+			return dispatchReply{Outcome: "plan", Summary: "Review plan"}, nil
+		}
+		n := int(formal.Add(1))
+		return dispatchReply{Outcome: outcomes[min(n, len(outcomes))-1], Summary: "Evidence"}, nil
+	}
+	return host, &formal
+}
+
+// 审查给出 waiting 后任务移进收件箱；人把它放回审查列，不用再留任何评论，
+// 桌面端就会重新审查，这次通过则任务进入完成列。
+func TestDesktopDispatchReviewRunsAgainWhenHumanRequeues(t *testing.T) {
+	ctx := t.Context()
+	core, human, board, flow := newDispatchTestBoard(t)
+	if _, err := gitOutput(ctx, board.ProjectPath, "branch", "task-branch"); err != nil {
+		t.Fatal(err)
+	}
+	card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "Review me", ColumnID: flow.review, Branch: "task-branch"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	host, formal := newReviewHost("waiting", "passed")
+	run := dispatchRun{core: core, sessions: t.TempDir(), host: host}
+	job := dispatchJob{id: card.ID, review: true, engineer: *board.Engineers[2], host: "pi", flow: flow, project: board.ProjectPath}
+
+	if err := run.handle(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+	got, err := core.GetCardDetail(ctx, card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ColumnID != flow.inbox {
+		t.Fatalf("a waiting review must hand the card to the inbox: column=%d, want %d", got.ColumnID, flow.inbox)
+	}
+	if _, err := core.MoveCard(ctx, human, card.ID, kanban.MoveCardInput{ColumnID: flow.review}); err != nil {
+		t.Fatal(err)
+	}
+	if err := run.handle(ctx, job); err != nil {
+		t.Fatalf("a card the human put back into review must be reviewed again without a comment: %v", err)
+	}
+	got, err = core.GetCardDetail(ctx, card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if formal.Load() != 2 || got.ColumnID != flow.done || got.ClaimActive {
+		t.Fatalf("unexpected second review: formal=%d column=%d claim=%v", formal.Load(), got.ColumnID, got.ClaimActive)
+	}
+}
+
+// 旧版本留下的停放状态：任务在审查列，最后一条派发标记是已审查，之后没有人评论。
+// 升级后桌面端要自己把它拉起来重审，而不是显示待核对、等人评论。
+func TestDesktopDispatchReviewPullsCardParkedByOlderVersion(t *testing.T) {
+	ctx := t.Context()
+	core, human, board, flow := newDispatchTestBoard(t)
+	if _, err := gitOutput(ctx, board.ProjectPath, "branch", "task-branch"); err != nil {
+		t.Fatal(err)
+	}
+	card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "Review me", ColumnID: flow.review, Branch: "task-branch"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewer := kanban.Actor{Kind: kanban.ActorAgent, Name: board.Engineers[2].Name}
+	if _, err := core.AddCommentWithExt(ctx, reviewer, card.ID, "Earlier evidence", markerExt(completedReview)); err != nil {
+		t.Fatal(err)
+	}
+	host, formal := newReviewHost("passed")
+	run := dispatchRun{core: core, sessions: t.TempDir(), host: host}
+	job := dispatchJob{id: card.ID, review: true, engineer: *board.Engineers[2], host: "pi", flow: flow, project: board.ProjectPath}
+
+	if err := run.handle(ctx, job); err != nil {
+		t.Fatalf("a review parked by an older version was not pulled: %v", err)
+	}
+	got, err := core.GetCardDetail(ctx, card.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if formal.Load() != 1 || got.ColumnID != flow.done || got.ClaimActive {
+		t.Fatalf("unexpected pulled review: formal=%d column=%d claim=%v", formal.Load(), got.ColumnID, got.ClaimActive)
+	}
+}
+
+// 审查留下结论后，任务只要回到审查列就能重审，不再等人评论确认；
+// 研发的恢复判断不看审查结论；审查中途中断留下的待核对留言仍要等恢复码。
+func TestDesktopDispatchReviewDoesNotWaitForHumanComment(t *testing.T) {
+	reviewJob := dispatchJob{review: true}
+	devJob := dispatchJob{}
+	agent := func(body, marker string) *kanban.Comment {
+		return &kanban.Comment{AuthorKind: string(kanban.ActorAgent), Author: "Atlas", Body: body, Ext: markerExt(marker)}
+	}
+	human := &kanban.Comment{AuthorKind: string(kanban.ActorHuman), Author: "me", Body: "看过了"}
+	for name, tt := range map[string]struct {
+		review   bool
+		comments []*kanban.Comment
+		want     dispatchRecovery
+	}{
+		"审查已留结论后无人评论也能重审":    {true, []*kanban.Comment{agent("Evidence", completedReview)}, dispatchAvailable},
+		"审查已留结论后有人评论也能重审":    {true, []*kanban.Comment{agent("Evidence", completedReview), human}, dispatchAvailable},
+		"审查中途中断的待核对留言仍要等恢复码": {true, []*kanban.Comment{agent("Evidence", completedReview), agent("notice", reviewJob.retryPrefix()+"abc -->")}, dispatchAwaitingConfirmation},
+		"研发的恢复判断不看审查结论":      {false, []*kanban.Comment{agent("", devJob.startedMarker()), agent("Evidence", completedReview)}, dispatchNeedsRecoveryNotice},
+	} {
+		if got := desktopDispatchRecovery(&kanban.CardDetail{Comments: tt.comments}, tt.review); got != tt.want {
+			t.Errorf("%s: got %v, want %v", name, got, tt.want)
+		}
+	}
 }
 
 // renewCountingCore 统计桌面端后台续租的次数（只续租的领取请求），用来核对租约有没有在续。
@@ -1241,6 +1508,51 @@ func TestDesktopDispatchPlanCheckTreatsCancelAsSuperseded(t *testing.T) {
 	run := dispatchRun{core: core}
 	if _, err := run.checkDispatchPlan(canceled, job, planned); !errors.Is(err, errDispatchPlanSuperseded) {
 		t.Fatalf("a canceled plan check must count as superseded, got %v", err)
+	}
+}
+
+// 审查副本对宿主是可写的，跑完后桌面端要核对副本原样不动：留下文件或多出提交，
+// 都说明审查过程不可信，不能据此把任务移入完成列；任务留在审查列，并留下待人核对的恢复留言。
+func TestDesktopDispatchReviewRejectsChangedCheckout(t *testing.T) {
+	for name, change := range map[string]func(t *testing.T, dir string){
+		"留下未跟踪文件": func(t *testing.T, dir string) {
+			if err := os.WriteFile(filepath.Join(dir, "stray.txt"), []byte("left behind"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"多出提交": func(t *testing.T, dir string) {
+			if _, err := gitOutput(t.Context(), dir, "-c", "user.name=Test", "-c", "user.email=test@example.local", "commit", "--allow-empty", "-m", "Extra"); err != nil {
+				t.Fatal(err)
+			}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := t.Context()
+			core, human, board, flow := newDispatchTestBoard(t)
+			if _, err := gitOutput(ctx, board.ProjectPath, "branch", "task-branch"); err != nil {
+				t.Fatal(err)
+			}
+			card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "Review me", ColumnID: flow.review, Branch: "task-branch"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			run := dispatchRun{core: core, sessions: t.TempDir()}
+			run.host = func(_ context.Context, _, dir, prompt string, _ bool, _ dispatchSession) (dispatchReply, error) {
+				if strings.Contains(prompt, "Outcome must be plan or clarify.") {
+					return dispatchReply{Outcome: "plan", Summary: "Review plan"}, nil
+				}
+				change(t, dir)
+				return dispatchReply{Outcome: "passed", Summary: "Evidence"}, nil
+			}
+			job := dispatchJob{id: card.ID, review: true, engineer: *board.Engineers[2], host: "pi", flow: flow, project: board.ProjectPath}
+			if err := run.handle(ctx, job); err == nil {
+				t.Fatal("a review that changed its checkout was accepted")
+			}
+			got, err := core.GetCardDetail(ctx, card.ID)
+			if err != nil || got.ColumnID != flow.review || got.ClaimActive || desktopDispatchRecovery(got, true) != dispatchAwaitingConfirmation {
+				t.Fatalf("unexpected state after rejected review: err=%v card=%+v", err, got)
+			}
+		})
 	}
 }
 
@@ -1379,9 +1691,12 @@ func TestDispatchPromptExplainsHowResultsReachTheBoard(t *testing.T) {
 			missing: []string{"return reported"},
 		},
 		"review": {
-			job:     dispatchJob{engineer: engineer, review: true},
-			want:    []string{"Outcome must be passed, failed or waiting.", "no repository change", "posts your summary on the card as a comment"},
-			missing: []string{"Outcome must be plan or clarify.", "return reported"},
+			job: dispatchJob{engineer: engineer, review: true},
+			want: []string{
+				"Outcome must be passed, failed or waiting.", "no repository change", "posts your summary on the card as a comment",
+				"disposable checkout", "build and run tests", "rejects the review",
+			},
+			missing: []string{"Outcome must be plan or clarify.", "return reported", "read-only"},
 		},
 	} {
 		prompt := dispatchPrompt(tt.job, card, "", tt.planning)

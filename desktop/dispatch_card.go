@@ -33,7 +33,9 @@ var (
 )
 
 // handle 处理一张任务的一次派发：先领取，再只读规划，规划通过后到任务专属工作树里正式执行，
-// 最后按角色交接。研发把结果交到审查列，审查按结论放行、退回或只留言等待。
+// 最后按角色交接。研发把结果交到审查列，审查按结论放行或退回；
+// 结论为待补验（waiting）时要人去补验，留言后把任务移进收件箱，不停在审查列等人评论。
+// 审查在可丢弃的独立副本里进行，宿主可以构建和跑测试，跑完必须核对副本原样不动。
 // 待办里的任务领取后带着租约移入进行中，整个过程只领取一次。
 // 任何一步无法确认结果，都留下恢复留言交给人核对，不自动重试。
 func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
@@ -153,7 +155,7 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 	if err != nil {
 		return err
 	}
-	final, started, err := d.hostWithBackoff(ctx, job, workDir, dispatchPrompt(job, card, plan.Summary, false), job.review, session, card)
+	final, started, err := d.hostWithBackoff(ctx, job, workDir, dispatchPrompt(job, card, plan.Summary, false), false, session, card)
 	if err != nil {
 		if !started {
 			return err
@@ -168,11 +170,11 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		if final.Outcome != "passed" && final.Outcome != "failed" && final.Outcome != "waiting" {
 			return d.recordDispatchFailure(ctx, job, errUnconfirmedRun)
 		}
-		// Review remains read-only. A human confirms the evidence and any
-		// local merge before completing an approved branch.
-		head, err := gitOutput(ctx, workDir, "rev-parse", "HEAD")
-		status, statusErr := gitOutput(ctx, workDir, "status", "--porcelain")
-		if err != nil || statusErr != nil || head != before || status != "" {
+		// The reviewer may build and test in its disposable checkout, but must
+		// leave it exactly as it found it. A passed review is the board's only
+		// path to the done column, so the desktop completes the card after
+		// leaving the evidence. Merging the branch remains a human decision.
+		if err := checkoutUnchanged(ctx, workDir, before); err != nil {
 			return d.recordDispatchFailure(ctx, job, errUnconfirmedRun)
 		}
 		if final.Outcome == "failed" {
@@ -182,7 +184,16 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 			_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.dev, Top: true})
 			return err
 		}
-		_, err = d.core.AddCommentWithExt(ctx, job.actor(), job.id, final.Summary, markerExt(completedReview))
+		if _, err := d.core.AddCommentWithExt(ctx, job.actor(), job.id, final.Summary, markerExt(completedReview)); err != nil {
+			return err
+		}
+		if final.Outcome == "passed" {
+			_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.done})
+			return err
+		}
+		// waiting：缺的验证要人来补，和规划阶段的 clarify 一样交给收件箱。
+		// 人处理完把任务放回审查列，桌面端会重新审查。
+		_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.inbox})
 		return err
 	}
 	if (final.Outcome != outcomeReady && final.Outcome != outcomeReported) || !validTaskItems(final.Items) {
@@ -390,7 +401,7 @@ func dispatchPrompt(job dispatchJob, card *kanban.CardDetail, plan string, plann
 	detail, _ := json.Marshal(card)
 	task := "Implement only in this task's Git worktree. Run relevant checks. Commit and leave a clean tree. Do not push or merge. If the card needs no repository change, such as only posting text on the card, change no files and return " + outcomeReported + "."
 	if job.review {
-		task = "Independently review this branch in a separate checkout. Keep source read-only. Run the checks your read-only permissions allow and report evidence. Mark required checks you cannot run as unverified and return waiting. Do not merge or push. When the development handoff says no repository change was needed, check the requested result on the card instead of in the code."
+		task = "Independently review this branch in a separate, disposable checkout. You may build and run tests there, but do not edit files in it, create commits, merge or push. Keep build and test output outside the checkout and delete anything your checks leave inside it: the desktop inspects the checkout afterwards and rejects the review if anything changed. Run the checks the card needs and report evidence. Mark required checks you cannot run as unverified and return waiting. When the development handoff says no repository change was needed, check the requested result on the card instead of in the code."
 	}
 	if planning {
 		task = "Only read the project and draft a short plan. Do not edit files or start implementation. If a human decision is required, describe what to clarify."
@@ -573,6 +584,12 @@ func dispatchUnchanged(ctx context.Context, dir, branch, before string) error {
 	if err != nil || actual != branch {
 		return errors.New("development changed the worktree branch")
 	}
+	return checkoutUnchanged(ctx, dir, before)
+}
+
+// checkoutUnchanged 确认检出目录原样不动：HEAD 仍是 before，工作树干净（未跟踪文件也算改动，被忽略的文件不算）。
+// 无改动交接和审查副本跑完后的核对共用它。审查副本是游离 HEAD 的检出，所以这里不要求停在某个分支上。
+func checkoutUnchanged(ctx context.Context, dir, before string) error {
 	head, err := gitOutput(ctx, dir, "rev-parse", "HEAD")
 	status, statusErr := gitOutput(ctx, dir, "status", "--porcelain", "--untracked-files=all")
 	if err != nil || statusErr != nil || head != before || status != "" {
