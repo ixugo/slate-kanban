@@ -952,6 +952,97 @@ func verifyProviderRefusal(t *testing.T, dirty bool) {
 	}
 }
 
+// 宿主改完文件但沙箱不允许它提交时，桌面端要代为提交；没有任何交付则仍视为失败。
+func TestDispatchCommitCommitsPendingChanges(t *testing.T) {
+	ctx := t.Context()
+	repo := t.TempDir()
+	t.Setenv("HOME", repo)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	for _, args := range [][]string{{"init", "-b", "task"}, {"-c", "user.name=T", "-c", "user.email=t@e.l", "commit", "--allow-empty", "-m", "Initial"}} {
+		if _, err := gitOutput(ctx, repo, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before, err := gitOutput(ctx, repo, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dispatchCommit(ctx, repo, "task", before, "SLATE-1 nothing"); err == nil {
+		t.Fatal("clean tree without a new commit was accepted")
+	}
+	if _, err := dispatchCommit(ctx, repo, "other", before, "SLATE-1 wrong branch"); err == nil {
+		t.Fatal("wrong branch was accepted")
+	}
+	if err := os.WriteFile(filepath.Join(repo, "feature.txt"), []byte("done\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	head, err := dispatchCommit(ctx, repo, "task", before, "SLATE-1 feature")
+	if err != nil || head == before {
+		t.Fatalf("pending change was not committed: head=%q err=%v", head, err)
+	}
+	if status, _ := gitOutput(ctx, repo, "status", "--porcelain"); status != "" {
+		t.Fatalf("worktree still dirty: %q", status)
+	}
+	if subject, _ := gitOutput(ctx, repo, "log", "-1", "--format=%s"); subject != "SLATE-1 feature" {
+		t.Fatalf("unexpected subject %q", subject)
+	}
+}
+
+// 宿主声明任务不需要改仓库时，分支、提交和工作树都原样不动才算数；任何一项变了都不能当作无改动交付。
+func TestDispatchUnchanged(t *testing.T) {
+	ctx := t.Context()
+	git := func(t *testing.T, repo string, args ...string) {
+		t.Helper()
+		if _, err := gitOutput(ctx, repo, append([]string{"-c", "user.name=T", "-c", "user.email=t@e.l"}, args...)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write := func(t *testing.T, repo, name, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(repo, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, tt := range map[string]struct {
+		change  func(t *testing.T, repo string)
+		wantErr bool
+	}{
+		"原样不动":    {func(*testing.T, string) {}, false},
+		"新增未跟踪文件": {func(t *testing.T, repo string) { write(t, repo, "new.txt", "new\n") }, true},
+		"修改已跟踪文件": {func(t *testing.T, repo string) { write(t, repo, "base.txt", "changed\n") }, true},
+		"多出一个提交":  {func(t *testing.T, repo string) { git(t, repo, "commit", "--allow-empty", "-m", "Extra") }, true},
+		"换到别的分支":  {func(t *testing.T, repo string) { git(t, repo, "switch", "-c", "other") }, true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			repo := t.TempDir()
+			t.Setenv("HOME", repo)
+			t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+			git(t, repo, "init", "-b", "task")
+			write(t, repo, "base.txt", "base\n")
+			git(t, repo, "add", "base.txt")
+			git(t, repo, "commit", "-m", "Initial")
+			before, err := gitOutput(ctx, repo, "rev-parse", "HEAD")
+			if err != nil {
+				t.Fatal(err)
+			}
+			tt.change(t, repo)
+			if err := dispatchUnchanged(ctx, repo, "task", before); (err != nil) != tt.wantErr {
+				t.Fatalf("wantErr=%v got %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+// 提交说明只取标题首行，并限制在固定长度内。
+func TestDispatchCommitMessage(t *testing.T) {
+	if got := dispatchCommitMessage("SLATE-9", "标题\n第二行"); got != "SLATE-9 标题" {
+		t.Fatalf("unexpected message %q", got)
+	}
+	if got := dispatchCommitMessage("SLATE-9", strings.Repeat("长", 200)); len([]rune(got)) != maxCommitSubjectRunes {
+		t.Fatalf("message not truncated: %d runes", len([]rune(got)))
+	}
+}
+
 // 保存被拒绝时，桥接接口要返回稳定的原因标识，前端据此显示具体提示。
 func TestDesktopDispatchBridgeReportsRejectionCode(t *testing.T) {
 	ctx := t.Context()
@@ -1007,6 +1098,14 @@ func lastDesktopMarker(card *kanban.CardDetail) string {
 	return commentMarker(card.Comments[len(card.Comments)-1])
 }
 
+// lastDesktopComment 返回任务最后一条评论的正文，没有评论时返回空串。
+func lastDesktopComment(card *kanban.CardDetail) string {
+	if len(card.Comments) == 0 {
+		return ""
+	}
+	return card.Comments[len(card.Comments)-1].Body
+}
+
 // 新版本把派发标记放在评论扩展字段里，恢复判断要和旧版正文末行的标记得到同样的结果；
 // 扩展字段存在时不再回头读正文，正文里的标记文字不能冒充。
 func TestDesktopDispatchRecoveryReadsExtMarker(t *testing.T) {
@@ -1032,6 +1131,113 @@ func TestDesktopDispatchRecoveryReadsExtMarker(t *testing.T) {
 	} {
 		if got := desktopDispatchRecovery(&kanban.CardDetail{Comments: tt.comments}, false); got != tt.want {
 			t.Errorf("%s: got %v, want %v", name, got, tt.want)
+		}
+	}
+}
+
+// 任务不需要改仓库时（例如只要求在评论区输出内容），宿主回 reported 也能正常交接：
+// 摘要原样发成交接评论，任务进入审查列，分支上没有新提交。
+func TestDesktopDispatchReportedOutcomeHandsOffWithoutCommit(t *testing.T) {
+	ctx := t.Context()
+	core, human, board, flow := newDispatchTestBoard(t)
+	card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "在评论区输出当前时间", ColumnID: flow.todo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const answer = "当前时间：2026-11-25 09:52:20（北京时间）"
+	run := dispatchRun{core: core, sessions: t.TempDir()}
+	run.host = func(_ context.Context, _, _, _ string, readOnly bool, _ dispatchSession) (dispatchReply, error) {
+		if readOnly {
+			return dispatchReply{Outcome: "plan", Summary: "Plan"}, nil
+		}
+		return dispatchReply{Outcome: "reported", Summary: answer, Items: "- [x] 输出当前时间"}, nil
+	}
+	job := dispatchJob{id: card.ID, engineer: *board.Engineers[0], host: "codex", flow: flow, project: board.ProjectPath}
+	if err := run.handle(ctx, job); err != nil {
+		t.Fatal(err)
+	}
+	got, err := core.GetCardDetail(ctx, card.ID)
+	if err != nil || got.ColumnID != flow.review || got.ClaimActive || got.Branch == "" ||
+		lastDesktopMarker(got) != completedDevelopment || lastDesktopComment(got) != answer ||
+		!strings.Contains(got.Description, "- [x] 输出当前时间") {
+		t.Fatalf("unexpected hand-off: err=%v card=%+v", err, got)
+	}
+	base, baseErr := gitOutput(ctx, board.ProjectPath, "rev-parse", "main")
+	tip, tipErr := gitOutput(ctx, board.ProjectPath, "rev-parse", got.Branch)
+	if baseErr != nil || tipErr != nil || base != tip {
+		t.Fatalf("reported hand-off must not add commits: main=%q branch=%q errs=%v %v", base, tip, baseErr, tipErr)
+	}
+}
+
+// 宿主声称不需要改仓库，工作树里却留下了文件：结果不可信，不能进审查，
+// 任务留在进行中，桌面端留下待人核对的恢复留言。
+func TestDesktopDispatchReportedOutcomeRejectsChangedWorktree(t *testing.T) {
+	ctx := t.Context()
+	core, human, board, flow := newDispatchTestBoard(t)
+	card, err := core.CreateCard(ctx, human, board.ID, kanban.CreateCardInput{Title: "Report only", ColumnID: flow.dev})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := dispatchRun{core: core, sessions: t.TempDir()}
+	run.host = func(_ context.Context, _, dir, _ string, readOnly bool, _ dispatchSession) (dispatchReply, error) {
+		if readOnly {
+			return dispatchReply{Outcome: "plan", Summary: "Plan"}, nil
+		}
+		if err := os.WriteFile(filepath.Join(dir, "stray.txt"), []byte("left behind"), 0o600); err != nil {
+			return dispatchReply{}, err
+		}
+		return dispatchReply{Outcome: "reported", Summary: "Nothing to change", Items: "- [x] Report"}, nil
+	}
+	job := dispatchJob{id: card.ID, engineer: *board.Engineers[0], host: "codex", flow: flow, project: board.ProjectPath}
+	if err := run.handle(ctx, job); err == nil {
+		t.Fatal("a reported hand-off with a changed worktree was accepted")
+	}
+	got, err := core.GetCardDetail(ctx, card.ID)
+	if err != nil || got.ColumnID != flow.dev || got.ClaimActive || desktopDispatchRecovery(got, false) != dispatchAwaitingConfirmation {
+		t.Fatalf("unexpected state after rejected report: err=%v card=%+v", err, got)
+	}
+}
+
+// 提示词要把结果怎么回到看板讲清楚：摘要会被桌面端发成评论、不改仓库的任务回 reported、
+// 实时信息自己用命令取、评审遇到无改动交接时去卡片上核对；规划阶段的结论仍只能是 plan 或 clarify。
+func TestDispatchPromptExplainsHowResultsReachTheBoard(t *testing.T) {
+	engineer := kanban.Engineer{Name: "Atlas", Prompt: "Be careful."}
+	card := &kanban.CardDetail{CardView: &kanban.CardView{Card: &kanban.Card{Key: "DISP-1", Title: "Report time"}}}
+	for name, tt := range map[string]struct {
+		job      dispatchJob
+		planning bool
+		want     []string
+		missing  []string
+	}{
+		"development": {
+			job: dispatchJob{engineer: engineer},
+			want: []string{
+				"Outcome must be ready or reported.", "posts your summary on the card as a comment",
+				"a shell command like date", "return reported", "ready or reported result, items has one Markdown checkbox",
+			},
+			missing: []string{"Outcome must be plan or clarify."},
+		},
+		"planning": {
+			job: dispatchJob{engineer: engineer}, planning: true,
+			want:    []string{"Outcome must be plan or clarify.", "posts your summary on the card as a comment"},
+			missing: []string{"return reported"},
+		},
+		"review": {
+			job:     dispatchJob{engineer: engineer, review: true},
+			want:    []string{"Outcome must be passed, failed or waiting.", "no repository change", "posts your summary on the card as a comment"},
+			missing: []string{"Outcome must be plan or clarify.", "return reported"},
+		},
+	} {
+		prompt := dispatchPrompt(tt.job, card, "", tt.planning)
+		for _, want := range tt.want {
+			if !strings.Contains(prompt, want) {
+				t.Errorf("%s prompt lacks %q", name, want)
+			}
+		}
+		for _, missing := range tt.missing {
+			if strings.Contains(prompt, missing) {
+				t.Errorf("%s prompt must not contain %q", name, missing)
+			}
 		}
 	}
 }
