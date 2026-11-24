@@ -2,17 +2,23 @@ package desktop
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 
 	"slate-kanban/internal/app"
+	"slate-kanban/internal/conf"
 	"slate-kanban/internal/core/kanban"
 )
 
@@ -25,6 +31,17 @@ type serviceReady struct {
 
 func TestDesktopServiceRestartsWithSameData(t *testing.T) {
 	dataDir := t.TempDir()
+	configDir := filepath.Join(dataDir, conf.DefaultDirName)
+	if err := os.Mkdir(configDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(configDir, "config.toml")
+	cfg := conf.DefaultConfig(configDir)
+	cfg.Server.HTTP.Host = "127.0.0.1"
+	cfg.Server.HTTP.Port = 0
+	if err := conf.WriteConfig(cfg, configPath); err != nil {
+		t.Fatal(err)
+	}
 	first, stop := startTestProcess(t, dataDir)
 	if data := request(t, first.URL, http.MethodGet, "/health", ""); !strings.Contains(string(data), "v1.2.3") {
 		t.Fatalf("桌面健康检查未返回构建版本: %s", data)
@@ -50,20 +67,83 @@ func TestDesktopServiceRestartsWithSameData(t *testing.T) {
 	if err := stop(); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(filepath.Join(configDir, "data.db")); err != nil {
+		t.Fatalf("默认 SQLite 文件不存在: %v", err)
+	}
+	address := strings.TrimPrefix(first.URL, "http://")
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Server.HTTP.Port, err = strconv.Atoi(port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := conf.WriteConfig(cfg, configPath); err != nil {
+		t.Fatal(err)
+	}
+	originalConfig, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	second, _ := startTestProcess(t, dataDir)
-	data = request(t, second.URL, http.MethodGet, fmt.Sprintf("/api/v1/cards/%d", card.ID), "")
-	var restored struct {
-		Title string `json:"title"`
+	for _, test := range []struct {
+		name     string
+		occupied bool
+	}{
+		{name: "configured port"},
+		{name: "occupied port", occupied: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if test.occupied {
+				listener, err := net.Listen("tcp", address)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() {
+					if err := listener.Close(); err != nil {
+						t.Error(err)
+					}
+				})
+			}
+			second, _ := startTestProcess(t, dataDir)
+			if (second.URL != first.URL) != test.occupied {
+				t.Fatalf("桌面访问地址错误: 配置 %q, 实际 %q", first.URL, second.URL)
+			}
+			data := request(t, second.URL, http.MethodGet, fmt.Sprintf("/api/v1/cards/%d", card.ID), "")
+			var restored struct {
+				Title string `json:"title"`
+			}
+			if err := json.Unmarshal(data, &restored); err != nil || restored.Title != "Persistent card" {
+				t.Fatalf("重启后任务不存在: %s (%v)", data, err)
+			}
+			if recent := second.Recent; len(recent) != 2 || recent[1].Title != "Newest card" ||
+				recent[0].ID != card.ID || recent[0].BoardID != board.ID {
+				t.Fatalf("重启后最近任务的内容或顺序错误: %+v", recent)
+			}
+			if current, err := os.ReadFile(configPath); err != nil || !bytes.Equal(current, originalConfig) {
+				t.Fatalf("桌面服务修改了原配置: %v", err)
+			}
+		})
 	}
-	if err := json.Unmarshal(data, &restored); err != nil || restored.Title != "Persistent card" {
-		t.Fatalf("重启后任务不存在: %s (%v)", data, err)
-	}
-	if recent := second.Recent; len(recent) != 2 || recent[1].Title != "Newest card" ||
-		recent[0].ID != card.ID || recent[0].BoardID != board.ID {
-		t.Fatalf("重启后最近任务的内容或顺序错误: %+v", recent)
-	}
+}
 
+func TestDesktopStartupRejectsInvalidPort(t *testing.T) {
+	cfg := conf.DefaultConfig(t.TempDir())
+	cfg.Server.HTTP.Host = "127.0.0.1"
+	cfg.Server.HTTP.Port = -1
+	s, err := startService(cfg, app.BuildInfo{}, nil)
+	if err == nil {
+		t.Cleanup(func() {
+			if err := s.close(); err != nil {
+				t.Error(err)
+			}
+		})
+		t.Fatal("端口配置无效时桌面服务仍启动")
+	}
+	if addrErr, ok := errors.AsType[*net.AddrError](err); !ok || addrErr.Addr != "-1" {
+		t.Fatalf("未返回原始的端口配置错误: %v", err)
+	}
 }
 
 // 跟随桌面进程的真实边界启动服务，避免在同一测试进程重复注册全局指标。
@@ -78,8 +158,6 @@ func TestDesktopServiceProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(closeConfig)
-	cfg.Server.HTTP.Host = "127.0.0.1"
-	cfg.Server.HTTP.Port = 0
 	s, err := startService(cfg, build, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -136,6 +214,7 @@ func startTestProcess(t *testing.T, dataDir string) (serviceReady, func() error)
 	for scanner.Scan() {
 		value, found := strings.CutPrefix(scanner.Text(), "SLATE_READY ")
 		if !found {
+			t.Log(scanner.Text())
 			continue
 		}
 		var ready serviceReady

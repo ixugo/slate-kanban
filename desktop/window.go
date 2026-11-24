@@ -161,10 +161,7 @@ func Run(build app.BuildInfo) (string, error) {
 }
 
 func showStartupError(native *application.App, err error, text desktopText) error {
-	message := text.startup
-	if errors.Is(err, app.ErrConfigInUse) {
-		message = text.inUse
-	}
+	message := text.startupMessage(err)
 	native.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
 		dialog := native.Dialog.Error().SetTitle(displayName).SetMessage(message)
 		dialog.AddButton(text.confirm).OnClick(native.Quit)

@@ -39,10 +39,15 @@ func loadConfig(version string) (conf.Bootstrap, func(), error) {
 }
 
 func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLanguage) (*service, error) {
-	listener, err := net.Listen("tcp", net.JoinHostPort(bc.Server.HTTP.Host, strconv.Itoa(bc.Server.HTTP.Port)))
+	host, port := bc.Server.HTTP.Host, bc.Server.HTTP.Port
+	listener, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+	if port != 0 && errors.Is(err, errAddressInUse) {
+		listener, err = net.Listen("tcp", net.JoinHostPort(host, "0"))
+	}
 	if err != nil {
 		return nil, fmt.Errorf("Slate 无法监听本机服务: %w", err)
 	}
+	bc.Server.HTTP.Port = listener.Addr().(*net.TCPAddr).Port
 
 	log, closeLog := app.SetupLog(&bc)
 	build.Register()
@@ -53,7 +58,6 @@ func startService(bc conf.Bootstrap, build app.BuildInfo, language *desktopLangu
 	}
 
 	closing, cancel := context.WithCancel(context.Background())
-	bc.Server.HTTP.Port = listener.Addr().(*net.TCPAddr).Port
 	origin := strings.TrimSuffix(strings.ToLower(app.DisplayURL(&bc)), ":80")
 	handler := lifecycle.Wrap(services.Handler, closing)
 	localCleanup := newWorktreeCleanup()
