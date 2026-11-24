@@ -3,7 +3,7 @@
 
 import type { TFunction } from '@/i18n/react'
 import type { TranslationKey } from '@/i18n/types'
-import type { ActivityActor, BoardEvent, CardView } from '@/lib/api/types'
+import type { ActivityActor, BoardEvent, CardView, Engineer } from '@/lib/api/types'
 
 /** 自动化规则作为操作者时，名称的固定前缀，和服务端 actor.go 里的 automationActorPrefix 一致 */
 const AUTOMATION_PREFIX = 'automation:'
@@ -141,6 +141,31 @@ export function actorLabel(actor: ActivityActor, t: TFunction): string {
   return actor.name
 }
 
+// 旧版桌面调度的身份名：随机码加工程师编号，例如 desktop-<26 位随机码>-3。新版直接用工程师名，历史记录仍要能显示成工程师名。
+const DESKTOP_ACTOR_NAME = /^desktop-[a-z2-7]{26}-(\d+)$/
+
+/** agent 名字在界面上的写法：旧版桌面调度的身份名换成工程师名字，其他 agent 用它自己报的名字 */
+export function agentDisplayName(name: string, engineers: readonly Engineer[]): string {
+  const id = DESKTOP_ACTOR_NAME.exec(name)?.[1]
+  if (id === undefined) return name
+  return engineers.find((e) => e.id === Number(id))?.name ?? name
+}
+
+/** 桌面调度的操作显示承担这次任务的工程师。旧的领取事件只有编号或桌面调度名称。 */
+export function eventActorLabel(event: BoardEvent, engineers: readonly Engineer[], t: TFunction): string {
+  if (event.type === 'card.claimed' && event.actor_kind === 'agent') {
+    const payload = payloadOf(event)
+    const name = payload.engineer_name
+    if (typeof name === 'string' && name !== '') return name
+    if (name === undefined && /^desktop-[a-z2-7]{26}$/.test(event.actor)) {
+      const engineer = engineers.find((e) => e.id === payload.engineer_id)
+      if (engineer) return engineer.name
+    }
+  }
+  if (event.actor_kind === 'agent') return agentDisplayName(event.actor, engineers)
+  return actorLabel({ kind: event.actor_kind, name: event.actor }, t)
+}
+
 // 规则动作的本地化名称；不认识的动作类型原样显示。
 function actionName(type: string, t: TFunction): string {
   const key = `settings.rules.actionTypes.${type}`
@@ -158,8 +183,8 @@ function firedDetail(payload: Record<string, unknown>, t: TFunction): string {
 }
 
 // 任务释放事件有三种原因，句子不一样：持有者主动释放、人收回、任务换列。
-function releasedText(payload: Record<string, unknown>, t: TFunction): string {
-  const agent = field(payload, 'agent')
+function releasedText(payload: Record<string, unknown>, engineers: readonly Engineer[], t: TFunction): string {
+  const agent = agentDisplayName(field(payload, 'agent'), engineers)
   switch (field(payload, 'why')) {
     case 'revoked':
       return t('activity.event.cardRevoked', { agent })
@@ -171,7 +196,7 @@ function releasedText(payload: Record<string, unknown>, t: TFunction): string {
 }
 
 /** 一条事件的文字；不认识的事件类型（比如服务端比网页新）显示成一句通用的话，不会让列表出错 */
-export function describeEvent(event: BoardEvent, t: TFunction): EventText {
+export function describeEvent(event: BoardEvent, t: TFunction, engineers: readonly Engineer[] = []): EventText {
   const p = payloadOf(event)
   const name = field(p, 'name')
   const plain = (text: string): EventText => ({ text, detail: '' })
@@ -214,7 +239,7 @@ export function describeEvent(event: BoardEvent, t: TFunction): EventText {
     case 'card.claimed':
       return plain(t('activity.event.cardClaimed'))
     case 'card.released':
-      return plain(releasedText(p, t))
+      return plain(releasedText(p, engineers, t))
     case 'comment.added':
       return { text: t('activity.event.commentAdded'), detail: field(p, 'snippet') }
     case 'comment.deleted':

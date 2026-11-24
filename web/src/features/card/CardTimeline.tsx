@@ -7,10 +7,10 @@ import { BotIcon, UserIcon, ZapIcon } from 'lucide-react'
 import { useTranslation } from '@/i18n/react'
 import { useLanguage } from '@/i18n/useLanguage'
 import { addComment, deleteComment } from '@/lib/api/endpoints'
-import type { ActorKind, BoardEvent, Comment } from '@/lib/api/types'
+import type { ActorKind, BoardEvent, Comment, Engineer } from '@/lib/api/types'
 import { Button } from '@/components/ui/button'
 import { LazyEditor, type LiveEditorDraft } from '@/features/editor/LazyEditor'
-import { actorLabel, describeEvent } from '@/features/activity/describeEvent'
+import { agentDisplayName, describeEvent, eventActorLabel } from '@/features/activity/describeEvent'
 import { EventPreviousValues } from '@/features/activity/EventPreviousValues'
 import { ViewChangeLink } from '@/features/activity/ViewChangeLink'
 import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
@@ -25,6 +25,7 @@ interface CardTimelineProps {
   cardId: number
   boardId: number
   comments: Comment[]
+  engineers: readonly Engineer[]
   renderCardReference: CardReferenceRenderer
   readOnly?: boolean
 }
@@ -51,10 +52,10 @@ function CommentTime({ createdAt, lang, justNow }: { createdAt: string; lang: st
 }
 
 /** 时间线上的一条事件：图标、谁做了什么、补充说明和时间 */
-function EventLine({ event, renderCardReference }: { event: BoardEvent; renderCardReference: CardReferenceRenderer }) {
+function EventLine({ event, engineers, renderCardReference }: { event: BoardEvent; engineers: readonly Engineer[]; renderCardReference: CardReferenceRenderer }) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
-  const { text, detail, descriptionChangeId, previousValues } = describeEvent(event, t)
+  const { text, detail, descriptionChangeId, previousValues } = describeEvent(event, t, engineers)
   const Icon = ACTOR_ICONS[event.actor_kind] ?? ZapIcon
   return (
     <li className="flex gap-2.5 px-1 text-ui">
@@ -63,7 +64,7 @@ function EventLine({ event, renderCardReference }: { event: BoardEvent; renderCa
       </span>
       <div className="min-w-0 flex-1">
         <p className="break-words">
-          <span className="font-medium">{actorLabel({ kind: event.actor_kind, name: event.actor }, t)}</span>{' '}
+          <span className="font-medium">{eventActorLabel(event, engineers, t)}</span>{' '}
           <span className="text-muted-foreground">{text}</span>
           {descriptionChangeId !== undefined && <ViewChangeLink cardId={event.card_id} changeId={descriptionChangeId} />}
         </p>
@@ -78,7 +79,7 @@ function EventLine({ event, renderCardReference }: { event: BoardEvent; renderCa
 }
 
 /** 评论和活动 */
-export function CardTimeline({ cardId, boardId, comments, renderCardReference, readOnly }: CardTimelineProps) {
+export function CardTimeline({ cardId, boardId, comments, engineers, renderCardReference, readOnly }: CardTimelineProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const [body, setBody] = useState<LiveEditorDraft>({ value: '' })
@@ -139,12 +140,12 @@ export function CardTimeline({ cardId, boardId, comments, renderCardReference, r
       <ul className="space-y-3">
         {items.map((item) =>
           item.kind === 'event' ? (
-            <EventLine key={`e${item.id}`} event={item.event} renderCardReference={renderCardReference} />
+            <EventLine key={`e${item.id}`} event={item.event} engineers={engineers} renderCardReference={renderCardReference} />
           ) : (
             <li key={`c${item.id}`} className="rounded-2xl bg-secondary/60 p-3.5">
               <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">
-                  {item.comment.author_kind === 'agent' ? item.comment.author : kindLabel(item.comment.author_kind)}
+                  {item.comment.author_kind === 'agent' ? agentDisplayName(item.comment.author, engineers) : kindLabel(item.comment.author_kind)}
                 </span>
                 {item.comment.author_kind === 'agent' && <span>{kindLabel(item.comment.author_kind)}</span>}
                 <CommentTime createdAt={item.comment.created_at} lang={lang} justNow={t('card.comment.justNow')} />

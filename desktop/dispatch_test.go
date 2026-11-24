@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"context"
+	"encoding/json/v2"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -155,7 +156,7 @@ func TestDesktopDispatchRunsDevelopmentThenReview(t *testing.T) {
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})
-	dispatch := dispatchRun{core: core, config: dispatchConfig{BoardID: board.ID, Hosts: hosts}, actor: desktopDispatchActor(), host: host, update: func(int64, engineerStatus) {}}
+	dispatch := dispatchRun{core: core, config: dispatchConfig{BoardID: board.ID, Hosts: hosts}, host: host, update: func(int64, engineerStatus) {}}
 	snapshot, err := core.BoardSnapshot(ctx, board.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -172,6 +173,43 @@ func TestDesktopDispatchRunsDevelopmentThenReview(t *testing.T) {
 	})
 	if got := calls.Load(); got != 4 {
 		t.Fatalf("wanted the development and review phases only, got %d host calls", got)
+	}
+	claims, err := core.ListActivity(ctx, board.ID, kanban.ActivityQuery{
+		ActivityFilter: kanban.ActivityFilter{Types: []string{kanban.EventCardClaimed}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantNames := map[int64]string{
+		board.Engineers[0].ID: board.Engineers[0].Name,
+		board.Engineers[2].ID: board.Engineers[2].Name,
+	}
+	desktopEngineers := make(map[int64]bool)
+	ordinaryClaim := false
+	for _, event := range claims.Events {
+		var payload struct {
+			EngineerID   int64   `json:"engineer_id"`
+			EngineerName *string `json:"engineer_name"`
+		}
+		if err := json.Unmarshal([]byte(event.Payload), &payload); err != nil {
+			t.Fatal(err)
+		}
+		switch event.CardID {
+		case card.ID:
+			want, known := wantNames[payload.EngineerID]
+			if event.Actor != want || !known || payload.EngineerName == nil || *payload.EngineerName != want {
+				t.Errorf("desktop claim lost the actor or engineer display name: %+v", event)
+			}
+			desktopEngineers[payload.EngineerID] = true
+		case competing.ID:
+			if event.Actor != other.Name || payload.EngineerName == nil || *payload.EngineerName != "" {
+				t.Errorf("ordinary claim should keep the actor display name: %+v", event)
+			}
+			ordinaryClaim = true
+		}
+	}
+	if len(desktopEngineers) != len(wantNames) || !ordinaryClaim {
+		t.Fatalf("missing claim evidence: desktop engineers %v, ordinary claim %v", desktopEngineers, ordinaryClaim)
 	}
 	for _, check := range []struct{ id, column int64 }{{protected.ID, flow.dev}, {competing.ID, flow.dev}, {blocked.ID, flow.dev}} {
 		got, err := core.GetCardDetail(ctx, check.id)
@@ -380,7 +418,7 @@ exit 1
 	}
 	t.Setenv("PATH", strings.Join([]string{bin, "/usr/bin", "/bin"}, string(os.PathListSeparator)))
 	t.Setenv("SLATE_FIXTURE_NODE_DIR", nodeBin)
-	run := dispatchRun{core: core, host: localDispatchHost, actor: desktopDispatchActor()}
+	run := dispatchRun{core: core, host: localDispatchHost}
 	job := dispatchJob{id: card.ID, engineer: *board.Engineers[0], host: "codex", flow: flow, project: board.ProjectPath}
 	if err := run.handle(t.Context(), job); err != nil {
 		t.Fatalf("restricted PATH dispatch failed: %v", err)
@@ -445,7 +483,7 @@ exit 1`,
 			if err := os.WriteFile(filepath.Join(bin, "codex"), []byte("#!/bin/sh\n"+tt.script+"\n"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			run := dispatchRun{core: core, host: localDispatchHost, actor: desktopDispatchActor(), text: func() desktopText { return desktopTexts["zh-CN"] }}
+			run := dispatchRun{core: core, host: localDispatchHost, text: func() desktopText { return desktopTexts["zh-CN"] }}
 			job := dispatchJob{id: card.ID, engineer: *board.Engineers[0], host: "codex", flow: flow, project: board.ProjectPath}
 			if err := run.handle(t.Context(), job); err == nil {
 				t.Fatal("expected preparation failure")
@@ -697,7 +735,7 @@ func startDispatchFixture(t *testing.T, core dispatchCore, board *kanban.BoardDe
 	done := make(chan struct{})
 	dispatch := dispatchRun{
 		core: core, config: dispatchConfig{BoardID: board.ID, Hosts: map[int64]string{board.Engineers[0].ID: "codex"}},
-		actor: desktopDispatchActor(), host: host, update: func(int64, engineerStatus) {},
+		host: host, update: func(int64, engineerStatus) {},
 	}
 	go func() {
 		defer close(done)
@@ -860,7 +898,7 @@ func verifyProviderRefusal(t *testing.T, dirty bool) {
 	defer cancel()
 	var attempts int
 	run := dispatchRun{
-		core: core, actor: desktopDispatchActor(),
+		core: core,
 		host: func(_ context.Context, _, dir, _ string, readOnly bool, _ dispatchSession) (dispatchReply, error) {
 			if readOnly {
 				return dispatchReply{Outcome: "plan", Summary: "Plan"}, nil

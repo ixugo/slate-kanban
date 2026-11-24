@@ -31,8 +31,8 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		return errUnconfirmedRun
 	}
 
-	lease := kanban.ClaimCardInput{EngineerID: job.engineer.ID, LeaseMinutes: dispatchLeaseMinutes}
-	card, err = d.core.ClaimCard(ctx, d.actor, job.id, lease)
+	lease := kanban.ClaimCardInput{EngineerID: job.engineer.ID, LeaseMinutes: dispatchLeaseMinutes, DesktopDispatch: true}
+	card, err = d.core.ClaimCard(ctx, job.actor(), job.id, lease)
 	if err != nil {
 		// A different desktop or listener won the transactional lease.
 		if errors.Is(err, kanban.ErrCardClaimed) || errors.Is(err, kanban.ErrEngineerBusy) {
@@ -44,7 +44,7 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		// Do not use the canceled scheduler context for lease cleanup.
 		release, stop := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 		defer stop()
-		_ = d.core.ReleaseCard(release, d.actor, job.id)
+		_ = d.core.ReleaseCard(release, job.actor(), job.id)
 	}()
 	if !job.matches(card) {
 		return nil
@@ -57,17 +57,17 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		return errors.Join(errUnconfirmedRun, err)
 	}
 	if card.ColumnID == job.flow.todo {
-		if _, err := d.core.MoveCard(ctx, d.actor, job.id, kanban.MoveCardInput{ColumnID: job.flow.dev}); err != nil {
+		if _, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.dev}); err != nil {
 			return err
 		}
-		card, err = d.core.ClaimCard(ctx, d.actor, job.id, lease)
+		card, err = d.core.ClaimCard(ctx, job.actor(), job.id, lease)
 		if err != nil || card.ColumnID != job.flow.dev {
 			return errDesktopClaimChanged
 		}
 	}
 	workDir := job.project
 	if !filepath.IsAbs(workDir) {
-		_, err = d.core.AddComment(ctx, d.actor, job.id, "Desktop dispatch needs this board's absolute local project path.")
+		_, err = d.core.AddComment(ctx, job.actor(), job.id, "Desktop dispatch needs this board's absolute local project path.")
 		return errors.Join(err, errors.New("missing local project path"))
 	}
 	branch := card.Branch
@@ -87,12 +87,12 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 				return
 			case <-time.After(5 * time.Second):
 				current, err := d.core.GetCardDetail(ctx, job.id)
-				if err != nil || !job.matches(current) || !current.ClaimActive || current.ClaimedBy != d.actor.Name {
+				if err != nil || !job.matches(current) || !current.ClaimActive || current.ClaimedBy != job.actor().Name {
 					cancel()
 					return
 				}
 				if till := current.ClaimExpiresAt; till != nil && time.Until(*till) < 10*time.Minute {
-					if _, err := d.core.ClaimCard(ctx, d.actor, job.id, lease); err != nil {
+					if _, err := d.core.ClaimCard(ctx, job.actor(), job.id, lease); err != nil {
 						cancel()
 						return
 					}
@@ -125,11 +125,11 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 	if job.review {
 		planLabel = "**Desktop review plan**"
 	}
-	if _, err := d.core.AddComment(ctx, d.actor, job.id, planLabel+"\n\n"+plan.Summary); err != nil {
+	if _, err := d.core.AddComment(ctx, job.actor(), job.id, planLabel+"\n\n"+plan.Summary); err != nil {
 		return err
 	}
 	if plan.Outcome == "clarify" {
-		_, err := d.core.MoveCard(ctx, d.actor, job.id, kanban.MoveCardInput{ColumnID: job.flow.inbox})
+		_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.inbox})
 		return err
 	}
 
@@ -143,7 +143,7 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 	}
 	defer cleanup()
 	if !job.review && branch != card.Branch {
-		next, err := d.core.UpdateCard(ctx, d.actor, job.id, kanban.UpdateCardInput{Branch: &branch, Version: &card.Version})
+		next, err := d.core.UpdateCard(ctx, job.actor(), job.id, kanban.UpdateCardInput{Branch: &branch, Version: &card.Version})
 		if errors.Is(err, kanban.ErrCardVersionConflict) {
 			return errDispatchPlanSuperseded
 		}
@@ -181,13 +181,13 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 		}
 		body := "**Desktop review · " + final.Outcome + "**\n\n" + final.Summary + "\n\n" + completedReview
 		if final.Outcome == "failed" {
-			if _, err := d.core.AddComment(ctx, d.actor, job.id, body); err != nil {
+			if _, err := d.core.AddComment(ctx, job.actor(), job.id, body); err != nil {
 				return err
 			}
-			_, err := d.core.MoveCard(ctx, d.actor, job.id, kanban.MoveCardInput{ColumnID: job.flow.dev, Top: true})
+			_, err := d.core.MoveCard(ctx, job.actor(), job.id, kanban.MoveCardInput{ColumnID: job.flow.dev, Top: true})
 			return err
 		}
-		_, err = d.core.AddComment(ctx, d.actor, job.id, body)
+		_, err = d.core.AddComment(ctx, job.actor(), job.id, body)
 		return err
 	}
 	if final.Outcome != "ready" || !validTaskItems(final.Items) {
@@ -199,14 +199,14 @@ func (d *dispatchRun) handle(parent context.Context, job dispatchJob) error {
 	}
 	if final.Items != "" {
 		desc := latest.Description + "\n\n## Task items\n\n" + final.Items
-		updated, err := d.core.UpdateCard(ctx, d.actor, job.id, kanban.UpdateCardInput{Description: &desc, Version: &latest.Version})
+		updated, err := d.core.UpdateCard(ctx, job.actor(), job.id, kanban.UpdateCardInput{Description: &desc, Version: &latest.Version})
 		if err != nil {
 			return err
 		}
 		latest.Version = updated.Version
 	}
 	summary := "**Desktop development handoff**\n\n" + final.Summary + "\n\nCommit: `" + head[:6] + "`.\n\n" + completedDevelopment
-	_, err = d.core.FinishCard(ctx, d.actor, job.id, kanban.FinishCardInput{Summary: summary, ColumnID: job.flow.review, Branch: branch, Version: &latest.Version, Top: true})
+	_, err = d.core.FinishCard(ctx, job.actor(), job.id, kanban.FinishCardInput{Summary: summary, ColumnID: job.flow.review, Branch: branch, Version: &latest.Version, Top: true})
 	return err
 }
 
@@ -250,7 +250,7 @@ func (d *dispatchRun) checkJob(ctx context.Context, job dispatchJob) (*kanban.Ca
 	if err != nil {
 		return nil, err
 	}
-	if !job.matches(card) || !card.ClaimActive || card.ClaimedBy != d.actor.Name || card.ClaimEngineerID != job.engineer.ID {
+	if !job.matches(card) || !card.ClaimActive || card.ClaimedBy != job.actor().Name || card.ClaimEngineerID != job.engineer.ID {
 		return nil, errDesktopClaimChanged
 	}
 	return card, nil
@@ -263,7 +263,7 @@ func (d *dispatchRun) recordDispatchPreparationFailure(ctx context.Context, job 
 	if _, err := d.checkJob(ctx, job); err != nil {
 		return errors.Join(cause, err)
 	}
-	_, err := d.core.AddComment(ctx, d.actor, job.id, message)
+	_, err := d.core.AddComment(ctx, job.actor(), job.id, message)
 	return errors.Join(cause, err)
 }
 
@@ -305,7 +305,7 @@ func (d *dispatchRun) hostWithBackoff(ctx context.Context, job dispatchJob, dir,
 			if _, err := d.checkDispatchPlan(ctx, job, formal); err != nil {
 				return dispatchReply{}, false, err
 			}
-			if _, err := d.core.AddComment(ctx, d.actor, job.id, "Desktop dispatch started.\n\n"+job.startedMarker()); err != nil {
+			if _, err := d.core.AddComment(ctx, job.actor(), job.id, "Desktop dispatch started.\n\n"+job.startedMarker()); err != nil {
 				return dispatchReply{}, false, err
 			}
 			started = true
@@ -323,7 +323,7 @@ func (d *dispatchRun) hostWithBackoff(ctx context.Context, job dispatchJob, dir,
 			if _, err := d.checkJob(ctx, job); err != nil {
 				return dispatchReply{}, true, err
 			}
-			if _, err := d.core.AddComment(ctx, d.actor, job.id, "Desktop dispatch was declined by a provider limit. The task worktree is unchanged.\n\n"+job.deferredMarker()); err != nil {
+			if _, err := d.core.AddComment(ctx, job.actor(), job.id, "Desktop dispatch was declined by a provider limit. The task worktree is unchanged.\n\n"+job.deferredMarker()); err != nil {
 				return dispatchReply{}, true, err
 			}
 			started = false

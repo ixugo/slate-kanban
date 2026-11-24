@@ -214,6 +214,7 @@ export default function BoardPage() {
               open={activity.open}
               onOpenChange={(open) => setActivity((prev) => ({ ...prev, open }))}
               cardsById={cardsById}
+              engineers={snapshot.engineers ?? []}
             />
           </Suspense>
         )}

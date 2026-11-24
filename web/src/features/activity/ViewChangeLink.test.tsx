@@ -48,7 +48,7 @@ function renderItem(event: BoardEvent, cards = [makeCard({ id: 5 })]) {
   const cardsById = new Map(cards.map((c) => [c.id, c]))
   return renderApp(
     <ul>
-      <ActivityItem event={event} cardsById={cardsById} onOpenCard={() => {}} />
+      <ActivityItem event={event} cardsById={cardsById} engineers={[]} onOpenCard={() => {}} />
     </ul>,
   )
 }

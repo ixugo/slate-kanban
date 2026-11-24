@@ -2,10 +2,8 @@ package desktop
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -87,7 +85,6 @@ type dispatchCompletion struct {
 type dispatchRun struct {
 	core     dispatchCore
 	config   dispatchConfig
-	actor    kanban.Actor
 	host     dispatchHost
 	text     func() desktopText
 	sessions string
@@ -255,6 +252,8 @@ func (d *dispatchRun) worker(ctx context.Context, queue <-chan dispatchJob) {
 	}
 }
 
-func desktopDispatchActor() kanban.Actor {
-	return kanban.Actor{Kind: kanban.ActorAgent, Name: "desktop-" + strings.ToLower(rand.Text())}
+// actor 返回这位工程师在看板上留下记录时使用的身份，名字就是工程师名。
+// 每个 worker 只处理自己的工程师，所以领取、移列和评论都直接记在这位工程师名下。
+func (j dispatchJob) actor() kanban.Actor {
+	return kanban.Actor{Kind: kanban.ActorAgent, Name: j.engineer.Name}
 }

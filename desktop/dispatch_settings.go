@@ -45,7 +45,7 @@ type dispatchState struct {
 
 func newDesktopDispatch(core dispatchCore, dir string, text func() desktopText) *desktopDispatch {
 	d := &desktopDispatch{
-		core: core, host: localDispatchHost, text: text, actor: desktopDispatchActor(),
+		core: core, host: localDispatchHost, text: text,
 		path: "/.slate-desktop/" + rand.Text(), file: filepath.Join(dir, "desktop-dispatch.json"),
 		status: make(map[int64]engineerStatus),
 	}
@@ -169,7 +169,7 @@ func (d *desktopDispatch) start(snapshot *kanban.Snapshot) {
 	done := make(chan struct{})
 	d.cancel, d.done = cancel, done
 	run := &dispatchRun{
-		core: d.core, actor: d.actor, config: d.config, host: d.host, text: d.text,
+		core: d.core, config: d.config, host: d.host, text: d.text,
 		sessions: filepath.Join(filepath.Dir(d.file), "desktop-dispatch-sessions"),
 		update: func(id int64, status engineerStatus) {
 			d.mu.Lock()

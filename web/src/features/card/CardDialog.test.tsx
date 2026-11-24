@@ -13,7 +13,7 @@ import { installFakeEventSource } from '@/test/fakeEventSource'
 import BoardPage from '@/features/board/BoardPage'
 import { CARD_TAGS_MAX } from '@/lib/limits'
 import { formatDate, formatDateTime } from '@/lib/format'
-import type { Comment, Tag, TagInput } from '@/lib/api/types'
+import type { Comment, Engineer, Tag, TagInput } from '@/lib/api/types'
 
 const baseDetail = {
   ...makeCard({ id: 1, title: '详情卡', version: 2, tag_ids: [1], tags: ['bug'] }),
@@ -42,11 +42,11 @@ function patchBody(calls: FakeCall[]): unknown {
   return calls.find((c) => c.method === 'PATCH')?.body
 }
 
-function openBoardWithCard(detail: typeof baseDetail, events: object[] = [], library: Tag[] = []) {
+function openBoardWithCard(detail: typeof baseDetail, events: object[] = [], library: Tag[] = [], engineers: Engineer[] = []) {
   installFakeEventSource()
   let current = { ...detail }
   const api = installFakeApi({
-    'GET /api/v1/boards/:id/snapshot': makeSnapshot({ tags: library, cards: [makeCard({ id: 1 })] }),
+    'GET /api/v1/boards/:id/snapshot': makeSnapshot({ tags: library, engineers, cards: [makeCard({ id: 1 })] }),
     'GET /api/v1/cards/:id': () => ({ body: current }),
     'PATCH /api/v1/cards/:id': (call: FakeCall) => {
       current = {
@@ -499,6 +499,26 @@ describe('CardDialog', () => {
     expect(expiry.parentElement).not.toHaveClass('font-mono')
   })
 
+  it('桌面调度的评论和移动事件显示工程师名字，不出现身份名', async () => {
+    const at = '2026-11-18T10:00:00Z'
+    const actor = 'desktop-5xfr3jfu5z2sitwvgckxdkj3n6-3'
+    const comment = { board_id: 1, card_id: 1, created_at: at, updated_at: at }
+    openBoardWithCard({
+      ...baseDetail,
+      comments: [{ ...comment, id: 1, author_kind: 'agent', author: actor, body: '桌面写的评论' }],
+    } as typeof baseDetail, [{
+      id: 9, board_id: 1, card_id: 1, type: 'card.moved', actor_kind: 'agent', actor,
+      payload: { from: '待办', to: '进行中' }, created_at: '2026-11-18T11:00:00Z',
+    }], [], [{ id: 3, name: 'Atlas' } as Engineer])
+    const dialog = within(await screen.findByRole('dialog'))
+    await dialog.findByText('桌面写的评论')
+    const moved = await dialog.findByText(/moved the task from/)
+    expect(moved.parentElement).toHaveTextContent('Atlas moved the task')
+    expect(dialog.getAllByText('Atlas').length).toBeGreaterThanOrEqual(2)
+    expect(dialog.queryByText(actor)).toBeNull()
+    expect(dialog.queryByText(/desktop-/)).toBeNull()
+  })
+
   it('评论里人写的显示为「我」，不出现原始的 human；agent 显示自己的名字加 Agent', async () => {
     const at = '2026-11-18T10:00:00Z'
     const comment = { board_id: 1, card_id: 1, created_at: at, updated_at: at }
@@ -578,6 +598,17 @@ describe('CardDialog', () => {
     expect(within(dialog).queryByText(/Alpha/)).toBeNull()
     expect(within(dialog).getByText('一条评论')).toBeInTheDocument()
     expect(within(dialog).getByRole('button', { name: en.card.timeline.showDetails })).toBeInTheDocument()
+  })
+
+  it('卡片活动显示桌面领取事件中的工程师名', async () => {
+    openBoardWithCard(baseDetail, [{
+      id: 9, board_id: 1, card_id: 1, type: 'card.claimed', actor_kind: 'agent',
+      actor: 'desktop-5xfr3jfu5z2sitwvgckxdkj3n6', payload: { engineer_id: 1, engineer_name: 'Atlas' },
+      created_at: '2026-11-18T11:00:00Z',
+    }])
+    const dialog = within(await screen.findByRole('dialog'))
+    const action = await dialog.findByText(en.activity.event.cardClaimed)
+    expect(action.parentElement).toHaveTextContent('Atlas claimed the task')
   })
 
   it('「评论和活动」里改了描述的那条带「查看变更」，点开在任务弹窗上叠一层左右对比', async () => {
