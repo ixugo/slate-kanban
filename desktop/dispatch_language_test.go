@@ -52,6 +52,13 @@ func TestDesktopDispatchUsesWebViewLanguage(t *testing.T) {
 			outcomes := []string{"plan or clarify", "ready or reported", "plan or clarify", "passed, failed or waiting"}
 			calls := 0
 			run.host = func(_ context.Context, _, dir, prompt string, readOnly bool, _ dispatchSession) (dispatchReply, error) {
+				// 关联检索的两次只读调用不属于规划、研发、审查，不计入阶段调用次数。
+				if strings.Contains(prompt, "Outcome must be keywords.") {
+					return dispatchReply{Outcome: "keywords", Summary: "[]"}, nil
+				}
+				if strings.Contains(prompt, "Outcome must be related.") {
+					return dispatchReply{Outcome: "related", Summary: "[]"}, nil
+				}
 				if calls >= len(outcomes) {
 					t.Fatal("unexpected extra host call")
 				}
@@ -134,7 +141,13 @@ func TestDesktopDispatchLocalizesFailureComments(t *testing.T) {
 				}
 				job := dispatchJob{id: card.ID, engineer: *board.Engineers[0], host: "codex", flow: flow, project: board.ProjectPath}
 				run := dispatchRun{core: core, sessions: t.TempDir(), text: func() desktopText { return desktopTexts[tt.code] }}
-				run.host = func(_ context.Context, _, _, _ string, readOnly bool, _ dispatchSession) (dispatchReply, error) {
+				run.host = func(_ context.Context, _, _, prompt string, readOnly bool, _ dispatchSession) (dispatchReply, error) {
+					if strings.Contains(prompt, "Outcome must be keywords.") {
+						return dispatchReply{Outcome: "keywords", Summary: "[]"}, nil
+					}
+					if strings.Contains(prompt, "Outcome must be related.") {
+						return dispatchReply{Outcome: "related", Summary: "[]"}, nil
+					}
 					if failure.name != "formal-run" {
 						t.Error("host should not start")
 					}

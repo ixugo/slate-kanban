@@ -52,6 +52,7 @@ var errDispatchTemplate = errors.New("desktop dispatch requires a development bo
 
 type dispatchCore interface {
 	BoardSnapshot(context.Context, int64) (*kanban.Snapshot, error)
+	ExportBoard(context.Context, kanban.Actor, int64) (*kanban.BoardExport, error)
 	ListEvents(context.Context, int64, int64, int) (*kanban.EventPage, error)
 	Subscribe(int64) (<-chan struct{}, func())
 	GetCardDetail(context.Context, int64) (*kanban.CardDetail, error)

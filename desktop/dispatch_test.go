@@ -121,6 +121,12 @@ func TestDesktopDispatchRunsDevelopmentThenReview(t *testing.T) {
 			t.Error("same workflow card dispatched concurrently")
 		}
 		defer concurrent.Add(-1)
+		if strings.Contains(prompt, "Outcome must be keywords.") {
+			if !readOnly {
+				t.Error("keyword extraction was given write capability")
+			}
+			return dispatchReply{Outcome: "keywords", Summary: "[]"}, nil
+		}
 		calls.Add(1)
 		if strings.Contains(prompt, `"title":"Unconfirmed"`) {
 			return dispatchReply{Outcome: "clarify", Summary: "Human comment triggered reevaluation"}, nil
@@ -1699,7 +1705,7 @@ func TestDispatchPromptExplainsHowResultsReachTheBoard(t *testing.T) {
 			missing: []string{"Outcome must be plan or clarify.", "return reported", "read-only"},
 		},
 	} {
-		prompt := dispatchPrompt(tt.job, card, "", tt.planning, desktopTexts["en"].dispatchOutputLanguage)
+		prompt := dispatchPrompt(tt.job, card, "[]", "", tt.planning, desktopTexts["en"].dispatchOutputLanguage)
 		for _, want := range tt.want {
 			if !strings.Contains(prompt, want) {
 				t.Errorf("%s prompt lacks %q", name, want)
