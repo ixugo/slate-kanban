@@ -5,6 +5,7 @@ import { useTranslation } from '@/i18n/react'
 import { LanguageMenu } from '@/app/LanguageMenu'
 import { Logo } from '@/app/Logo'
 import { ThemeMenu } from '@/app/ThemeMenu'
+import { startWindowDrag } from '@/app/windowDrag'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -36,7 +37,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="flex h-14 shrink-0 items-center justify-end gap-0.5 px-3 sm:px-5">
+      <header className="window-titlebar flex h-14 shrink-0 items-center justify-end gap-0.5 px-3 sm:px-5" onMouseDown={startWindowDrag}>
         <LanguageMenu />
         <ThemeMenu />
       </header>

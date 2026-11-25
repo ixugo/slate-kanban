@@ -110,8 +110,8 @@ func Run(build app.BuildInfo) (string, error) {
 		MinHeight:          520,
 		UseApplicationMenu: true,
 		Mac: application.MacWindow{
-			TitleBar:                application.MacTitleBarHidden,
-			InvisibleTitleBarHeight: 28,
+			// 顶栏含网页导航控件，拖动由网页空白区域发起，不能用覆盖整行的 InvisibleTitleBarHeight。
+			TitleBar: application.MacTitleBarHiddenInsetUnified,
 			WebviewPreferences: application.MacWebviewPreferences{
 				ApplicationNameForUserAgent: "SlateDesktop",
 			},

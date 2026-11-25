@@ -1,7 +1,7 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useLocation } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import i18n from '@/i18n'
 import { en } from '@/i18n/locales/en'
 import { ja } from '@/i18n/locales/ja'
@@ -65,6 +65,95 @@ async function openSettings() {
 }
 
 describe('AppShell', () => {
+  describe('桌面窗口拖动', () => {
+    afterEach(() => {
+      document.documentElement.removeAttribute('data-slate-mac')
+      vi.unstubAllGlobals()
+    })
+
+    it('macOS 桌面端按住顶栏空白处可以拖动窗口，正文和右键不会拖动', async () => {
+      document.documentElement.setAttribute('data-slate-mac', '')
+      const invoke = vi.fn()
+      vi.stubGlobal('_wails', { invoke })
+      setup()
+      const header = await screen.findByRole('banner')
+      const settings = within(header).getByRole('button', { name: en.nav.settings })
+      const main = screen.getByRole('main')
+
+      // 一次普通点击不拖动，按住并移动才将手势交给原生窗口。
+      fireEvent.mouseDown(header, { button: 0, buttons: 1 })
+      fireEvent.mouseUp(header, { button: 0, buttons: 0 })
+      expect(invoke).not.toHaveBeenCalled()
+
+      fireEvent.mouseDown(header, { button: 0, buttons: 1 })
+      fireEvent.blur(window)
+      fireEvent.mouseMove(header, { buttons: 1 })
+      expect(invoke).not.toHaveBeenCalled()
+
+      fireEvent.mouseDown(header, { button: 0, buttons: 1 })
+      expect(invoke).not.toHaveBeenCalled()
+      fireEvent.mouseMove(main, { buttons: 1 })
+      fireEvent.mouseMove(main, { buttons: 1 })
+      fireEvent.mouseUp(main, { button: 0 })
+      expect(invoke.mock.calls).toEqual([['wails:drag']])
+
+      fireEvent.mouseDown(settings.parentElement!, { button: 0, buttons: 1 })
+      fireEvent.mouseMove(header, { buttons: 1 })
+      fireEvent.mouseUp(header, { button: 0 })
+      fireEvent.mouseDown(header, { button: 2, buttons: 2 })
+      fireEvent.mouseMove(header, { buttons: 2 })
+      fireEvent.mouseUp(header, { button: 2 })
+      fireEvent.mouseDown(main, { button: 0, buttons: 1 })
+      fireEvent.mouseMove(header, { buttons: 1 })
+      fireEvent.mouseUp(header, { button: 0 })
+      expect(invoke.mock.calls).toEqual([['wails:drag'], ['wails:drag']])
+    })
+
+    it('macOS 桌面端顶栏的下拉框、链接、设置及弹窗仍能正常操作', async () => {
+      document.documentElement.setAttribute('data-slate-mac', '')
+      const invoke = vi.fn()
+      vi.stubGlobal('_wails', { invoke })
+      const user = userEvent.setup()
+      setup()
+      const header = await screen.findByRole('banner')
+      const select = await within(header).findByRole('combobox', { name: en.nav.switchBoard })
+      fireEvent.mouseDown(select, { button: 0, buttons: 1 })
+      fireEvent.mouseMove(header, { buttons: 1 })
+      fireEvent.mouseUp(header, { button: 0 })
+      await user.selectOptions(select, '1')
+      await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/b/1'))
+      await user.click(within(header).getByRole('link', { name: en.nav.agents }))
+      await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/agents?project=slate'))
+      await user.click(within(header).getByRole('button', { name: en.nav.settings }))
+      const dialog = await screen.findByRole('dialog', { name: en.nav.settings })
+      fireEvent.mouseDown(dialog, { button: 0, buttons: 1 })
+      fireEvent.mouseMove(dialog, { buttons: 1 })
+      fireEvent.mouseUp(dialog, { button: 0 })
+      await user.keyboard('{Escape}')
+      await user.click(within(header).getByRole('link', { name: en.app.name }))
+      await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/))
+      expect(invoke).not.toHaveBeenCalled()
+    })
+
+    it('非 macOS 桌面端即使存在原生消息桥也不处理顶栏拖动', async () => {
+      const invoke = vi.fn()
+      vi.stubGlobal('_wails', { invoke })
+      setup()
+      const header = await screen.findByRole('banner')
+      expect(fireEvent.mouseDown(header, { button: 0, buttons: 1 })).toBe(true)
+      fireEvent.mouseMove(header, { buttons: 1 })
+      fireEvent.mouseUp(header, { button: 0 })
+      expect(invoke).not.toHaveBeenCalled()
+    })
+
+    it('原生消息桥尚未就绪时不拦截顶栏事件', async () => {
+      document.documentElement.setAttribute('data-slate-mac', '')
+      vi.stubGlobal('_wails', undefined)
+      setup()
+      expect(fireEvent.mouseDown(await screen.findByRole('banner'), { button: 0 })).toBe(true)
+    })
+  })
+
   it('有"跳到正文"链接，正文区域可以被它聚焦', async () => {
     setup()
     expect(await screen.findByRole('link', { name: en.nav.skipToContent })).toHaveAttribute('href', '#main')
