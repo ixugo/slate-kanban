@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
@@ -51,6 +51,26 @@ describe('AuthGate', () => {
     expect(await screen.findByRole('heading', { name: en.auth.title })).toBeInTheDocument()
     expect(screen.getByLabelText(en.auth.passcode)).toHaveAttribute('type', 'password')
     expect(screen.queryByText(APP_TEXT)).toBeNull()
+  })
+
+  it('macOS 桌面端登录页可以从顶栏空白处拖动窗口', async () => {
+    document.documentElement.setAttribute('data-slate-mac', '')
+    const invoke = vi.fn()
+    vi.stubGlobal('_wails', { invoke })
+    try {
+      installFakeApi({ 'GET /api/v1/auth/status': status(true, false) })
+      renderGate()
+      const header = await screen.findByRole('banner')
+      fireEvent.mouseDown(header, { button: 0, buttons: 1 })
+      fireEvent.mouseMove(header, { buttons: 1 })
+      fireEvent.mouseUp(header, { button: 0 })
+      fireEvent.mouseDown(screen.getByLabelText(en.auth.passcode), { button: 0, buttons: 1 })
+      fireEvent.mouseMove(header, { buttons: 1 })
+      fireEvent.mouseUp(header, { button: 0 })
+      expect(invoke.mock.calls).toEqual([['wails:drag']])
+    } finally {
+      document.documentElement.removeAttribute('data-slate-mac')
+    }
   })
 
   it('读口令状态失败（比如断网）时放行，不挡住离线只读', async () => {

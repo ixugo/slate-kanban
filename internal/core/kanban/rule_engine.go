@@ -178,7 +178,7 @@ func (r *ruleRun) execute(ctx context.Context, rule *Rule, depth int) error {
 func (r *ruleRun) apply(ctx context.Context, rule *Rule, a RuleAction, depth int) (effect bool, skip string, err error) {
 	switch a.Type {
 	case ActionAddComment:
-		_, err := r.u.addComment(ctx, AutomationActor(rule.Name), r.card, a.Text)
+		_, err := r.u.addComment(ctx, AutomationActor(rule.Name), r.card, a.Text, "")
 		return err == nil, "", err
 	case ActionMoveToColumn:
 		return r.move(ctx, rule, a, depth)

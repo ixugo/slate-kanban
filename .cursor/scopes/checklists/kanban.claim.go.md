@@ -16,12 +16,12 @@
 
 ## 一致性
 - [x] CHK009 - 任务设计中的换列清除领取与本文的领取状态图是否一致？[Conflict] 已核对：状态图含 agent 换列回到空闲，人换列不改变领取状态
-- [x] CHK010 - card.released 事件的 why 取值是否在事件设计里列出？[Conflict] 已解决：事件设计文档的类型表补充 released、revoked、moved
+- [x] CHK010 - card.released 事件的 why 取值是否在事件设计里列出？[Conflict] 已解决：事件设计文档的类型表补充 released、revoked、moved、expired
 - [x] CHK011 - 完成交接是否重复写 card.released？[Conflict] 已解决：换列时不写，card.moved 已表达；留在原列时没有别的事件，补一条 card.released
 
 ## 边界场景
 - [x] CHK012 - 两个 agent 同时取同一个任务，失败方的行为是否定义？[Edge Case] 已解决：串行后失败方自动取下一个
-- [x] CHK013 - 过期未被接手时原持有者续租是否会涨版本？[Edge Case] 已解决：只顺延到期时间，不涨版本
+- [x] CHK013 - 过期未被接手时原持有者续租是否会涨版本？[Edge Case] 已解决：有效期内续租只顺延到期时间，不涨版本、不写事件；过期后再次领取，或原持有者回来写评论、改任务，都按新领取处理，涨版本，先写租约到期 card.released（why 为 expired），再写 card.claimed，然后才是评论或修改本身
 - [x] CHK014 - 完成交接指定的目标列是进行中这类由提示词指定的处理列时是否拦截？[Edge Case] 已解决：不再拦截，由列的提示词约定，目标列不存在返回 400
 - [x] CHK015 - 目标列由列的下一列配置得出且恰好允许 agent 操作 时是否允许？[Edge Case] 已解决：允许，因为这是人配置的流转
 - [x] CHK016 - 任务处于等待中但已经被某 agent 持有，能否完成交接？[Edge Case] 已解决：可以，等待只影响领取，不影响已持有任务的交接

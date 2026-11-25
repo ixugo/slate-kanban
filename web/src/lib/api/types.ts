@@ -336,6 +336,7 @@ export interface CreateBoardInput {
   name: string
   slug?: string
   description?: string
+  project_path?: string
   template?: BoardTemplate
   locale?: string
   /** 非 0 时用该项目模板建立新项目，忽略 template */
@@ -343,6 +344,27 @@ export interface CreateBoardInput {
 }
 
 /** 项目模板列表项 */
+/** MCP Skill 的目录元数据（不包含正文）。 */
+export interface SkillSummary {
+  name: string
+  description: string
+  uri: string
+  digest: string
+  size: number
+  builtin: boolean
+  updated_at?: string
+}
+
+export interface SkillDetail extends SkillSummary {
+  body: string
+}
+
+export interface SkillInput {
+  name: string
+  description: string
+  body: string
+}
+
 export interface ProjectTemplateSummary {
   id: number
   name: string
@@ -378,6 +400,8 @@ export interface EngineerInput {
 export interface UpdateBoardInput {
   name?: string
   description?: string
+  /** 空串清除工作目录，不传则不改 */
+  project_path?: string
   /** 整体替换工程师名册：解聘的工程师会从所有任务上摘掉 */
   engineers?: EngineerInput[]
   /** 整体替换标签库：库里原有、这里没有的算删除，顺序就是显示顺序 */

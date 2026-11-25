@@ -1,4 +1,4 @@
-// 设置页「常规」：名称、AGENTS.md、只读 slug、删除项目。
+// 设置页「常规」：名称、工作目录、AGENTS.md、只读 slug、删除项目。
 
 import { Loader2Icon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
@@ -6,7 +6,10 @@ import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LazyEditor } from '@/features/editor/LazyEditor'
+import { isDesktopApp } from '@/app/desktopApp'
+import { ProjectPathField } from '@/features/boards/ProjectPathField'
+import { useProjectPath } from '@/features/boards/useProjectPath'
+import { LazyEditor, type LiveEditorDraft } from '@/features/editor/LazyEditor'
 import type { Board } from '@/lib/api/types'
 import { BOARD_DESC_MAX, BOARD_NAME_MAX } from '@/lib/limits'
 import { DeleteBoardDialog } from './DeleteBoardDialog'
@@ -22,18 +25,23 @@ export function GeneralSection({ board }: Props) {
   const { t } = useTranslation()
   const { updateBoard } = useSettingsMutations(board.id)
   const [name, setName] = useState(board.name)
-  const [description, setDescription] = useState(board.description)
+  const [description, setDescription] = useState<LiveEditorDraft>({ value: board.description })
+  const projectPath = useProjectPath(board.project_path, { required: isDesktopApp() })
   const [errors, setErrors] = useState<GeneralFormErrors>({})
   const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
-    const found = validateGeneralForm({ name, description })
+    const found = validateGeneralForm({ name, description: description.value })
     setErrors(found)
-    if (Object.keys(found).length > 0) return
+    if (Object.keys(found).length > 0 || updateBoard.isPending || !(await projectPath.ensureValid())) return
     updateBoard.mutate({
       name: name.trim(),
-      description,
+      description: description.value,
+      project_path: projectPath.changed ? projectPath.trimmed : undefined,
+    }, {
+      onSuccess: projectPath.reset,
+      onError: projectPath.reportSaveError,
     })
   }
 
@@ -59,11 +67,12 @@ export function GeneralSection({ board }: Props) {
           />
           {fieldError('name', 'board-name-error')}
         </div>
+        <ProjectPathField path={projectPath} disabled={updateBoard.isPending} />
         <div className="space-y-1.5">
           <p className="text-ui font-medium">{t('settings.general.description')}</p>
           <LazyEditor
             label={t('settings.general.description')}
-            value={description}
+            {...description}
             max={BOARD_DESC_MAX}
             placeholder={t('boards.create.descriptionPlaceholder')}
             onChange={setDescription}
@@ -74,7 +83,7 @@ export function GeneralSection({ board }: Props) {
           <Label>{t('settings.general.slug')}</Label>
           <p className="font-mono text-ui text-muted-foreground">{board.slug}</p>
         </div>
-        <Button type="submit" disabled={updateBoard.isPending}>
+        <Button type="submit" disabled={updateBoard.isPending || projectPath.blocked}>
           {updateBoard.isPending && <Loader2Icon className="animate-spin" />}
           {t('common.save')}
         </Button>

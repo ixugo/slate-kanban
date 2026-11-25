@@ -1,10 +1,10 @@
 // 任务描述：平时是渲染好的 Markdown（单击正文进入编辑，任务框可直接勾选）；
 // 编辑时是实时渲染编辑器：没有保存按钮，焦点离开或 Ctrl/Cmd+Enter 就保存，Esc 放弃修改。
 
-import { useState, type FocusEvent, type MouseEvent } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { useTranslation } from '@/i18n/react'
 import { Button } from '@/components/ui/button'
-import { LazyEditor } from '@/features/editor/LazyEditor'
+import { LazyEditor, type LiveEditorDraft } from '@/features/editor/LazyEditor'
 import { toggleTaskAt } from '@/lib/md/blocks'
 import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
 import { CARD_DESC_MAX } from '@/lib/limits'
@@ -22,28 +22,21 @@ interface DescriptionEditorProps {
 export function DescriptionEditor({ value, onSave, renderCardReference, busy, boardId }: DescriptionEditorProps) {
   const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
+  const [draft, setDraft] = useState<LiveEditorDraft>({ value })
 
   const startEdit = () => {
-    setDraft(value)
+    setDraft({ value })
     setEditing(true)
   }
 
   const cancel = () => {
-    setDraft(value)
+    setDraft({ value })
     setEditing(false)
   }
 
-  const save = () => {
-    if (draft !== value) onSave(draft)
+  const save = (next: string) => {
+    if (next !== value) onSave(next)
     setEditing(false)
-  }
-
-  /** 焦点离开编辑区就自动保存（没改动不请求）；焦点只是跑到帮助气泡等弹层里不算离开 */
-  const onEditBlur = (e: FocusEvent<HTMLDivElement>) => {
-    const next = e.relatedTarget as HTMLElement | null
-    if (next && (e.currentTarget.contains(next) || next.closest('[data-slot="popover-content"]'))) return
-    save()
   }
 
   /** 链接、任务引用和任务框继续接收自己的交互 */
@@ -64,14 +57,15 @@ export function DescriptionEditor({ value, onSave, renderCardReference, busy, bo
         )}
       </div>
       {editing ? (
-        <div data-escape-cancel onBlur={onEditBlur}>
+        <div data-escape-cancel>
           <LazyEditor
-            value={draft}
+            {...draft}
             onChange={setDraft}
             max={CARD_DESC_MAX}
             placeholder={t('card.descPlaceholder')}
             label={t('card.field.description')}
             onSubmit={save}
+            onCommitOnBlur={save}
             onCancel={cancel}
             autoFocus
             boardId={boardId}

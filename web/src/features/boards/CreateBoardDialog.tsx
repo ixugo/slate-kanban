@@ -1,5 +1,5 @@
 // 新建项目对话框：默认选择内置研发模板，同时可选空白模板或已导入的自定义模板。
-// 内置模板的列和规则使用当前界面语言；项目路径由 agent 通过 MCP 回填。
+// 内置模板的列和规则使用当前界面语言；工作目录选填，失焦时校验。
 
 import { Loader2Icon } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -13,9 +13,12 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useLanguage } from '@/i18n/useLanguage'
 import { BOARD_DESC_MAX, BOARD_NAME_MAX, SLUG_MAX } from '@/lib/limits'
+import { isDesktopApp } from '@/app/desktopApp'
 import { useErrorToast } from '@/lib/useErrorToast'
 import { listProjectTemplates } from '@/lib/api/endpoints'
+import { ProjectPathField } from './ProjectPathField'
 import { useCreateBoard } from './useBoards'
+import { useProjectPath } from './useProjectPath'
 import { validateBoardForm, type BoardFormErrors } from './validation'
 
 interface FormProps {
@@ -32,20 +35,22 @@ function CreateBoardForm({ onDone }: FormProps) {
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [description, setDescription] = useState('')
+  const projectPath = useProjectPath('', { required: isDesktopApp() })
   const [template, setTemplate] = useState('dev')
   const templates = useQuery({ queryKey: ['project-templates'], queryFn: ({ signal }) => listProjectTemplates(signal) })
   const [errors, setErrors] = useState<BoardFormErrors>({})
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     const found = validateBoardForm({ name, slug })
     setErrors(found)
-    if (Object.keys(found).length > 0) return
+    if (Object.keys(found).length > 0 || create.isPending || !(await projectPath.ensureValid())) return
     create.mutate(
       {
         name: name.trim(),
         slug: slug.trim() || undefined,
         description: description || undefined,
+        project_path: projectPath.trimmed || undefined,
         ...(template === 'dev' || template === 'empty'
           ? { template, locale: lang }
           : { project_template_id: Number(template) }),
@@ -53,7 +58,10 @@ function CreateBoardForm({ onDone }: FormProps) {
       {
         // 跳到新项目后本页面卸载，对话框随之消失，不需要再手动关闭
         onSuccess: (board) => navigate(`/b/${board.id}`),
-        onError: toastError,
+        onError: (error) => {
+          projectPath.reportSaveError(error)
+          toastError(error)
+        },
       },
     )
   }
@@ -105,6 +113,8 @@ function CreateBoardForm({ onDone }: FormProps) {
         </p>
       </div>
 
+      <ProjectPathField path={projectPath} disabled={create.isPending} />
+
       <div className="space-y-1.5">
         <Label htmlFor="board-description">
           {t('boards.create.descriptionLabel')}{' '}
@@ -140,7 +150,7 @@ function CreateBoardForm({ onDone }: FormProps) {
         <Button type="button" variant="outline" onClick={onDone}>
           {t('common.cancel')}
         </Button>
-        <Button type="submit" disabled={create.isPending}>
+        <Button type="submit" disabled={create.isPending || projectPath.blocked}>
           {create.isPending && <Loader2Icon className="animate-spin" />}
           {create.isPending ? t('boards.create.submitting') : t('boards.create.submit')}
         </Button>

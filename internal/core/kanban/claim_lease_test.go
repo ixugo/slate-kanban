@@ -2,6 +2,8 @@ package kanban_test
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -104,5 +106,123 @@ func TestHolderCommentRenewsLease(t *testing.T) {
 	}
 	if after := e.events(t); len(after) != events+1 || after[events].Type != kanban.EventCommentAdded {
 		t.Fatalf("只应该多一条 comment.added: %+v", after[events:])
+	}
+}
+
+// eventTypes 取出一批事件的类型，按写入顺序排列，用来核对一次操作依次写了哪些事件。
+func eventTypes(events []*kanban.Event) []string {
+	types := make([]string, len(events))
+	for i, ev := range events {
+		types[i] = ev.Type
+	}
+	return types
+}
+
+// 租约到期后没人接手，原持有者回来继续写入：租约没有续上过，这是一次新的领取。
+// 先记租约到期，再记新的领取，最后才是评论或修改本身；%s 是事件发生时任务的标题。
+const (
+	wantLapsedPayload  = `{"agent":"claude","expired_at":"2026-11-17T11:00:00Z","key":"TST-1","title":"%s","why":"expired"}`
+	wantRestartPayload = `{"agent":"claude","engineer_id":0,"expires_at":"2026-11-17T12:30:00Z","key":"TST-1","title":"%s"}`
+)
+
+// TestHolderCommentAfterExpiryRecordsNewClaim 验证租约已经到期的持有者写评论：
+// 事件依次是租约到期、新的领取、评论；版本加一，租约从现在起重新算 30 分钟。
+func TestHolderCommentAfterExpiryRecordsNewClaim(t *testing.T) {
+	ctx := t.Context()
+	e := newClaimEnv(t)
+	c := e.card(t, colDoing, "任务")
+	e.holdUntil(t, c.ID, testAgent.Name, claimNow.Add(-time.Hour))
+	events := len(e.events(t))
+
+	if _, err := e.core.AddComment(ctx, testAgent, c.ID, "回来继续"); err != nil {
+		t.Fatalf("租约到期的持有者写评论失败: %v", err)
+	}
+	got := e.stored(t, c.ID)
+	if !got.ClaimExpiresAt.Equal(claimNow.Add(30*time.Minute)) || got.Version != c.Version+1 {
+		t.Fatalf("应该从现在起重新算 30 分钟租约，并按新领取涨版本: %+v", got)
+	}
+	after := e.events(t)[events:]
+	want := []string{kanban.EventCardReleased, kanban.EventCardClaimed, kanban.EventCommentAdded}
+	if types := eventTypes(after); !slices.Equal(types, want) {
+		t.Fatalf("事件顺序应该是 %v，实际 %v", want, types)
+	}
+	if after[0].Payload != fmt.Sprintf(wantLapsedPayload, "任务") || after[1].Payload != fmt.Sprintf(wantRestartPayload, "任务") {
+		t.Fatalf("租约到期或新领取的内容不对: %s / %s", after[0].Payload, after[1].Payload)
+	}
+	for _, ev := range after {
+		if ev.CardID != c.ID || ev.Actor != testAgent.Name {
+			t.Fatalf("事件应该记在持有者名下: %+v", ev)
+		}
+	}
+}
+
+// TestHolderUpdateAfterExpiryRecordsNewClaim 验证租约已经到期的持有者改卡：
+// 事件依次是租约到期、新的领取、card.updated；改卡本来就涨一次版本，不会因为重新领取多涨。
+func TestHolderUpdateAfterExpiryRecordsNewClaim(t *testing.T) {
+	ctx := t.Context()
+	e := newClaimEnv(t)
+	c := e.card(t, colDoing, "任务")
+	e.holdUntil(t, c.ID, testAgent.Name, claimNow.Add(-time.Hour))
+	events := len(e.events(t))
+	title := "新标题"
+
+	if _, err := e.core.UpdateCard(ctx, testAgent, c.ID, kanban.UpdateCardInput{Title: &title}); err != nil {
+		t.Fatalf("租约到期的持有者改卡失败: %v", err)
+	}
+	got := e.stored(t, c.ID)
+	if !got.ClaimExpiresAt.Equal(claimNow.Add(30*time.Minute)) || got.Version != c.Version+1 {
+		t.Fatalf("应该重新算 30 分钟租约，版本只涨一次: %+v", got)
+	}
+	after := e.events(t)[events:]
+	want := []string{kanban.EventCardReleased, kanban.EventCardClaimed, kanban.EventCardUpdated}
+	if types := eventTypes(after); !slices.Equal(types, want) {
+		t.Fatalf("事件顺序应该是 %v，实际 %v", want, types)
+	}
+	if after[0].Payload != fmt.Sprintf(wantLapsedPayload, title) || after[1].Payload != fmt.Sprintf(wantRestartPayload, title) {
+		t.Fatalf("租约到期或新领取的内容不对: %s / %s", after[0].Payload, after[1].Payload)
+	}
+}
+
+// TestHolderUpdateWithinLeaseWritesNoClaimEvents 验证租约一直有效时，持有者改卡只顺延到期时间：
+// 不写租约到期，也不写新的领取，活动里只有这次修改本身。
+func TestHolderUpdateWithinLeaseWritesNoClaimEvents(t *testing.T) {
+	ctx := t.Context()
+	e := newClaimEnv(t)
+	id := e.claimedFor(t, 5)
+	events := len(e.events(t))
+	title := "新标题"
+
+	if _, err := e.core.UpdateCard(ctx, testAgent, id, kanban.UpdateCardInput{Title: &title}); err != nil {
+		t.Fatalf("持有者改卡失败: %v", err)
+	}
+	if types := eventTypes(e.events(t)[events:]); !slices.Equal(types, []string{kanban.EventCardUpdated}) {
+		t.Fatalf("租约有效时只应该写 card.updated，实际 %v", types)
+	}
+}
+
+// TestHolderCommentAfterExpiryKeepsEngineer 验证带工程师名额的领取在到期后被续上时，
+// 新的领取事件沿用原来的工程师编号，名称留空（和普通 agent 的新领取一样，由事件的 actor 决定显示名）。
+func TestHolderCommentAfterExpiryKeepsEngineer(t *testing.T) {
+	ctx := t.Context()
+	e := newClaimEnv(t)
+	c := e.card(t, colDoing, "任务")
+	stored := e.stored(t, c.ID)
+	expired := claimNow.Add(-time.Hour)
+	stored.ClaimedBy, stored.ClaimExpiresAt, stored.ClaimEngineerID = testAgent.Name, &expired, 7
+	if err := e.db.Card().Save(ctx, stored); err != nil {
+		t.Fatal(err)
+	}
+	events := len(e.events(t))
+
+	if _, err := e.core.AddComment(ctx, testAgent, c.ID, "回来继续"); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"agent":"claude","engineer_id":7,"engineer_name":"","expires_at":"2026-11-17T12:30:00Z","key":"TST-1","title":"任务"}`
+	after := e.events(t)[events:]
+	if len(after) < 2 || after[1].Type != kanban.EventCardClaimed || after[1].Payload != want {
+		t.Fatalf("第二条应该是带原来工程师编号的新领取，实际 %v，期望内容 %s", after, want)
+	}
+	if got := e.stored(t, c.ID); got.ClaimEngineerID != 7 {
+		t.Fatalf("工程师编号不应该丢: %+v", got)
 	}
 }

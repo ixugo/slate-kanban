@@ -67,6 +67,7 @@ export function AboutSettings() {
         </dl>
         <a
           href={PROJECT_URL}
+          data-slate-project-link
           target="_blank"
           rel="noopener noreferrer"
           aria-label="GitHub"

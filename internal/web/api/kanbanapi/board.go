@@ -12,9 +12,14 @@ import (
 func (a API) boardRoutes(r gin.IRouter) {
 	r.GET("/boards", route(a.listBoards))
 	r.POST("/boards", route(a.createBoard))
+	r.POST("/boards/check-project-path", route(a.checkProjectPath))
 	r.GET("/boards/:board_id", route(a.getBoard))
 	r.PATCH("/boards/:board_id", route(a.updateBoard))
 	r.DELETE("/boards/:board_id", route(a.deleteBoard))
+}
+
+type checkProjectPathInput struct {
+	ProjectPath string `json:"project_path"`
 }
 
 // updateBoardInput 是修改看板的请求：路径里的编号加请求体里要改的字段。
@@ -28,8 +33,16 @@ func (a API) listBoards(ctx context.Context, _ kanban.Actor, _ *struct{}) ([]*ka
 	return a.core.ListBoards(ctx)
 }
 
-// createBoard 创建看板，人和 agent 都能做，由 Core 判断。
+// checkProjectPath 检查工作目录是否存在，不写入看板。
+func (a API) checkProjectPath(_ context.Context, _ kanban.Actor, in *checkProjectPathInput) (empty, error) {
+	return empty{}, kanban.ValidateLocalProjectPath(in.ProjectPath)
+}
+
+// createBoard 创建看板。REST 填写的工作目录必须存在于服务端。
 func (a API) createBoard(ctx context.Context, actor kanban.Actor, in *kanban.CreateBoardInput) (*kanban.BoardDetail, error) {
+	if err := kanban.ValidateLocalProjectPath(in.ProjectPath); err != nil {
+		return nil, err
+	}
 	return a.core.CreateBoard(ctx, actor, *in)
 }
 
@@ -38,8 +51,13 @@ func (a API) getBoard(ctx context.Context, _ kanban.Actor, in *boardPath) (*kanb
 	return a.core.GetBoard(ctx, in.BoardID)
 }
 
-// updateBoard 修改看板。人能改全部字段，agent 只能在项目路径为空时写项目路径，由 Core 判断。
+// updateBoard 修改看板。只在提交了工作目录时检查，未提交则保留原路径。
 func (a API) updateBoard(ctx context.Context, actor kanban.Actor, in *updateBoardInput) (*kanban.Board, error) {
+	if in.ProjectPath != nil {
+		if err := kanban.ValidateLocalProjectPath(*in.ProjectPath); err != nil {
+			return nil, err
+		}
+	}
 	return a.core.UpdateBoard(ctx, actor, in.BoardID, in.UpdateBoardInput)
 }
 

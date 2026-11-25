@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"uuid"
@@ -49,7 +51,7 @@ func lookupDesktopHost(id string) (string, error) {
 			}
 		}
 	}
-	return "", errors.New("selected host executable is unavailable")
+	return "", errHostUnavailable
 }
 
 func desktopToolDirs() []string {
@@ -60,6 +62,48 @@ func desktopToolDirs() []string {
 	return dirs
 }
 
+func desktopHostPath(executable string) string {
+	bin := filepath.Dir(executable)
+	dirs := append(filepath.SplitList(os.Getenv("PATH")), bin)
+	dirs = append(dirs, desktopToolDirs()...)
+	// A Homebrew Node formula may be keg-only, so node is absent from the prefix's bin.
+	for _, brewBin := range []string{bin, "/opt/homebrew/bin", "/usr/local/bin"} {
+		if filepath.Base(brewBin) != "bin" || !filepath.IsAbs(brewBin) {
+			continue
+		}
+		opt := filepath.Join(filepath.Dir(brewBin), "opt")
+		if dir := homebrewNodeBin(opt); dir != "" && !slices.Contains(dirs, dir) {
+			dirs = append(dirs, dir)
+		}
+	}
+	return strings.Join(dirs, string(os.PathListSeparator))
+}
+
+func homebrewNodeBin(opt string) string {
+	bin := filepath.Join(opt, "node", "bin")
+	if _, err := exec.LookPath(filepath.Join(bin, "node")); err == nil {
+		return bin
+	}
+	entries, _ := os.ReadDir(opt)
+	var latest string
+	var major int
+	for _, entry := range entries {
+		version, ok := strings.CutPrefix(entry.Name(), "node@")
+		if !ok {
+			continue
+		}
+		n, err := strconv.Atoi(version)
+		if err != nil || n <= major {
+			continue
+		}
+		bin := filepath.Join(opt, entry.Name(), "bin")
+		if _, err := exec.LookPath(filepath.Join(bin, "node")); err == nil {
+			latest, major = bin, n
+		}
+	}
+	return latest
+}
+
 type dispatchReply struct {
 	Outcome string `json:"outcome"`
 	Summary string `json:"summary"`
@@ -68,9 +112,18 @@ type dispatchReply struct {
 
 type dispatchHost func(ctx context.Context, host, dir, prompt string, readOnly bool, session dispatchSession) (dispatchReply, error)
 
-var errProviderBackoff = errors.New("provider rate limit or usage quota")
-var errUnconfirmedRun = errors.New("host result could not be confirmed")
+var (
+	errHostUnavailable     = errors.New("selected host executable is unavailable")
+	errProviderBackoff     = errors.New("provider rate limit or usage quota")
+	errUnconfirmedRun      = errors.New("host result could not be confirmed")
+	errHostNodeUnavailable = errors.New("host launcher could not find Node.js")
+)
 
+// localDispatchHost 在本机启动选定的宿主程序，把提示词交给它，等它回报最终的 JSON 回执。
+// readOnly 为真时宿主只能读（拟定方案）；为假时可以在 dir 里写文件、构建和跑测试（研发和审查）。
+// 可写运行的沙箱不允许写 Go 默认的构建缓存（在用户目录下），go test 会因此直接失败，
+// 所以单独给它一份放在系统临时目录里的私有 GOCACHE，运行结束就删除：既不弄脏 dir，也不动用户自己的缓存。
+// 宿主异常退出、超时或回执不合格都按"结果未确认"处理，由调用方决定怎么恢复。
 func localDispatchHost(ctx context.Context, host, dir, prompt string, readOnly bool, session dispatchSession) (dispatchReply, error) {
 	executable, err := lookupDesktopHost(host)
 	if err != nil {
@@ -153,8 +206,15 @@ func localDispatchHost(ctx context.Context, host, dir, prompt string, readOnly b
 	cmd := exec.CommandContext(ctx, executable, args...)
 	configureDispatchProcess(cmd)
 	cmd.Dir = dir
-	path := strings.Join(append([]string{os.Getenv("PATH"), filepath.Dir(executable)}, desktopToolDirs()...), string(os.PathListSeparator))
-	cmd.Env = append(cmd.Environ(), "PATH="+path)
+	cmd.Env = append(cmd.Environ(), "PATH="+desktopHostPath(executable))
+	if !readOnly {
+		cache, err := os.MkdirTemp("", "slate-desktop-gocache-")
+		if err != nil {
+			return dispatchReply{}, err
+		}
+		defer os.RemoveAll(cache)
+		cmd.Env = append(cmd.Env, "GOCACHE="+cache)
+	}
 	cmd.WaitDelay = 5 * time.Second
 	if finalFile != "" || host == "claude" {
 		cmd.Stdin = strings.NewReader(prompt)
@@ -191,8 +251,13 @@ func localDispatchHost(ctx context.Context, host, dir, prompt string, readOnly b
 		return dispatchReply{}, ctx.Err()
 	}
 	if runErr != nil {
-		if providerBackoff(stderr.String()) {
+		diagnostic := stderr.String()
+		if providerBackoff(diagnostic) {
 			return dispatchReply{}, errProviderBackoff
+		}
+		if exit, ok := errors.AsType[*exec.ExitError](runErr); ok && exit.ExitCode() == 127 &&
+			(strings.Contains(diagnostic, "env: node: No such file or directory") || strings.Contains(diagnostic, "env: ‘node’: No such file or directory")) {
+			return dispatchReply{}, errHostNodeUnavailable
 		}
 		return dispatchReply{}, errUnconfirmedRun
 	}

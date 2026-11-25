@@ -71,6 +71,11 @@ func (d DB) Engineer() kanban.EngineerStorer {
 	return Engineer(d)
 }
 
+// Skill 返回服务级 Skill 存储。
+func (d DB) Skill() kanban.SkillStorer {
+	return Skill(d)
+}
+
 // ProjectTemplate 返回自定义项目模板存储。
 func (d DB) ProjectTemplate() kanban.ProjectTemplateStorer {
 	return ProjectTemplate(d)
@@ -100,7 +105,7 @@ func (d DB) AutoMigrate(ok bool) DB {
 	if err := d.db.AutoMigrate(
 		new(kanban.Board), new(kanban.Column), new(kanban.Card), new(kanban.CardChange), new(kanban.Comment),
 		new(kanban.Rule), new(kanban.Event), new(kanban.AgentCursor), new(kanban.Attachment), new(kanban.Tag), new(kanban.Engineer),
-		new(kanban.ProjectTemplate), new(kanban.Webhook),
+		new(kanban.ProjectTemplate), new(kanban.Webhook), new(kanban.Skill),
 	); err != nil {
 		panic(err)
 	}

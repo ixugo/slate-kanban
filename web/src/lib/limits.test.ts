@@ -28,6 +28,7 @@ function goConst(name: string): number {
 const MAPPING: [keyof typeof limits, string][] = [
   ['BOARD_NAME_MAX', 'maxBoardNameLen'],
   ['BOARD_DESC_MAX', 'maxBoardDescLen'],
+  ['PROJECT_PATH_MAX', 'maxProjectPathLen'],
   ['SLUG_MIN', 'minSlugLen'],
   ['SLUG_MAX', 'maxSlugLen'],
   ['COLUMN_NAME_MAX', 'maxColumnNameLen'],
@@ -52,6 +53,9 @@ const MAPPING: [keyof typeof limits, string][] = [
   ['RULE_DUE_DAYS_MAX', 'maxRuleDueDays'],
   ['FILTER_MAX', 'maxFilterLen'],
   ['SEARCH_LIMIT', 'maxListLimit'],
+  ['SKILL_NAME_MAX', 'maxSkillNameLen'],
+  ['SKILL_DESCRIPTION_MAX', 'maxSkillDescriptionLen'],
+  ['SKILL_BODY_MAX', 'MaxSkillBodyBytes'],
   ['PASSCODE_MAX', 'PasscodeMaxLen'],
   ['WEBHOOK_NAME_MAX', 'MaxWebhookNameLen'],
   ['WEBHOOK_URL_MAX', 'MaxWebhookURLLen'],

@@ -125,7 +125,11 @@ func (a API) getBoard(ctx context.Context, _ kanban.Actor, in boardIn) (any, err
 	}
 	out := boardOut{BoardDetail: detail}
 	if in.IncludeWatchPrompt == nil || *in.IncludeWatchPrompt {
-		out.WatchPrompt = watchPromptOf(detail)
+		if skillsAware(ctx) {
+			out.WatchPrompt = skillWatchPromptOf(detail)
+		} else {
+			out.WatchPrompt = watchPromptOf(detail)
+		}
 	}
 	return out, nil
 }

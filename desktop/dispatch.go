@@ -2,18 +2,18 @@ package desktop
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
 	"slate-kanban/internal/core/kanban"
 )
 
-const dispatchQueueSize = 128
-const dispatchLeaseMinutes = 30
+const (
+	dispatchQueueSize    = 128
+	dispatchLeaseMinutes = 30
+)
 
 type dispatchConfig struct {
 	BoardID int64            `json:"board_id"`
@@ -52,6 +52,7 @@ var errDispatchTemplate = errors.New("desktop dispatch requires a development bo
 
 type dispatchCore interface {
 	BoardSnapshot(context.Context, int64) (*kanban.Snapshot, error)
+	ExportBoard(context.Context, kanban.Actor, int64) (*kanban.BoardExport, error)
 	ListEvents(context.Context, int64, int64, int) (*kanban.EventPage, error)
 	Subscribe(int64) (<-chan struct{}, func())
 	GetCardDetail(context.Context, int64) (*kanban.CardDetail, error)
@@ -59,7 +60,8 @@ type dispatchCore interface {
 	MoveCard(context.Context, kanban.Actor, int64, kanban.MoveCardInput) (*kanban.Card, error)
 	UpdateCard(context.Context, kanban.Actor, int64, kanban.UpdateCardInput) (*kanban.Card, error)
 	AddComment(context.Context, kanban.Actor, int64, string) (*kanban.Comment, error)
-	FinishCard(context.Context, kanban.Actor, int64, kanban.FinishCardInput) (*kanban.CardDetail, error)
+	AddCommentWithExt(context.Context, kanban.Actor, int64, string, string) (*kanban.Comment, error)
+	FinishCardWithExt(context.Context, kanban.Actor, int64, kanban.FinishCardInput, string) (*kanban.CardDetail, error)
 	ReleaseCard(context.Context, kanban.Actor, int64) error
 }
 
@@ -87,10 +89,12 @@ type dispatchCompletion struct {
 type dispatchRun struct {
 	core     dispatchCore
 	config   dispatchConfig
-	actor    kanban.Actor
 	host     dispatchHost
+	text     func() desktopText
 	sessions string
 	update   func(int64, engineerStatus)
+	// renewEvery 是后台检查任务归属、续租约的间隔，零值用 dispatchRenewEvery；测试里调小以免干等。
+	renewEvery time.Duration
 
 	dev, review chan dispatchJob
 	completed   chan dispatchCompletion
@@ -148,6 +152,8 @@ func (d *dispatchRun) run(ctx context.Context, snapshot *kanban.Snapshot) {
 			}
 			needSnapshot = true
 		case <-changed:
+			// 快照里带着 project_path，看板字段一改就要重拉，不能只等任务事件。
+			needSnapshot = true
 		case <-time.After(10 * time.Second):
 			// Hub notifications are process-local. Check the event tail
 			// when another desktop writes to a shared database.
@@ -181,9 +187,13 @@ func (d *dispatchRun) run(ctx context.Context, snapshot *kanban.Snapshot) {
 	}
 }
 
+// versionAfterRun 在一次派发结束后记下任务当前版本，调度器在版本变化前不再重复派发它，
+// 避免失败或退回的任务被不停地重新领取。研发交接到审查列的任务例外，要让审查马上看到。
 func (d *dispatchRun) versionAfterRun(ctx context.Context, job dispatchJob, blocked map[int64]int64) {
 	card, err := d.core.GetCardDetail(ctx, job.id)
-	if err == nil && (card.ColumnID == job.flow.dev || card.ColumnID == job.flow.todo || card.ColumnID == job.flow.review) {
+	// 合并冲突退回研发的任务要让研发立刻接手，不能按"审查退回"等人来动它。
+	conflictReturned := err == nil && job.review && card.ColumnID == job.flow.dev && rebaseTarget(card) != ""
+	if err == nil && !conflictReturned && (card.ColumnID == job.flow.dev || card.ColumnID == job.flow.todo || card.ColumnID == job.flow.review) {
 		// Development handoff must be visible to a review worker immediately.
 		if job.review || card.ColumnID != job.flow.review {
 			blocked[job.id] = card.Version
@@ -254,6 +264,8 @@ func (d *dispatchRun) worker(ctx context.Context, queue <-chan dispatchJob) {
 	}
 }
 
-func desktopDispatchActor() kanban.Actor {
-	return kanban.Actor{Kind: kanban.ActorAgent, Name: "desktop-" + strings.ToLower(rand.Text())}
+// actor 返回这位工程师在看板上留下记录时使用的身份，名字就是工程师名。
+// 每个 worker 只处理自己的工程师，所以领取、移列和评论都直接记在这位工程师名下。
+func (j dispatchJob) actor() kanban.Actor {
+	return kanban.Actor{Kind: kanban.ActorAgent, Name: j.engineer.Name}
 }

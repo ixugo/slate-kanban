@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslation } from '@/i18n/react'
-import type { CardView } from '@/lib/api/types'
+import type { CardView, Engineer } from '@/lib/api/types'
 import { describeError } from '@/lib/errors'
 import { ActivityFilterBar } from './ActivityFilterBar'
 import { ActivityItem } from './ActivityItem'
@@ -15,12 +15,13 @@ import { useActivity } from './useActivity'
 interface ActivityPanelProps {
   boardId: number
   cardsById: ReadonlyMap<number, CardView>
+  engineers: readonly Engineer[]
   /** 点了某个任务的链接后调用 */
   onOpenCard: () => void
 }
 
 /** 活动抽屉的内容 */
-export function ActivityPanel({ boardId, cardsById, onOpenCard }: ActivityPanelProps) {
+export function ActivityPanel({ boardId, cardsById, engineers, onOpenCard }: ActivityPanelProps) {
   const { t } = useTranslation()
   const [filters, setFilters] = useState<ActivityFilters>(NO_FILTERS)
   const query = useActivity(boardId, filters)
@@ -60,7 +61,7 @@ export function ActivityPanel({ boardId, cardsById, onOpenCard }: ActivityPanelP
         {events.length > 0 && (
           <ol className={query.isPlaceholderData ? 'divide-y opacity-60 transition-opacity' : 'divide-y transition-opacity'}>
             {events.map((event) => (
-              <ActivityItem key={event.id} event={event} cardsById={cardsById} onOpenCard={onOpenCard} />
+              <ActivityItem key={event.id} event={event} cardsById={cardsById} engineers={engineers} onOpenCard={onOpenCard} />
             ))}
           </ol>
         )}

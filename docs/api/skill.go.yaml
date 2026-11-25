@@ -1,0 +1,212 @@
+openapi: "3.1.0"
+info:
+  title: Skill 管理
+  description: 服务级 MCP Skill 管理。REST 以人身份操作；启用访问口令后需要 Bearer 或会话 cookie。内置 Skill 不可修改或删除。
+  version: "1.0.0"
+servers:
+  - url: "http://127.0.0.1:7070"
+    description: 本机默认地址
+security:
+  - {}
+  - bearerAuth: []
+  - cookieAuth: []
+paths:
+  /api/v1/skills:
+    get:
+      tags: [admin/Skill]
+      summary: Skill 列表
+      description: 返回当前服务内置与自定义 Skill 的元数据，按名称排序，不含 Markdown 正文。
+      operationId: listSkills
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SkillSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [admin/Skill]
+      summary: 创建 Skill
+      description: 从名称、简介、Markdown 正文创建单文件 Skill。成功后新旧 MCP 会话再次查询目录均可立即发现，无需重启。
+      operationId: createSkill
+      requestBody:
+        $ref: "#/components/requestBodies/SkillInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/SkillDetail"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/NameTaken"
+  /api/v1/skills/{skill_name}:
+    parameters:
+      - name: skill_name
+        in: path
+        required: true
+        description: 当前 Skill 名称
+        schema:
+          type: string
+    get:
+      tags: [admin/Skill]
+      summary: 读取 Skill
+      operationId: getSkill
+      responses:
+        "200":
+          $ref: "#/components/responses/SkillDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [admin/Skill]
+      summary: 编辑 Skill
+      description: 完整替换自定义 Skill 的名称、简介和正文。允许改名；原 URI 随之失效。不能修改内置 Skill 或使用已占用的名称。
+      operationId: updateSkill
+      requestBody:
+        $ref: "#/components/requestBodies/SkillInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/SkillDetail"
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/NameTaken"
+    delete:
+      tags: [admin/Skill]
+      summary: 删除 Skill
+      description: 删除自定义 Skill，合法名称已不存在时也返回成功。内置 Skill 不能删除。
+      operationId: deleteSkill
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                maxProperties: 0
+        "400":
+          $ref: "#/components/responses/InvalidInput"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+components:
+  requestBodies:
+    SkillInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SkillInput"
+  responses:
+    SkillDetail:
+      description: 成功
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SkillDetail"
+    InvalidInput:
+      description: 输入不合法，或尝试修改、删除内置 Skill
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: 需要访问口令
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Skill 不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NameTaken:
+      description: 名称已被内置或自定义 Skill 占用
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    SkillInput:
+      type: object
+      required: [name, description, body]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          description: 名称（小写英数字与单个分隔连字符），在当前服务内唯一。
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: 一行非空简介，描述 Skill 的用途和使用时机。
+        body:
+          type: string
+          description: 非空 UTF-8 Markdown 正文，最多 262144 字节；不含由服务生成的 YAML frontmatter。
+    SkillSummary:
+      type: object
+      required: [name, description, uri, digest, size, builtin]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        uri:
+          type: string
+          example: skill://team-guide/SKILL.md
+        digest:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+          description: 完整 SKILL.md 原始 UTF-8 字节的 SHA-256 摘要。
+        size:
+          type: integer
+          minimum: 1
+          description: 完整 SKILL.md 原始字节数。
+        builtin:
+          type: boolean
+          description: 是否内置只读。
+        updated_at:
+          type: string
+          format: date-time
+          description: 自定义 Skill 的最后更新时间，内置项省略。
+    SkillDetail:
+      allOf:
+        - $ref: "#/components/schemas/SkillSummary"
+        - type: object
+          required: [body]
+          properties:
+            body:
+              type: string
+              description: Markdown 正文，保留原始缩进和换行。
+    Error:
+      type: object
+      properties:
+        trace_id:
+          type: string
+        reason:
+          type: string
+        msg:
+          type: string
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: slate_session

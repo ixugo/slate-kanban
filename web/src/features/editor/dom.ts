@@ -1,5 +1,5 @@
 // 编辑器 DOM 和原文位置的互相换算。
-// 约定：根节点的每个子元素是一行，行内所有文字（含被 CSS 藏起来的记号）拼起来就是原文那一行；
+// 渲染时根节点下每个 div 是一行，行内所有文字（含被 CSS 藏起来的记号）拼起来就是原文那一行；
 // 行与行之间的 \n 不在 DOM 里，换算时按一个字符算。
 
 /** 根节点下的所有行 */
@@ -7,35 +7,62 @@ export function lineEls(root: HTMLElement): HTMLElement[] {
   return Array.from(root.children) as HTMLElement[]
 }
 
-/** 从 DOM 读出全文：每行的文字用 \n 连起来 */
-export function readValue(root: HTMLElement): string {
-  return lineEls(root)
-    .map((el) => el.textContent ?? '')
-    .join('\n')
+interface DomLine {
+  nodes: ChildNode[]
+  text: string
 }
 
-/** 第 k 行第一个字符在全文里的位置 */
-function lineStart(els: readonly HTMLElement[], k: number): number {
-  let at = 0
-  for (let i = 0; i < k; i++) at += (els[i].textContent ?? '').length + 1
-  return at
+/** WebKit 上屏时可能把空行的 div 换成根节点下的文字和 BR。它们仍然是同一行。 */
+function readLines(root: HTMLElement): DomLine[] {
+  const lines: DomLine[] = []
+  let inline: DomLine | null = null
+  for (const node of root.childNodes) {
+    if (node.nodeName === 'DIV' || node.nodeName === 'P') {
+      if (inline) lines.push(inline)
+      lines.push({ nodes: [node], text: node.textContent ?? '' })
+      inline = null
+    } else {
+      inline ??= { nodes: [], text: '' }
+      inline.nodes.push(node)
+      if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.ELEMENT_NODE) inline.text += node.textContent ?? ''
+      if (node.nodeName === 'BR') {
+        lines.push(inline)
+        inline = null
+      }
+    }
+  }
+  if (inline) lines.push(inline)
+  return lines
+}
+
+/** 从 DOM 读出全文：每行的文字用 \n 连起来 */
+export function readValue(root: HTMLElement): string {
+  return readLines(root).map((line) => line.text).join('\n')
 }
 
 /** DOM 里的一个点（节点 + 偏移）换算成全文位置；点不在编辑器里返回 -1 */
 export function offsetOf(root: HTMLElement, node: Node, offset: number): number {
-  const els = lineEls(root)
-  if (node === root) {
-    if (offset >= els.length) return lineStart(els, els.length) - 1
-    return lineStart(els, offset)
+  return offsetInLines(root, readLines(root), node, offset)
+}
+
+function offsetInLines(root: HTMLElement, lines: readonly DomLine[], node: Node, offset: number): number {
+  let child: Node | null = node
+  while (child && child !== root && child.parentNode !== root) child = child.parentNode
+  if (!child) return -1
+
+  let childEnd = 0
+  let start = 0
+  for (const line of lines) {
+    childEnd += line.nodes.length
+    if (child === root ? offset < childEnd : line.nodes.includes(child as ChildNode)) {
+      const range = root.ownerDocument.createRange()
+      range.setStartBefore(line.nodes[0])
+      range.setEnd(node, offset)
+      return start + range.toString().length
+    }
+    start += line.text.length + 1
   }
-  let el: Node | null = node
-  while (el && el.parentNode !== root) el = el.parentNode
-  if (!el) return -1
-  const k = els.indexOf(el as HTMLElement)
-  const range = document.createRange()
-  range.setStart(el, 0)
-  range.setEnd(node, offset)
-  return lineStart(els, k) + range.toString().length
+  return child === root ? Math.max(0, start - 1) : -1
 }
 
 /** DOM 里的一个点 */
@@ -77,8 +104,9 @@ export function readSelection(root: HTMLElement): { anchor: number; head: number
   const sel = root.ownerDocument.getSelection()
   if (!sel || !sel.anchorNode || !sel.focusNode) return null
   if (!root.contains(sel.anchorNode) || !root.contains(sel.focusNode)) return null
-  const anchor = offsetOf(root, sel.anchorNode, sel.anchorOffset)
-  const head = offsetOf(root, sel.focusNode, sel.focusOffset)
+  const lines = readLines(root)
+  const anchor = offsetInLines(root, lines, sel.anchorNode, sel.anchorOffset)
+  const head = offsetInLines(root, lines, sel.focusNode, sel.focusOffset)
   return anchor < 0 || head < 0 ? null : { anchor, head }
 }
 

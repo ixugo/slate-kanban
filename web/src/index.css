@@ -252,10 +252,26 @@ html:lang(ja) {
   }
 }
 
-/* macOS 全尺寸 WebView 覆盖原生标题栏。顶部留给窗口控制和拖动。 */
+/* macOS 原生统一标题栏的红绿灯中心距窗口顶部 26pt，左侧预留安全区，导航与窗口控制处于同一行。 */
+:root[data-slate-mac] {
+  --slate-titlebar-inset: 100px;
+}
+
+:root[data-slate-mac] .window-titlebar {
+  height: 52px;
+  padding-left: var(--slate-titlebar-inset);
+}
+
+:root[data-slate-mac] .app-skip-link:focus {
+  left: var(--slate-titlebar-inset);
+}
+
+/* 桌面窗口的最小宽度仍足以显示完整的导航文字。 */
+:root[data-slate-mac] .app-agents-label {
+  display: inline;
+}
+
 :root[data-slate-mac] .app-header {
-  height: calc(3.5rem + 28px);
-  padding-top: 28px;
   background: var(--background);
   border: 0;
   box-shadow: none;

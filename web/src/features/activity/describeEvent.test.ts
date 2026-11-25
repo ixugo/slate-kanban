@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest'
 import i18n from '@/i18n'
 import { makeCard } from '@/test/factories'
 import type { BoardEvent } from '@/lib/api/types'
-import { actorLabel, describeEvent, eventCard } from './describeEvent'
+import type { Engineer } from '@/lib/api/types'
+import { actorLabel, agentDisplayName, describeEvent, eventActorLabel, eventCard } from './describeEvent'
 
 const tEn = i18n.getFixedT('en')
 const tZh = i18n.getFixedT('zh-CN')
@@ -51,6 +52,7 @@ describe('describeEvent', () => {
     ['card.released', { why: 'released', agent: 'codex' }, 'released the task'],
     ['card.released', { why: 'revoked', agent: 'codex' }, 'took the task back from codex'],
     ['card.released', { why: 'moved', agent: 'codex' }, 'the task moved, so the claim by codex ended'],
+    ['card.released', { why: 'expired', agent: 'codex' }, 'found that codex’s lease had expired, so the claim ended'],
     ['comment.added', { snippet: '收到' }, 'commented'],
     ['comment.deleted', {}, 'deleted a comment'],
     ['rule.created', { name: '开始计时' }, 'added rule “开始计时”'],
@@ -166,5 +168,27 @@ describe('eventCard', () => {
 
   it('和任务无关的事件没有任务', () => {
     expect(eventCard(ev('column.created', { name: '待办' }), cards)).toBeNull()
+  })
+})
+
+describe('桌面调度的身份名', () => {
+  const desktop = 'desktop-5xfr3jfu5z2sitwvgckxdkj3n6'
+  const engineers = [{ id: 3, name: 'Atlas' }] as Engineer[]
+
+  it('身份名末尾的编号对应工程师时显示工程师名字，其他名字原样显示', () => {
+    expect(agentDisplayName(`${desktop}-3`, engineers)).toBe('Atlas')
+    expect(agentDisplayName(`${desktop}-9`, engineers)).toBe(`${desktop}-9`)
+    expect(agentDisplayName('codex', engineers)).toBe('codex')
+    expect(agentDisplayName(`${desktop}-3x`, engineers)).toBe(`${desktop}-3x`)
+  })
+
+  it('移动、评论等事件的操作者显示工程师名字', () => {
+    const moved = ev('card.moved', {}, { actor_kind: 'agent', actor: `${desktop}-3` })
+    expect(eventActorLabel(moved, engineers, tEn)).toBe('Atlas')
+  })
+
+  it('任务被移走的文案里，领取结束的一方也显示工程师名字', () => {
+    const released = ev('card.released', { why: 'moved', agent: `${desktop}-3` }, { actor_kind: 'agent', actor: `${desktop}-3` })
+    expect(describeEvent(released, tEn, engineers).text).toBe('the task moved, so the claim by Atlas ended')
   })
 })

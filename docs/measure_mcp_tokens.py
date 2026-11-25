@@ -15,7 +15,6 @@ import time
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-import tiktoken
 
 
 def compact(value):
@@ -73,16 +72,19 @@ Dir = {compact(str(config / "logs"))}
 
 
 class MCP:
-    def __init__(self, url, counter):
+    def __init__(self, url, counter, *, skills=False):
         self.url = url
         self.count = counter
         self.headers = {"Accept": "application/json, text/event-stream"}
         self.seq = 0
         self.measured = {}
+        capabilities = {"extensions": {"io.modelcontextprotocol/skills": {}}} if skills else {}
+        self.wires = {}
         reply = self.request("initialize", {
-            "protocolVersion": "2025-06-18", "capabilities": {},
+            "protocolVersion": "2025-06-18", "capabilities": capabilities,
             "clientInfo": {"name": "slate-mcp-token-measure", "version": "1"},
         })
+        self.capabilities = reply.get("capabilities", {})
         self.instructions = reply.get("instructions", "")
         self.version = reply["serverInfo"]["version"]
         self.headers["MCP-Protocol-Version"] = reply["protocolVersion"]
@@ -107,6 +109,7 @@ class MCP:
         if "structuredContent" in result:
             row["structured_tokens"] = self.count(compact(result["structuredContent"]))
         self.measured[label or method] = row
+        self.wires[label or method] = wire
         return result
 
     def call(self, tool, label=None, **args):
@@ -212,6 +215,54 @@ def measure(base, count, compact_boards=False, discovery_only=False):
     return report
 
 
+def measure_wire_snapshot(snapshot, count):
+    """Count exact JSON-RPC response strings and the relevant decoded fields independently."""
+    report = {}
+    for mode, records in snapshot.items():
+        view = {}
+        for label, wire in records.items():
+            result = json.loads(wire)["result"]
+            row = {"wire": count(wire)}
+            if "instructions" in result:
+                row["instructions"] = count(result["instructions"])
+            if "structuredContent" in result:
+                structured = result["structuredContent"]
+                row["structured"] = count(compact(structured))
+                if "watch_prompt" in structured:
+                    row["watch_prompt"] = count(structured["watch_prompt"])
+            if "contents" in result:
+                row["markdown"] = sum(count(item.get("text", "")) for item in result["contents"])
+            if "skills" in result or "skill" in result:
+                row["metadata"] = count(compact(result))
+            view[label] = row
+        report[mode] = view
+    return report
+
+
+def measure_skill_disclosure(base, count):
+    """Same synthetic task, a legacy client and a client declaring SEP-2640 support."""
+    board = rest(base, "/boards", {"name": "Skill measurement", "slug": "SKMEAS", "description": "项目说明 / Project rules", "locale": "zh-CN"})
+    card = rest(base, f"/boards/{board['id']}/cards", {
+        "column_id": board["columns"][2]["id"], "title": "校验交接 / Validate handoff",
+        "description": "逐项检查交接记录、任务状态和租约。",
+    })
+    snapshot = {}
+    for mode in ("legacy", "skills"):
+        client = MCP(base + f"/mcp?name=measure-{mode}", count, skills=(mode == "skills"))
+        client.request("tools/list", {})
+        client.call("get_board", board_id=board["id"])
+        client.call("get_card", card_id=card["id"])
+        if mode == "skills" and "io.modelcontextprotocol/skills" in client.capabilities.get("extensions", {}):
+            client.request("skills/list", {})
+            client.request("skills/get", {"uri": "skill://slate-kanban/SKILL.md"})
+            for name, label in (("slate-kanban", "core_skill"), ("slate-development", "development_skill"), ("slate-card-writing", "writing_skill")):
+                client.request("resources/read", {"uri": f"skill://{name}/SKILL.md"}, label)
+        else:
+            client.request("resources/read", {"uri": "slate://skills/slate-kanban"}, "legacy_skill")
+        snapshot[mode] = client.wires
+    return measure_wire_snapshot(snapshot, count)
+
+
 def measure_codex(base, name, route, count, *, management=False):
     # A synthetic Responses endpoint drives real MCP tool calls. Capture only Slate
     # entries, keeping unrelated instructions, tools and headers out of reports.
@@ -310,17 +361,32 @@ def measure_codex(base, name, route, count, *, management=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--binary", required=True, type=Path, help="Slate binary to start on loopback")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--binary", type=Path, help="Slate binary to start on loopback")
+    source.add_argument("--snapshot", type=Path, help="JSON of response strings from TestSkillsWireMeasurement")
+    parser.add_argument("--bytes", action="store_true", help="count UTF-8 bytes instead of tokens for a snapshot")
+    parser.add_argument("--skills", action="store_true", help="also compare skill-aware and legacy dispatch")
     parser.add_argument("--codex", help="Codex CLI binary for optional local Responses capture")
     parser.add_argument("--discovery-only", action="store_true", help="skip dispatch and event wait samples")
     args = parser.parse_args()
-    encoding = tiktoken.get_encoding("o200k_base")
+    if args.bytes:
+        if not args.snapshot:
+            parser.error("--bytes requires --snapshot")
+        count = lambda text: len(text.encode("utf-8"))
+    else:
+        import tiktoken
+        encoding = tiktoken.get_encoding("o200k_base")
+        count = lambda text: len(encoding.encode_ordinary(text))
 
-    def count(text):
-        return len(encoding.encode_ordinary(text))
+    if args.snapshot:
+        report = measure_wire_snapshot(json.loads(args.snapshot.read_text(encoding="utf-8")), count)
+        print(json.dumps({"unit": "utf8-bytes" if args.bytes else "o200k_base-tokens", **report}, ensure_ascii=False, indent=2))
+        return
 
     with serve(args.binary) as base:
         report = measure(base, count, discovery_only=args.discovery_only)
+        if args.skills:
+            report["skill_disclosure"] = measure_skill_disclosure(base, count)
         if args.codex:
             report["codex"] = {
                 "host": subprocess.check_output([args.codex, "--version"], text=True).strip(),

@@ -25,6 +25,12 @@ var (
 	// ErrBoardSlugTaken 看板标识已经被别的看板使用。
 	ErrBoardSlugTaken = reason.NewError("ErrBoardSlugTaken", "看板标识已被使用").WithHTTPStatus(409)
 
+	// ErrSkillNotFound Skill 不存在。
+	ErrSkillNotFound = reason.NewError("ErrSkillNotFound", "Skill 不存在").WithHTTPStatus(404)
+
+	// ErrSkillNameTaken Skill 名称已被内置或自定义 Skill 使用。
+	ErrSkillNameTaken = reason.NewError("ErrSkillNameTaken", "已有同名 Skill").WithHTTPStatus(409)
+
 	// ErrProjectTemplateNotFound 自定义项目模板不存在。
 	ErrProjectTemplateNotFound = reason.NewError("ErrProjectTemplateNotFound", "项目模板不存在").WithHTTPStatus(404)
 
@@ -102,6 +108,12 @@ var (
 
 	// ErrProjectPathLocked agent 只能在项目路径为空时写入，已经有值就只有人能改。
 	ErrProjectPathLocked = reason.NewError("ErrProjectPathLocked", "项目路径已经设置，只有人可以修改").WithHTTPStatus(403)
+
+	// ErrProjectPathNotFound 网页填写的工作目录不存在或不是目录。
+	ErrProjectPathNotFound = reason.NewError("ErrProjectPathNotFound", "该目录不存在")
+
+	// ErrProjectPathCheckFailed 服务端无法确认目录是否存在，例如没有访问权限。
+	ErrProjectPathCheckFailed = reason.NewError("ErrProjectPathCheckFailed", "无法检查该目录，请重试")
 )
 
 // invalidf 生成一个"输入不合法"的错误，Msg 是面向用户的具体说明。

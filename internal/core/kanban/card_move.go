@@ -23,7 +23,8 @@ func checkCardMovable(actor Actor, card *Card, now time.Time) error {
 // 入参的 ColumnID 为零表示留在当前列；BeforeID 和 AfterID 最多给一个，表示放到那张卡的前面或后面，
 // 都不给就放到目标列末尾（Top 为真时放到最顶部）。人可以移动任何任务；agent 可以移动没有被别的 agent
 // 持有的任务，任务能放进哪一列、什么状态下该由谁动，由列的提示词约定，这里不按列限制。
-// 换列写 card.moved，agent 换列时同时清除领取，人换列不动领取；同列调整顺序写 card.reordered；
+// 换列写 card.moved。agent 换列默认清除领取，桌面开始研发时可以保留自己的有效租约。
+// 人换列不动领取，同列调整顺序写 card.reordered。
 // 位置没有变化时什么都不做。
 func (c Core) MoveCard(ctx context.Context, actor Actor, cardID int64, in MoveCardInput) (*Card, error) {
 	if err := requireWriter(actor); err != nil {
@@ -50,8 +51,16 @@ func (c Core) MoveCard(ctx context.Context, actor Actor, cardID int64, in MoveCa
 
 // moveCard 在事务里完成 MoveCard：检查权限、找出原列和目标列、计算新位置，再按换列或同列分别保存。
 func (u *unit) moveCard(ctx context.Context, actor Actor, card *Card, in MoveCardInput) error {
-	if err := checkCardMovable(actor, card, u.now()); err != nil {
+	now := u.now()
+	if err := checkCardMovable(actor, card, now); err != nil {
 		return err
+	}
+	keepClaim := in.KeepClaimForEngineerID != 0
+	if keepClaim && (!actor.IsAgent() || !claimActive(card, now) || card.ClaimedBy != actor.Name || card.ClaimEngineerID != in.KeepClaimForEngineerID) {
+		return ErrNotHolder
+	}
+	if in.ExpectedVersion != nil && card.Version != *in.ExpectedVersion {
+		return ErrCardVersionConflict
 	}
 	from, to, err := u.resolveMove(ctx, card, in.ColumnID)
 	if err != nil {
@@ -73,7 +82,13 @@ func (u *unit) moveCard(ctx context.Context, actor Actor, card *Card, in MoveCar
 		}
 		return u.reorderCard(ctx, actor, card, pos)
 	}
-	return u.relocateCard(ctx, actor, card, from, to, pos)
+	if !keepClaim {
+		if err := u.clearClaimOnMove(ctx, actor, card); err != nil {
+			return err
+		}
+	}
+	card.ColumnID, card.Position = to.ID, pos
+	return u.commitMove(ctx, actor, card, from, to)
 }
 
 // resolveMove 读出看板的列，返回任务当前所在的列和移动的目标列。
@@ -127,16 +142,6 @@ func (u *unit) reorderCard(ctx context.Context, actor Actor, card *Card, pos flo
 		BoardID: card.BoardID, CardID: card.ID, Type: EventCardReordered,
 		Payload: map[string]any{"key": card.Key, "column_id": card.ColumnID},
 	})
-}
-
-// relocateCard 把任务搬到另一列：agent 移动时先清除领取，人移动时领取原样保留（见 clearClaimOnMove），
-// 再保存新的列和位置，最后追加 card.moved 事件。
-func (u *unit) relocateCard(ctx context.Context, actor Actor, card *Card, from, to *Column, pos float64) error {
-	if err := u.clearClaimOnMove(ctx, actor, card); err != nil {
-		return err
-	}
-	card.ColumnID, card.Position = to.ID, pos
-	return u.commitMove(ctx, actor, card, from, to)
 }
 
 // commitMove 在任务的新列和位置已经写到内存里之后收尾：先追加 card.moved 事件，

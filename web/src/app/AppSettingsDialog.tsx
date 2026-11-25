@@ -1,4 +1,4 @@
-import { InfoIcon, LayoutTemplateIcon, SlidersHorizontalIcon } from 'lucide-react'
+import { BookOpenIcon, InfoIcon, LayoutTemplateIcon, SlidersHorizontalIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LogoutButton } from '@/features/auth/LogoutButton'
@@ -7,9 +7,13 @@ import { useTranslation } from '@/i18n/react'
 import { useLanguage } from '@/i18n/useLanguage'
 import { useTheme, type ThemeChoice } from '@/lib/theme-context'
 import { AboutSettings } from './AboutSettings'
+import { DesktopConnectionSettings } from './DesktopConnectionSettings'
 import { TemplatesSettings } from './TemplatesSettings'
+import { SkillsSettings } from './SkillsSettings'
 
 interface Props {
+  tab: string
+  onTabChange: (tab: string) => void
   onClose: () => void
   onCloseAutoFocus: (event: Event) => void
 }
@@ -18,7 +22,7 @@ const THEME_CHOICES = ['light', 'dark', 'system'] as const satisfies readonly Th
 
 const controlClass = 'h-9 w-full max-w-56 rounded-lg border border-input bg-field px-2.5 text-ui outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25'
 
-export default function AppSettingsDialog({ onClose, onCloseAutoFocus }: Props) {
+export default function AppSettingsDialog({ tab, onTabChange, onClose, onCloseAutoFocus }: Props) {
   const { t } = useTranslation()
   const { lang, setLang } = useLanguage()
   const { theme, setTheme } = useTheme()
@@ -33,7 +37,8 @@ export default function AppSettingsDialog({ onClose, onCloseAutoFocus }: Props) 
           <DialogTitle>{t('nav.settings')}</DialogTitle>
         </DialogHeader>
         <Tabs
-          defaultValue="general"
+          value={tab}
+          onValueChange={onTabChange}
           orientation="vertical"
           className="flex min-h-0 flex-1 gap-0 overflow-hidden"
         >
@@ -46,6 +51,10 @@ export default function AppSettingsDialog({ onClose, onCloseAutoFocus }: Props) 
               <TabsTrigger value="templates" className="min-h-9 justify-start rounded-lg px-2 sm:px-3">
                 <LayoutTemplateIcon aria-hidden className="hidden sm:block" />
                 {t('preferences.templates')}
+              </TabsTrigger>
+              <TabsTrigger value="skills" className="min-h-9 justify-start rounded-lg px-2 sm:px-3">
+                <BookOpenIcon aria-hidden className="hidden sm:block" />
+                {t('preferences.skills')}
               </TabsTrigger>
               <TabsTrigger value="about" className="min-h-9 justify-start rounded-lg px-2 sm:px-3">
                 <InfoIcon aria-hidden className="hidden sm:block" />
@@ -86,10 +95,14 @@ export default function AppSettingsDialog({ onClose, onCloseAutoFocus }: Props) 
                 ))}
               </select>
             </label>
+            <DesktopConnectionSettings />
             <LogoutButton />
           </TabsContent>
           <TabsContent value="templates" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
             <TemplatesSettings />
+          </TabsContent>
+          <TabsContent value="skills" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
+            <SkillsSettings />
           </TabsContent>
           <TabsContent value="about" className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
             <AboutSettings />

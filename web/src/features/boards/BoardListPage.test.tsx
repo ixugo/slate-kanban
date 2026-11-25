@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -38,7 +38,7 @@ describe('BoardListPage', () => {
     expect(link).toHaveAttribute('href', '/b/1')
     expect(within(link).queryByText('SLATE')).not.toBeInTheDocument()
     expect(within(link).getByText('看板本身')).toBeInTheDocument()
-    // 项目路径由 agent 写入，网页上不展示
+    // 工作目录只在创建和设置表单展示，不占项目列表空间
     expect(within(link).queryByText('/code/slate')).not.toBeInTheDocument()
   })
 
@@ -78,6 +78,7 @@ describe('BoardListPage', () => {
 })
 
 describe('新建项目', () => {
+  const checkPath = 'POST /api/v1/boards/check-project-path'
   const open = async () => {
     const api = installFakeApi({
       'GET /api/v1/boards': [makeBoard({ id: 1, name: 'Existing' })],
@@ -110,13 +111,175 @@ describe('新建项目', () => {
 
   it('用一个选择框列出模板，默认选中研发模板，不重复显示内置项', async () => {
     const { dialog } = await open()
-    expect(within(dialog).queryByLabelText(/path|路径/i)).not.toBeInTheDocument()
+    expect(within(dialog).getByRole('textbox', { name: /Working directory/ })).toHaveValue('')
     const select = within(dialog).getByRole('combobox', { name: en.boards.create.template })
     expect(select).toHaveValue('dev')
     expect(await within(select).findByRole('option', { name: 'Team' })).toBeInTheDocument()
     expect(within(select).getAllByRole('option').map(({ textContent }) => textContent)).toEqual([
       en.boards.create.templates.dev, en.boards.create.templates.empty, 'Team',
     ])
+  })
+
+  it('工作目录失焦时向服务端校验，成功才将整理后的路径随创建请求提交', async () => {
+    const { api, dialog } = await open()
+    api.set(checkPath, {})
+    api.set('POST /api/v1/boards', makeSnapshot({ id: 9 }))
+    await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'Project')
+    const input = within(dialog).getByRole('textbox', { name: /Working directory/ })
+    await userEvent.type(input, '  /work/project  ')
+    expect(api.count(checkPath)).toBe(0)
+    await userEvent.tab()
+    await waitFor(() => expect(api.count(checkPath)).toBe(1))
+    expect(api.calls.find((c) => c.path.endsWith('/check-project-path'))?.body).toEqual({ project_path: '/work/project' })
+    const submit = within(dialog).getByRole('button', { name: en.boards.create.submit })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await userEvent.click(submit)
+    await waitFor(() => expect(api.count('POST /api/v1/boards')).toBe(1))
+    expect(api.calls.find((c) => c.path === '/api/v1/boards' && c.method === 'POST')?.body).toMatchObject({ project_path: '/work/project' })
+  })
+
+  it('目录不存在时显示字段错误，拦截提交；清空后仍可创建', async () => {
+    const { api, dialog } = await open()
+    api.set(checkPath, () => ({ status: 400, body: { reason: 'ErrProjectPathNotFound' } }))
+    api.set('POST /api/v1/boards', makeSnapshot({ id: 9 }))
+    await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'Project')
+    const input = within(dialog).getByRole('textbox', { name: /Working directory/ })
+    await userEvent.type(input, '/work/missing')
+    await userEvent.tab()
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('This directory does not exist.')
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    const submit = within(dialog).getByRole('button', { name: en.boards.create.submit })
+    expect(submit).toBeDisabled()
+    fireEvent.submit(input.closest('form')!)
+    expect(api.count('POST /api/v1/boards')).toBe(0)
+    await userEvent.clear(input)
+    await userEvent.tab()
+    expect(submit).toBeEnabled()
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+    await userEvent.click(submit)
+    await waitFor(() => expect(api.count('POST /api/v1/boards')).toBe(1))
+    expect(api.calls.find((c) => c.path === '/api/v1/boards' && c.method === 'POST')?.body).not.toHaveProperty('project_path')
+  })
+
+  it('未失焦直接回车也需要校验，网络失败禁止创建并可重试', async () => {
+    const { api, dialog } = await open()
+    api.set(checkPath, () => { throw new Error('network down') })
+    api.set('POST /api/v1/boards', makeSnapshot({ id: 9 }))
+    await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'Project')
+    const input = within(dialog).getByRole('textbox', { name: /Working directory/ })
+    await userEvent.type(input, '/work/project{Enter}')
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Could not verify this directory. Please try again.')
+    expect(api.count(checkPath)).toBe(1)
+    expect(api.count('POST /api/v1/boards')).toBe(0)
+    const submit = within(dialog).getByRole('button', { name: en.boards.create.submit })
+    expect(submit).toBeDisabled()
+    api.set(checkPath, {})
+    await userEvent.click(within(dialog).getByRole('button', { name: en.common.retry }))
+    await waitFor(() => expect(submit).toBeEnabled())
+    await userEvent.click(submit)
+    await waitFor(() => expect(api.count('POST /api/v1/boards')).toBe(1))
+  })
+
+  it('目录格式不合法时阻止提交，改成有效路径后可直接回车校验并创建', async () => {
+    const { api, dialog } = await open()
+    api.set(checkPath, () => ({ status: 400, body: { reason: 'ErrInvalidInput' } }))
+    api.set('POST /api/v1/boards', makeSnapshot({ id: 9 }))
+    await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'Project')
+    const input = within(dialog).getByRole('textbox', { name: /Working directory/ })
+    await userEvent.type(input, 'relative/path')
+    await userEvent.tab()
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Enter a valid absolute directory path on the server.')
+    expect(within(dialog).getByRole('button', { name: en.boards.create.submit })).toBeDisabled()
+    api.set(checkPath, {})
+    await userEvent.clear(input)
+    await userEvent.type(input, '/work/project{Enter}')
+    await waitFor(() => expect(api.count('POST /api/v1/boards')).toBe(1))
+    expect(api.calls.filter((c) => c.method === 'POST').map((c) => c.path)).toEqual([
+      '/api/v1/boards/check-project-path', '/api/v1/boards/check-project-path', '/api/v1/boards',
+    ])
+  })
+
+  it.each([false, true])('检查中禁止创建；切换路径后旧请求的成功=%s 不能覆盖新结果', async (oldValid) => {
+    const { api, dialog } = await open()
+    api.set(checkPath, oldValid ? () => ({ status: 400, body: { reason: 'ErrProjectPathNotFound' } }) : {})
+    api.set('POST /api/v1/boards', makeSnapshot({ id: 9 }))
+    const fallback = globalThis.fetch
+    let resolveOld!: (response: Response) => void
+    const oldResponse = new Promise<Response>((resolve) => { resolveOld = resolve })
+    let oldSignal: AbortSignal | null | undefined
+    vi.stubGlobal('fetch', vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      if (String(url).endsWith('/check-project-path') && init?.body === JSON.stringify({ project_path: '/old' })) {
+        oldSignal = init.signal
+        return oldResponse
+      }
+      return fallback(url, init)
+    }))
+    await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'Project')
+    const input = within(dialog).getByRole('textbox', { name: /Working directory/ })
+    await userEvent.type(input, '/old')
+    await userEvent.tab()
+    const submit = within(dialog).getByRole('button', { name: en.boards.create.submit })
+    expect(submit).toBeDisabled()
+    fireEvent.submit(input.closest('form')!)
+    expect(api.count('POST /api/v1/boards')).toBe(0)
+    await userEvent.clear(input)
+    await userEvent.type(input, '/new')
+    expect(oldSignal?.aborted).toBe(true)
+    await userEvent.tab()
+    await waitFor(() => expect(api.count(checkPath)).toBe(1))
+    if (oldValid) {
+      expect(await within(dialog).findByRole('alert')).toHaveTextContent('This directory does not exist.')
+    } else {
+      await waitFor(() => expect(submit).toBeEnabled())
+    }
+    await act(async () => {
+      resolveOld(oldValid ? new Response('{}') : new Response(JSON.stringify({ reason: 'ErrProjectPathNotFound' }), { status: 400 }))
+      await oldResponse
+    })
+    if (oldValid) {
+      expect(submit).toBeDisabled()
+      expect(within(dialog).getByRole('alert')).toHaveTextContent('This directory does not exist.')
+      fireEvent.submit(input.closest('form')!)
+      expect(api.count('POST /api/v1/boards')).toBe(0)
+      return
+    }
+    expect(submit).toBeEnabled()
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+    await userEvent.click(submit)
+    await waitFor(() => expect(api.count('POST /api/v1/boards')).toBe(1))
+    expect(api.calls.find((c) => c.path === '/api/v1/boards' && c.method === 'POST')?.body).toMatchObject({ project_path: '/new' })
+  })
+
+  it('桌面客户端未填写工作目录时禁止创建，失焦提示必填', async () => {
+    vi.stubGlobal('slateDesktopServer', { port: 49152, openPath: '/open' })
+    const { api, dialog } = await open()
+    api.set('POST /api/v1/boards', makeSnapshot({ id: 9 }))
+    await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'Project')
+    const submit = within(dialog).getByRole('button', { name: en.boards.create.submit })
+    expect(submit).toBeDisabled()
+    fireEvent.submit(within(dialog).getByLabelText(en.boards.create.name).closest('form')!)
+    expect(api.count('POST /api/v1/boards')).toBe(0)
+    const input = within(dialog).getByRole('textbox', { name: /Working directory/ })
+    await userEvent.click(input)
+    await userEvent.tab()
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(en.boards.projectPath.required)
+    expect(submit).toBeDisabled()
+  })
+
+  it('预校验通过但保存时目录已消失，仍在目录字段显示错误', async () => {
+    const { api, dialog } = await open()
+    api.set(checkPath, {})
+    api.set('POST /api/v1/boards', () => ({ status: 400, body: { reason: 'ErrProjectPathNotFound' } }))
+    await userEvent.type(within(dialog).getByLabelText(en.boards.create.name), 'Project')
+    const input = within(dialog).getByRole('textbox', { name: /Working directory/ })
+    await userEvent.type(input, '/work/vanished')
+    await userEvent.tab()
+    const submit = within(dialog).getByRole('button', { name: en.boards.create.submit })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await userEvent.click(submit)
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('This directory does not exist.')
+    expect(input).toHaveValue('/work/vanished')
+    expect(submit).toBeDisabled()
   })
 
   it('选自定义模板后提交模板 ID', async () => {

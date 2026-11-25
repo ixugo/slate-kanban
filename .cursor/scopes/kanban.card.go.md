@@ -20,13 +20,13 @@ agent 只能碰它该碰的任务和字段，人的规划不能被 AI 改乱；�
 | 9 | 有些任务必须由人来做 | agent 误领，做出不该由 AI 做的改动 | 任务有 HumanOnly 标记，agent 不能领取，取下一个任务时跳过；只有人能改这个标记 | 实施 |
 | 10 | 用户和 agent 都要按条件找任务 | 两套筛选逻辑，结果不一致 | 一套筛选语法，网页搜索框和 MCP 的列表工具共用同一个解析器与匹配函数 | 实施 |
 | 11 | 筛选语法写错 | 静默返回空列表，用户以为没有任务 | 解析失败返回 400，并指出是哪个词有问题 | 实施 |
-| 12 | agent 需要回复人留下的评论 | 如果评论受任务所在列限制，agent 没法在待办或评审中的任务下答复 | 评论任何人对任何任务都能写；写评论的 agent 恰好是当前领取者时，顺带续租 | 实施 |
+| 12 | agent 需要回复人留下的评论 | 如果评论受任务所在列限制，agent 没法在待办或评审中的任务下答复 | 评论任何人对任何任务都能写；写评论的 agent 恰好是当前领取者时，顺带续租；租约已经到期的持有者回来写评论，按新的领取处理（见 kanban.claim.go.md 问题 15） | 实施 |
 | 13 | 评论、描述、标题没有长度上限 | 数据库和 agent 上下文被撑爆 | 标题 200、描述 20000、评论 20000、标签最多 10 个每个最多 30 字符、依赖最多 20 个 | 实施 |
 | 14 | 更新请求里的值与现有值相同 | 仍然写事件和涨版本，唤醒 agent 空转 | 没有真实变化时不涨版本、不写事件、直接返回 | 实施 |
 | 15 | 在同一列里只是调整顺序 | 与换列用同一种事件，agent 被无意义地唤醒 | 同列调整顺序写 card.reordered，换列写 card.moved；agent 拉取时忽略 card.reordered | 实施 |
 | 16 | 创建或移动时指定了别的看板的列 | 任务挂到错误的看板，数据错乱 | 校验列属于该任务所在看板；创建时不指定列则进入该看板第一列，看板没有列返回 400 | 实施 |
 | 17 | 误删任务 | 评论、依赖关系残留 | 删除在一个事务里完成：删评论、清依赖、删任务，并只允许人操作 | 实施 |
-| 18 | 移动一个被 agent 领取的任务离开进行中 | agent 自己换列后任务已经在评审列，却还显示被 agent 占用；人拖一下任务，agent 手里还在做的活又不能被悄悄收走 | agent 换列（交接）时清除领取并写 card.released；人换列不动领取，只写 card.moved，领取由 agent 自己放开、租约到期或人明确收回才结束 | 实施 |
+| 18 | 移动一个被 agent 领取的任务离开进行中 | agent 自己换列后任务已经在评审列，却还显示被 agent 占用；人拖一下任务，agent 手里还在做的活又不能被悄悄收走 | agent 换列（交接）时清除领取并写 card.released；人换列不动领取，只写 card.moved，领取由 agent 自己放开、租约到期或人明确收回才结束；桌面开始研发时 agent 带着自己的有效租约换列（见领取设计问题 13），领取保留 | 实施 |
 
 ## 字段与限制
 
@@ -58,7 +58,7 @@ agent 只能碰它该碰的任务和字段，人的规划不能被 AI 改乱；�
 | 读取任务与评论 | 允许 | 允许 |
 
 自己持有的含义：任务的 ClaimedBy 等于该 agent 的名字。租约过期但还没有被别的 agent 接手时仍然算持有，
-这样耗时很长的任务不会因为忘了续租而白做；一旦别的 agent 接手，原持有者的写入返回 409。
+这样耗时很长的任务不会因为忘了续租而白做，回来写入时会先记下租约到期和新的领取，再记这次写入；一旦别的 agent 接手，原持有者的写入返回 409。
 agent 对从没领取过的任务写入同样返回 409，提示先领取。agent 改规划类字段（优先级、依赖、时间、仅限人处理）返回 403，
 这一项在读取任务之前就判断。领取的完整规则见 kanban.claim.go.md。
 
@@ -153,7 +153,7 @@ flowchart TD
     P -->|否| P2{在列里的次序没变}
     P2 -->|是| T[直接返回, 不保存, 不写事件]
     P2 -->|否| Q[保存, 追加 card.reordered 事件]
-    P -->|是| R[清除领取, 追加 card.moved 事件]
+    P -->|是| R[agent 换列清除领取, 桌面带租约换列则保留, 追加 card.moved 事件]
     R --> R2[执行自动化: 触发离开原列与进入目标列]
     R2 --> R3[保存任务, 规则的改动和换列一起落库, Version 加一]
     R3 --> S[提交并广播]
@@ -226,7 +226,7 @@ flowchart TD
 |------|------|------|
 | 任务存储接口与查询 | CardStorer | internal/core/kanban/card.go |
 | 创建、修改 | Core.CreateCard, UpdateCard, unit.updateCard | internal/core/kanban/card.go |
-| 移动 | Core.MoveCard, unit.moveCard, resolveMove, relocateCard, reorderCard, commitMove | internal/core/kanban/card_move.go |
+| 移动 | Core.MoveCard, unit.moveCard, resolveMove, reorderCard, commitMove | internal/core/kanban/card_move.go |
 | 删除 | Core.DeleteCard, unit.deleteCard, dropDependency | internal/core/kanban/card_delete.go |
 | 详情、列表 | Core.GetCard, GetCardDetail, ListCards | internal/core/kanban/card.go, card_detail.go, card_list.go |
 | 编号与 Key | unit.assignNumberAndPosition | internal/core/kanban/card.go |
@@ -235,6 +235,6 @@ flowchart TD
 | 视图与看板索引 | CardView, boardIndex, newBoardIndex | internal/core/kanban/card_view.go |
 | 筛选解析与匹配 | parseFilter, filter.match, splitTerms, buildTerm | internal/core/kanban/card_filter.go |
 | 筛选词的具体写法 | buildIs, buildHas, buildNo, buildPriority, buildDate 等 | internal/core/kanban/card_filter_terms.go |
-| 评论 | Core.AddComment, unit.addComment, DeleteComment | internal/core/kanban/comment.go |
+| 评论 | Core.AddComment, Core.AddCommentWithExt（服务内部带扩展字段 ext，外部入口不接收）, unit.addComment, DeleteComment | internal/core/kanban/comment.go |
 | 权限判断 | requireHuman, requireWriter, checkCardWritable, UpdateCardInput.touchesPlanning | internal/core/kanban/validate.go, card.go, card.param.go |
 | 入参结构 | CreateCardInput, UpdateCardInput, MoveCardInput | internal/core/kanban/card.param.go |

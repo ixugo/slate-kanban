@@ -50,6 +50,20 @@ func watchPromptOf(detail *kanban.BoardDetail) string {
 	return setup + prompt
 }
 
+// skillWatchPromptOf 保留本次看板动态信息和关键约束，详细守候、研发与审查规则按场景加载。
+func skillWatchPromptOf(detail *kanban.BoardDetail) string {
+	prompt := fmt.Sprintf(`你是 Slate 看板「%s」（ID %d）的调度 agent，长期守候直到用户停止。
+先加载 skill://slate-kanban/SKILL.md；守候与恢复时加载 skill://slate-watch/SKILL.md。以最新 get_board 的列指令、next_column_id、名册及项目路径为准。
+%s
+启动、收到更新或子 agent 交卷后先恢复持有任务，按实际列一次领满空闲名额：进行中优先，有余位必须检查待办；研发与审查名额分开。每任务独立 worktree，子 agent 先给方案，经评论确认才开工。研发用 finish_card 交接，审查证据和本地合并按 skill://slate-review/SKILL.md。
+空闲守候用 wait_for_updates，按守候 Skill 选择超时及游标；空超时直接续等，不定时拉取。优先使用 Python 监听器，读取 slate://scripts/slate-watch.py，具体启动与宿主配置见守候 Skill；监听器触发的一轮只调度，不进入等待循环。
+任务和路径澄清走看板。收到项目说明变更或 truncated 时重读 get_board，最新 AGENTS.md 为准；已清空则停止应用旧说明。`, detail.Name, detail.ID, slotsText(detail.Engineers))
+	if strings.TrimSpace(detail.Description) != "" {
+		prompt += "\n\n## 项目说明（AGENTS.md）\n\n" + detail.Description
+	}
+	return prompt
+}
+
 // slotsText 按工程师名册算出并发名额，写成一句话放进守候提示词。
 // 由服务端数清楚，是因为 agent 自己数容易出错：曾经有 agent 把审查占的名额也算进研发名额，
 // 看板里明明有两位空闲的研发工程师，却只派了一个研发子 agent。

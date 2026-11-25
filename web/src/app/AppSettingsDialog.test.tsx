@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import { en } from '@/i18n/locales/en'
@@ -9,20 +9,66 @@ import { PROJECT_URL } from './AboutSettings'
 
 describe('AppSettingsDialog', () => {
   it('键盘打开设置、切换到关于，Escape 返回设置按钮', async () => {
-    installFakeApi({ 'GET /api/v1/version': { version: 'v0.1.0' } })
+    installFakeApi({ 'GET /api/v1/version': { version: 'v0.1.0' }, 'GET /api/v1/skills': [], 'GET /api/v1/templates': [] })
     renderApp(<AppSettingsButton />)
     const trigger = screen.getByRole('button', { name: en.nav.settings })
     trigger.focus()
     await userEvent.keyboard('{Enter}')
     expect(await screen.findByRole('dialog', { name: en.nav.settings })).toBeInTheDocument()
+    expect(screen.queryByText(en.preferences.listeningPort)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: en.preferences.openInBrowser })).not.toBeInTheDocument()
     expect(screen.getByRole('tab', { name: en.preferences.general, selected: true })).toHaveFocus()
     await userEvent.keyboard('{ArrowDown}')
     expect(await screen.findByRole('tab', { name: en.preferences.templates, selected: true })).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(await screen.findByRole('tab', { name: en.preferences.skills, selected: true })).toHaveFocus()
     await userEvent.keyboard('{ArrowDown}')
     expect(await screen.findByRole('tab', { name: en.nav.about, selected: true })).toHaveFocus()
     await userEvent.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
+  })
+
+  it('桌面设置按钮请求打开当前服务，并允许在失败后重试', async () => {
+    const openPath = '/.slate-desktop/test/browser'
+    const api = installFakeApi({ [`POST ${openPath}`]: () => ({ status: 500 }) })
+    window.slateDesktopServer = { port: 49152, openPath }
+    try {
+      renderApp(<AppSettingsButton />)
+      await userEvent.click(screen.getByRole('button', { name: en.nav.settings }))
+      const button = await screen.findByRole('button', { name: en.preferences.openInBrowser })
+      await userEvent.click(button)
+      expect(await screen.findByRole('alert')).toHaveTextContent(en.preferences.browserOpenFailed)
+      expect(api.count(`POST ${openPath}`)).toBe(1)
+
+      api.set(`POST ${openPath}`, () => ({ status: 504 }))
+      await userEvent.click(button)
+      expect(await screen.findByRole('alert')).toHaveTextContent(en.preferences.browserOpenTimedOut)
+
+      api.set(`POST ${openPath}`, {})
+      await userEvent.click(button)
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(api.count(`POST ${openPath}`)).toBe(3)
+    } finally {
+      delete window.slateDesktopServer
+    }
+  })
+
+  it('桌面服务报告实际监听端口后，通用设置显示该端口', async () => {
+    installFakeApi({})
+    renderApp(<AppSettingsButton />)
+    await userEvent.click(screen.getByRole('button', { name: en.nav.settings }))
+
+    try {
+      act(() => {
+        window.slateDesktopServer = { port: 49152, openPath: '' }
+        window.dispatchEvent(new Event('slate-desktop-server'))
+      })
+      expect(await screen.findByText(en.preferences.listeningPort)).toBeInTheDocument()
+      expect(screen.getByText('49152')).toBeInTheDocument()
+    } finally {
+      delete window.slateDesktopServer
+    }
   })
 
   it('点开显示介绍、服务端版本号和跳到项目仓库的 GitHub 图标链接', async () => {
@@ -38,6 +84,24 @@ describe('AppSettingsDialog', () => {
     expect(link).toHaveAttribute('href', PROJECT_URL)
     expect(screen.queryByText(PROJECT_URL)).not.toBeInTheDocument()
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+  })
+
+  it('原生菜单请求可在设置加载前打开关于，弹窗开启时也能切回通用', async () => {
+    installFakeApi({ 'GET /api/v1/version': { version: 'v0.1.0' } })
+    const html = document.documentElement
+    html.setAttribute('data-slate-settings-tab', 'about')
+    try {
+      renderApp(<AppSettingsButton />)
+      expect(await screen.findByRole('tab', { name: en.nav.about, selected: true })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', PROJECT_URL)
+      expect(html).not.toHaveAttribute('data-slate-settings-tab')
+
+      await act(async () => html.setAttribute('data-slate-settings-tab', 'general'))
+      expect(screen.getByRole('tab', { name: en.preferences.general, selected: true })).toBeInTheDocument()
+      expect(html).not.toHaveAttribute('data-slate-settings-tab')
+    } finally {
+      html.removeAttribute('data-slate-settings-tab')
+    }
   })
 
   it('关于里的手动检查发现新版本时，复用更新说明和安装弹窗', async () => {

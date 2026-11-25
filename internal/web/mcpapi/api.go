@@ -11,6 +11,7 @@ import (
 
 	"slate-kanban/internal/core/kanban"
 	"slate-kanban/internal/lifecycle"
+	"slate-kanban/skills"
 )
 
 const (
@@ -88,8 +89,11 @@ func (a API) Handler() http.Handler {
 // 因此在一个会话披露管理工具不会改变同名 agent 的其他会话。
 func (a API) newServer(v view) *mcp.Server {
 	var s *mcp.Server
+	caps := &mcp.ServerCapabilities{Logging: &mcp.LoggingCapabilities{}}
+	caps.AddExtension(skills.ExtensionID, nil)
 	s = mcp.NewServer(&mcp.Implementation{Name: serverName, Title: serverTitle, Version: a.version}, &mcp.ServerOptions{
 		Instructions: instructionsFor(v),
+		Capabilities: caps,
 		SchemaCache:  a.schemas,
 		SubscribeHandler: func(ctx context.Context, req *mcp.SubscribeRequest) error {
 			if err := a.subscribe(ctx, req); err != nil {
@@ -101,6 +105,7 @@ func (a API) newServer(v view) *mcp.Server {
 		UnsubscribeHandler: a.unsubscribe,
 	})
 	a.registerResources(s)
+	a.registerSkills(s, v)
 	a.registerReadTools(s, v)
 	a.registerWorkTools(s, v)
 	a.registerCreateBoard(s)

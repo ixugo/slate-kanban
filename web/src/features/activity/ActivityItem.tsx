@@ -4,9 +4,9 @@ import { BotIcon, UserIcon, ZapIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from '@/i18n/react'
 import { useLanguage } from '@/i18n/useLanguage'
-import type { ActorKind, BoardEvent, CardView } from '@/lib/api/types'
+import type { ActorKind, BoardEvent, CardView, Engineer } from '@/lib/api/types'
 import { formatDateTime, formatRelative } from '@/lib/format'
-import { actorLabel, describeEvent, eventCard } from './describeEvent'
+import { describeEvent, eventActorLabel, eventCard } from './describeEvent'
 import { ViewChangeLink } from './ViewChangeLink'
 import { CardReference } from '@/features/card/CardReference'
 import { EventPreviousValues } from './EventPreviousValues'
@@ -16,6 +16,7 @@ interface ActivityItemProps {
   event: BoardEvent
   /** 看板上现有的任务，用来取任务现在的标题并判断能不能点开 */
   cardsById: ReadonlyMap<number, CardView>
+  engineers: readonly Engineer[]
   /** 点了任务链接后调用，让抽屉关掉、露出任务弹窗 */
   onOpenCard: () => void
 }
@@ -23,11 +24,11 @@ interface ActivityItemProps {
 const ACTOR_ICONS: Record<ActorKind, typeof UserIcon> = { human: UserIcon, agent: BotIcon, system: ZapIcon }
 
 /** 活动流里的一条事件 */
-export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps) {
+export function ActivityItem({ event, cardsById, engineers, onOpenCard }: ActivityItemProps) {
   const { t } = useTranslation()
   const { lang } = useLanguage()
   const [params, setParams] = useSearchParams()
-  const { text, detail, descriptionChangeId, previousValues } = describeEvent(event, t)
+  const { text, detail, descriptionChangeId, previousValues } = describeEvent(event, t, engineers)
   const card = eventCard(event, cardsById)
   const Icon = ACTOR_ICONS[event.actor_kind] ?? ZapIcon
   // 沿用地址里已有的其他参数，只替换 card
@@ -41,7 +42,7 @@ export function ActivityItem({ event, cardsById, onOpenCard }: ActivityItemProps
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-sm leading-snug break-words">
-          <span className="font-medium">{actorLabel({ kind: event.actor_kind, name: event.actor }, t)}</span>{' '}
+          <span className="font-medium">{eventActorLabel(event, engineers, t)}</span>{' '}
           <span className="text-muted-foreground">{text}</span>
           {/* 任务已经删除时，它的变更记录也一并删除了，所以不再给「查看变更」 */}
           {descriptionChangeId !== undefined && card?.id != null && <ViewChangeLink cardId={card.id} changeId={descriptionChangeId} />}

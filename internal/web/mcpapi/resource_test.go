@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -42,7 +43,7 @@ func TestBoardResource(t *testing.T) {
 
 	for name, sess := range map[string]*mcp.ClientSession{"agent": s.agent(t, "claude"), "人": s.human(t)} {
 		templates, err := sess.ListResourceTemplates(t.Context(), nil)
-		if err != nil || len(templates.ResourceTemplates) != 1 || templates.ResourceTemplates[0].URITemplate != "slate://boards/{board_id}" {
+		if err != nil || !slices.ContainsFunc(templates.ResourceTemplates, func(r *mcp.ResourceTemplate) bool { return r.URITemplate == "slate://boards/{board_id}" }) {
 			t.Fatalf("%s：资源模板不对: %+v %v", name, templates, err)
 		}
 		got := readBoard(t, sess, boardURIOf(b.ID))

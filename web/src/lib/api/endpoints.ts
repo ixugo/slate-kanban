@@ -32,6 +32,9 @@ import type {
   UpdateApplied,
   UpdateInfo,
   VersionInfo,
+  SkillSummary,
+  SkillDetail,
+  SkillInput,
   ProjectTemplateSummary,
   ProjectTemplateDetail,
   WebhookView,
@@ -54,6 +57,11 @@ export function listBoards(signal?: Signal): Promise<Board[]> {
 /** 创建看板，按模板和语言生成起步的列和规则 */
 export function createBoard(input: CreateBoardInput): Promise<BoardDetail> {
   return request<BoardDetail>('/boards', { method: 'POST', body: input })
+}
+
+/** 检查工作目录在服务端是否存在，不创建或修改项目 */
+export function checkProjectPath(projectPath: string, signal?: Signal): Promise<Empty> {
+  return request<Empty>('/boards/check-project-path', { method: 'POST', body: { project_path: projectPath }, signal })
 }
 
 /** 修改看板的名称、说明、项目路径 */
@@ -256,6 +264,27 @@ export function importProjectTemplate(body: unknown, replace?: boolean): Promise
 /** 删除自定义项目模板 */
 export function deleteProjectTemplate(templateId: number): Promise<Empty> {
   return request<Empty>(`/templates/${templateId}`, { method: 'DELETE' })
+}
+
+/** 服务级 MCP Skill 目录。 */
+export function listSkills(signal?: Signal): Promise<SkillSummary[]> {
+  return request<SkillSummary[]>('/skills', { signal })
+}
+
+export function getSkill(name: string, signal?: Signal): Promise<SkillDetail> {
+  return request<SkillDetail>(`/skills/${encodeURIComponent(name)}`, { signal })
+}
+
+export function createSkill(input: SkillInput): Promise<SkillDetail> {
+  return request<SkillDetail>('/skills', { method: 'POST', body: input })
+}
+
+export function updateSkill(name: string, input: SkillInput): Promise<SkillDetail> {
+  return request<SkillDetail>(`/skills/${encodeURIComponent(name)}`, { method: 'PUT', body: input })
+}
+
+export function deleteSkill(name: string): Promise<Empty> {
+  return request<Empty>(`/skills/${encodeURIComponent(name)}`, { method: 'DELETE' })
 }
 
 /** 看板的活动 webhook 列表 */

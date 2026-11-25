@@ -32,11 +32,18 @@ func (c Core) ClaimCard(ctx context.Context, actor Actor, cardID int64, in Claim
 		if err := checkClaimable(actor, card, ix); err != nil {
 			return err
 		}
-		by, err := u.chooseEngineer(ctx, actor, card, in.EngineerID)
+		if in.RenewOnly {
+			if !claimActive(card, ix.now) || card.ClaimedBy != actor.Name || card.ClaimEngineerID != in.EngineerID {
+				return ErrNotHolder
+			}
+		} else if in.DesktopDispatch && claimActive(card, ix.now) {
+			return ErrCardClaimed
+		}
+		engineer, err := u.chooseEngineer(ctx, actor, card, in.EngineerID)
 		if err != nil {
 			return err
 		}
-		return u.grantClaim(ctx, actor, card, lease, by)
+		return u.grantClaim(ctx, actor, card, ix.now, lease, engineer, in.DesktopDispatch)
 	})
 	if err != nil {
 		return nil, err
@@ -90,7 +97,7 @@ func (u *unit) claimNext(ctx context.Context, actor Actor, boardID, columnID int
 		return 0, err
 	}
 	var pick *Card
-	var pickBy claimBy
+	var pickBy *Engineer
 	for _, card := range ix.sortCards(ix.all) {
 		if card.ColumnID != columnID || checkClaimable(actor, card, ix) != nil {
 			continue
@@ -110,34 +117,34 @@ func (u *unit) claimNext(ctx context.Context, actor Actor, boardID, columnID int
 	if pick == nil {
 		return 0, nil
 	}
-	return pick.ID, u.grantClaim(ctx, actor, pick, lease, pickBy)
+	return pick.ID, u.grantClaim(ctx, actor, pick, ix.now, lease, pickBy, false)
 }
 
 // pickEngineerFor 判断取下一张卡时这张卡能不能由工程师承担，返回承担者和是否可领。
 // 看板没有工程师时永远可领；有工程师时，租约有效的任务只有持有者带着同一位工程师才可领。
-func pickEngineerFor(pool *engineerPool, actor Actor, card *Card, engineerID int64, now time.Time) (claimBy, bool) {
+func pickEngineerFor(pool *engineerPool, actor Actor, card *Card, engineerID int64, now time.Time) (*Engineer, bool) {
 	if pool == nil {
-		return claimBy{}, true
+		return nil, true
 	}
 	if claimActive(card, now) {
 		if card.ClaimedBy != actor.Name || (engineerID != 0 && card.ClaimEngineerID != engineerID) {
-			return claimBy{}, false
+			return nil, false
 		}
 		engineerID = card.ClaimEngineerID
 	}
 	id, err := pool.engineerFor(card, engineerID)
 	if err != nil {
-		return claimBy{}, false
+		return nil, false
 	}
-	return claimBy{engineerID: id, dev: id != 0 && stageOf(pool.find(id).Kind) == EngineerDev}, true
+	return pool.find(id), true
 }
 
 // chooseEngineer 为领取指定的任务决定承担的工程师，并核对租约有效时的持有者。
 // 没有指定工程师而任务正由自己持有时，视为接着做原来的工程师那一份（续租）。
-func (u *unit) chooseEngineer(ctx context.Context, actor Actor, card *Card, requested int64) (claimBy, error) {
+func (u *unit) chooseEngineer(ctx context.Context, actor Actor, card *Card, requested int64) (*Engineer, error) {
 	pool, err := u.loadEngineerPool(ctx, card.BoardID, nil)
 	if err != nil || pool == nil {
-		return claimBy{}, err
+		return nil, err
 	}
 	now := u.now()
 	if requested == 0 && card.ClaimedBy == actor.Name && claimActive(card, now) {
@@ -145,12 +152,12 @@ func (u *unit) chooseEngineer(ctx context.Context, actor Actor, card *Card, requ
 	}
 	id, err := pool.engineerFor(card, requested)
 	if err != nil {
-		return claimBy{}, err
+		return nil, err
 	}
 	if err := checkHolder(actor, card, id, now, time.Local); err != nil {
-		return claimBy{}, err
+		return nil, err
 	}
-	return claimBy{engineerID: id, dev: id != 0 && stageOf(pool.find(id).Kind) == EngineerDev}, nil
+	return pool.find(id), nil
 }
 
 // boardIndex 在事务里读出看板的全部列、标签和任务，建好索引。
@@ -188,32 +195,43 @@ func (u *unit) claimIndex(ctx context.Context, card *Card) (*boardIndex, error) 
 	return newBoardIndex(u.now(), time.Local, cols, tags, append([]*Card{card}, deps...)), nil
 }
 
-// claimBy 是一次领取承担者里和工程师有关的部分：engineerID 是承担的工程师（0 表示没有），
-// dev 表示这次是研发领取，此时任务还没有绑定工程师就把这一位记成任务的工程师。
-type claimBy struct {
-	engineerID int64
-	dev        bool
-}
-
-// grantClaim 把任务记到 agent 和工程师名下，租约从现在起算 lease 这么长，并追加 card.claimed 事件。
-// 持有者本人用同一位工程师再次领取只是顺延到期时间，不涨版本号，因为任务内容没有变；
-// 新领取或者接手别人过期的领取，版本号加一。
-func (u *unit) grantClaim(ctx context.Context, actor Actor, card *Card, lease time.Duration, by claimBy) error {
-	expires := u.now().Add(lease).UTC()
-	renewal := card.ClaimedBy == actor.Name && card.ClaimEngineerID == by.engineerID
-	card.ClaimedBy, card.ClaimExpiresAt, card.ClaimEngineerID = actor.Name, &expires, by.engineerID
-	if by.dev && by.engineerID != 0 && card.EngineerID == 0 {
-		card.EngineerID, renewal = by.engineerID, false
+// grantClaim 把任务记到 agent 和工程师名下，租约从现在起算。
+// 同一个有效租约只更新到期时间，不涨版本号，也不追加事件：续租没有断过，就不重复记录。
+// 新领取才追加 card.claimed；盖掉的是一条已经到期的旧租约时，先追加一条租约到期（expireClaim），再追加新的领取。
+func (u *unit) grantClaim(ctx context.Context, actor Actor, card *Card, now time.Time, lease time.Duration, engineer *Engineer, desktopDispatch bool) error {
+	var engineerID int64
+	if engineer != nil {
+		engineerID = engineer.ID
+	}
+	expires := now.Add(lease).UTC()
+	renewal := claimActive(card, now) && card.ClaimedBy == actor.Name && card.ClaimEngineerID == engineerID
+	if err := u.expireClaim(ctx, actor, card, now); err != nil {
+		return err
+	}
+	card.ClaimedBy, card.ClaimExpiresAt, card.ClaimEngineerID = actor.Name, &expires, engineerID
+	if engineer != nil && stageOf(engineer.Kind) == EngineerDev && card.EngineerID == 0 {
+		card.EngineerID = engineerID
+		if renewal {
+			return u.saveCard(ctx, actor, card)
+		}
 	}
 	if renewal {
 		if err := u.card.Save(ctx, card); err != nil {
 			return wrapDB("续租", err)
 		}
-	} else if err := u.saveCard(ctx, actor, card); err != nil {
+		return nil
+	}
+	if err := u.saveCard(ctx, actor, card); err != nil {
 		return err
 	}
-	return u.emit(ctx, actor, newEvent{
-		BoardID: card.BoardID, CardID: card.ID, Type: EventCardClaimed,
-		Payload: cardPayload(card, map[string]any{"agent": actor.Name, "engineer_id": by.engineerID, "expires_at": expires.Format(time.RFC3339)}),
-	})
+	var engineerName *string
+	if engineer != nil {
+		// 空名称让普通 agent 的新事件可与尚未记录名称的旧桌面事件区分。
+		name := ""
+		if desktopDispatch {
+			name = engineer.Name
+		}
+		engineerName = &name
+	}
+	return u.emitClaimed(ctx, actor, card, expires, engineerName)
 }

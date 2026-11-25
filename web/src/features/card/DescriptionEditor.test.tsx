@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import { readSelection, writeSelection } from '@/features/editor/dom'
 import { en } from '@/i18n/locales/en'
 import { DescriptionEditor } from './DescriptionEditor'
 
@@ -31,9 +32,16 @@ describe('DescriptionEditor', () => {
     await userEvent.click(screen.getByText('粗'))
     const editor = await screen.findByRole('textbox', { name: en.card.field.description })
     expect(editor).toHaveTextContent('**粗**')
+    await act(async () => {
+      editor.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: '草稿', cancelable: true, bubbles: true }))
+    })
+    expect(editor).toHaveTextContent('草稿')
     fireEvent.keyDown(editor, { key: 'Escape', code: 'Escape' })
     expect(onSave).not.toHaveBeenCalled()
     expect(screen.queryByRole('textbox', { name: en.card.field.description })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: en.card.descEdit }))
+    const reopened = await screen.findByRole('textbox', { name: en.card.field.description })
+    expect(reopened).toHaveTextContent(/^\*\*粗\*\*$/)
   })
 
   it('没有保存按钮；焦点离开时，没改动不发请求，改了才保存原文', async () => {
@@ -53,6 +61,62 @@ describe('DescriptionEditor', () => {
     await act(async () => {})
     fireEvent.focusOut(again)
     expect(onSave).toHaveBeenCalledWith('ab')
+  })
+
+  it('输入法确认候选后立即失焦，保存包含候选字的描述', async () => {
+    const onSave = vi.fn()
+    render(<DescriptionEditor boardId={1} value={'甲\n乙'} onSave={onSave} />)
+    await userEvent.click(screen.getByRole('button', { name: en.card.descEdit }))
+    const editor = await screen.findByRole('textbox', { name: en.card.field.description })
+    fireEvent.compositionStart(editor)
+    editor.children[1].textContent = '乙zhong'
+    fireEvent.compositionEnd(editor, { data: '中' })
+    fireEvent.focusOut(editor)
+    expect(onSave).not.toHaveBeenCalled()
+    expect(editor).toBeInTheDocument()
+
+    editor.children[1].textContent = '乙中'
+    fireEvent.input(editor, { inputType: 'insertFromComposition', data: '中' })
+    await waitFor(() => expect(onSave).toHaveBeenCalledExactlyOnceWith('甲\n乙中'))
+  })
+
+  it('回放空描述连续两次拼音上屏，立即续输后保留光标和保存值', async () => {
+    const onSave = vi.fn<(value: string) => void>()
+    const { rerender } = render(<DescriptionEditor boardId={1} value="" onSave={onSave} />)
+    await userEvent.click(screen.getByText(en.card.descPlaceholder))
+    const editor = await screen.findByRole('textbox', { name: en.card.field.description })
+    const insert = (data: string) => {
+      editor.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data, cancelable: true, bubbles: true }))
+    }
+
+    act(() => {
+      writeSelection(editor, 0, 0)
+      fireEvent.compositionStart(editor)
+      fireEvent.compositionUpdate(editor, { data: 'zhongwen' })
+      editor.children[0].textContent = 'zhongwen'
+      writeSelection(editor, 8, 8)
+      fireEvent.compositionEnd(editor, { data: '' })
+      insert('中文')
+      expect(readSelection(editor)).toEqual({ anchor: 2, head: 2 })
+
+      fireEvent.compositionStart(editor)
+      fireEvent.compositionUpdate(editor, { data: 'shuru' })
+      editor.children[0].textContent = '中文shuru'
+      writeSelection(editor, 7, 0)
+      fireEvent.compositionEnd(editor, { data: '' })
+      insert('输入')
+      insert('!')
+    })
+
+    expect(editor).toHaveTextContent(/^中文输入!$/)
+    expect(readSelection(editor)).toEqual({ anchor: 5, head: 5 })
+    fireEvent.focusOut(editor)
+    expect(onSave).toHaveBeenCalledExactlyOnceWith('中文输入!')
+    expect(editor).not.toBeInTheDocument()
+
+    rerender(<DescriptionEditor boardId={1} value={onSave.mock.calls[0][0]} onSave={onSave} />)
+    await userEvent.click(screen.getByRole('button', { name: en.card.descEdit }))
+    expect(await screen.findByRole('textbox', { name: en.card.field.description })).toHaveTextContent(/^中文输入!$/)
   })
 
   it('任务引用只链接正文，保留链接、代码和转义字面量', async () => {

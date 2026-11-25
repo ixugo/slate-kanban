@@ -112,6 +112,30 @@ describe('活动抽屉', () => {
     expect(rows[3]).toContain('created the task in “Todo”')
   })
 
+  it('桌面领取显示当时的工程师，旧记录用名册回退，普通领取显示 agent', async () => {
+    const desktop = 'desktop-5xfr3jfu5z2sitwvgckxdkj3n6'
+    const noEngineer = 'desktop-aaaaaaaaaaaaaaaaaaaaaaaaaa'
+    const { user } = setup([
+      ev(1, 'card.claimed', 'agent', desktop, { engineer_id: 1, engineer_name: 'Atlas' }, 1),
+      ev(2, 'card.claimed', 'agent', desktop, { engineer_id: 2 }, 2),
+      ev(3, 'card.claimed', 'agent', 'codex', { engineer_id: 1 }, 1),
+      ev(4, 'card.claimed', 'agent', desktop, { engineer_id: 2, engineer_name: '' }, 2),
+      ev(5, 'card.claimed', 'agent', noEngineer, { engineer_id: 99 }, 1),
+    ], {
+      'GET /api/v1/boards/:id/snapshot': {
+        ...snapshot,
+        engineers: [
+          { id: 1, name: 'Atlas Renamed', kind: 'dev', prompt: '', avatar: '' },
+          { id: 2, name: 'Orion', kind: 'dev', prompt: '', avatar: '' },
+        ],
+      },
+    })
+    const dialog = await openDrawer(user)
+    await within(dialog).findAllByText(en.activity.event.cardClaimed)
+    expect(rowTexts(dialog).map((row) => row.split(' claimed the task')[0]))
+      .toEqual([noEngineer, desktop, 'codex', 'Orion', 'Atlas'])
+  })
+
   it('第一次请求不带筛选条件，每页读固定条数', async () => {
     const { api, user } = setup()
     await openDrawer(user)

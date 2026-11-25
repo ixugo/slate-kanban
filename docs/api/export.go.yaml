@@ -189,6 +189,9 @@ components:
         body:
           type: string
           description: 评论正文，Markdown 文本
+        ext:
+          type: string
+          description: 扩展标识，JSON 对象文本，没有时不返回。网页不显示，由服务内部写入，外部写评论不能设置；读取评论时随正文一起返回
         created_at:
           type: string
           format: date-time

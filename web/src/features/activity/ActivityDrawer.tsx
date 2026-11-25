@@ -3,7 +3,7 @@
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useTranslation } from '@/i18n/react'
-import type { CardView } from '@/lib/api/types'
+import type { CardView, Engineer } from '@/lib/api/types'
 import { ActivityPanel } from './ActivityPanel'
 
 interface ActivityDrawerProps {
@@ -12,10 +12,11 @@ interface ActivityDrawerProps {
   onOpenChange: (open: boolean) => void
   /** 看板上现有的任务 */
   cardsById: ReadonlyMap<number, CardView>
+  engineers: readonly Engineer[]
 }
 
 /** 看板的活动抽屉 */
-export default function ActivityDrawer({ boardId, open, onOpenChange, cardsById }: ActivityDrawerProps) {
+export default function ActivityDrawer({ boardId, open, onOpenChange, cardsById, engineers }: ActivityDrawerProps) {
   const { t } = useTranslation()
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -24,7 +25,7 @@ export default function ActivityDrawer({ boardId, open, onOpenChange, cardsById 
           <SheetTitle>{t('activity.title')}</SheetTitle>
           <SheetDescription>{t('activity.description')}</SheetDescription>
         </SheetHeader>
-        <ActivityPanel boardId={boardId} cardsById={cardsById} onOpenCard={() => onOpenChange(false)} />
+        <ActivityPanel boardId={boardId} cardsById={cardsById} engineers={engineers} onOpenCard={() => onOpenChange(false)} />
       </SheetContent>
     </Sheet>
   )

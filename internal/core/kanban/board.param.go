@@ -1,8 +1,12 @@
 package kanban
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"unicode"
 )
 
@@ -214,7 +218,7 @@ func slugBase(name string) string {
 
 // validateProjectPath 校验项目路径。允许为空；非空时必须是绝对路径，
 // 并且不含空字符和控制字符。同时接受 Unix 路径、Windows 盘符路径和网络共享路径，
-// 因为看板上的路径来自使用者的各种电脑，服务端并不运行在那台电脑上，没办法检查它是否真实存在。
+// 以兼容外部 agent 通过 MCP 写入其他机器上的项目路径。
 func validateProjectPath(p string) error {
 	if p == "" {
 		return nil
@@ -226,6 +230,32 @@ func validateProjectPath(p string) error {
 		return invalidf("项目路径必须是绝对路径")
 	}
 	return nil
+}
+
+// ValidateLocalProjectPath 检查网页填写的工作目录在服务端是否真实存在。
+// REST 的预校验和保存共用它；MCP 仍然只校验跨平台路径格式。
+func ValidateLocalProjectPath(path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	if err := validateProjectPath(path); err != nil {
+		return err
+	}
+	if !filepath.IsAbs(path) {
+		return invalidf("工作目录必须是服务端的绝对路径")
+	}
+	info, err := os.Stat(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist), errors.Is(err, syscall.ENOTDIR):
+		return ErrProjectPathNotFound
+	case err != nil:
+		return ErrProjectPathCheckFailed
+	case !info.IsDir():
+		return ErrProjectPathNotFound
+	default:
+		return nil
+	}
 }
 
 // isAbsolutePath 判断是不是绝对路径：以斜线开头，或盘符加冒号加斜线（反斜线），或双反斜线开头。

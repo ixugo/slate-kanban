@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { en } from '@/i18n/locales/en'
 import { installFakeApi } from '@/test/fakeApi'
-import { writeSelection } from './dom'
-import LiveEditor from './LiveEditor'
+import { readSelection, writeSelection } from './dom'
+import LiveEditor, { type LiveEditorDraft } from './LiveEditor'
 
 /** 渲染编辑器；返回编辑区和 onChange 的记录 */
 function setup(value = '') {
@@ -37,7 +37,7 @@ describe('LiveEditor', () => {
     writeSelection(editor, 0, 3)
     document.dispatchEvent(new Event('selectionchange'))
     await userEvent.click(screen.getByRole('button', { name: en.editor.bold }))
-    expect(onChange).toHaveBeenLastCalledWith('**abc**')
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: '**abc**' }))
   })
 
   it('点标题菜单里的二级标题', async () => {
@@ -47,7 +47,7 @@ describe('LiveEditor', () => {
     document.dispatchEvent(new Event('selectionchange'))
     await userEvent.click(screen.getByRole('button', { name: en.editor.heading }))
     await userEvent.click(await screen.findByRole('button', { name: en.editor.h2 }))
-    expect(onChange).toHaveBeenLastCalledWith('## abc')
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: '## abc' }))
   })
 
   it('帮助里列出快捷键', async () => {
@@ -63,6 +63,53 @@ describe('LiveEditor', () => {
     const { rerender } = render(<LiveEditor value="a" onChange={() => {}} max={100} placeholder="" label="描述" />)
     rerender(<LiveEditor value="b" onChange={() => {}} max={100} placeholder="" label="描述" />)
     expect(screen.getByRole('textbox', { name: '描述' })).toHaveTextContent('b')
+  })
+
+  it('较早的本地回显保留最新正文和选区，同值的外部回填仍会生效', () => {
+    const onChange = vi.fn<(draft: LiveEditorDraft) => void>()
+    const editorFor = (draft: LiveEditorDraft) =>
+      <LiveEditor {...draft} onChange={onChange} max={100} placeholder="" label="描述" />
+    const { rerender } = render(editorFor({ value: '' }))
+    const editor = screen.getByRole('textbox', { name: '描述' })
+    editor.tabIndex = 0
+    editor.focus()
+    const type = (data: string) =>
+      editor.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data, cancelable: true, bubbles: true }))
+    type('中')
+    type('文')
+    const [first, second] = onChange.mock.calls.map(([draft]) => draft)
+
+    rerender(editorFor(first))
+    expect(editor).toHaveTextContent('中文')
+    expect(readSelection(editor)).toEqual({ anchor: 2, head: 2 })
+
+    type('!')
+    const trailing = onChange.mock.calls[2][0]
+    rerender(editorFor(second))
+    expect(editor).toHaveTextContent('中文!')
+    expect(readSelection(editor)).toEqual({ anchor: 3, head: 3 })
+
+    rerender(editorFor({ value: '中文' }))
+    expect(editor).toHaveTextContent(/^中文$/)
+    rerender(editorFor(trailing))
+    expect(editor).toHaveTextContent(/^中文$/)
+  })
+
+  it('切换卡片重新挂载后，前一个编辑器的草稿是外部值', () => {
+    const onChange = vi.fn<(draft: LiveEditorDraft) => void>()
+    const editorFor = (key: string, draft: LiveEditorDraft) =>
+      <LiveEditor key={key} {...draft} onChange={onChange} max={100} placeholder="" label="描述" />
+    const { rerender } = render(editorFor('first', { value: '' }))
+    const first = screen.getByRole('textbox', { name: '描述' })
+    first.dispatchEvent(new InputEvent('beforeinput', { inputType: 'insertText', data: '旧草稿', cancelable: true, bubbles: true }))
+    const previousDraft = onChange.mock.calls[0][0]
+
+    rerender(editorFor('second', { value: '另一张卡片' }))
+    const second = screen.getByRole('textbox', { name: '描述' })
+    expect(second).not.toBe(first)
+    expect(second).toHaveTextContent('另一张卡片')
+    rerender(editorFor('second', previousDraft))
+    expect(second).toHaveTextContent('旧草稿')
   })
 
   describe('粘贴图片', () => {
@@ -92,7 +139,7 @@ describe('LiveEditor', () => {
       const { editor, onChange } = setupBoard()
       const e = paste(editor, '', [png()])
       expect(e.defaultPrevented).toBe(true)
-      await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(`前![image](${URL})`))
+      await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: `前![image](${URL})` })))
       expect(api.calls).toHaveLength(1)
       expect(api.calls[0].path).toBe('/api/v1/boards/7/attachments')
       expect((api.calls[0].body as { file: File }).file).toBeInstanceOf(File)
@@ -103,7 +150,7 @@ describe('LiveEditor', () => {
       const api = installFakeApi({})
       const { editor, onChange } = setupBoard()
       paste(editor, '表格', [png()])
-      expect(onChange).toHaveBeenLastCalledWith('前表格')
+      expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: '前表格' }))
       expect(api.calls).toHaveLength(0)
     })
 

@@ -5,6 +5,8 @@
 export const BOARD_NAME_MAX = 100
 /** 看板说明的最大长度 */
 export const BOARD_DESC_MAX = 2000
+/** 工作目录的最大长度 */
+export const PROJECT_PATH_MAX = 512
 /** 看板编号前缀的最小、最大长度 */
 export const SLUG_MIN = 2
 export const SLUG_MAX = 10
@@ -56,3 +58,8 @@ export const WEBHOOK_NAME_MAX = 100
 export const WEBHOOK_URL_MAX = 512
 export const WEBHOOKS_PER_BOARD_MAX = 20
 export const WEBHOOK_SECRET_MAX = 200
+
+/** MCP Skill 名称、简介和正文（UTF-8 字节）的上限 */
+export const SKILL_NAME_MAX = 64
+export const SKILL_DESCRIPTION_MAX = 1024
+export const SKILL_BODY_MAX = 262144

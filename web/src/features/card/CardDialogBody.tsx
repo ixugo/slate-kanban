@@ -5,6 +5,7 @@
 import { useTranslation } from '@/i18n/react'
 import type { CardDetail, Engineer, UpdateCardInput } from '@/lib/api/types'
 import { useBoardSnapshot } from '@/features/board/useBoard'
+import { agentDisplayName } from '@/features/activity/describeEvent'
 import { Markdown, type CardReferenceRenderer } from '@/lib/markdown'
 import { formatDateTime } from '@/lib/format'
 import { Label } from '@/components/ui/label'
@@ -48,7 +49,7 @@ function ClaimBanner({ card, engineers, lang, onRelease, busy }: { card: CardDet
   if (!card.claim_active || !card.claimed_by) return null
   const engineer = engineers.find((e) => e.id === card.claim_engineer_id)
   // 保留每种语言自己的日期位置，只为时间插入单独的字体节点。
-  const [beforeTime, afterTime] = t('card.claim.banner', { name: card.claimed_by }).split(/\{\{\s*time\s*\}\}/)
+  const [beforeTime, afterTime] = t('card.claim.banner', { name: agentDisplayName(card.claimed_by, engineers) }).split(/\{\{\s*time\s*\}\}/)
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl bg-agent/10 px-4 py-3 text-ui sm:flex-row sm:items-center sm:justify-between">
       <span>
@@ -122,7 +123,7 @@ export function CardDialogBody({ card, depOptions, lang, boardId, onPatch, onSav
         <CardTimeMeta card={card} lang={lang} />
       </div>
       <aside className="min-w-0 border-t border-border/60 bg-secondary/50 px-5 py-5 md:w-[21rem] md:shrink-0 md:overflow-y-auto md:border-t-0 md:border-l">
-        <CardTimeline cardId={card.id} boardId={boardId} comments={card.comments} renderCardReference={renderCardReference} readOnly={readOnly} />
+        <CardTimeline cardId={card.id} boardId={boardId} comments={card.comments} engineers={engineers} renderCardReference={renderCardReference} readOnly={readOnly} />
       </aside>
     </div>
   )

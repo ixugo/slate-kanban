@@ -19,6 +19,7 @@ import (
 type desktopDispatch struct {
 	core  dispatchCore
 	host  dispatchHost
+	text  func() desktopText
 	path  string
 	file  string
 	actor kanban.Actor
@@ -42,9 +43,9 @@ type dispatchState struct {
 	Template  bool                     `json:"template"`
 }
 
-func newDesktopDispatch(core dispatchCore, dir string) *desktopDispatch {
+func newDesktopDispatch(core dispatchCore, dir string, text func() desktopText) *desktopDispatch {
 	d := &desktopDispatch{
-		core: core, host: localDispatchHost, actor: desktopDispatchActor(),
+		core: core, host: localDispatchHost, text: text,
 		path: "/.slate-desktop/" + rand.Text(), file: filepath.Join(dir, "desktop-dispatch.json"),
 		status: make(map[int64]engineerStatus),
 	}
@@ -68,13 +69,35 @@ func newDesktopDispatch(core dispatchCore, dir string) *desktopDispatch {
 	return d
 }
 
+// dispatchSettingsError 是保存派发设置时可以告诉用户的失败原因。
+// code 是稳定的英文标识，前端据此显示对应语言的具体提示；message 只给日志和排查用。
+type dispatchSettingsError struct{ code, message string }
+
+func (e *dispatchSettingsError) Error() string { return e.message }
+
+// dispatchSettingsCode 取出错误对应的原因标识，没有归类的错误返回空串。
+func dispatchSettingsCode(err error) string {
+	if se, ok := errors.AsType[*dispatchSettingsError](err); ok {
+		return se.code
+	}
+	if errors.Is(err, errDispatchTemplate) {
+		return "template"
+	}
+	if errors.Is(err, errHostUnavailable) {
+		return "host"
+	}
+	return ""
+}
+
+// validate 在启用前核对看板、模板、项目路径和宿主，让不可用的配置在保存时就失败，
+// 而不是等到真正派发才发现。
 func (d *desktopDispatch) validate(ctx context.Context, cfg dispatchConfig) (*kanban.Snapshot, error) {
 	if cfg.BoardID <= 0 {
-		return nil, errors.New("board is required")
+		return nil, &dispatchSettingsError{"board", "board is required"}
 	}
 	snapshot, err := d.core.BoardSnapshot(ctx, cfg.BoardID)
 	if err != nil {
-		return nil, err
+		return nil, &dispatchSettingsError{"board", "board is unavailable"}
 	}
 	if _, err := templateFlow(snapshot.Columns); err != nil {
 		return nil, err
@@ -82,11 +105,14 @@ func (d *desktopDispatch) validate(ctx context.Context, cfg dispatchConfig) (*ka
 	if !cfg.Enabled {
 		return snapshot, nil
 	}
-	if len(cfg.Hosts) == 0 || !filepath.IsAbs(snapshot.ProjectPath) {
-		return nil, errors.New("enabled dispatch needs an absolute Git project path and at least one host")
+	if len(cfg.Hosts) == 0 {
+		return nil, &dispatchSettingsError{"host", "enabled dispatch needs at least one host"}
+	}
+	if !filepath.IsAbs(snapshot.ProjectPath) {
+		return nil, &dispatchSettingsError{"project", "enabled dispatch needs an absolute Git project path"}
 	}
 	if _, err := os.Stat(snapshot.ProjectPath); err != nil {
-		return nil, errors.New("board project path is unavailable")
+		return nil, &dispatchSettingsError{"project", "board project path is unavailable"}
 	}
 	ids := make(map[int64]bool)
 	for _, engineer := range snapshot.Engineers {
@@ -94,7 +120,7 @@ func (d *desktopDispatch) validate(ctx context.Context, cfg dispatchConfig) (*ka
 	}
 	for id, host := range cfg.Hosts {
 		if !ids[id] {
-			return nil, errors.New("engineer is no longer on the board")
+			return nil, &dispatchSettingsError{"engineer", "engineer is no longer on the board"}
 		}
 		if _, err := lookupDesktopHost(host); err != nil {
 			return nil, err
@@ -124,7 +150,7 @@ func (d *desktopDispatch) apply(ctx context.Context, cfg dispatchConfig) error {
 		}
 	}
 	if err := saveDispatchConfig(d.file, cfg); err != nil {
-		return errors.New("could not save desktop settings")
+		return &dispatchSettingsError{"save", "could not save desktop settings"}
 	}
 	d.stop()
 	d.mu.Lock()
@@ -143,7 +169,7 @@ func (d *desktopDispatch) start(snapshot *kanban.Snapshot) {
 	done := make(chan struct{})
 	d.cancel, d.done = cancel, done
 	run := &dispatchRun{
-		core: d.core, actor: d.actor, config: d.config, host: d.host,
+		core: d.core, config: d.config, host: d.host, text: d.text,
 		sessions: filepath.Join(filepath.Dir(d.file), "desktop-dispatch-sessions"),
 		update: func(id int64, status engineerStatus) {
 			d.mu.Lock()
@@ -254,7 +280,7 @@ func (d *desktopDispatch) wrap(origin string, next http.Handler) http.Handler {
 			}
 			if err := d.apply(req.Context(), cfg); err != nil {
 				w.WriteHeader(http.StatusBadRequest)
-				_ = json.MarshalWrite(w, map[string]string{"error": err.Error()})
+				_ = json.MarshalWrite(w, map[string]string{"error": err.Error(), "code": dispatchSettingsCode(err)})
 				return
 			}
 			_ = json.MarshalWrite(w, d.state(req.Context(), cfg.BoardID))

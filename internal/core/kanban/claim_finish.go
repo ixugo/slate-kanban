@@ -11,7 +11,16 @@ import (
 // 人可以完成任何任务；agent 只能完成自己持有的任务。目标列不指定时用当前列设置的下一列，
 // agent 显式指定的目标列不能是开启了 agent 领取的列，否则它能把任务重新放回队列，绕过人的评审。
 func (c Core) FinishCard(ctx context.Context, actor Actor, cardID int64, in FinishCardInput) (*CardDetail, error) {
+	return c.FinishCardWithExt(ctx, actor, cardID, in, "")
+}
+
+// FinishCardWithExt 在 FinishCard 的基础上给总结评论带扩展字段，规则见 AddCommentWithExt。
+// 只供服务内部的调用方使用，HTTP 和 MCP 的完成交接入口不接收扩展字段。
+func (c Core) FinishCardWithExt(ctx context.Context, actor Actor, cardID int64, in FinishCardInput, ext string) (*CardDetail, error) {
 	if err := requireWriter(actor); err != nil {
+		return nil, err
+	}
+	if err := checkCommentExt(ext); err != nil {
 		return nil, err
 	}
 	summary, err := finishSummary(in)
@@ -30,7 +39,7 @@ func (c Core) FinishCard(ctx context.Context, actor Actor, cardID int64, in Fini
 		if err != nil {
 			return err
 		}
-		return u.finishCard(ctx, actor, card, summary, in)
+		return u.finishCard(ctx, actor, card, summary, ext, in)
 	})
 	if err != nil {
 		return nil, err
@@ -39,7 +48,7 @@ func (c Core) FinishCard(ctx context.Context, actor Actor, cardID int64, in Fini
 }
 
 // finishCard 在事务里依次完成：检查权限、确定目标列、写总结评论、写分支和链接、换列并清除领取。
-func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary string, in FinishCardInput) error {
+func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary, ext string, in FinishCardInput) error {
 	if err := checkCardWritable(actor, card); err != nil {
 		return err
 	}
@@ -56,7 +65,7 @@ func (u *unit) finishCard(ctx context.Context, actor Actor, card *Card, summary 
 		}
 		card.MergedCommits = in.MergedCommits
 	}
-	if _, err := u.addComment(ctx, actor, card, summary); err != nil {
+	if _, err := u.addComment(ctx, actor, card, summary, ext); err != nil {
 		return err
 	}
 	if err := u.recordLinks(ctx, actor, card, in); err != nil {

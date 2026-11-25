@@ -26,7 +26,7 @@ export interface LiveViewOptions {
   /** 文字变了（含撤销重做） */
   onChange: (value: string) => void
   /** Ctrl/Cmd+Enter */
-  onSubmit?: () => void
+  onSubmit?: (value: string) => void
   /** Esc；没有提供时 Esc 交还给浏览器 */
   onCancel?: () => void
   /** 粘贴了图片文件（剪贴板里没有文字时才触发）；不提供时图片粘贴被忽略 */
@@ -74,6 +74,10 @@ export class LiveView {
   private shown: string[] = []
   private focused = false
   private composing = false
+  private composition?: { start: EditState; markedText: string; endedEmpty: boolean }
+  private compositionTimer?: ReturnType<typeof setTimeout>
+  private inputCaret?: { state: EditState; timer: ReturnType<typeof setTimeout> }
+  private onCompositionSettled?: (value: string) => void
   private dragging = false
   /** 浏览器自己改了 DOM（我们没拦住的输入类型），input 事件里要从 DOM 重新读回来 */
   private dirty = false
@@ -99,9 +103,16 @@ export class LiveView {
     return this.state
   }
 
+  /** 失焦保存要等输入法完成，避免在上屏前卸载编辑器。 */
+  whenSettled(callback: (value: string) => void): void {
+    if (this.compositionInProgress) this.onCompositionSettled = callback
+    else callback(this.state.value)
+  }
+
   /** 外部直接换整段文字（比如切换到另一个任务）；清空撤销历史 */
   setValue(value: string): void {
     if (value === this.state.value) return
+    this.composition = undefined
     this.state = normalize({ value, anchor: value.length, head: value.length })
     this.history = new History(this.state)
     this.draw(true)
@@ -111,6 +122,7 @@ export class LiveView {
   focus(): void {
     this.focused = true
     this.root.focus()
+    if (this.compositionInProgress) return
     this.draw()
     this.paint()
   }
@@ -142,6 +154,9 @@ export class LiveView {
 
   /** 解除所有事件监听 */
   destroy(): void {
+    clearTimeout(this.compositionTimer)
+    this.clearInputCaretTimer()
+    this.onCompositionSettled = undefined
     this.cleanups.forEach((off) => off())
     this.cleanups.length = 0
   }
@@ -157,9 +172,9 @@ export class LiveView {
     const { root } = this
     const doc = root.ownerDocument
     this.on(root, 'beforeinput', (e: InputEvent) => this.onBeforeInput(e))
-    this.on(root, 'input', () => {
+    this.on(root, 'input', (e: InputEvent) => {
       // 浏览器自己改过 DOM（输入法上屏、没拦住的输入类型）：和模型对不上就从 DOM 读回来
-      if (this.composing || (!this.dirty && readValue(root) === this.state.value)) return
+      if (this.compositionInProgress || e.isComposing || (!this.dirty && readValue(root) === this.state.value)) return
       this.resync()
     })
     this.on(root, 'keydown', (e: KeyboardEvent) => this.onKeyDown(e))
@@ -180,7 +195,10 @@ export class LiveView {
     this.on(root, 'drop', (e: Event) => e.preventDefault())
     this.on(root, 'dragstart', (e: Event) => e.preventDefault())
     this.on(root, 'mousedown', (e: MouseEvent) => this.onMouseDown(e))
-    this.on(root, 'pointerdown', () => (this.dragging = true))
+    this.on(root, 'pointerdown', () => {
+      this.clearInputCaretTimer()
+      this.dragging = true
+    })
     const endDrag = (): void => {
       if (!this.dragging) return
       this.dragging = false
@@ -190,28 +208,71 @@ export class LiveView {
     this.on(doc, 'pointercancel', endDrag)
     this.on(root, 'focus', () => {
       this.focused = true
+      if (this.compositionInProgress) return
       this.onSelectionChange()
       this.draw()
     })
     this.on(root, 'blur', () => {
       this.focused = false
-      this.draw()
+      this.clearInputCaretTimer()
+      if (!this.compositionInProgress) this.draw()
     })
     this.on(root, 'compositionstart', () => {
+      this.clearCompositionTimer()
+      this.clearInputCaretTimer()
       this.composing = true
+      const selection = readSelection(root) ?? this.state
+      this.composition = {
+        start: normalize({ value: readValue(root), anchor: selection.anchor, head: selection.head }),
+        markedText: '',
+        endedEmpty: false,
+      }
       // 空文档里拼音已经写进 DOM，模型却还是空的；占位提示不收起就会和拼音叠在一起
       root.removeAttribute('data-empty')
     })
-    this.on(root, 'compositionend', () => {
+    this.on(root, 'compositionupdate', (e: CompositionEvent) => {
+      if (this.composing && this.composition) this.composition.markedText = e.data
+    })
+    this.on(root, 'compositionend', (e: CompositionEvent) => {
       this.composing = false
+      if (this.composition) this.composition.endedEmpty = !e.data
       this.dirty = true
-      setTimeout(() => {
-        this.flush()
-        // 组合被取消、内容仍为空时，把占位提示放回来
-        if (!this.composing) root.toggleAttribute('data-empty', this.state.value === '')
-      }, 0)
+      // 上屏的 beforeinput/input 可能晚于 compositionend。等浏览器写完再重画。
+      this.clearCompositionTimer()
+      this.compositionTimer = setTimeout(() => this.flush(), 0)
     })
     this.on(doc, 'selectionchange', () => this.onSelectionChange())
+  }
+
+  private get compositionInProgress(): boolean {
+    return this.composing || this.compositionTimer !== undefined
+  }
+
+  private clearCompositionTimer(): void {
+    clearTimeout(this.compositionTimer)
+    this.compositionTimer = undefined
+  }
+
+  private clearInputCaretTimer(): void {
+    clearTimeout(this.inputCaret?.timer)
+    this.inputCaret = undefined
+  }
+
+  /** WebKit 可能在同步回写成功后才重置选区。等本次原生输入结束再核对。 */
+  private scheduleInputCaretCheck(): void {
+    this.clearInputCaretTimer()
+    if (!this.focused || this.root.ownerDocument.activeElement !== this.root) return
+    this.inputCaret = { state: this.state, timer: setTimeout(() => this.finishInputCaretCheck(), 0) }
+  }
+
+  private finishInputCaretCheck(): void {
+    const pending = this.inputCaret
+    if (!pending) return
+    this.clearInputCaretTimer()
+    if (this.state !== pending.state || !this.focused || this.root.ownerDocument.activeElement !== this.root) return
+    const selection = readSelection(this.root)
+    if (selection?.anchor === pending.state.anchor && selection.head === pending.state.head) return
+    this.paint()
   }
 
   /** 按当前状态重画变过的行；force 为真时整个重建（DOM 被浏览器改乱了的时候用） */
@@ -233,12 +294,24 @@ export class LiveView {
 
   /** 有没读回来的浏览器改动（输入法刚上屏）就先读回来，免得后面的命令基于过时的文字 */
   private flush(): void {
-    if (this.dirty && !this.composing) this.resync()
+    if (this.composing || !this.dirty) return
+    this.clearCompositionTimer()
+    this.composition = undefined
+    this.resync()
+    this.notifyCompositionSettled()
+  }
+
+  private notifyCompositionSettled(): void {
+    const settled = this.onCompositionSettled
+    this.onCompositionSettled = undefined
+    settled?.(this.state.value)
   }
 
   /** 把 DOM 里的选区读回模型；有变化返回 true */
   private pull(): boolean {
     this.flush()
+    // 原生输入尚未结束时，DOM 中的旧光标不能覆盖本次命令算出的选区。
+    if (this.inputCaret?.state === this.state) return false
     const sel = readSelection(this.root)
     if (!sel) return false
     const next = normalize({ value: this.state.value, ...sel })
@@ -249,14 +322,14 @@ export class LiveView {
 
   /** 选区变了：重画记号的显隐。输入法组合和鼠标拖选期间不动 DOM，免得打断 */
   private onSelectionChange(): void {
-    if (this.composing || this.dragging) return
+    if (this.compositionInProgress || this.dragging) return
     if (!this.pull()) return
     this.draw()
     this.paint()
   }
 
   /** 采用新状态：记历史、通知外部、重画、放回光标。文字超过上限的改动直接丢弃 */
-  private apply(next: EditState, kind: ChangeKind): void {
+  private apply(next: EditState, kind: ChangeKind, forceDraw = false): void {
     const prev = this.state
     if (next.value.length > this.opts.max && next.value.length > prev.value.length) return
     this.state = normalize(next)
@@ -264,7 +337,7 @@ export class LiveView {
       this.history.push(this.state, kind, { anchor: prev.anchor, head: prev.head })
       this.opts.onChange(next.value)
     }
-    this.draw()
+    this.draw(forceDraw)
     this.paint()
   }
 
@@ -298,14 +371,34 @@ export class LiveView {
   /** 拦截所有非输入法的输入事件，改成走命令 */
   private onBeforeInput(e: InputEvent): void {
     const type = e.inputType
-    if (this.composing || type === 'insertCompositionText' || type === 'deleteCompositionText') return
+    if (this.composing || e.isComposing) return
+    if (!e.cancelable || type === 'insertCompositionText' || type === 'deleteCompositionText' || type === 'insertFromComposition' || type === 'deleteByComposition') {
+      if (type === 'insertFromComposition') this.composition = undefined
+      this.dirty = true
+      return
+    }
+    const compositionStart = type === 'insertText' && e.data ? this.pendingCompositionStart() : undefined
+    if (compositionStart && e.data) {
+      e.preventDefault()
+      this.clearCompositionTimer()
+      this.composition = undefined
+      this.dirty = false
+      this.apply(insertText(compositionStart, e.data, this.opts.max), 'type', true)
+      this.scheduleInputCaretCheck()
+      this.notifyCompositionSettled()
+      return
+    }
     this.pull()
     const s = this.state
     const handled = (next: EditState | null, kind: ChangeKind = 'command'): void => {
       e.preventDefault()
       if (next) this.apply(next, kind)
     }
-    if (type === 'insertText' && e.data) return handled(insertText(s, e.data, this.opts.max), 'type')
+    if (type === 'insertText' && e.data) {
+      handled(insertText(s, e.data, this.opts.max), 'type')
+      this.scheduleInputCaretCheck()
+      return
+    }
     if (type === 'insertReplacementText') return this.replaceTarget(e)
     if (type === 'insertParagraph') return handled(insertNewline(s, false))
     if (type === 'insertLineBreak') return handled(insertNewline(s, true))
@@ -325,6 +418,18 @@ export class LiveView {
     this.dirty = true
   }
 
+  /** WebKit 可能先以空值结束组合，再以普通 insertText 提交确认文字。 */
+  private pendingCompositionStart(): EditState | undefined {
+    const composition = this.composition
+    if (this.compositionTimer === undefined || !composition?.endedEmpty || !composition.markedText) return
+    const { start, markedText } = composition
+    const from = Math.min(start.anchor, start.head)
+    const to = Math.max(start.anchor, start.head)
+    const markedValue = start.value.slice(0, from) + markedText + start.value.slice(to)
+    // 只有 DOM 仍精确对应本次候选文本，才用组合开始前的选区上屏。
+    if (markedValue !== start.value && readValue(this.root) === markedValue) return start
+  }
+
   /** 拼写纠正、自动更正：把浏览器指定的范围换成建议的文字 */
   private replaceTarget(e: InputEvent): void {
     e.preventDefault()
@@ -339,7 +444,8 @@ export class LiveView {
 
   /** 键盘快捷键 */
   private onKeyDown(e: KeyboardEvent): void {
-    if (e.isComposing || e.keyCode === 229) return
+    if (this.composing || e.isComposing || e.keyCode === 229) return
+    this.finishInputCaretCheck()
     const action = keyAction(e)
     if (!action) return
     this.pull()
@@ -354,7 +460,7 @@ export class LiveView {
     e.preventDefault()
     if (action.special === 'undo') this.undo()
     else if (action.special === 'redo') this.redo()
-    else if (action.special === 'submit') this.opts.onSubmit?.()
+    else if (action.special === 'submit') this.opts.onSubmit?.(this.state.value)
     else this.opts.onCancel?.()
   }
 
