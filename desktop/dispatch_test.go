@@ -1607,7 +1607,7 @@ func TestDesktopDispatchReportedOutcomeHandsOffWithoutCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	const answer = "当前时间：2026-11-25 09:52:20（北京时间）"
-	run := dispatchRun{core: core, sessions: t.TempDir()}
+	run := dispatchRun{core: core, sessions: t.TempDir(), text: func() desktopText { return desktopTexts["zh-CN"] }}
 	run.host = func(_ context.Context, _, _, _ string, readOnly bool, _ dispatchSession) (dispatchReply, error) {
 		if readOnly {
 			return dispatchReply{Outcome: "plan", Summary: "Plan"}, nil
@@ -1621,7 +1621,7 @@ func TestDesktopDispatchReportedOutcomeHandsOffWithoutCommit(t *testing.T) {
 	got, err := core.GetCardDetail(ctx, card.ID)
 	if err != nil || got.ColumnID != flow.review || got.ClaimActive || got.Branch == "" ||
 		lastDesktopMarker(got) != completedDevelopment || lastDesktopComment(got) != answer ||
-		!strings.Contains(got.Description, "- [x] 输出当前时间") {
+		!strings.Contains(got.Description, "## 任务项\n\n- [x] 输出当前时间") {
 		t.Fatalf("unexpected hand-off: err=%v card=%+v", err, got)
 	}
 	base, baseErr := gitOutput(ctx, board.ProjectPath, "rev-parse", "main")
@@ -1699,7 +1699,7 @@ func TestDispatchPromptExplainsHowResultsReachTheBoard(t *testing.T) {
 			missing: []string{"Outcome must be plan or clarify.", "return reported", "read-only"},
 		},
 	} {
-		prompt := dispatchPrompt(tt.job, card, "", tt.planning)
+		prompt := dispatchPrompt(tt.job, card, "", tt.planning, desktopTexts["en"].dispatchOutputLanguage)
 		for _, want := range tt.want {
 			if !strings.Contains(prompt, want) {
 				t.Errorf("%s prompt lacks %q", name, want)

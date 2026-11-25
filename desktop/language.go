@@ -25,6 +25,10 @@ type desktopText struct {
 	edit, undo, redo, cut, copy, paste, selectAll                 string
 	about, settings, hide, hideOthers, showAll                    string
 	dispatchNode, dispatchPlan, dispatchSession, dispatchWorktree string
+
+	dispatchOutputLanguage, dispatchProjectPath                 string
+	dispatchPriorUnconfirmed, dispatchUnconfirmed               string
+	dispatchRetryInstruction, dispatchCommit, dispatchTaskItems string
 }
 
 var desktopTexts = map[string]desktopText{
@@ -40,6 +44,13 @@ var desktopTexts = map[string]desktopText{
 		dispatchPlan:     "The desktop host did not produce a usable task plan. Check that the selected host CLI starts and that its account is configured, then retry dispatch.",
 		dispatchSession:  "Slate could not prepare the local task session. Check write access to the Slate configuration directory, then retry dispatch.",
 		dispatchWorktree: "Slate could not prepare the task worktree. Check the board's Git project path, task branch and worktree changes before retrying dispatch.",
+
+		dispatchOutputLanguage:   "English",
+		dispatchProjectPath:      "Desktop dispatch needs this board's absolute local project path.",
+		dispatchPriorUnconfirmed: "A prior desktop dispatch ended without a confirmed result.",
+		dispatchUnconfirmed:      "Desktop dispatch could not confirm the formal execution result.",
+		dispatchRetryInstruction: "Confirm the prior host has stopped, then inspect the task worktree and results. To authorize another dispatch, post this exact text as a new human comment:",
+		dispatchCommit:           "Commit: `%s`.", dispatchTaskItems: "Task items",
 	},
 	"zh-CN": {
 		window: "窗口", minimise: "最小化",
@@ -53,6 +64,13 @@ var desktopTexts = map[string]desktopText{
 		dispatchPlan:     "桌面宿主未生成可用的任务方案。请检查所选宿主命令行能否启动、账号是否已配置，再重试派发。",
 		dispatchSession:  "Slate 无法准备本地任务会话。请检查 Slate 配置目录的写入权限，再重试派发。",
 		dispatchWorktree: "Slate 无法准备任务工作树。请检查看板的 Git 项目路径、任务分支和工作树改动，再重试派发。",
+
+		dispatchOutputLanguage:   "Simplified Chinese (简体中文)",
+		dispatchProjectPath:      "桌面派发需要此看板配置本地项目的绝对路径。",
+		dispatchPriorUnconfirmed: "上一次桌面派发已结束，但未确认执行结果。",
+		dispatchUnconfirmed:      "桌面派发未能确认正式执行结果。",
+		dispatchRetryInstruction: "请确认之前的宿主已停止，然后检查任务工作树和执行结果。要授权重新派发，请复制下方完整文字，作为一条新的人工评论发送：",
+		dispatchCommit:           "提交：`%s`。", dispatchTaskItems: "任务项",
 	},
 	"zh-TW": {
 		window: "視窗", minimise: "縮到最小",
@@ -66,6 +84,13 @@ var desktopTexts = map[string]desktopText{
 		dispatchPlan:     "桌面宿主未產生可用的任務方案。請檢查所選宿主命令列能否啟動、帳號是否已設定，再重試派發。",
 		dispatchSession:  "Slate 無法準備本機任務工作階段。請檢查 Slate 設定目錄的寫入權限，再重試派發。",
 		dispatchWorktree: "Slate 無法準備任務工作樹。請檢查看板的 Git 專案路徑、任務分支和工作樹變更，再重試派發。",
+
+		dispatchOutputLanguage:   "Traditional Chinese (繁體中文)",
+		dispatchProjectPath:      "桌面派發需要此看板設定本機專案的絕對路徑。",
+		dispatchPriorUnconfirmed: "上一次桌面派發已結束，但未確認執行結果。",
+		dispatchUnconfirmed:      "桌面派發未能確認正式執行結果。",
+		dispatchRetryInstruction: "請確認之前的宿主已停止，然後檢查任務工作樹和執行結果。若要授權重新派發，請複製下方完整文字，作為一則新的人工留言送出：",
+		dispatchCommit:           "提交：`%s`。", dispatchTaskItems: "任務項",
 	},
 	"ja": {
 		window: "ウインドウ", minimise: "しまう",
@@ -79,6 +104,13 @@ var desktopTexts = map[string]desktopText{
 		dispatchPlan:     "デスクトップホストが有効なタスク計画を生成できませんでした。選択したホストの CLI が起動し、アカウントが設定されていることを確認してから再試行してください。",
 		dispatchSession:  "Slate はローカルのタスクセッションを準備できませんでした。設定ディレクトリの書き込み権限を確認してから再試行してください。",
 		dispatchWorktree: "Slate はタスクの作業ツリーを準備できませんでした。ボードの Git プロジェクトパス、タスクブランチ、作業ツリーの変更を確認してから再試行してください。",
+
+		dispatchOutputLanguage:   "Japanese (日本語)",
+		dispatchProjectPath:      "デスクトップからタスクを割り当てるには、ボードのローカルプロジェクトの絶対パスが必要です。",
+		dispatchPriorUnconfirmed: "前回のデスクトップからの割り当ては終了しましたが、実行結果を確認できませんでした。",
+		dispatchUnconfirmed:      "デスクトップで正式な実行結果を確認できませんでした。",
+		dispatchRetryInstruction: "以前のホストが停止したことを確認してから、タスクの作業ツリーと実行結果を確認してください。再割り当てを許可するには、次の文字列をそのまま新しい手動コメントとして投稿してください：",
+		dispatchCommit:           "コミット：`%s`。", dispatchTaskItems: "タスク項目",
 	},
 }
 

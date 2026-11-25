@@ -100,9 +100,10 @@ func desktopDispatchRecovery(card *kanban.CardDetail, review bool) dispatchRecov
 	return dispatchAvailable
 }
 
-func (d *dispatchRun) publishDispatchRecovery(ctx context.Context, job dispatchJob, reason string) error {
+// publishDispatchRecovery 写入本地化的待核对留言；用户复制的恢复指令和扩展字段标记保持原协议。
+func (d *dispatchRun) publishDispatchRecovery(ctx context.Context, job dispatchJob, reason, instruction string) error {
 	code := strings.ToLower(rand.Text())
-	body := reason + "\n\nConfirm the prior host has stopped, then inspect the task worktree and results. To authorize another dispatch, post this exact text as a new human comment:\n\n`" +
+	body := reason + "\n\n" + instruction + "\n\n`" +
 		retryCommandPrefix + code + "`"
 	_, err := d.core.AddCommentWithExt(ctx, job.actor(), job.id, body, markerExt(job.retryPrefix()+code+" -->"))
 	return err
